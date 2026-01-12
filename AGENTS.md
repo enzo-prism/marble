@@ -5,20 +5,64 @@
 - Preserve the “Marble” brand: pure white/black backgrounds, grey accents only.
 - Keep Liquid Glass limited to navigation surfaces (tab bars, toolbars, sheets). Avoid glass-on-glass. Keep content layer solid.
 
-## Liquid Glass design standards (strict)
-Follow the guidelines in:
-- `AdditionalDocumentation/UIKit-Implementing-Liquid-Glass-Design.md`
-- `AdditionalDocumentation/WidgetKit-Implementing-Liquid-Glass-Design.md`
-- `AdditionalDocumentation/AppKit-Implementing-Liquid-Glass-Design.md`
+## Apple design + dev standards (strict)
+Always start with `AdditionalDocumentation/INDEX.md` to identify relevant docs and extract 3–5 actionable rules before coding. If `scripts/design-check.sh` exists, run it after UI changes.
 
-Key rules distilled for this app:
+### Liquid Glass
+Follow:
+- `AdditionalDocumentation/SwiftUI-Implementing-Liquid-Glass-Design.md`
+- `AdditionalDocumentation/UIKit-Implementing-Liquid-Glass-Design.md`
+- `AdditionalDocumentation/AppKit-Implementing-Liquid-Glass-Design.md`
+- `AdditionalDocumentation/WidgetKit-Implementing-Liquid-Glass-Design.md`
+
+Rules:
 - Use native Liquid Glass APIs when available (`glassEffect`, `GlassEffectContainer`, `.buttonStyle(.glass)`); fallback to Material only when needed.
-- Apply Liquid Glass to interactive controls and navigation surfaces; never to content rows, charts, or list bodies.
-- Keep glass elements lightweight and limited in count; prioritize performance and stability.
-- Maintain sufficient spacing between glass elements so they read as intentional, or explicitly merge them with a container when they should blend.
-- Ensure text and icons on glass meet contrast requirements and remain legible in light/dark; respect Reduce Transparency.
-- Keep shapes consistent and fully clipped (no accidental cropping) and match system-like corner radii.
-- If implementing widgets or AppKit/UIKit components, follow the platform-specific guidance in the above docs (rendering modes, accenting, container behavior).
+- Apply glass after sizing/appearance modifiers; keep shapes consistent and fully clipped (avoid cropped edges).
+- Use `GlassEffectContainer` for multiple glass elements; tune spacing intentionally; use `glassEffectUnion` only when elements should blend.
+- Make interactive glass elements `.interactive()` where applicable; keep the number of glass layers low for performance.
+- Ensure contrast/legibility on glass in light/dark; respect Reduce Transparency.
+- In Marble, glass is navigation-only (tab bars, toolbars, sheets) and must never appear on content rows/charts.
+
+### SwiftUI UI patterns
+Follow:
+- `AdditionalDocumentation/SwiftUI-New-Toolbar-Features.md`
+- `AdditionalDocumentation/SwiftUI-Styled-Text-Editing.md`
+- `AdditionalDocumentation/Foundation-AttributedString-Updates.md`
+
+Rules:
+- Prefer system toolbar placements and `DefaultToolbarItem` where appropriate; use `toolbar(id:)` for user-customizable toolbars.
+- For search, favor `.searchToolbarBehavior(.minimize)` on compact layouts and keep toolbar grouping clear.
+- Use `AttributedString` + `TextEditor` for rich text; manage `AttributedTextSelection` and `textSelectionAffinity` explicitly when editing.
+- Avoid heavy or frequent AttributedString mutations; cache where practical; maintain Dynamic Type and accessibility labels.
+
+### Data + concurrency
+Follow:
+- `AdditionalDocumentation/SwiftData-Class-Inheritance.md`
+- `AdditionalDocumentation/Swift-Concurrency-Updates.md`
+- `AdditionalDocumentation/Swift-InlineArray-Span.md`
+
+Rules:
+- Use SwiftData inheritance only for true IS-A relationships; keep hierarchies shallow; design for query patterns and migrations.
+- Default to main-actor for UI state; avoid mutable global state; use isolated conformances and `@concurrent` for explicit background work.
+- Use `InlineArray`/`Span` only for measured hot paths; otherwise prefer standard collections.
+
+### Feature-specific standards (use only when requested)
+- App Intents + Visual Intelligence: `AdditionalDocumentation/AppIntents-Updates.md`, `AdditionalDocumentation/Implementing-Visual-Intelligence-in-iOS.md`
+  - Provide fast, relevant results; use proper display representations; deep link into the app; use supported intent modes.
+- Assistive Access: `AdditionalDocumentation/Implementing-Assistive-Access-in-iOS.md`
+  - If supported, provide a simplified scene, large controls, and explicit navigation icons; avoid hidden gestures.
+- AlarmKit: `AdditionalDocumentation/SwiftUI-AlarmKit-Integration.md`
+  - Request authorization, handle denial, persist alarm IDs, observe updates, and add a widget for countdown UI.
+- Widgets + visionOS: `AdditionalDocumentation/WidgetKit-Implementing-Liquid-Glass-Design.md`, `AdditionalDocumentation/Widgets-for-visionOS.md`
+  - Support rendering modes, accenting, removable backgrounds, mounting styles, and proximity-aware layout.
+- WebKit: `AdditionalDocumentation/SwiftUI-WebKit-Integration.md`
+  - Use `WebView`/`WebPage` with explicit navigation policies and JS permissions; prefer nonpersistent stores when privacy matters.
+- StoreKit: `AdditionalDocumentation/StoreKit-Updates.md`
+  - Follow updated transaction APIs and offer signing; test with StoreKit configs.
+- MapKit/GeoToolbox: `AdditionalDocumentation/MapKit-GeoToolbox-PlaceDescriptors.md`
+  - Use `PlaceDescriptor` for place identity and consistent geocoding.
+- Foundation Models: `AdditionalDocumentation/FoundationModels-Using-on-device-LLM-in-your-app.md`
+  - Only if explicitly requested; check availability, use sessions, honor context limits, and prefer on-device privacy.
 
 ## Setup
 - Required: Xcode 15+ (recommended latest).
