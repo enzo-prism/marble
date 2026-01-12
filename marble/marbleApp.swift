@@ -1,17 +1,15 @@
-//
-//  marbleApp.swift
-//  marble
-//
-//  Created by Enzo on 1/12/26.
-//
-
 import SwiftUI
+import SwiftData
 
 @main
-struct marbleApp: App {
+struct MarbleApp: App {
+    private let modelContainer = PersistenceController.makeContainer()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .modelContainer(modelContainer)
         }
     }
 }
+
