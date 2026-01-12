@@ -4,15 +4,23 @@ struct QuickLogPill: View {
     let hint: String?
     let action: () -> Void
 
+    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
+    @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
     @Environment(\.colorScheme) private var colorScheme
 
+    private var reduceTransparency: Bool {
+        reduceTransparencyOverride ?? systemReduceTransparency
+    }
+
     var body: some View {
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !reduceTransparency {
             buttonContent
                 .buttonStyle(.glass)
+                .contentShape(Capsule(style: .continuous))
         } else {
             buttonContent
                 .buttonStyle(.plain)
+                .background(GlassPillBackground())
         }
     }
 
@@ -33,7 +41,6 @@ struct QuickLogPill: View {
             .padding(.vertical, 12)
         }
         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-        .background(GlassPillBackground())
         .accessibilityIdentifier("QuickLog.Button")
         .accessibilityLabel(hint == nil ? "Log Set" : "Log Set, last used \(hint ?? "")")
         .accessibilityAddTraits(.isButton)
@@ -53,7 +60,7 @@ struct QuickLogAccessoryModifier: ViewModifier {
                             QuickLogPill(hint: hint) {
                                 isPresented = true
                             }
-                            .padding(.bottom, 4)
+                            .padding(.vertical, 6)
                         }
                     }
             } else {
@@ -63,7 +70,7 @@ struct QuickLogAccessoryModifier: ViewModifier {
                             QuickLogPill(hint: hint) {
                                 isPresented = true
                             }
-                            .padding(.bottom, 4)
+                            .padding(.vertical, 6)
                         }
                     }
                     .tabBarMinimizeBehavior(.onScrollDown)

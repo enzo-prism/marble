@@ -41,21 +41,21 @@ struct GlassPillBackground: View {
 
     var body: some View {
         if reduceTransparency {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
+            Capsule(style: .continuous)
                 .fill(Theme.backgroundColor(for: colorScheme))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    Capsule(style: .continuous)
                         .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
                 )
         } else if #available(iOS 26.0, *) {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
+            Capsule(style: .continuous)
                 .fill(.clear)
                 .glassEffect()
         } else {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
+            Capsule(style: .continuous)
                 .fill(.ultraThinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    Capsule(style: .continuous)
                         .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 0.5)
                 )
         }

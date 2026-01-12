@@ -5,6 +5,21 @@
 - Preserve the “Marble” brand: pure white/black backgrounds, grey accents only.
 - Keep Liquid Glass limited to navigation surfaces (tab bars, toolbars, sheets). Avoid glass-on-glass. Keep content layer solid.
 
+## Liquid Glass design standards (strict)
+Follow the guidelines in:
+- `AdditionalDocumentation/UIKit-Implementing-Liquid-Glass-Design.md`
+- `AdditionalDocumentation/WidgetKit-Implementing-Liquid-Glass-Design.md`
+- `AdditionalDocumentation/AppKit-Implementing-Liquid-Glass-Design.md`
+
+Key rules distilled for this app:
+- Use native Liquid Glass APIs when available (`glassEffect`, `GlassEffectContainer`, `.buttonStyle(.glass)`); fallback to Material only when needed.
+- Apply Liquid Glass to interactive controls and navigation surfaces; never to content rows, charts, or list bodies.
+- Keep glass elements lightweight and limited in count; prioritize performance and stability.
+- Maintain sufficient spacing between glass elements so they read as intentional, or explicitly merge them with a container when they should blend.
+- Ensure text and icons on glass meet contrast requirements and remain legible in light/dark; respect Reduce Transparency.
+- Keep shapes consistent and fully clipped (no accidental cropping) and match system-like corner radii.
+- If implementing widgets or AppKit/UIKit components, follow the platform-specific guidance in the above docs (rendering modes, accenting, container behavior).
+
 ## Setup
 - Required: Xcode 15+ (recommended latest).
 - Build: iOS Simulator.
@@ -66,4 +81,3 @@ Use these commands (preferred):
   - Unit/
   - Snapshots/
   - UI/
-
