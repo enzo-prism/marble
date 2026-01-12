@@ -18,28 +18,34 @@ struct ExercisePickerView: View {
     var body: some View {
         List {
             if !recents.isEmpty {
-                Section("Recents") {
+                Section {
                     ForEach(recents) { exercise in
                         exerciseRow(for: exercise)
                     }
+                } header: {
+                    SectionHeaderView(title: "Recents")
                 }
             }
 
             if !favorites.isEmpty {
-                Section("Favorites") {
+                Section {
                     ForEach(favorites) { exercise in
                         exerciseRow(for: exercise)
                     }
+                } header: {
+                    SectionHeaderView(title: "Favorites")
                 }
             }
 
             ForEach(ExerciseCategory.allCases) { category in
                 let categoryExercises = filteredExercises.filter { $0.category == category }
                 if !categoryExercises.isEmpty {
-                    Section(category.displayName) {
+                    Section {
                         ForEach(categoryExercises) { exercise in
                             exerciseRow(for: exercise)
                         }
+                    } header: {
+                        SectionHeaderView(title: category.displayName)
                     }
                 }
             }
@@ -50,11 +56,14 @@ struct ExercisePickerView: View {
                 } label: {
                     Label("Manage Exercises", systemImage: "slider.horizontal.3")
                 }
+                .accessibilityIdentifier("ExercisePicker.Manage")
             }
         }
         .listStyle(.plain)
+        .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme))
+        .accessibilityIdentifier("ExercisePicker.List")
         .navigationTitle("Exercises")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarGlassBackground()
@@ -93,7 +102,8 @@ struct ExercisePickerView: View {
     }
 
     private func exerciseRow(for exercise: Exercise) -> some View {
-        Button {
+        let sanitizedName = exercise.name.replacingOccurrences(of: " ", with: "")
+        return Button {
             selectedExercise = exercise
             dismiss()
         } label: {
@@ -104,6 +114,6 @@ struct ExercisePickerView: View {
             }
             .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
         }
+        .accessibilityIdentifier("ExercisePicker.Row.\(sanitizedName)")
     }
 }
-

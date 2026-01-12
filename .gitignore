@@ -1,0 +1,10 @@
+.DS_Store
+DerivedData/
+TestResults/
+build/
+*.xcresult
+*.xcuserdatad/
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+.swiftpm/

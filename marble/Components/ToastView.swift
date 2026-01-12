@@ -32,9 +32,9 @@ struct ToastView: View {
         )
         .padding(.horizontal, 16)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("Toast")
         .onTapGesture {
             onDismiss?()
         }
     }
 }
-

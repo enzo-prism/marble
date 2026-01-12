@@ -30,6 +30,7 @@ struct RestTimerView: View {
             }
             .buttonStyle(.bordered)
             .tint(Theme.primaryTextColor(for: colorScheme))
+            .accessibilityIdentifier("RestTimer.Done")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.backgroundColor(for: colorScheme))

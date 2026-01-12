@@ -1,0 +1,33 @@
+{
+  "configurations" : [
+    {
+      "id" : "6749E509-06A8-4950-8140-74BCB1817828",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "environmentVariableEntries" : [
+      {
+        "key" : "RECORD_SNAPSHOTS",
+        "value" : "1"
+      },
+      {
+        "key" : "SNAPSHOT_TESTING_RECORD",
+        "value" : "all"
+      }
+    ]
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:marble.xcodeproj",
+        "identifier" : "977B49B601BE1C7BC99F3064",
+        "name" : "MarbleSnapshotTests"
+      }
+    }
+  ],
+  "version" : 1
+}

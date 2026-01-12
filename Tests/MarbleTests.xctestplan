@@ -1,0 +1,38 @@
+{
+  "configurations" : [
+    {
+      "id" : "3BE5AA13-3805-4065-B2BD-D90C8381ACE7",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:marble.xcodeproj",
+        "identifier" : "DEE1918E7F7B015FADDF5581",
+        "name" : "MarbleTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:marble.xcodeproj",
+        "identifier" : "977B49B601BE1C7BC99F3064",
+        "name" : "MarbleSnapshotTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:marble.xcodeproj",
+        "identifier" : "87F6472B2133AAAC04A2CB47",
+        "name" : "MarbleUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -14,6 +14,7 @@ struct DurationPicker: View {
                 }
             }
             .pickerStyle(.menu)
+            .accessibilityIdentifier("DurationPicker.Minutes")
 
             Picker("Seconds", selection: secondsBinding) {
                 ForEach(secondRange, id: \.self) { second in
@@ -21,6 +22,7 @@ struct DurationPicker: View {
                 }
             }
             .pickerStyle(.menu)
+            .accessibilityIdentifier("DurationPicker.Seconds")
         }
         .accessibilityElement(children: .combine)
     }
@@ -45,4 +47,3 @@ struct DurationPicker: View {
         )
     }
 }
-

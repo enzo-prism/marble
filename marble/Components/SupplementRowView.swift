@@ -5,6 +5,18 @@ struct SupplementRowView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    static func summaryLine(for entry: SupplementEntry) -> String {
+        if let dose = entry.dose {
+            let formattedDose = Formatters.dose.string(from: NSNumber(value: dose)) ?? "\(dose)"
+            return "\(formattedDose) \(entry.unit.displayName)"
+        }
+        return "No dose"
+    }
+
+    static func accessibilityLabel(for entry: SupplementEntry) -> String {
+        "\(entry.type.name), \(summaryLine(for: entry)), \(Formatters.time.string(from: entry.takenAt))"
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "pills")
@@ -29,16 +41,10 @@ struct SupplementRowView: View {
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
         .padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(entry.type.name), \(summaryLine), \(Formatters.time.string(from: entry.takenAt))")
+        .accessibilityHidden(true)
     }
 
     private var summaryLine: String {
-        if let dose = entry.dose {
-            let formattedDose = Formatters.dose.string(from: NSNumber(value: dose)) ?? "\(dose)"
-            return "\(formattedDose) \(entry.unit.displayName)"
-        }
-        return "No dose"
+        Self.summaryLine(for: entry)
     }
 }
-

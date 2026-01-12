@@ -15,6 +15,11 @@ struct TrendsView: View {
     @State private var selectedExercise: Exercise?
     @State private var selectedDay: Date?
 
+    init(initialRange: TrendRange = .thirtyDays, initialExercise: Exercise? = nil) {
+        _range = State(initialValue: initialRange)
+        _selectedExercise = State(initialValue: initialExercise)
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -22,29 +27,36 @@ struct TrendsView: View {
                     rangePicker
                     exercisePicker
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Consistency")
-                            .font(.headline)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                        consistencyChart
-                    }
+                    if filteredEntries.isEmpty {
+                        EmptyStateView(title: "No trend data yet", message: "Log sets to see consistency and PRs.", systemImage: "chart.line.uptrend.xyaxis")
+                            .accessibilityIdentifier("Trends.EmptyState")
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Consistency")
+                                .font(.headline)
+                                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                            consistencyChart
+                        }
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Weekly Volume")
-                            .font(.headline)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                        volumeChart
-                    }
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Weekly Volume")
+                                .font(.headline)
+                                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                            volumeChart
+                        }
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("PRs")
-                            .font(.headline)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                        prCards
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("PRs")
+                                .font(.headline)
+                                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                                .accessibilityHidden(true)
+                            prCards
+                        }
                     }
                 }
                 .padding(16)
             }
+            .accessibilityIdentifier("Trends.Scroll")
             .background(Theme.backgroundColor(for: colorScheme))
             .navigationTitle("Trends")
             .navigationBarTitleDisplayMode(.large)
@@ -70,6 +82,8 @@ struct TrendsView: View {
             }
         }
         .pickerStyle(.segmented)
+        .tint(Theme.dividerColor(for: colorScheme))
+        .accessibilityIdentifier("Trends.Range")
     }
 
     private var exercisePicker: some View {
@@ -80,6 +94,7 @@ struct TrendsView: View {
             }
         }
         .pickerStyle(.menu)
+        .accessibilityIdentifier("Trends.ExerciseFilter")
     }
 
     private var consistencyChart: some View {
@@ -90,20 +105,24 @@ struct TrendsView: View {
                     x: .value("Day", item.date),
                     y: .value("Sets", item.count)
                 )
-                .foregroundStyle(Color(white: 0.6))
+                .foregroundStyle(Theme.dividerColor(for: colorScheme))
             }
 
             if let selectedDay, let selectedItem = data.first(where: { Calendar.current.isDate($0.date, inSameDayAs: selectedDay) }) {
                 RuleMark(x: .value("Selected", selectedItem.date))
-                    .foregroundStyle(Color(white: 0.3))
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .annotation(position: .top) {
                         Text("\(selectedItem.count) sets")
                             .font(.caption)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                            .foregroundColor(Theme.secondaryTextColor(for: colorScheme))
                     }
             }
         }
         .frame(height: 180)
+        .accessibilityIdentifier("Trends.ConsistencyChart")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Consistency chart")
+        .accessibilityValue(consistencyAccessibilityValue(for: data))
         .chartOverlay { proxy in
             GeometryReader { geometry in
                 Rectangle()
@@ -133,12 +152,16 @@ struct TrendsView: View {
                     x: .value("Week", item.weekStart),
                     y: .value("Value", item.value)
                 )
-                .foregroundStyle(item.series.color)
+                .foregroundStyle(item.series.color(for: colorScheme))
                 .position(by: .value("Series", item.series.label))
             }
         }
         .frame(height: 180)
         .chartLegend(position: .bottom, alignment: .leading)
+        .accessibilityIdentifier("Trends.VolumeChart")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Weekly volume chart")
+        .accessibilityValue(volumeAccessibilityValue(for: data))
     }
 
     private var prCards: some View {
@@ -149,6 +172,7 @@ struct TrendsView: View {
             }
         let bestReps = filteredEntries.compactMap { $0.reps }.max()
         let bestDuration = filteredEntries.compactMap { $0.durationSeconds }.max()
+        let sessionCount = Set(filteredEntries.map { DateHelper.startOfDay(for: $0.performedAt) }).count
 
         return VStack(spacing: 12) {
             HStack(spacing: 12) {
@@ -163,9 +187,17 @@ struct TrendsView: View {
             }
             HStack(spacing: 12) {
                 PRCardView(title: "Longest Duration", value: bestDuration.map { DateHelper.formattedDuration(seconds: $0) } ?? "-")
-                PRCardView(title: "Sessions", value: "\(Set(filteredEntries.map { DateHelper.startOfDay(for: $0.performedAt) }).count)")
+                PRCardView(title: "Sessions", value: "\(sessionCount)")
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(prCardsAccessibilityLabel(
+            bestWeightEntry: bestWeightEntry,
+            bestReps: bestReps,
+            bestDuration: bestDuration,
+            sessionCount: sessionCount
+        ))
+        .accessibilityIdentifier("Trends.PRCards")
     }
 
     private var consistencyData: [DailyCount] {
@@ -181,7 +213,7 @@ struct TrendsView: View {
         }
 
         guard let startDate = range.startDate else { return [] }
-        let endDate = calendar.startOfDay(for: Date())
+        let endDate = calendar.startOfDay(for: AppEnvironment.now)
         var dates: [Date] = []
         var current = startDate
         while current <= endDate {
@@ -238,6 +270,51 @@ struct TrendsView: View {
         let target = Calendar.current.startOfDay(for: date)
         return data.min(by: { abs($0.date.timeIntervalSince(target)) < abs($1.date.timeIntervalSince(target)) })?.date
     }
+
+    private func consistencyAccessibilityValue(for data: [DailyCount]) -> String {
+        guard !data.isEmpty else { return "No data" }
+        let totalSets = data.reduce(0) { $0 + $1.count }
+        let activeDays = data.filter { $0.count > 0 }.count
+        return "\(totalSets) sets over \(activeDays) active days"
+    }
+
+    private func volumeAccessibilityValue(for data: [VolumeDatum]) -> String {
+        guard !data.isEmpty else { return "No data" }
+        let totals = Dictionary(grouping: data, by: \.series).mapValues { items in
+            items.reduce(0.0) { $0 + $1.value }
+        }
+        let weekCount = Set(data.map(\.weekStart)).count
+        let parts: [String] = [
+            totals[.weighted].map { "Weighted \(Int($0))" },
+            totals[.reps].map { "Reps \(Int($0))" },
+            totals[.duration].map { "Duration \(Int($0)) minutes" }
+        ].compactMap { $0 }
+        let summary = parts.joined(separator: ", ")
+        if summary.isEmpty {
+            return "\(weekCount) weeks of volume"
+        }
+        return "\(summary) across \(weekCount) weeks"
+    }
+
+    private func prCardsAccessibilityLabel(
+        bestWeightEntry: SetEntry?,
+        bestReps: Int?,
+        bestDuration: Int?,
+        sessionCount: Int
+    ) -> String {
+        let weightText: String
+        if let entry = bestWeightEntry {
+            let formatted = Formatters.weight.string(from: NSNumber(value: entry.weight ?? 0)) ?? "\(entry.weight ?? 0)"
+            weightText = "Best weight \(formatted) \(entry.weightUnit.symbol)"
+        } else {
+            weightText = "Best weight none"
+        }
+
+        let repsText = bestReps.map { "Best reps \($0)" } ?? "Best reps none"
+        let durationText = bestDuration.map { "Longest duration \(DateHelper.formattedDuration(seconds: $0))" } ?? "Longest duration none"
+        let sessionsText = "Sessions \(sessionCount)"
+        return [weightText, repsText, durationText, sessionsText].joined(separator: ", ")
+    }
 }
 
 struct DailyCount: Identifiable {
@@ -271,14 +348,14 @@ enum VolumeSeries: String, CaseIterable {
         }
     }
 
-    var color: Color {
+    func color(for scheme: ColorScheme) -> Color {
         switch self {
         case .weighted:
-            return Color(white: 0.6)
+            return Color(white: scheme == .dark ? 0.75 : 0.5)
         case .reps:
-            return Color(white: 0.4)
+            return Color(white: scheme == .dark ? 0.65 : 0.4)
         case .duration:
-            return Color(white: 0.75)
+            return Color(white: scheme == .dark ? 0.85 : 0.55)
         }
     }
 }
@@ -311,13 +388,13 @@ enum TrendRange: String, CaseIterable, Identifiable {
         let calendar = Calendar.current
         switch self {
         case .sevenDays:
-            return calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: Date()))
+            return calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: AppEnvironment.now))
         case .thirtyDays:
-            return calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: Date()))
+            return calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: AppEnvironment.now))
         case .ninetyDays:
-            return calendar.date(byAdding: .day, value: -89, to: calendar.startOfDay(for: Date()))
+            return calendar.date(byAdding: .day, value: -89, to: calendar.startOfDay(for: AppEnvironment.now))
         case .oneYear:
-            return calendar.date(byAdding: .year, value: -1, to: calendar.startOfDay(for: Date()))
+            return calendar.date(byAdding: .year, value: -1, to: calendar.startOfDay(for: AppEnvironment.now))
         case .all:
             return nil
         }

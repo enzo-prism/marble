@@ -26,6 +26,7 @@ struct RPEPicker: View {
                             .background(chipBackground(isSelected: value == rating))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("RPEPicker.\(rating)")
                     .accessibilityLabel("RPE \(rating)")
                 }
             }
@@ -36,6 +37,7 @@ struct RPEPicker: View {
             .font(.caption)
             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             .buttonStyle(.plain)
+            .accessibilityIdentifier("RPEPicker.Toggle")
         }
     }
 
@@ -44,4 +46,3 @@ struct RPEPicker: View {
             .fill(isSelected ? Theme.dividerColor(for: colorScheme) : Theme.chipFillColor(for: colorScheme))
     }
 }
-

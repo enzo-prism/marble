@@ -4,24 +4,32 @@ import UIKit
 
 struct CalendarView: View {
     @EnvironmentObject private var quickLog: QuickLogCoordinator
+    @EnvironmentObject private var tabSelection: TabSelection
     @Environment(\.colorScheme) private var colorScheme
 
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
 
-    @State private var selectedComponents: DateComponents?
-    @State private var isShowingDaySheet = false
+    @State private var selectedDay: CalendarSelection?
 
     private let calendar = Calendar.current
 
     var body: some View {
         NavigationStack {
             VStack {
+                if TestHooks.isUITesting {
+                    testControlsRow
+                }
+
                 CalendarRepresentable(decorations: dayDecorations) { components in
-                    selectedComponents = components
-                    isShowingDaySheet = components != nil
+                    guard let components, let date = calendar.date(from: components) else {
+                        selectedDay = nil
+                        return
+                    }
+                    selectedDay = CalendarSelection(date: date)
                 }
                 .frame(maxHeight: 360)
+                .accessibilityIdentifier("Calendar.View")
 
                 Spacer()
             }
@@ -30,11 +38,17 @@ struct CalendarView: View {
             .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.large)
             .navigationBarGlassBackground()
-            .sheet(isPresented: $isShowingDaySheet) {
-                if let date = selectedDate {
-                    DaySummarySheet(date: date, entries: entriesForSelectedDay)
-                        .environmentObject(quickLog)
+            .onAppear {
+                ensureTestDaySheetVisible()
+            }
+            .onChange(of: tabSelection.selected) { _, selection in
+                if selection == .calendar {
+                    ensureTestDaySheetVisible()
                 }
+            }
+            .sheet(item: $selectedDay) { selection in
+                DaySummarySheet(date: selection.date, entries: entriesForDay(selection.date))
+                    .environmentObject(quickLog)
             }
         }
     }
@@ -63,16 +77,61 @@ struct CalendarView: View {
         return counts
     }
 
-    private var selectedDate: Date? {
-        guard let components = selectedComponents else { return nil }
-        return calendar.date(from: components)
-    }
-
-    private var entriesForSelectedDay: [SetEntry] {
-        guard let date = selectedDate else { return [] }
+    private func entriesForDay(_ date: Date) -> [SetEntry] {
         let start = calendar.startOfDay(for: date)
         return entries.filter { calendar.isDate($0.performedAt, inSameDayAs: start) }
     }
+
+    private func openTestDay(mode: String) {
+        let now = AppEnvironment.now
+        let targetDate: Date
+        switch mode {
+        case "empty":
+            targetDate = calendar.date(byAdding: .day, value: -10, to: now) ?? now
+        default:
+            targetDate = now
+        }
+        selectedDay = CalendarSelection(date: targetDate)
+    }
+
+    private func ensureTestDaySheetVisible() {
+        guard TestHooks.isUITesting, let mode = TestHooks.calendarTestDay else { return }
+        selectedDay = nil
+        DispatchQueue.main.async {
+            openTestDay(mode: mode)
+        }
+    }
+
+    private var testControlsRow: some View {
+        HStack {
+            Button("Open Empty Day") {
+                openTestDay(mode: "empty")
+            }
+            .accessibilityIdentifier("Calendar.TestOpenEmpty")
+            .accessibilityLabel("Open test day empty")
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+
+            Spacer()
+
+            Button("Open Populated Day") {
+                openTestDay(mode: "populated")
+            }
+            .accessibilityIdentifier("Calendar.TestOpenPopulated")
+            .accessibilityLabel("Open test day with sets")
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .font(.caption2)
+        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+        .padding(.horizontal, 4)
+    }
+
+}
+
+private struct CalendarSelection: Identifiable {
+    let id = UUID()
+    let date: Date
 }
 
 struct DaySummarySheet: View {
@@ -101,24 +160,41 @@ struct DaySummarySheet: View {
                             dismiss()
                         }
                         .buttonStyle(.bordered)
+                        .tint(Theme.primaryTextColor(for: colorScheme))
+                        .accessibilityIdentifier("Calendar.DaySheet.LogSet")
                     }
                     .padding(.vertical, 4)
                 }
 
-                Section("Sets") {
-                    ForEach(entries.sorted { $0.performedAt > $1.performedAt }) { entry in
-                        NavigationLink {
-                            SetDetailView(entry: entry)
-                        } label: {
-                            SetRowView(entry: entry)
-                        }
+                if entries.isEmpty {
+                    EmptyStateView(title: "No sets for this day", message: "Tap Log Set to add one here.", systemImage: "calendar")
+                        .listRowSeparator(.hidden)
                         .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        .accessibilityIdentifier("Calendar.DaySheet.EmptyState")
+                } else {
+                    Section {
+                        ForEach(entries.sorted { $0.performedAt > $1.performedAt }) { entry in
+                            NavigationLink {
+                                SetDetailView(entry: entry)
+                            } label: {
+                                SetRowView(entry: entry)
+                                    .accessibilityHidden(true)
+                            }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
+                            .accessibilityLabel(SetRowView.accessibilitySummary(for: entry))
+                            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        }
+                    } header: {
+                        SectionHeaderView(title: "Sets")
                     }
                 }
             }
             .listStyle(.plain)
+            .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundColor(for: colorScheme))
+            .accessibilityIdentifier("Calendar.DaySheet.List")
             .navigationTitle("Summary")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
@@ -146,6 +222,7 @@ struct CalendarRepresentable: UIViewRepresentable {
         view.calendar = Calendar.current
         view.locale = Locale.current
         view.delegate = context.coordinator
+        view.accessibilityIdentifier = "Calendar.View"
         let selection = UICalendarSelectionSingleDate(delegate: context.coordinator)
         view.selectionBehavior = selection
         return view

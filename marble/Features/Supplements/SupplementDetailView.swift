@@ -17,30 +17,35 @@ struct SupplementDetailView: View {
                         Text(type.name).tag(type)
                     }
                 }
+                .accessibilityIdentifier("SupplementDetail.Type")
 
-                OptionalNumberField(title: "Dose", formatter: Formatters.dose, value: doseBinding)
+                OptionalNumberField(title: "Dose", formatter: Formatters.dose, value: doseBinding, accessibilityIdentifier: "SupplementDetail.Dose")
 
                 Picker("Unit", selection: $entry.unit) {
                     ForEach(SupplementUnit.allCases) { unit in
                         Text(unit.displayName).tag(unit)
                     }
                 }
+                .accessibilityIdentifier("SupplementDetail.Unit")
 
                 DatePicker("Taken", selection: $entry.takenAt)
+                    .accessibilityIdentifier("SupplementDetail.TakenAt")
             }
 
             Section {
                 TextField("Notes", text: notesBinding, axis: .vertical)
+                    .accessibilityIdentifier("SupplementDetail.Notes")
             }
         }
         .listStyle(.plain)
+        .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme))
         .navigationTitle("Supplement")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarGlassBackground()
         .onDisappear {
-            entry.updatedAt = Date()
+            entry.updatedAt = AppEnvironment.now
         }
     }
 
@@ -58,4 +63,3 @@ struct SupplementDetailView: View {
         )
     }
 }
-

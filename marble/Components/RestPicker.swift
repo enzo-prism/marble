@@ -21,11 +21,13 @@ struct RestPicker: View {
                         } label: {
                             Text(label(for: seconds))
                                 .font(.subheadline)
+                                .foregroundColor(chipTextColor(isSelected: restSeconds == seconds))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                                 .background(chipBackground(isSelected: restSeconds == seconds))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("RestPicker.\(seconds)")
                     }
 
                     Button {
@@ -33,11 +35,13 @@ struct RestPicker: View {
                     } label: {
                         Text("Custom")
                             .font(.subheadline)
+                            .foregroundColor(chipTextColor(isSelected: !presets.contains(restSeconds)))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .background(chipBackground(isSelected: !presets.contains(restSeconds)))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("RestPicker.Custom")
                 }
             }
 
@@ -46,6 +50,7 @@ struct RestPicker: View {
                     .font(.subheadline)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             }
+            .accessibilityIdentifier("RestPicker.Stepper")
         }
     }
 
@@ -70,5 +75,11 @@ struct RestPicker: View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
             .fill(isSelected ? Theme.dividerColor(for: colorScheme) : Theme.chipFillColor(for: colorScheme))
     }
-}
 
+    private func chipTextColor(isSelected: Bool) -> Color {
+        if colorScheme == .light {
+            return isSelected ? Color.white : Theme.primaryTextColor(for: colorScheme)
+        }
+        return isSelected ? Color.black : Color.white
+    }
+}

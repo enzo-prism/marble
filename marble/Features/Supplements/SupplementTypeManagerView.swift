@@ -23,12 +23,15 @@ struct SupplementTypeManagerView: View {
                 } label: {
                     Text(type.name)
                 }
+                .accessibilityIdentifier("SupplementType.Row.\(type.id.uuidString)")
             }
             .onDelete(perform: deleteTypes)
         }
         .listStyle(.plain)
+        .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme))
+        .accessibilityIdentifier("SupplementType.List")
         .navigationTitle("Supplement Types")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarGlassBackground()
@@ -39,6 +42,7 @@ struct SupplementTypeManagerView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
+                .accessibilityIdentifier("SupplementType.Add")
             }
         }
         .sheet(isPresented: $showingNewType) {

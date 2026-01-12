@@ -5,6 +5,15 @@ enum SeedData {
     private static let didSeedKey = "didSeedMarbleData"
 
     static func seedIfNeeded(in context: ModelContext) {
+        if TestHooks.isUITesting {
+            switch TestHooks.fixtureMode {
+            case .empty:
+                TestFixtures.seedEmpty(in: context, now: AppEnvironment.now)
+            case .populated:
+                TestFixtures.seed(in: context, now: AppEnvironment.now)
+            }
+            return
+        }
         let defaults = UserDefaults.standard
         if defaults.bool(forKey: didSeedKey) {
             return
@@ -24,7 +33,7 @@ enum SeedData {
         defaults.set(true, forKey: didSeedKey)
     }
 
-    private static func seedExercises(in context: ModelContext) {
+    static func seedExercises(in context: ModelContext) {
         let exercises = seedExerciseRows().map {
             Exercise(
                 name: $0.name,
@@ -36,7 +45,7 @@ enum SeedData {
         exercises.forEach { context.insert($0) }
     }
 
-    private static func seedSupplements(in context: ModelContext) {
+    static func seedSupplements(in context: ModelContext) {
         let types = [
             SupplementType(name: "Creatine", defaultDose: 5, unit: .g, isFavorite: true),
             SupplementType(name: "Protein Powder", defaultDose: 1, unit: .scoop, isFavorite: true)
@@ -44,7 +53,7 @@ enum SeedData {
         types.forEach { context.insert($0) }
     }
 
-    private static func seedExerciseRows() -> [SeedExercise] {
+    static func seedExerciseRows() -> [SeedExercise] {
         [
             // Chest
             SeedExercise(name: "Bench Press", category: .chest, metrics: .weightAndRepsRequired, defaultRestSeconds: 120),
@@ -102,10 +111,9 @@ enum SeedData {
     }
 }
 
-private struct SeedExercise {
+struct SeedExercise {
     let name: String
     let category: ExerciseCategory
     let metrics: ExerciseMetricsProfile
     let defaultRestSeconds: Int
 }
-

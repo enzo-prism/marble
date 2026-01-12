@@ -27,12 +27,15 @@ struct ManageExercisesView: View {
                         Text(exercise.name)
                     }
                 }
+                .accessibilityIdentifier("ManageExercises.Row.\(exercise.id.uuidString)")
             }
             .onDelete(perform: deleteExercises)
         }
         .listStyle(.plain)
+        .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme))
+        .accessibilityIdentifier("ManageExercises.List")
         .navigationTitle("Manage Exercises")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarGlassBackground()
@@ -43,6 +46,7 @@ struct ManageExercisesView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
+                .accessibilityIdentifier("ManageExercises.Add")
             }
         }
         .sheet(isPresented: $showingNewExercise) {

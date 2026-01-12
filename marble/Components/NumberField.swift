@@ -4,9 +4,10 @@ struct OptionalNumberField: View {
     let title: String
     let formatter: NumberFormatter
     @Binding var value: Double?
+    var accessibilityIdentifier: String?
 
     var body: some View {
-        TextField(title, text: Binding(
+        let field = TextField(title, text: Binding(
             get: {
                 guard let value else { return "" }
                 return formatter.string(from: NSNumber(value: value)) ?? ""
@@ -21,15 +22,22 @@ struct OptionalNumberField: View {
             }
         ))
         .keyboardType(.decimalPad)
+
+        if let accessibilityIdentifier {
+            field.accessibilityIdentifier(accessibilityIdentifier)
+        } else {
+            field
+        }
     }
 }
 
 struct OptionalIntegerField: View {
     let title: String
     @Binding var value: Int?
+    var accessibilityIdentifier: String?
 
     var body: some View {
-        TextField(title, text: Binding(
+        let field = TextField(title, text: Binding(
             get: {
                 guard let value else { return "" }
                 return String(value)
@@ -43,6 +51,11 @@ struct OptionalIntegerField: View {
             }
         ))
         .keyboardType(.numberPad)
+
+        if let accessibilityIdentifier {
+            field.accessibilityIdentifier(accessibilityIdentifier)
+        } else {
+            field
+        }
     }
 }
-

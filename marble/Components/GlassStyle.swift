@@ -1,13 +1,18 @@
 import SwiftUI
 
 struct GlassContainer<Content: View>: View {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
+    @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
     @Environment(\.colorScheme) private var colorScheme
 
     let content: Content
 
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
+    }
+
+    private var reduceTransparency: Bool {
+        reduceTransparencyOverride ?? systemReduceTransparency
     }
 
     var body: some View {
@@ -26,8 +31,13 @@ struct GlassContainer<Content: View>: View {
 }
 
 struct GlassPillBackground: View {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
+    @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
     @Environment(\.colorScheme) private var colorScheme
+
+    private var reduceTransparency: Bool {
+        reduceTransparencyOverride ?? systemReduceTransparency
+    }
 
     var body: some View {
         if reduceTransparency {
@@ -52,6 +62,62 @@ struct GlassPillBackground: View {
     }
 }
 
+private struct NavigationBarGlassBackgroundModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
+    @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var reduceTransparency: Bool {
+        reduceTransparencyOverride ?? systemReduceTransparency
+    }
+
+    func body(content: Content) -> some View {
+        let base = content.toolbarBackground(.visible, for: .navigationBar)
+        if reduceTransparency {
+            base.toolbarBackground(Theme.backgroundColor(for: colorScheme), for: .navigationBar)
+        } else {
+            base.toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        }
+    }
+}
+
+private struct TabBarGlassBackgroundModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
+    @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var reduceTransparency: Bool {
+        reduceTransparencyOverride ?? systemReduceTransparency
+    }
+
+    func body(content: Content) -> some View {
+        let base = content.toolbarBackground(.visible, for: .tabBar)
+        if reduceTransparency {
+            base.toolbarBackground(Theme.backgroundColor(for: colorScheme), for: .tabBar)
+        } else {
+            base.toolbarBackground(.ultraThinMaterial, for: .tabBar)
+        }
+    }
+}
+
+private struct SheetGlassBackgroundModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
+    @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var reduceTransparency: Bool {
+        reduceTransparencyOverride ?? systemReduceTransparency
+    }
+
+    func body(content: Content) -> some View {
+        if reduceTransparency {
+            content.presentationBackground(Theme.backgroundColor(for: colorScheme))
+        } else {
+            content.presentationBackground(.ultraThinMaterial)
+        }
+    }
+}
+
 extension View {
     @ViewBuilder
     func navigationGlassBackground() -> some View {
@@ -64,23 +130,15 @@ extension View {
         }
     }
 
-    @ViewBuilder
     func navigationBarGlassBackground() -> some View {
-        self
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        modifier(NavigationBarGlassBackgroundModifier())
     }
 
-    @ViewBuilder
     func tabBarGlassBackground() -> some View {
-        self
-            .toolbarBackground(.visible, for: .tabBar)
-            .toolbarBackground(.ultraThinMaterial, for: .tabBar)
+        modifier(TabBarGlassBackgroundModifier())
     }
 
-    @ViewBuilder
     func sheetGlassBackground() -> some View {
-        self
-            .presentationBackground(.ultraThinMaterial)
+        modifier(SheetGlassBackgroundModifier())
     }
 }

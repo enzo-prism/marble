@@ -20,15 +20,26 @@ struct SupplementsView: View {
                     quickAddRow
                 }
 
+                if entries.isEmpty {
+                    EmptyStateView(title: "No supplements yet", message: "Log a quick add to get started.", systemImage: "pills")
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        .accessibilityIdentifier("Supplements.EmptyState")
+                }
+
                 ForEach(sectionedDays, id: \.self) { day in
                     if let dayEntries = groupedEntries[day] {
-                        Section(DateHelper.dayLabel(for: day)) {
+                        Section {
                             ForEach(dayEntries) { entry in
+                                let sanitizedName = entry.type.name.replacingOccurrences(of: " ", with: "")
                                 NavigationLink {
                                     SupplementDetailView(entry: entry)
                                 } label: {
                                     SupplementRowView(entry: entry)
                                 }
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityIdentifier("SupplementRow.\(sanitizedName)")
+                                .accessibilityLabel(SupplementRowView.accessibilityLabel(for: entry))
                                 .listRowBackground(Theme.backgroundColor(for: colorScheme))
                                 .swipeActions(edge: .trailing) {
                                     Button(role: .destructive) {
@@ -38,14 +49,18 @@ struct SupplementsView: View {
                                     }
                                 }
                             }
+                        } header: {
+                            SectionHeaderView(title: DateHelper.dayLabel(for: day))
                         }
                         .textCase(nil)
                     }
                 }
             }
             .listStyle(.plain)
+            .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundColor(for: colorScheme))
+            .accessibilityIdentifier("Supplements.List")
             .navigationTitle("Supplements")
             .navigationBarTitleDisplayMode(.large)
             .navigationBarGlassBackground()
@@ -56,6 +71,7 @@ struct SupplementsView: View {
                     } label: {
                         Image(systemName: "slider.horizontal.3")
                     }
+                    .accessibilityIdentifier("Supplements.ManageTypes")
                 }
             }
             .overlay(alignment: .bottom) {
@@ -103,6 +119,7 @@ struct SupplementsView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityIdentifier("Supplements.QuickAdd.\(type.name.replacingOccurrences(of: " ", with: ""))")
                 }
             }
         }
@@ -110,14 +127,15 @@ struct SupplementsView: View {
     }
 
     private func quickAdd(_ type: SupplementType) {
+        let now = AppEnvironment.now
         let entry = SupplementEntry(
             type: type,
-            takenAt: Date(),
+            takenAt: now,
             dose: type.defaultDose,
             unit: type.unit,
             notes: nil,
-            createdAt: Date(),
-            updatedAt: Date()
+            createdAt: now,
+            updatedAt: now
         )
         modelContext.insert(entry)
         toast = ToastData(message: "Logged \(type.name)", actionTitle: "Undo") {

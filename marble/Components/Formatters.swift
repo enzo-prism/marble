@@ -32,11 +32,12 @@ enum Formatters {
 }
 
 enum DateHelper {
-    static func dayLabel(for date: Date, calendar: Calendar = .current) -> String {
-        if calendar.isDateInToday(date) {
+    static func dayLabel(for date: Date, now: Date = AppEnvironment.now, calendar: Calendar = .current) -> String {
+        if calendar.isDate(date, inSameDayAs: now) {
             return "Today"
         }
-        if calendar.isDateInYesterday(date) {
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+           calendar.isDate(date, inSameDayAs: yesterday) {
             return "Yesterday"
         }
         return Formatters.day.string(from: date)
@@ -71,4 +72,3 @@ enum DateHelper {
         return "\(minutes)m \(remaining)s"
     }
 }
-

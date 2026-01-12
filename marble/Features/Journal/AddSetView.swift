@@ -26,8 +26,9 @@ struct AddSetView: View {
     @State private var showRestTimer = false
     @State private var didLoadDefaults = false
 
-    init(initialPerformedAt: Date = Date()) {
+    init(initialPerformedAt: Date = AppEnvironment.now, initialExercise: Exercise? = nil) {
         _performedAt = State(initialValue: initialPerformedAt)
+        _selectedExercise = State(initialValue: initialExercise)
     }
 
     var body: some View {
@@ -45,65 +46,93 @@ struct AddSetView: View {
                                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         }
                     }
+                    .accessibilityIdentifier("AddSet.ExercisePicker")
                 }
 
                 if let exercise = selectedExercise {
-                    Section("Metrics") {
+                    Section {
                         if exercise.metrics.usesWeight {
                             if exercise.metrics.weight == .optional {
                                 Toggle("Added load", isOn: $addedLoad)
+                                    .tint(Theme.dividerColor(for: colorScheme))
+                                    .accessibilityIdentifier("AddSet.AddedLoad")
                             }
 
                             if exercise.metrics.weightIsRequired || addedLoad {
                                 HStack {
-                                    OptionalNumberField(title: "Weight", formatter: Formatters.weight, value: $weight)
+                                    OptionalNumberField(title: "Weight", formatter: Formatters.weight, value: $weight, accessibilityIdentifier: "AddSet.Weight")
                                     Picker("Unit", selection: $weightUnit) {
                                         ForEach(WeightUnit.allCases) { unit in
                                             Text(unit.symbol).tag(unit)
                                         }
                                     }
                                     .pickerStyle(.segmented)
+                                    .tint(Theme.dividerColor(for: colorScheme))
+                                    .accessibilityIdentifier("AddSet.WeightUnit")
                                 }
                             }
                         }
 
                         if exercise.metrics.usesReps {
-                            OptionalIntegerField(title: "Reps", value: $reps)
+                            OptionalIntegerField(title: "Reps", value: $reps, accessibilityIdentifier: "AddSet.Reps")
                         }
 
-                        if exercise.metrics.usesDuration {
-                            HStack {
-                                Text("Duration")
-                                Spacer()
-                                DurationPicker(durationSeconds: $durationSeconds)
+                            if exercise.metrics.usesDuration {
+                                HStack {
+                                    Text("Duration")
+                                    Spacer()
+                                    DurationPicker(durationSeconds: $durationSeconds)
+                                        .accessibilityIdentifier("AddSet.Duration")
+                                }
                             }
-                        }
+                    } header: {
+                        SectionHeaderView(title: "Metrics")
                     }
 
                     Section {
                         RPEPicker(value: $difficulty)
                             .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                            .accessibilityIdentifier("AddSet.RPE")
                     }
 
                     Section {
                         RestPicker(restSeconds: $restAfterSeconds)
                             .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                            .accessibilityIdentifier("AddSet.RestPicker")
                     }
 
                     Section {
                         DatePicker("Performed", selection: $performedAt)
-                        Button("Now") {
-                            performedAt = Date()
+                            .tint(Theme.dividerColor(for: colorScheme))
+                            .accessibilityIdentifier("AddSet.PerformedAt")
+                            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        HStack {
+                            Text("Now")
+                                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                            Spacer()
                         }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            performedAt = AppEnvironment.now
+                        }
+                        .accessibilityIdentifier("AddSet.Now")
+                        .accessibilityLabel("Now")
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction {
+                            performedAt = AppEnvironment.now
+                        }
+                        .listRowBackground(Theme.backgroundColor(for: colorScheme))
                     }
 
                     Section {
                         if showNotes || !notes.isEmpty {
                             TextField("Notes", text: $notes, axis: .vertical)
+                                .accessibilityIdentifier("AddSet.Notes")
                         } else {
                             Button("Add note") {
                                 showNotes = true
                             }
+                            .accessibilityIdentifier("AddSet.AddNote")
                         }
                     }
                 }
@@ -113,23 +142,28 @@ struct AddSetView: View {
                         save(keepOpen: false, startRest: false)
                     }
                     .disabled(!canSave)
+                    .accessibilityIdentifier("AddSet.Save")
 
                     Button("Save & Add Another") {
                         save(keepOpen: true, startRest: false)
                     }
                     .disabled(!canSave)
+                    .accessibilityIdentifier("AddSet.SaveAddAnother")
 
                     if restAfterSeconds > 0 {
                         Button("Save & Start Rest") {
                             save(keepOpen: false, startRest: true)
                         }
                         .disabled(!canSave)
+                        .accessibilityIdentifier("AddSet.SaveStartRest")
                     }
                 }
             }
             .listStyle(.plain)
+            .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundColor(for: colorScheme))
+            .accessibilityIdentifier("AddSet.List")
             .navigationTitle("Log Set")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
@@ -139,7 +173,11 @@ struct AddSetView: View {
             }
             .task {
                 if !didLoadDefaults {
-                    loadInitialExercise()
+                    if let exercise = selectedExercise {
+                        applyDefaults(for: exercise)
+                    } else {
+                        loadInitialExercise()
+                    }
                     didLoadDefaults = true
                 }
             }
@@ -169,7 +207,7 @@ struct AddSetView: View {
     private func loadInitialExercise() {
         if let recent = entries.first {
             selectedExercise = recent.exercise
-            performedAt = DateHelper.merge(day: performedAt, time: Date())
+            performedAt = DateHelper.merge(day: performedAt, time: AppEnvironment.now)
             return
         }
 
@@ -209,6 +247,7 @@ struct AddSetView: View {
             return weight
         }()
 
+        let now = AppEnvironment.now
         let entry = SetEntry(
             exercise: exercise,
             performedAt: performedAt,
@@ -219,8 +258,8 @@ struct AddSetView: View {
             difficulty: difficulty,
             restAfterSeconds: restAfterSeconds,
             notes: notes.isEmpty ? nil : notes,
-            createdAt: Date(),
-            updatedAt: Date()
+            createdAt: now,
+            updatedAt: now
         )
 
         modelContext.insert(entry)
@@ -234,7 +273,7 @@ struct AddSetView: View {
         }
 
         if keepOpen {
-            performedAt = Date()
+            performedAt = AppEnvironment.now
             applyDefaults(for: exercise)
             notes = ""
             showNotes = false

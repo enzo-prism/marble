@@ -17,16 +17,20 @@ struct SupplementTypeEditorView: View {
         List {
             Section {
                 TextField("Name", text: $name)
-                OptionalNumberField(title: "Default Dose", formatter: Formatters.dose, value: $defaultDose)
+                    .accessibilityIdentifier("SupplementTypeEditor.Name")
+                OptionalNumberField(title: "Default Dose", formatter: Formatters.dose, value: $defaultDose, accessibilityIdentifier: "SupplementTypeEditor.DefaultDose")
                 Picker("Unit", selection: $unit) {
                     ForEach(SupplementUnit.allCases) { unit in
                         Text(unit.displayName).tag(unit)
                     }
                 }
+                .accessibilityIdentifier("SupplementTypeEditor.Unit")
                 Toggle("Favorite", isOn: $isFavorite)
+                    .accessibilityIdentifier("SupplementTypeEditor.Favorite")
             }
         }
         .listStyle(.plain)
+        .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme))
         .navigationTitle(type == nil ? "New Type" : "Edit Type")
@@ -38,6 +42,7 @@ struct SupplementTypeEditorView: View {
                     save()
                 }
                 .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityIdentifier("SupplementTypeEditor.Save")
             }
         }
         .onAppear {
@@ -68,4 +73,3 @@ struct SupplementTypeEditorView: View {
         dismiss()
     }
 }
-

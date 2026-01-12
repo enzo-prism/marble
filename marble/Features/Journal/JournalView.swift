@@ -14,15 +14,27 @@ struct JournalView: View {
     var body: some View {
         NavigationStack {
             List {
+                if entries.isEmpty {
+                    EmptyStateView(title: "No sets yet", message: "Log your first set to start building momentum.", systemImage: "list.bullet.rectangle")
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        .accessibilityIdentifier("Journal.EmptyState")
+                }
                 ForEach(sectionedDays, id: \.self) { day in
                     if let dayEntries = groupedEntries[day] {
-                        Section(DateHelper.dayLabel(for: day)) {
+                        Section {
                             ForEach(dayEntries) { entry in
                                 NavigationLink {
                                     SetDetailView(entry: entry)
                                 } label: {
                                     SetRowView(entry: entry)
+                                        .accessibilityHidden(true)
                                 }
+                                .buttonStyle(.plain)
+                                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
+                                .accessibilityLabel(SetRowView.accessibilitySummary(for: entry))
                                 .listRowBackground(Theme.backgroundColor(for: colorScheme))
                                 .swipeActions(edge: .leading, allowsFullSwipe: false) {
                                     Button {
@@ -31,6 +43,7 @@ struct JournalView: View {
                                         Label("Duplicate", systemImage: "plus.square.on.square")
                                     }
                                     .tint(Theme.dividerColor(for: colorScheme))
+                                    .accessibilityIdentifier("SetRow.\(entry.id.uuidString).Duplicate")
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
@@ -38,8 +51,11 @@ struct JournalView: View {
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
+                                    .accessibilityIdentifier("SetRow.\(entry.id.uuidString).Delete")
                                 }
                             }
+                        } header: {
+                            SectionHeaderView(title: DateHelper.dayLabel(for: day))
                         }
                         .textCase(nil)
                         .listRowSeparator(.visible)
@@ -47,8 +63,10 @@ struct JournalView: View {
                 }
             }
             .listStyle(.plain)
+            .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundColor(for: colorScheme))
+            .accessibilityIdentifier("Journal.List")
             .navigationTitle("Journal")
             .navigationBarTitleDisplayMode(.large)
             .navigationBarGlassBackground()
@@ -96,9 +114,10 @@ struct JournalView: View {
     }
 
     private func duplicate(_ entry: SetEntry) {
+        let now = AppEnvironment.now
         let duplicate = SetEntry(
             exercise: entry.exercise,
-            performedAt: Date(),
+            performedAt: now,
             weight: entry.weight,
             weightUnit: entry.weightUnit,
             reps: entry.reps,
@@ -106,8 +125,8 @@ struct JournalView: View {
             difficulty: entry.difficulty,
             restAfterSeconds: entry.restAfterSeconds,
             notes: entry.notes,
-            createdAt: Date(),
-            updatedAt: Date()
+            createdAt: now,
+            updatedAt: now
         )
         modelContext.insert(duplicate)
     }
@@ -166,4 +185,3 @@ private struct SetEntrySnapshot {
         context.insert(restored)
     }
 }
-

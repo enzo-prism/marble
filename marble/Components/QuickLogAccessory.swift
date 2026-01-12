@@ -34,6 +34,7 @@ struct QuickLogPill: View {
         }
         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
         .background(GlassPillBackground())
+        .accessibilityIdentifier("QuickLog.Button")
         .accessibilityLabel(hint == nil ? "Log Set" : "Log Set, last used \(hint ?? "")")
         .accessibilityAddTraits(.isButton)
     }
@@ -45,16 +46,28 @@ struct QuickLogAccessoryModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         if #available(iOS 26.0, *) {
-            content
-                .tabViewBottomAccessory {
-                    GlassEffectContainer {
-                        QuickLogPill(hint: hint) {
-                            isPresented = true
+            if TestHooks.isUITesting {
+                content
+                    .tabViewBottomAccessory {
+                        GlassEffectContainer {
+                            QuickLogPill(hint: hint) {
+                                isPresented = true
+                            }
+                            .padding(.bottom, 4)
                         }
-                        .padding(.bottom, 4)
                     }
-                }
-                .tabBarMinimizeBehavior(.onScrollDown)
+            } else {
+                content
+                    .tabViewBottomAccessory {
+                        GlassEffectContainer {
+                            QuickLogPill(hint: hint) {
+                                isPresented = true
+                            }
+                            .padding(.bottom, 4)
+                        }
+                    }
+                    .tabBarMinimizeBehavior(.onScrollDown)
+            }
         } else {
             content
                 .safeAreaInset(edge: .bottom) {

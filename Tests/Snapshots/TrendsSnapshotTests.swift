@@ -1,0 +1,37 @@
+import SwiftData
+import XCTest
+@testable import marble
+
+final class TrendsSnapshotTests: SnapshotTestCase {
+    func testTrendsEmpty() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedBase(in: context)
+
+        let view = TrendsView()
+            .modelContainer(container)
+        assertSnapshot(view, named: "Trends_Empty")
+    }
+
+    func testTrendsPopulated() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedPopulated(in: context)
+
+        let view = TrendsView()
+            .modelContainer(container)
+        assertSnapshot(view, named: "Trends_Populated")
+    }
+
+    func testTrendsFilteredExercise() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedPopulated(in: context)
+
+        let bench = SnapshotFixtures.exercise(named: "Bench Press", in: context)
+        let view = TrendsView(initialExercise: bench)
+            .modelContainer(container)
+        assertSnapshot(view, named: "Trends_Filtered")
+    }
+}
+

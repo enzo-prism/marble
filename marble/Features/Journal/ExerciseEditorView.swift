@@ -18,29 +18,47 @@ struct ExerciseEditorView: View {
 
     var body: some View {
         List {
-            Section("Basics") {
+            Section {
                 TextField("Name", text: $name)
+                    .accessibilityIdentifier("ExerciseEditor.Name")
                 Picker("Category", selection: $category) {
                     ForEach(ExerciseCategory.allCases) { category in
                         Text(category.displayName).tag(category)
                     }
                 }
+                .accessibilityIdentifier("ExerciseEditor.Category")
                 Toggle("Favorite", isOn: $isFavorite)
+                    .tint(Theme.dividerColor(for: colorScheme))
+                    .accessibilityIdentifier("ExerciseEditor.Favorite")
+            } header: {
+                SectionHeaderView(title: "Basics")
             }
 
-            Section("Metrics") {
+            Section {
                 requirementPicker(title: "Weight", selection: $weightRequirement)
+                    .tint(Theme.dividerColor(for: colorScheme))
+                    .accessibilityIdentifier("ExerciseEditor.Metric.Weight")
                 requirementPicker(title: "Reps", selection: $repsRequirement)
+                    .tint(Theme.dividerColor(for: colorScheme))
+                    .accessibilityIdentifier("ExerciseEditor.Metric.Reps")
                 requirementPicker(title: "Duration", selection: $durationRequirement)
+                    .tint(Theme.dividerColor(for: colorScheme))
+                    .accessibilityIdentifier("ExerciseEditor.Metric.Duration")
+            } header: {
+                SectionHeaderView(title: "Metrics")
             }
 
-            Section("Defaults") {
+            Section {
                 Stepper(value: $defaultRestSeconds, in: 0...600, step: 15) {
                     Text("Rest \(DateHelper.formattedDuration(seconds: defaultRestSeconds))")
                 }
+                .accessibilityIdentifier("ExerciseEditor.DefaultRest")
+            } header: {
+                SectionHeaderView(title: "Defaults")
             }
         }
         .listStyle(.plain)
+        .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme))
         .navigationTitle(exercise == nil ? "New Exercise" : "Edit Exercise")
@@ -52,6 +70,7 @@ struct ExerciseEditorView: View {
                     save()
                 }
                 .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityIdentifier("ExerciseEditor.Save")
             }
         }
         .onAppear {
@@ -108,4 +127,3 @@ struct ExerciseEditorView: View {
         dismiss()
     }
 }
-

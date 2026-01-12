@@ -23,34 +23,39 @@ struct SetDetailView: View {
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     }
                 }
+                .accessibilityIdentifier("SetDetail.ExercisePicker")
             }
 
-            Section("Metrics") {
+            Section {
                 if entry.exercise.metrics.usesWeight {
                     if entry.exercise.metrics.weight == .optional {
                         Toggle("Added load", isOn: $addedLoad)
+                            .tint(Theme.dividerColor(for: colorScheme))
                             .onChange(of: addedLoad) { _, newValue in
                                 if !newValue {
                                     entry.weight = nil
                                 }
                             }
+                            .accessibilityIdentifier("SetDetail.AddedLoad")
                     }
 
                     if entry.exercise.metrics.weightIsRequired || addedLoad {
                         HStack {
-                            OptionalNumberField(title: "Weight", formatter: Formatters.weight, value: weightBinding)
+                            OptionalNumberField(title: "Weight", formatter: Formatters.weight, value: weightBinding, accessibilityIdentifier: "SetDetail.Weight")
                             Picker("Unit", selection: $entry.weightUnit) {
                                 ForEach(WeightUnit.allCases) { unit in
                                     Text(unit.symbol).tag(unit)
                                 }
                             }
                             .pickerStyle(.segmented)
+                            .tint(Theme.dividerColor(for: colorScheme))
+                            .accessibilityIdentifier("SetDetail.WeightUnit")
                         }
                     }
                 }
 
                 if entry.exercise.metrics.usesReps {
-                    OptionalIntegerField(title: "Reps", value: repsBinding)
+                    OptionalIntegerField(title: "Reps", value: repsBinding, accessibilityIdentifier: "SetDetail.Reps")
                 }
 
                 if entry.exercise.metrics.usesDuration {
@@ -58,40 +63,51 @@ struct SetDetailView: View {
                         Text("Duration")
                         Spacer()
                         DurationPicker(durationSeconds: durationBinding)
+                            .accessibilityIdentifier("SetDetail.Duration")
                     }
                 }
+            } header: {
+                SectionHeaderView(title: "Metrics")
             }
 
             Section {
                 RPEPicker(value: $entry.difficulty)
                     .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                    .accessibilityIdentifier("SetDetail.RPE")
             }
 
             Section {
                 RestPicker(restSeconds: $entry.restAfterSeconds)
                     .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                    .accessibilityIdentifier("SetDetail.RestPicker")
             }
 
             Section {
                 DatePicker("Performed", selection: $entry.performedAt)
+                    .tint(Theme.dividerColor(for: colorScheme))
+                    .accessibilityIdentifier("SetDetail.PerformedAt")
             }
 
             Section {
                 TextField("Notes", text: notesBinding, axis: .vertical)
+                    .accessibilityIdentifier("SetDetail.Notes")
             }
 
             Section {
                 Button("Duplicate") {
                     duplicate()
                 }
+                .accessibilityIdentifier("SetDetail.Duplicate")
 
                 Button("Delete", role: .destructive) {
                     modelContext.delete(entry)
                     dismiss()
                 }
+                .accessibilityIdentifier("SetDetail.Delete")
             }
         }
         .listStyle(.plain)
+        .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme))
         .navigationTitle("Set Details")
@@ -110,7 +126,7 @@ struct SetDetailView: View {
             }
         }
         .onDisappear {
-            entry.updatedAt = Date()
+            entry.updatedAt = AppEnvironment.now
         }
     }
 
@@ -154,9 +170,10 @@ struct SetDetailView: View {
     }
 
     private func duplicate() {
+        let now = AppEnvironment.now
         let duplicate = SetEntry(
             exercise: entry.exercise,
-            performedAt: Date(),
+            performedAt: now,
             weight: entry.weight,
             weightUnit: entry.weightUnit,
             reps: entry.reps,
@@ -164,8 +181,8 @@ struct SetDetailView: View {
             difficulty: entry.difficulty,
             restAfterSeconds: entry.restAfterSeconds,
             notes: entry.notes,
-            createdAt: Date(),
-            updatedAt: Date()
+            createdAt: now,
+            updatedAt: now
         )
         modelContext.insert(duplicate)
     }
