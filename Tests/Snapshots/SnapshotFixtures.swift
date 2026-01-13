@@ -12,10 +12,12 @@ enum SnapshotFixtures {
     static func seedBase(in context: ModelContext) {
         SeedData.seedExercises(in: context)
         SeedData.seedSupplements(in: context)
+        try? context.save()
     }
 
     static func seedPopulated(in context: ModelContext) {
         TestFixtures.seed(in: context, now: now)
+        try? context.save()
     }
 
     static func exercise(named name: String, in context: ModelContext) -> Exercise {
@@ -25,6 +27,7 @@ enum SnapshotFixtures {
         }
         let new = Exercise(name: name, category: .other, metrics: .weightAndRepsRequired, defaultRestSeconds: 60)
         context.insert(new)
+        try? context.save()
         return new
     }
 
@@ -53,5 +56,6 @@ enum SnapshotFixtures {
             updatedAt: performedAt
         )
         context.insert(entry)
+        try? context.save()
     }
 }

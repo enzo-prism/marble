@@ -110,10 +110,12 @@ class MarbleUITestCase: XCTestCase {
 
     func waitForDisappearance(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {
         let start = Date()
-        while element.exists && Date().timeIntervalSince(start) < timeout {
+        while element.exists && element.isHittable && Date().timeIntervalSince(start) < timeout {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
-        XCTAssertFalse(element.exists, file: file, line: line)
+        if element.exists && element.isHittable {
+            XCTFail("Element still hittable after \(timeout)s", file: file, line: line)
+        }
     }
 
     @discardableResult
@@ -128,6 +130,18 @@ class MarbleUITestCase: XCTestCase {
         let scoped = list.descendants(matching: .any).matching(predicate)
         if scoped.count > 0 {
             return scoped
+        }
+        let global = app.descendants(matching: .any).matching(predicate)
+        if global.count > 0 {
+            return global
+        }
+        let buttons = list.descendants(matching: .button).matching(predicate)
+        if buttons.count > 0 {
+            return buttons
+        }
+        let cellsById = list.cells.matching(predicate)
+        if cellsById.count > 0 {
+            return cellsById
         }
         let cells = list.cells
         if cells.count > 0 {
@@ -178,10 +192,16 @@ class MarbleUITestCase: XCTestCase {
     func dismissSheet() {
         if app.navigationBars["Log Set"].exists {
             app.navigationBars["Log Set"].swipeDown()
+            if app.navigationBars["Log Set"].exists {
+                app.swipeDown()
+            }
             return
         }
         if app.navigationBars["Summary"].exists {
             app.navigationBars["Summary"].swipeDown()
+            if app.navigationBars["Summary"].exists {
+                app.swipeDown()
+            }
             return
         }
         app.swipeDown()

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SetRowView: View {
     let entry: SetEntry
+    let accessibilityIdentifier: String?
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -28,32 +29,33 @@ struct SetRowView: View {
         return "\(entry.exercise.name), \(summary), RPE \(entry.difficulty), Rest \(entry.restAfterSeconds) seconds"
     }
 
+    init(entry: SetEntry, accessibilityIdentifier: String? = nil) {
+        self.entry = entry
+        self.accessibilityIdentifier = accessibilityIdentifier
+    }
+
     var body: some View {
         let resolvedScheme = TestHooks.forcedColorScheme ?? colorScheme
-        HStack(alignment: .top, spacing: MarbleLayout.rowSpacing) {
+        let row = HStack(alignment: .top, spacing: MarbleLayout.rowSpacing) {
             Image(systemName: entry.exercise.category.symbolName)
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(Theme.primaryTextColor(for: resolvedScheme))
                 .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
-                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
                 Text(entry.exercise.name)
                     .font(MarbleTypography.rowTitle)
                     .foregroundColor(Theme.primaryTextColor(for: resolvedScheme))
-                    .accessibilityHidden(true)
 
                 Text(summaryLine)
                     .font(MarbleTypography.rowSubtitle)
                     .monospacedDigit()
                     .foregroundColor(Theme.secondaryTextColor(for: resolvedScheme))
-                    .accessibilityHidden(true)
 
                 Text(secondaryLine)
                     .font(MarbleTypography.rowMeta)
                     .monospacedDigit()
                     .foregroundColor(Theme.secondaryTextColor(for: resolvedScheme))
-                    .accessibilityHidden(true)
             }
 
             Spacer(minLength: 8)
@@ -62,9 +64,18 @@ struct SetRowView: View {
                 .font(MarbleTypography.rowMeta)
                 .monospacedDigit()
                 .foregroundColor(Theme.secondaryTextColor(for: resolvedScheme))
-                .accessibilityHidden(true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .background(Theme.backgroundColor(for: resolvedScheme))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilitySummary)
+
+        if let accessibilityIdentifier {
+            row.accessibilityIdentifier(accessibilityIdentifier)
+        } else {
+            row
+        }
     }
 
     private var summaryLine: String {

@@ -50,7 +50,6 @@ struct DayDetailsSheet: View {
                                 SetDetailView(entry: entry)
                             } label: {
                                 SetRowView(entry: entry)
-                                    .accessibilityHidden(true)
                             }
                             .accessibilityElement(children: .ignore)
                             .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
@@ -136,7 +135,6 @@ struct WeekDetailsSheet: View {
                                     SetDetailView(entry: entry)
                                 } label: {
                                     SetRowView(entry: entry)
-                                        .accessibilityHidden(true)
                                 }
                                 .accessibilityElement(children: .ignore)
                                 .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")

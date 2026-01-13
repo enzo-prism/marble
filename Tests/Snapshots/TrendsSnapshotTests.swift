@@ -10,6 +10,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
 
         let view = TrendsView()
             .modelContainer(container)
+            .environmentObject(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_Empty")
     }
 
@@ -20,6 +21,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
 
         let view = TrendsView()
             .modelContainer(container)
+            .environmentObject(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_Populated")
     }
 
@@ -31,7 +33,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         let bench = SnapshotFixtures.exercise(named: "Bench Press", in: context)
         let view = TrendsView(initialExercise: bench)
             .modelContainer(container)
+            .environmentObject(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_Filtered")
     }
 }
-

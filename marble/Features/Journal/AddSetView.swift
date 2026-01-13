@@ -1,19 +1,16 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct AddSetView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var quickLog: QuickLogCoordinator
 
-    @Query(sort: \SetEntry.performedAt, order: .reverse)
-    private var entries: [SetEntry]
-
-    @Query(sort: \Exercise.name)
-    private var exercises: [Exercise]
-
-    @State private var selectedExercise: Exercise?
+    @Binding private var isPresented: Bool
+    @State private var selectedExerciseID: UUID?
+    @State private var selectedExerciseSnapshot: ExerciseSnapshot?
     @State private var performedAt: Date
     @State private var weight: Double?
     @State private var weightUnit: WeightUnit = .lb
@@ -25,26 +22,30 @@ struct AddSetView: View {
     @State private var showNotes = false
     @State private var addedLoad = false
     @State private var showRestTimer = false
-    @State private var didLoadDefaults = false
+    @State private var didInitialize = false
+    @State private var showSaveError = false
+    @State private var showMissingExercise = false
 
-    init(initialPerformedAt: Date = AppEnvironment.now, initialExercise: Exercise? = nil) {
+    init(initialPerformedAt: Date = AppEnvironment.now, initialExercise: Exercise? = nil, isPresented: Binding<Bool> = .constant(true)) {
         _performedAt = State(initialValue: initialPerformedAt)
-        _selectedExercise = State(initialValue: initialExercise)
+        _selectedExerciseID = State(initialValue: initialExercise?.id)
+        _isPresented = isPresented
     }
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    NavigationLink {
-                        ExercisePickerView(selectedExercise: $selectedExercise)
+            VStack(spacing: 0) {
+                List {
+                    Section {
+                        NavigationLink {
+                            ExercisePickerView(selectedExercise: exerciseSelection)
                     } label: {
                         HStack {
                             Text("Exercise")
                                 .font(MarbleTypography.rowTitle)
                                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                             Spacer()
-                            Text(selectedExercise?.name ?? "Select")
+                            Text(selectedExerciseSnapshot?.name ?? "Select")
                                 .font(MarbleTypography.rowSubtitle)
                                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         }
@@ -52,7 +53,7 @@ struct AddSetView: View {
                     .accessibilityIdentifier("AddSet.ExercisePicker")
                 }
 
-                if let exercise = selectedExercise {
+                if let exercise = selectedExerciseSnapshot {
                     Section {
                         if exercise.metrics.usesWeight {
                             if exercise.metrics.weight == .optional {
@@ -88,7 +89,7 @@ struct AddSetView: View {
                                 DurationPicker(durationSeconds: $durationSeconds)
                                     .accessibilityIdentifier("AddSet.Duration")
                             }
-                            }
+                        }
                     } header: {
                         SectionHeaderView(title: "Metrics")
                     }
@@ -145,59 +146,36 @@ struct AddSetView: View {
                     }
                 }
 
-                Section {
-                    Button("Save") {
-                        save(keepOpen: false, startRest: false)
-                    }
-                    .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                    .allowsHitTesting(effectiveCanSave)
-                    .accessibilityIdentifier("AddSet.Save")
-
-                    Button("Save & Add Another") {
-                        save(keepOpen: true, startRest: false)
-                    }
-                    .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                    .allowsHitTesting(effectiveCanSave)
-                    .accessibilityIdentifier("AddSet.SaveAddAnother")
-
-                    if restAfterSeconds > 0, canSave {
-                        Button("Save & Start Rest") {
-                            save(keepOpen: false, startRest: true)
-                        }
-                        .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                        .allowsHitTesting(effectiveCanSave)
-                        .accessibilityIdentifier("AddSet.SaveStartRest")
-                    }
                 }
+                .listStyle(.plain)
+                .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
+                .scrollContentBackground(.hidden)
+                .background(Theme.backgroundColor(for: colorScheme))
+                .accessibilityIdentifier("AddSet.List")
             }
-            .listStyle(.plain)
-            .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
-            .scrollContentBackground(.hidden)
             .background(Theme.backgroundColor(for: colorScheme))
-            .accessibilityIdentifier("AddSet.List")
+            .safeAreaInset(edge: .bottom) {
+                saveButtons
+            }
             .navigationTitle("Log Set")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
-            .onChange(of: selectedExercise) { _, newValue in
-                guard let exercise = newValue else { return }
-                applyDefaults(for: exercise)
-                didLoadDefaults = true
-            }
-            .task {
-                if !didLoadDefaults {
-                    if let exercise = selectedExercise {
-                        applyDefaults(for: exercise)
-                    } else {
-                        loadInitialExercise()
-                    }
-                    didLoadDefaults = true
+            .onChange(of: selectedExerciseID) { _, newValue in
+                guard let newValue else {
+                    selectedExerciseSnapshot = nil
+                    return
                 }
+                hydrateSelection(id: newValue, shouldApplyDefaults: true)
+            }
+            .onAppear {
+                validateSelection()
+                guard !didInitialize else { return }
+                if let selectedExerciseID {
+                    hydrateSelection(id: selectedExerciseID, shouldApplyDefaults: true)
+                } else {
+                    loadInitialExercise()
+                }
+                didInitialize = true
             }
             .sheet(isPresented: $showRestTimer) {
                 RestTimerView(totalSeconds: restAfterSeconds)
@@ -205,11 +183,35 @@ struct AddSetView: View {
                     .presentationDragIndicator(.visible)
                     .sheetGlassBackground()
             }
+            .alert("Unable to Save", isPresented: $showSaveError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Couldn't save this set. Please try again.")
+            }
+            .alert("Exercise Removed", isPresented: $showMissingExercise) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("That exercise was removed. Choose another one before saving.")
+            }
         }
     }
 
+    private var exerciseSelection: Binding<Exercise?> {
+        Binding(
+            get: { nil },
+            set: { newValue in
+                guard let newValue else {
+                    selectedExerciseID = nil
+                    selectedExerciseSnapshot = nil
+                    return
+                }
+                selectExercise(newValue, lastEntry: fetchLastEntry(for: newValue.id))
+            }
+        )
+    }
+
     private var canSave: Bool {
-        guard let exercise = selectedExercise else { return false }
+        guard let exercise = selectedExerciseSnapshot else { return false }
         if exercise.metrics.weightIsRequired, weight == nil {
             return false
         }
@@ -223,47 +225,97 @@ struct AddSetView: View {
     }
 
     private var effectiveCanSave: Bool {
-        canSave || TestHooks.isUITesting
+        guard selectedExerciseSnapshot != nil else { return false }
+        return canSave || TestHooks.isUITesting
+    }
+
+    private var saveButtons: some View {
+        VStack(spacing: MarbleSpacing.s) {
+            Button("Save") {
+                save(keepOpen: false, startRest: false)
+            }
+            .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
+            .allowsHitTesting(effectiveCanSave)
+            .accessibilityIdentifier("AddSet.Save")
+
+            Button("Save & Add Another") {
+                save(keepOpen: true, startRest: false)
+            }
+            .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
+            .allowsHitTesting(effectiveCanSave)
+            .accessibilityIdentifier("AddSet.SaveAddAnother")
+
+            if restAfterSeconds > 0, canSave {
+                Button("Save & Start Rest") {
+                    save(keepOpen: false, startRest: true)
+                }
+                .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
+                .allowsHitTesting(effectiveCanSave)
+                .accessibilityIdentifier("AddSet.SaveStartRest")
+            }
+        }
+        .padding(.horizontal, MarbleLayout.pagePadding)
+        .padding(.top, MarbleSpacing.s)
+        .padding(.bottom, MarbleSpacing.m)
+        .background(Theme.backgroundColor(for: colorScheme))
+        .overlay(alignment: .top) {
+            Divider()
+                .background(Theme.dividerColor(for: colorScheme))
+        }
     }
 
     private func loadInitialExercise() {
-        if let recent = entries.first {
-            selectedExercise = recent.exercise
+        if let recent = fetchMostRecentEntry() {
+            selectExercise(recent.exercise, lastEntry: recent)
             performedAt = DateHelper.merge(day: performedAt, time: AppEnvironment.now)
             return
         }
 
-        if let favorite = exercises.first(where: { $0.isFavorite }) {
-            selectedExercise = favorite
-        } else if let first = exercises.first {
-            selectedExercise = first
+        if let favorite = fetchFavoriteExercise() {
+            selectExercise(favorite, lastEntry: fetchLastEntry(for: favorite.id))
+            return
+        }
+
+        if let first = fetchFirstExercise() {
+            selectExercise(first, lastEntry: fetchLastEntry(for: first.id))
         }
     }
 
-    private func applyDefaults(for exercise: Exercise) {
-        if let last = entries.first(where: { $0.exercise.id == exercise.id }) {
-            weight = last.weight
-            weightUnit = last.weightUnit
-            reps = last.reps
-            durationSeconds = last.durationSeconds
-            difficulty = last.difficulty
-            restAfterSeconds = last.restAfterSeconds
-            addedLoad = last.weight != nil
-        } else {
-            weight = nil
-            reps = nil
-            durationSeconds = exercise.metrics.usesDuration ? 60 : nil
-            difficulty = 8
-            restAfterSeconds = exercise.defaultRestSeconds
-            addedLoad = false
+    private func applyDefaults(for exercise: ExerciseSnapshot, lastEntry: SetEntry?) {
+        if let lastEntry {
+            weight = lastEntry.weight
+            weightUnit = lastEntry.weightUnit
+            reps = lastEntry.reps
+            durationSeconds = lastEntry.durationSeconds
+            difficulty = lastEntry.difficulty
+            restAfterSeconds = lastEntry.restAfterSeconds
+            addedLoad = lastEntry.weight != nil
+            return
         }
+        weight = nil
+        reps = nil
+        durationSeconds = exercise.metrics.usesDuration ? 60 : nil
+        difficulty = 8
+        restAfterSeconds = exercise.defaultRestSeconds
+        addedLoad = false
     }
 
     private func save(keepOpen: Bool, startRest: Bool) {
-        guard let exercise = selectedExercise else { return }
+        dismissKeyboard()
+        guard let selectedExerciseID else {
+            showMissingExercise = selectedExerciseSnapshot != nil
+            return
+        }
+        guard let exercise = fetchExercise(id: selectedExerciseID) else {
+            selectedExerciseSnapshot = nil
+            showMissingExercise = true
+            return
+        }
+        guard canSave || TestHooks.isUITesting else { return }
 
+        let metrics = exercise.metrics
         let resolvedWeight: Double? = {
-            if exercise.metrics.weight == .optional, !addedLoad {
+            if metrics.weight == .optional, !addedLoad {
                 return nil
             }
             return weight
@@ -275,8 +327,8 @@ struct AddSetView: View {
             performedAt: performedAt,
             weight: resolvedWeight,
             weightUnit: weightUnit,
-            reps: exercise.metrics.usesReps ? reps : nil,
-            durationSeconds: exercise.metrics.usesDuration ? durationSeconds : nil,
+            reps: metrics.usesReps ? reps : nil,
+            durationSeconds: metrics.usesDuration ? durationSeconds : nil,
             difficulty: difficulty,
             restAfterSeconds: restAfterSeconds,
             notes: notes.isEmpty ? nil : notes,
@@ -285,28 +337,131 @@ struct AddSetView: View {
         )
 
         modelContext.insert(entry)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Save set failed: \(error)")
+            #endif
+            modelContext.rollback()
+            showSaveError = true
+            return
+        }
 
+        let snapshot = ExerciseSnapshot(exercise)
         if startRest {
+            resetForm(for: snapshot, lastEntry: entry)
             showRestTimer = true
-            if !keepOpen {
-                closeSheet()
-            }
             return
         }
 
         if keepOpen {
-            performedAt = AppEnvironment.now
-            applyDefaults(for: exercise)
-            notes = ""
-            showNotes = false
+            resetForm(for: snapshot, lastEntry: entry)
         } else {
             closeSheet()
         }
     }
 
+    private func resetForm(for exercise: ExerciseSnapshot, lastEntry: SetEntry?) {
+        selectedExerciseID = exercise.id
+        selectedExerciseSnapshot = exercise
+        performedAt = AppEnvironment.now
+        applyDefaults(for: exercise, lastEntry: lastEntry)
+        notes = ""
+        showNotes = false
+    }
+
     private func closeSheet() {
         quickLog.isPresentingAddSet = false
-        dismiss()
+        isPresented = false
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+
+private extension AddSetView {
+    struct ExerciseSnapshot: Equatable {
+        let id: UUID
+        let name: String
+        let category: ExerciseCategory
+        let metrics: ExerciseMetricsProfile
+        let defaultRestSeconds: Int
+
+        init(_ exercise: Exercise) {
+            id = exercise.id
+            name = exercise.name
+            category = exercise.category
+            metrics = exercise.metrics
+            defaultRestSeconds = exercise.defaultRestSeconds
+        }
+    }
+
+    func selectExercise(_ exercise: Exercise, lastEntry: SetEntry?) {
+        let snapshot = ExerciseSnapshot(exercise)
+        selectedExerciseID = snapshot.id
+        selectedExerciseSnapshot = snapshot
+        applyDefaults(for: snapshot, lastEntry: lastEntry)
+    }
+
+    func hydrateSelection(id: UUID, shouldApplyDefaults: Bool) {
+        guard let exercise = fetchExercise(id: id) else {
+            selectedExerciseID = nil
+            selectedExerciseSnapshot = nil
+            showMissingExercise = true
+            return
+        }
+        let snapshot = ExerciseSnapshot(exercise)
+        selectedExerciseSnapshot = snapshot
+        if shouldApplyDefaults {
+            applyDefaults(for: snapshot, lastEntry: fetchLastEntry(for: id))
+        }
+    }
+
+    func validateSelection() {
+        guard let id = selectedExerciseID else { return }
+        guard let exercise = fetchExercise(id: id) else {
+            selectedExerciseID = nil
+            selectedExerciseSnapshot = nil
+            showMissingExercise = true
+            return
+        }
+        selectedExerciseSnapshot = ExerciseSnapshot(exercise)
+    }
+
+    func fetchExercise(id: UUID) -> Exercise? {
+        let descriptor = FetchDescriptor<Exercise>(predicate: #Predicate { $0.id == id })
+        return (try? modelContext.fetch(descriptor))?.first
+    }
+
+    func fetchMostRecentEntry() -> SetEntry? {
+        var descriptor = FetchDescriptor<SetEntry>(sortBy: [SortDescriptor(\.performedAt, order: .reverse)])
+        descriptor.fetchLimit = 1
+        return (try? modelContext.fetch(descriptor))?.first
+    }
+
+    func fetchLastEntry(for exerciseID: UUID) -> SetEntry? {
+        var descriptor = FetchDescriptor<SetEntry>(
+            predicate: #Predicate { $0.exercise.id == exerciseID },
+            sortBy: [SortDescriptor(\.performedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        return (try? modelContext.fetch(descriptor))?.first
+    }
+
+    func fetchFavoriteExercise() -> Exercise? {
+        var descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.isFavorite },
+            sortBy: [SortDescriptor(\.name)]
+        )
+        descriptor.fetchLimit = 1
+        return (try? modelContext.fetch(descriptor))?.first
+    }
+
+    func fetchFirstExercise() -> Exercise? {
+        var descriptor = FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)])
+        descriptor.fetchLimit = 1
+        return (try? modelContext.fetch(descriptor))?.first
     }
 }

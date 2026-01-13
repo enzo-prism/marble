@@ -56,8 +56,9 @@ struct ContentView: View {
             Theme.applyTabBarAppearance(for: scheme)
         }
         .sheet(isPresented: $quickLog.isPresentingAddSet) {
-            AddSetView(initialPerformedAt: quickLog.prefillDate)
+            AddSetView(initialPerformedAt: quickLog.prefillDate, isPresented: $quickLog.isPresentingAddSet)
                 .modelContext(modelContext)
+                .environmentObject(quickLog)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()
@@ -65,7 +66,6 @@ struct ContentView: View {
         .background(Theme.backgroundColor(for: colorScheme))
         .applyTestOverrides()
         .task {
-            SeedData.seedIfNeeded(in: modelContext)
             if TestHooks.isUITesting, TestHooks.calendarTestDay != nil {
                 tabSelection.selected = .calendar
             }

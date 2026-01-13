@@ -10,9 +10,10 @@ struct JournalView: View {
 
     @State private var toast: ToastData?
     @State private var pendingUndo: SetEntrySnapshot?
+    @State private var navPath: [UUID] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navPath) {
             List {
                 if entries.isEmpty {
                     EmptyStateView(title: "No sets yet", message: "Log your first set to start building momentum.", systemImage: "list.bullet.rectangle")
@@ -25,36 +26,12 @@ struct JournalView: View {
                     if let dayEntries = groupedEntries[day] {
                         Section {
                             ForEach(dayEntries) { entry in
-                                NavigationLink {
-                                    SetDetailView(entry: entry)
-                                } label: {
-                                    SetRowView(entry: entry)
-                                        .accessibilityHidden(true)
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-                                .accessibilityElement(children: .ignore)
-                                .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
-                                .accessibilityLabel(SetRowView.accessibilitySummary(for: entry))
-                                .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                                .marbleRowInsets()
-                                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                                    Button {
-                                        duplicate(entry)
-                                    } label: {
-                                        Label("Duplicate", systemImage: "plus.square.on.square")
-                                    }
-                                    .tint(Theme.dividerColor(for: colorScheme))
-                                    .accessibilityIdentifier("SetRow.\(entry.id.uuidString).Duplicate")
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        delete(entry)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                    .accessibilityIdentifier("SetRow.\(entry.id.uuidString).Delete")
-                                }
+                                JournalRow(
+                                    entry: entry,
+                                    onSelect: { navPath.append(entry.id) },
+                                    onDuplicate: { duplicate(entry) },
+                                    onDelete: { delete(entry) }
+                                )
                             }
                         } header: {
                             SectionHeaderView(title: DateHelper.dayLabel(for: day))
@@ -75,6 +52,24 @@ struct JournalView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     AddSetToolbarButton()
+                }
+                if TestHooks.isUITesting, let latest = entries.first {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Open Latest") {
+                            navPath.append(latest.id)
+                        }
+                        .accessibilityIdentifier("Journal.TestOpenLatest")
+                        .opacity(0.01)
+                    }
+                }
+            }
+            .navigationDestination(for: UUID.self) { entryID in
+                if let entry = entries.first(where: { $0.id == entryID }) {
+                    SetDetailView(entry: entry)
+                } else {
+                    Text("Set not found")
+                        .font(MarbleTypography.body)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 }
             }
             .overlay(alignment: .bottom) {
@@ -139,6 +134,44 @@ struct JournalView: View {
         )
         modelContext.insert(duplicate)
         try? modelContext.save()
+    }
+}
+
+private struct JournalRow: View {
+    let entry: SetEntry
+    let onSelect: () -> Void
+    let onDuplicate: () -> Void
+    let onDelete: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        SetRowView(entry: entry)
+            .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onSelect)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(SetRowView.accessibilitySummary(for: entry))
+            .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction {
+                onSelect()
+            }
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+            .marbleRowInsets()
+            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                Button(action: onDuplicate) {
+                    Label("Duplicate", systemImage: "plus.square.on.square")
+                }
+                .tint(Theme.dividerColor(for: colorScheme))
+                .accessibilityIdentifier("SetRow.\(entry.id.uuidString).Duplicate")
+            }
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button(role: .destructive, action: onDelete) {
+                    Label("Delete", systemImage: "trash")
+                }
+                .accessibilityIdentifier("SetRow.\(entry.id.uuidString).Delete")
+            }
     }
 }
 

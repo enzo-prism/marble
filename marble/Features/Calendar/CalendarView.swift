@@ -184,7 +184,6 @@ struct DaySummarySheet: View {
                                 SetDetailView(entry: entry)
                             } label: {
                                 SetRowView(entry: entry)
-                                    .accessibilityHidden(true)
                             }
                             .accessibilityElement(children: .ignore)
                             .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
