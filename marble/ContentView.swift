@@ -55,8 +55,14 @@ struct ContentView: View {
         .onChange(of: colorScheme) { scheme in
             Theme.applyTabBarAppearance(for: scheme)
         }
-        .sheet(isPresented: $quickLog.isPresentingAddSet) {
-            AddSetView(initialPerformedAt: quickLog.prefillDate, isPresented: $quickLog.isPresentingAddSet)
+        .sheet(isPresented: $quickLog.isPresentingAddSet, onDismiss: {
+            quickLog.prefillExerciseID = nil
+        }) {
+            AddSetView(
+                initialPerformedAt: quickLog.prefillDate,
+                initialExercise: fetchExercise(id: quickLog.prefillExerciseID),
+                isPresented: $quickLog.isPresentingAddSet
+            )
                 .modelContext(modelContext)
                 .environmentObject(quickLog)
                 .presentationDetents([.large])
@@ -70,6 +76,12 @@ struct ContentView: View {
                 tabSelection.selected = .calendar
             }
         }
+    }
+
+    private func fetchExercise(id: UUID?) -> Exercise? {
+        guard let id else { return nil }
+        let descriptor = FetchDescriptor<Exercise>(predicate: #Predicate { $0.id == id })
+        return (try? modelContext.fetch(descriptor))?.first
     }
 }
 

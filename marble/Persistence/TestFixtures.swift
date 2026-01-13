@@ -177,11 +177,13 @@ enum TestFixtures {
         let supplementTypes = (try? context.fetch(FetchDescriptor<SupplementType>())) ?? []
         let splitPlans = (try? context.fetch(FetchDescriptor<SplitPlan>())) ?? []
         let splitDays = (try? context.fetch(FetchDescriptor<SplitDay>())) ?? []
+        let plannedSets = (try? context.fetch(FetchDescriptor<PlannedSet>())) ?? []
 
         sets.forEach { context.delete($0) }
         supplements.forEach { context.delete($0) }
         exercises.forEach { context.delete($0) }
         supplementTypes.forEach { context.delete($0) }
+        plannedSets.forEach { context.delete($0) }
         splitDays.forEach { context.delete($0) }
         splitPlans.forEach { context.delete($0) }
     }
@@ -208,5 +210,36 @@ enum TestFixtures {
         }
         plan.days = days
         context.insert(plan)
+
+        guard populated else { return }
+        let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
+        let exerciseByName = Dictionary(uniqueKeysWithValues: exercises.map { ($0.name, $0) })
+
+        if let monday = days.first(where: { $0.weekday == .monday }),
+           let bench = exerciseByName["Bench Press"],
+           let dips = exerciseByName["Dips"] {
+            let first = PlannedSet(order: 0, notes: nil, createdAt: now, updatedAt: now, exercise: bench, day: monday)
+            let second = PlannedSet(order: 1, notes: nil, createdAt: now, updatedAt: now, exercise: dips, day: monday)
+            monday.plannedSets = [first, second]
+            context.insert(first)
+            context.insert(second)
+        }
+
+        if let tuesday = days.first(where: { $0.weekday == .tuesday }),
+           let row = exerciseByName["Cable Row"] {
+            let set = PlannedSet(order: 0, notes: nil, createdAt: now, updatedAt: now, exercise: row, day: tuesday)
+            tuesday.plannedSets = [set]
+            context.insert(set)
+        }
+
+        if let wednesday = days.first(where: { $0.weekday == .wednesday }),
+           let squat = exerciseByName["Squat"],
+           let calf = exerciseByName["Calf Raises"] {
+            let first = PlannedSet(order: 0, notes: nil, createdAt: now, updatedAt: now, exercise: squat, day: wednesday)
+            let second = PlannedSet(order: 1, notes: nil, createdAt: now, updatedAt: now, exercise: calf, day: wednesday)
+            wednesday.plannedSets = [first, second]
+            context.insert(first)
+            context.insert(second)
+        }
     }
 }

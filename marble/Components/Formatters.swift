@@ -71,4 +71,32 @@ enum DateHelper {
         }
         return "\(minutes)m \(remaining)s"
     }
+
+    static func nextDate(for weekday: Weekday, from date: Date = AppEnvironment.now, calendar: Calendar = .current) -> Date {
+        let targetWeekday = calendarWeekday(for: weekday)
+        if calendar.component(.weekday, from: date) == targetWeekday {
+            return date
+        }
+        let components = DateComponents(weekday: targetWeekday)
+        return calendar.nextDate(after: date, matching: components, matchingPolicy: .nextTimePreservingSmallerComponents) ?? date
+    }
+
+    private static func calendarWeekday(for weekday: Weekday) -> Int {
+        switch weekday {
+        case .sunday:
+            return 1
+        case .monday:
+            return 2
+        case .tuesday:
+            return 3
+        case .wednesday:
+            return 4
+        case .thursday:
+            return 5
+        case .friday:
+            return 6
+        case .saturday:
+            return 7
+        }
+    }
 }

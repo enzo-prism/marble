@@ -37,6 +37,7 @@ final class SplitDay {
     var createdAt: Date
     var updatedAt: Date
     @Relationship(inverse: \SplitPlan.days) var plan: SplitPlan?
+    @Relationship(deleteRule: .cascade) var plannedSets: [PlannedSet]
 
     init(
         id: UUID = UUID(),
@@ -46,7 +47,8 @@ final class SplitDay {
         order: Int,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        plan: SplitPlan? = nil
+        plan: SplitPlan? = nil,
+        plannedSets: [PlannedSet] = []
     ) {
         self.id = id
         self.weekday = weekday
@@ -56,5 +58,35 @@ final class SplitDay {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.plan = plan
+        self.plannedSets = plannedSets
+    }
+}
+
+@Model
+final class PlannedSet {
+    @Attribute(.unique) var id: UUID
+    var order: Int
+    var notes: String?
+    var createdAt: Date
+    var updatedAt: Date
+    var exercise: Exercise
+    @Relationship(inverse: \SplitDay.plannedSets) var day: SplitDay?
+
+    init(
+        id: UUID = UUID(),
+        order: Int = 0,
+        notes: String? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        exercise: Exercise,
+        day: SplitDay? = nil
+    ) {
+        self.id = id
+        self.order = order
+        self.notes = notes
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.exercise = exercise
+        self.day = day
     }
 }

@@ -99,6 +99,12 @@ private struct SplitDayRowView: View {
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("Split.DayTitle.\(day.weekday.displayName)")
 
+            if plannedSetCount > 0 {
+                Text("\(plannedSetCount) planned sets")
+                    .font(MarbleTypography.rowMeta)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            }
+
             if let notes = day.notes, !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text(notes)
                     .font(MarbleTypography.rowMeta)
@@ -114,9 +120,16 @@ private struct SplitDayRowView: View {
         var parts = [day.weekday.displayName]
         let title = day.title.trimmingCharacters(in: .whitespacesAndNewlines)
         parts.append(title.isEmpty ? "Rest" : title)
+        if plannedSetCount > 0 {
+            parts.append("\(plannedSetCount) planned sets")
+        }
         if let notes = day.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
             parts.append(notes)
         }
         return parts.joined(separator: ", ")
+    }
+
+    private var plannedSetCount: Int {
+        day.plannedSets.count
     }
 }

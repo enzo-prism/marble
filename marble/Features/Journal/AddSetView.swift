@@ -54,6 +54,7 @@ struct AddSetView: View {
                         .padding(.vertical, MarbleSpacing.s)
                     }
                     .accessibilityIdentifier("AddSet.ExercisePicker")
+                    .accessibilityValue(selectedExerciseSnapshot?.name ?? "Select")
                 }
 
                 if let exercise = selectedExerciseSnapshot {
