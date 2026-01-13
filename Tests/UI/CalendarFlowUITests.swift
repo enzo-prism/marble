@@ -1,7 +1,7 @@
 import XCTest
 
 final class CalendarFlowUITests: MarbleUITestCase {
-    func testCalendarDayFlow() {
+    func testCalendarDayPopulated() {
         launchApp(fixtureMode: "populated", calendarTestDay: "populated")
         navigateToTab(.calendar)
 
@@ -29,7 +29,9 @@ final class CalendarFlowUITests: MarbleUITestCase {
         XCTAssertTrue(updatedBenchRow.label.contains("RPE 9"))
 
         dismissSheet()
+    }
 
+    func testCalendarDayEmpty() {
         launchApp(fixtureMode: "empty", calendarTestDay: "empty")
         navigateToTab(.calendar)
         selectCalendarDay("1")

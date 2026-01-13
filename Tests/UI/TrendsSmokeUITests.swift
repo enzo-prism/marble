@@ -28,7 +28,10 @@ final class TrendsSmokeUITests: MarbleUITestCase {
 
         let rangePicker = app.segmentedControls["Trends.Range"]
         if rangePicker.exists {
-            rangePicker.buttons["7D"].tap()
+            let sevenDay = rangePicker.buttons["7D"]
+            waitFor(sevenDay)
+            sevenDay.tap()
+            XCTAssertTrue(sevenDay.isSelected)
         }
 
         let exercisePicker = app.buttons["Trends.ExerciseFilter"]
@@ -38,6 +41,8 @@ final class TrendsSmokeUITests: MarbleUITestCase {
             if benchOption.exists {
                 benchOption.tap()
             }
+            let pickerValue = exercisePicker.value as? String
+            XCTAssertEqual(pickerValue, "Bench Press")
         }
 
         XCTAssertTrue(app.otherElements["Trends.ConsistencyChart"].exists)

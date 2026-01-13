@@ -117,6 +117,7 @@ struct TrendsView: View {
         }
         .pickerStyle(.menu)
         .accessibilityIdentifier("Trends.ExerciseFilter")
+        .accessibilityValue(selectedExercise?.name ?? "All Exercises")
     }
 
     private var consistencyChart: some View {

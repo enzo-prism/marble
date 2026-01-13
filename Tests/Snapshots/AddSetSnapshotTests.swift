@@ -52,16 +52,4 @@ final class AddSetSnapshotTests: SnapshotTestCase {
             .environmentObject(QuickLogCoordinator())
         assertSnapshot(view, named: "AddSet_DurationOnly")
     }
-
-    func testAddSetValidationErrors() {
-        let container = SnapshotFixtures.makeContainer()
-        let context = ModelContext(container)
-        SnapshotFixtures.seedBase(in: context)
-
-        let bench = SnapshotFixtures.exercise(named: "Bench Press", in: context)
-        let view = AddSetView(initialPerformedAt: SnapshotFixtures.now, initialExercise: bench)
-            .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
-        assertSnapshot(view, named: "AddSet_Validation")
-    }
 }

@@ -15,7 +15,7 @@ enum MarbleAppearance {
     }
 }
 
-enum MarbleTab: String {
+enum MarbleTab: String, CaseIterable {
     case journal = "Journal"
     case calendar = "Calendar"
     case split = "Split"
