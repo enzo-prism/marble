@@ -19,6 +19,7 @@ Preferred Makefile targets:
 - Stored by SnapshotTesting in `Tests/Snapshots/__Snapshots__`.
 - Diff output appears alongside snapshots (e.g. `__diffs__` folders) when failures occur.
 - Update intentionally with `make snapshot-record` and commit the new images.
+- Snapshot suite runs in small groups to avoid simulator flakiness; results land in `TestResults/MarbleSnapshots_*.xcresult`.
 
 ## Add a new snapshot state
 1. Add a new scenario in a `*SnapshotTests.swift` file under `Tests/Snapshots`.

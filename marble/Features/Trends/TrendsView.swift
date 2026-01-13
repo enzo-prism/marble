@@ -14,6 +14,8 @@ struct TrendsView: View {
     @State private var range: TrendRange = .thirtyDays
     @State private var selectedExercise: Exercise?
     @State private var selectedDay: Date?
+    @State private var selectedWeekStart: Date?
+    @State private var sheetDestination: TrendsSheetDestination?
 
     init(initialRange: TrendRange = .thirtyDays, initialExercise: Exercise? = nil) {
         _range = State(initialValue: initialRange)
@@ -67,6 +69,21 @@ struct TrendsView: View {
                 }
             }
         }
+        .sheet(item: $sheetDestination) { destination in
+            switch destination {
+            case .day(let date):
+                DayDetailsSheet(date: date, entries: entriesForDay(date))
+            case .week(let weekStart):
+                let weekEnd = TrendsDateHelper.endOfWeek(for: weekStart)
+                WeekDetailsSheet(weekStart: weekStart, weekEnd: weekEnd, entries: entriesForWeek(weekStart: weekStart))
+            }
+        }
+        .onChange(of: range) { _, _ in
+            clearSelections()
+        }
+        .onChange(of: selectedExercise) { _, _ in
+            clearSelections()
+        }
     }
 
     private var filteredEntries: [SetEntry] {
@@ -103,54 +120,75 @@ struct TrendsView: View {
     }
 
     private var consistencyChart: some View {
-        let data = consistencyData
+        let summaries = dailySummaries
+        let selectedSummary = selectedDailySummary
+        let prSummary = dailyPRSummary
         return Chart {
-            ForEach(data) { item in
-                BarMark(
+            ForEach(summaries) { item in
+                LineMark(
                     x: .value("Day", item.date),
                     y: .value("Sets", item.count)
                 )
                 .foregroundStyle(Theme.dividerColor(for: colorScheme))
+                .lineStyle(StrokeStyle(lineWidth: 2))
             }
 
-            if let selectedDay, let selectedItem = data.first(where: { Calendar.current.isDate($0.date, inSameDayAs: selectedDay) }) {
-                RuleMark(x: .value("Selected", selectedItem.date))
+            if let prSummary, prSummary.count > 0 {
+                PointMark(
+                    x: .value("PR Day", prSummary.date),
+                    y: .value("Sets", prSummary.count)
+                )
+                .symbol {
+                    Image(systemName: "trophy.fill")
+                        .font(.caption2)
+                }
+                .symbolSize(40)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            }
+
+            if let selectedSummary {
+                RuleMark(x: .value("Selected Day", selectedSummary.date))
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .annotation(position: .top) {
-                        Text("\(selectedItem.count) sets")
-                            .font(.caption)
-                            .foregroundColor(Theme.secondaryTextColor(for: colorScheme))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+                    .annotation(position: .top, alignment: .leading) {
+                        TrendTooltipView(
+                            title: DateHelper.dayLabel(for: selectedSummary.date),
+                            valueText: setsLabel(for: selectedSummary.count),
+                            summaryText: selectedSummary.summaryText,
+                            showsPR: selectedSummary.count == dailyPRCount && dailyPRCount > 0,
+                            viewSetsLabel: "View sets",
+                            viewSetsAccessibilityLabel: "View sets for \(DateHelper.dayLabel(for: selectedSummary.date))",
+                            viewSetsIdentifier: "Trends.ConsistencyTooltip.ViewSets",
+                            onViewSets: {
+                                sheetDestination = .day(selectedSummary.date)
+                            },
+                            onClear: {
+                                selectedDay = nil
+                            }
+                        )
+                        .accessibilityIdentifier("Trends.ConsistencyTooltip")
                     }
+
+                PointMark(
+                    x: .value("Selected Day", selectedSummary.date),
+                    y: .value("Sets", selectedSummary.count)
+                )
+                .symbolSize(70)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
             }
         }
         .frame(height: 180)
+        .chartXSelection(value: $selectedDay)
         .accessibilityIdentifier("Trends.ConsistencyChart")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Consistency chart")
-        .accessibilityValue(consistencyAccessibilityValue(for: data))
-        .chartOverlay { proxy in
-            GeometryReader { geometry in
-                Rectangle()
-                    .fill(Color.clear)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                let x = value.location.x - geometry[proxy.plotAreaFrame].origin.x
-                                if let date: Date = proxy.value(atX: x) {
-                                    selectedDay = nearestDay(to: date, in: data)
-                                }
-                            }
-                            .onEnded { _ in
-                                selectedDay = nil
-                            }
-                    )
-            }
-        }
+        .accessibilityValue(consistencyAccessibilityValue(for: summaries))
     }
 
     private var volumeChart: some View {
         let data = volumeData
+        let selectedSummary = selectedWeeklySummary
+        let prSummary = weeklyPRSummary
         return Chart {
             ForEach(data) { item in
                 BarMark(
@@ -160,9 +198,55 @@ struct TrendsView: View {
                 .foregroundStyle(item.series.color(for: colorScheme))
                 .position(by: .value("Series", item.series.label))
             }
+
+            if let prSummary, prSummary.totalVolumeScore > 0 {
+                PointMark(
+                    x: .value("PR Week", prSummary.weekStart),
+                    y: .value("Value", prSummary.maxSeriesValue)
+                )
+                .symbol {
+                    Image(systemName: "trophy.fill")
+                        .font(.caption2)
+                }
+                .symbolSize(40)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            }
+
+            if let selectedSummary {
+                RuleMark(x: .value("Selected Week", selectedSummary.weekStart))
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+                    .annotation(position: .top, alignment: .leading) {
+                        let label = TrendsDateHelper.weekLabel(start: selectedSummary.weekStart, end: selectedSummary.weekEnd)
+                        TrendTooltipView(
+                            title: label,
+                            valueText: selectedSummary.valueText,
+                            summaryText: selectedSummary.summaryText,
+                            showsPR: selectedSummary.totalVolumeScore == weeklyPRTotal && weeklyPRTotal > 0,
+                            viewSetsLabel: "View sets",
+                            viewSetsAccessibilityLabel: "View sets for week of \(label)",
+                            viewSetsIdentifier: "Trends.VolumeTooltip.ViewSets",
+                            onViewSets: {
+                                sheetDestination = .week(selectedSummary.weekStart)
+                            },
+                            onClear: {
+                                selectedWeekStart = nil
+                            }
+                        )
+                        .accessibilityIdentifier("Trends.VolumeTooltip")
+                    }
+
+                PointMark(
+                    x: .value("Selected Week", selectedSummary.weekStart),
+                    y: .value("Value", selectedSummary.maxSeriesValue)
+                )
+                .symbolSize(70)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            }
         }
         .frame(height: 180)
         .chartLegend(position: .bottom, alignment: .leading)
+        .chartXSelection(value: $selectedWeekStart)
         .accessibilityIdentifier("Trends.VolumeChart")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Weekly volume chart")
@@ -205,7 +289,7 @@ struct TrendsView: View {
         .accessibilityIdentifier("Trends.PRCards")
     }
 
-    private var consistencyData: [DailyCount] {
+    private var dailySummaries: [TrendDailySummary] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: filteredEntries) { entry in
             calendar.startOfDay(for: entry.performedAt)
@@ -213,7 +297,7 @@ struct TrendsView: View {
 
         if range == .all {
             return grouped.keys.sorted().map { day in
-                DailyCount(date: day, count: grouped[day]?.count ?? 0)
+                TrendDailySummary(date: day, entries: grouped[day] ?? [])
             }
         }
 
@@ -228,18 +312,36 @@ struct TrendsView: View {
         }
 
         return dates.map { day in
-            DailyCount(date: day, count: grouped[day]?.count ?? 0)
+            TrendDailySummary(date: day, entries: grouped[day] ?? [])
         }
     }
 
-    private var volumeData: [VolumeDatum] {
+    private var dailySummaryLookup: [Date: TrendDailySummary] {
+        Dictionary(uniqueKeysWithValues: dailySummaries.map { ($0.date, $0) })
+    }
+
+    private var selectedDailySummary: TrendDailySummary? {
+        guard let selectedDay else { return nil }
+        guard let nearest = nearestDay(to: selectedDay, in: dailySummaries) else { return nil }
+        return dailySummaryLookup[nearest]
+    }
+
+    private var dailyPRCount: Int {
+        dailySummaries.map(\.count).max() ?? 0
+    }
+
+    private var dailyPRSummary: TrendDailySummary? {
+        guard dailyPRCount > 0 else { return nil }
+        return dailySummaries.filter { $0.count == dailyPRCount }.max(by: { $0.date < $1.date })
+    }
+
+    private var weeklySummaries: [TrendWeeklySummary] {
         let calendar = Calendar.current
-        let grouped = Dictionary(grouping: filteredEntries) { entry -> Date in
-            let components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: entry.performedAt)
-            return calendar.date(from: components) ?? calendar.startOfDay(for: entry.performedAt)
+        let grouped = Dictionary(grouping: filteredEntries) { entry in
+            TrendsDateHelper.startOfWeek(for: entry.performedAt, calendar: calendar)
         }
 
-        var data: [VolumeDatum] = []
+        var summaries: [TrendWeeklySummary] = []
         for (weekStart, items) in grouped {
             var weightedVolume: Double = 0
             var repsVolume: Int = 0
@@ -256,27 +358,73 @@ struct TrendsView: View {
                 }
             }
 
-            if weightedVolume > 0 {
-                data.append(VolumeDatum(weekStart: weekStart, series: .weighted, value: weightedVolume))
-            }
-            if repsVolume > 0 {
-                data.append(VolumeDatum(weekStart: weekStart, series: .reps, value: Double(repsVolume)))
-            }
-            if durationSeconds > 0 {
-                data.append(VolumeDatum(weekStart: weekStart, series: .duration, value: Double(durationSeconds) / 60.0))
-            }
+            let durationMinutes = Double(durationSeconds) / 60.0
+            let maxSeriesValue = max(weightedVolume, Double(repsVolume), durationMinutes)
+            let weekEnd = TrendsDateHelper.endOfWeek(for: weekStart, calendar: calendar)
+            summaries.append(TrendWeeklySummary(
+                weekStart: weekStart,
+                weekEnd: weekEnd,
+                entries: items,
+                weightedVolume: weightedVolume,
+                repsVolume: repsVolume,
+                durationMinutes: durationMinutes,
+                maxSeriesValue: maxSeriesValue
+            ))
         }
 
+        return summaries.sorted { $0.weekStart < $1.weekStart }
+    }
+
+    private var weeklySummaryLookup: [Date: TrendWeeklySummary] {
+        Dictionary(uniqueKeysWithValues: weeklySummaries.map { ($0.weekStart, $0) })
+    }
+
+    private var selectedWeeklySummary: TrendWeeklySummary? {
+        guard let selectedWeekStart else { return nil }
+        guard let nearest = nearestWeekStart(to: selectedWeekStart, in: weeklySummaries) else { return nil }
+        return weeklySummaryLookup[nearest]
+    }
+
+    private var weeklyPRTotal: Double {
+        weeklySummaries.map(\.totalVolumeScore).max() ?? 0
+    }
+
+    private var weeklyPRSummary: TrendWeeklySummary? {
+        guard weeklyPRTotal > 0 else { return nil }
+        return weeklySummaries
+            .filter { $0.totalVolumeScore == weeklyPRTotal }
+            .max(by: { $0.weekStart < $1.weekStart })
+    }
+
+    private var volumeData: [VolumeDatum] {
+        var data: [VolumeDatum] = []
+        for summary in weeklySummaries {
+            if summary.weightedVolume > 0 {
+                data.append(VolumeDatum(weekStart: summary.weekStart, series: .weighted, value: summary.weightedVolume))
+            }
+            if summary.repsVolume > 0 {
+                data.append(VolumeDatum(weekStart: summary.weekStart, series: .reps, value: Double(summary.repsVolume)))
+            }
+            if summary.durationMinutes > 0 {
+                data.append(VolumeDatum(weekStart: summary.weekStart, series: .duration, value: summary.durationMinutes))
+            }
+        }
         return data.sorted { $0.weekStart < $1.weekStart }
     }
 
-    private func nearestDay(to date: Date, in data: [DailyCount]) -> Date? {
+    private func nearestDay(to date: Date, in data: [TrendDailySummary]) -> Date? {
         guard !data.isEmpty else { return nil }
         let target = Calendar.current.startOfDay(for: date)
         return data.min(by: { abs($0.date.timeIntervalSince(target)) < abs($1.date.timeIntervalSince(target)) })?.date
     }
 
-    private func consistencyAccessibilityValue(for data: [DailyCount]) -> String {
+    private func nearestWeekStart(to date: Date, in data: [TrendWeeklySummary]) -> Date? {
+        guard !data.isEmpty else { return nil }
+        let target = TrendsDateHelper.startOfWeek(for: date)
+        return data.min(by: { abs($0.weekStart.timeIntervalSince(target)) < abs($1.weekStart.timeIntervalSince(target)) })?.weekStart
+    }
+
+    private func consistencyAccessibilityValue(for data: [TrendDailySummary]) -> String {
         guard !data.isEmpty else { return "No data" }
         let totalSets = data.reduce(0) { $0 + $1.count }
         let activeDays = data.filter { $0.count > 0 }.count
@@ -301,6 +449,29 @@ struct TrendsView: View {
         return "\(summary) across \(weekCount) weeks"
     }
 
+    private func entriesForDay(_ date: Date) -> [SetEntry] {
+        let target = Calendar.current.startOfDay(for: date)
+        return filteredEntries.filter { Calendar.current.isDate($0.performedAt, inSameDayAs: target) }
+    }
+
+    private func entriesForWeek(weekStart: Date) -> [SetEntry] {
+        let calendar = Calendar.current
+        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
+        return filteredEntries.filter { entry in
+            entry.performedAt >= weekStart && entry.performedAt < weekEnd
+        }
+    }
+
+    private func setsLabel(for count: Int) -> String {
+        count == 1 ? "1 set" : "\(count) sets"
+    }
+
+    private func clearSelections() {
+        selectedDay = nil
+        selectedWeekStart = nil
+        sheetDestination = nil
+    }
+
     private func prCardsAccessibilityLabel(
         bestWeightEntry: SetEntry?,
         bestReps: Int?,
@@ -320,13 +491,6 @@ struct TrendsView: View {
         let sessionsText = "Sessions \(sessionCount)"
         return [weightText, repsText, durationText, sessionsText].joined(separator: ", ")
     }
-}
-
-struct DailyCount: Identifiable {
-    let date: Date
-    let count: Int
-
-    var id: Date { date }
 }
 
 struct VolumeDatum: Identifiable {
@@ -354,13 +518,14 @@ enum VolumeSeries: String, CaseIterable {
     }
 
     func color(for scheme: ColorScheme) -> Color {
+        let base = Theme.secondaryTextColor(for: scheme)
         switch self {
         case .weighted:
-            return Color(white: scheme == .dark ? 0.75 : 0.5)
+            return base.opacity(scheme == .dark ? 0.9 : 0.7)
         case .reps:
-            return Color(white: scheme == .dark ? 0.65 : 0.4)
+            return base.opacity(scheme == .dark ? 0.75 : 0.55)
         case .duration:
-            return Color(white: scheme == .dark ? 0.85 : 0.55)
+            return base.opacity(scheme == .dark ? 0.6 : 0.45)
         }
     }
 }

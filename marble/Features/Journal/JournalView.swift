@@ -107,6 +107,7 @@ struct JournalView: View {
     private func delete(_ entry: SetEntry) {
         let snapshot = SetEntrySnapshot(entry: entry)
         modelContext.delete(entry)
+        try? modelContext.save()
         pendingUndo = snapshot
         toast = ToastData(message: "Set deleted", actionTitle: "Undo") {
             undoDelete()
@@ -116,6 +117,7 @@ struct JournalView: View {
     private func undoDelete() {
         guard let snapshot = pendingUndo else { return }
         snapshot.restore(in: modelContext)
+        try? modelContext.save()
         pendingUndo = nil
         toast = nil
     }
@@ -136,6 +138,7 @@ struct JournalView: View {
             updatedAt: now
         )
         modelContext.insert(duplicate)
+        try? modelContext.save()
     }
 }
 

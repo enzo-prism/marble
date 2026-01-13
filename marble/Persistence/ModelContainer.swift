@@ -7,7 +7,9 @@ enum PersistenceController {
             Exercise.self,
             SetEntry.self,
             SupplementType.self,
-            SupplementEntry.self
+            SupplementEntry.self,
+            SplitPlan.self,
+            SplitDay.self
         ])
 
         let configuration: ModelConfiguration

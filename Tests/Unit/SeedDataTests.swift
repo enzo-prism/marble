@@ -73,5 +73,18 @@ final class SeedDataTests: XCTestCase {
         XCTAssertTrue(names.contains("Creatine"))
         XCTAssertTrue(names.contains("Protein Powder"))
     }
-}
 
+    func testSeedSplitPlanCreatesWeek() throws {
+        let container = PersistenceController.makeContainer(useInMemory: true)
+        let context = ModelContext(container)
+
+        SeedData.seedSplitPlan(in: context)
+
+        let plans = try context.fetch(FetchDescriptor<SplitPlan>())
+        XCTAssertEqual(plans.count, 1)
+        let plan = try XCTUnwrap(plans.first)
+        XCTAssertEqual(plan.days.count, Weekday.allCases.count)
+        let weekdays = Set(plan.days.map { $0.weekday })
+        XCTAssertEqual(weekdays, Set(Weekday.allCases))
+    }
+}

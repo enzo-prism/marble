@@ -65,9 +65,6 @@ struct SetRowView: View {
                 .accessibilityHidden(true)
         }
         .background(Theme.backgroundColor(for: resolvedScheme))
-        .accessibilityElement(children: .ignore)
-        .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
-        .accessibilityLabel(accessibilitySummary)
     }
 
     private var summaryLine: String {

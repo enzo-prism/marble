@@ -84,19 +84,31 @@ struct MarbleChipLabel: View {
 
 struct MarbleActionButtonStyle: ButtonStyle {
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isEnabled) private var environmentEnabled
+    var isEnabledOverride: Bool? = nil
+    var expandsHorizontally: Bool = false
 
     func makeBody(configuration: Configuration) -> some View {
+        let isEnabled = isEnabledOverride ?? environmentEnabled
+        let textColor = Theme.primaryTextColor(for: colorScheme)
+        let borderColor = isEnabled ? Theme.dividerColor(for: colorScheme) : Theme.secondaryTextColor(for: colorScheme)
+        let isPressed = isEnabled && configuration.isPressed
+        let backgroundColor = Theme.chipFillColor(for: colorScheme)
+
         configuration.label
             .font(MarbleTypography.button)
-            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            .foregroundStyle(textColor)
             .padding(.horizontal, MarbleSpacing.m)
             .padding(.vertical, MarbleSpacing.xs)
-            .frame(minHeight: 44)
+            .frame(maxWidth: expandsHorizontally ? .infinity : nil, minHeight: 44)
             .background(
                 RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                    .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
+                    .fill(backgroundColor)
             )
-            .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1.0) : 0.5)
+            .overlay(
+                RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
+                    .stroke(borderColor, lineWidth: 1)
+            )
+            .opacity(isEnabled ? (isPressed ? 0.85 : 1.0) : 0.5)
     }
 }

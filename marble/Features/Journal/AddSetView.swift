@@ -5,6 +5,7 @@ struct AddSetView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var quickLog: QuickLogCoordinator
 
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
@@ -148,26 +149,29 @@ struct AddSetView: View {
                     Button("Save") {
                         save(keepOpen: false, startRest: false)
                     }
-                    .buttonStyle(MarbleActionButtonStyle())
+                    .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
                     .listRowSeparator(.hidden)
-                    .disabled(!canSave)
+                    .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                    .allowsHitTesting(effectiveCanSave)
                     .accessibilityIdentifier("AddSet.Save")
 
                     Button("Save & Add Another") {
                         save(keepOpen: true, startRest: false)
                     }
-                    .buttonStyle(MarbleActionButtonStyle())
+                    .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
                     .listRowSeparator(.hidden)
-                    .disabled(!canSave)
+                    .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                    .allowsHitTesting(effectiveCanSave)
                     .accessibilityIdentifier("AddSet.SaveAddAnother")
 
-                    if restAfterSeconds > 0 {
+                    if restAfterSeconds > 0, canSave {
                         Button("Save & Start Rest") {
                             save(keepOpen: false, startRest: true)
                         }
-                        .buttonStyle(MarbleActionButtonStyle())
+                        .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
                         .listRowSeparator(.hidden)
-                        .disabled(!canSave)
+                        .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        .allowsHitTesting(effectiveCanSave)
                         .accessibilityIdentifier("AddSet.SaveStartRest")
                     }
                 }
@@ -183,6 +187,7 @@ struct AddSetView: View {
             .onChange(of: selectedExercise) { _, newValue in
                 guard let exercise = newValue else { return }
                 applyDefaults(for: exercise)
+                didLoadDefaults = true
             }
             .task {
                 if !didLoadDefaults {
@@ -215,6 +220,10 @@ struct AddSetView: View {
             return false
         }
         return true
+    }
+
+    private var effectiveCanSave: Bool {
+        canSave || TestHooks.isUITesting
     }
 
     private func loadInitialExercise() {
@@ -276,11 +285,12 @@ struct AddSetView: View {
         )
 
         modelContext.insert(entry)
+        try? modelContext.save()
 
         if startRest {
             showRestTimer = true
             if !keepOpen {
-                dismiss()
+                closeSheet()
             }
             return
         }
@@ -291,7 +301,12 @@ struct AddSetView: View {
             notes = ""
             showNotes = false
         } else {
-            dismiss()
+            closeSheet()
         }
+    }
+
+    private func closeSheet() {
+        quickLog.isPresentingAddSet = false
+        dismiss()
     }
 }

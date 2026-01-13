@@ -6,12 +6,14 @@ enum TestFixtures {
         clear(context)
         SeedData.seedExercises(in: context)
         SeedData.seedSupplements(in: context)
+        seedSplit(in: context, now: now, populated: false)
     }
 
     static func seed(in context: ModelContext, now: Date) {
         clear(context)
         SeedData.seedExercises(in: context)
         SeedData.seedSupplements(in: context)
+        seedSplit(in: context, now: now, populated: true)
 
         let longNameExercise = Exercise(
             name: "Single Arm Dumbbell Bulgarian Split Squat (Paused)",
@@ -173,10 +175,38 @@ enum TestFixtures {
         let supplements = (try? context.fetch(FetchDescriptor<SupplementEntry>())) ?? []
         let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
         let supplementTypes = (try? context.fetch(FetchDescriptor<SupplementType>())) ?? []
+        let splitPlans = (try? context.fetch(FetchDescriptor<SplitPlan>())) ?? []
+        let splitDays = (try? context.fetch(FetchDescriptor<SplitDay>())) ?? []
 
         sets.forEach { context.delete($0) }
         supplements.forEach { context.delete($0) }
         exercises.forEach { context.delete($0) }
         supplementTypes.forEach { context.delete($0) }
+        splitDays.forEach { context.delete($0) }
+        splitPlans.forEach { context.delete($0) }
+    }
+
+    private static func seedSplit(in context: ModelContext, now: Date, populated: Bool) {
+        let plan = SplitPlan(name: "Current Split", isActive: true, createdAt: now, updatedAt: now)
+        let titles: [String] = populated
+            ? ["Push", "Pull", "Legs", "Rest", "Upper", "Lower", "Mobility"]
+            : Array(repeating: "", count: Weekday.allCases.count)
+        let notes: [String?] = populated
+            ? ["Chest + triceps", "Back + biceps", "Quads + glutes", "Recovery day", "Strength focus", "Deadlift focus", "Stretch + core"]
+            : Array(repeating: nil, count: Weekday.allCases.count)
+
+        let days = Weekday.allCases.enumerated().map { index, weekday in
+            SplitDay(
+                weekday: weekday,
+                title: titles[index],
+                notes: notes[index],
+                order: index,
+                createdAt: now,
+                updatedAt: now,
+                plan: plan
+            )
+        }
+        plan.days = days
+        context.insert(plan)
     }
 }

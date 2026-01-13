@@ -33,6 +33,10 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         navigateToTab(.calendar)
         try runAudit(name: "Calendar_Month_\(appearance.envValue)_\(sizeLabel)")
 
+        navigateToTab(.split)
+        waitForIdentifier("Split.List")
+        try runAudit(name: "Split_Populated_\(appearance.envValue)_\(sizeLabel)")
+
         navigateToTab(.supplements)
         try runAudit(name: "Supplements_Populated_\(appearance.envValue)_\(sizeLabel)")
 
@@ -90,6 +94,10 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
 
         navigateToTab(.calendar)
         try runAudit(name: "Calendar_Month_Empty_\(appearance.envValue)_\(sizeLabel)")
+
+        navigateToTab(.split)
+        waitForIdentifier("Split.List")
+        try runAudit(name: "Split_Empty_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.supplements)
         waitForIdentifier("Supplements.EmptyState")
@@ -183,7 +191,8 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             "Journal.List",
             "Calendar.DaySheet.List",
             "Supplements.List",
-            "AddSet.List"
+            "AddSet.List",
+            "Split.List"
         ]
         if element.frame == .zero || element.elementType == .any {
             return true

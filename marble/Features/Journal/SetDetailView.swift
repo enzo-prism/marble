@@ -106,6 +106,7 @@ struct SetDetailView: View {
 
                 Button("Delete", role: .destructive) {
                     modelContext.delete(entry)
+                    try? modelContext.save()
                     dismiss()
                 }
                 .accessibilityIdentifier("SetDetail.Delete")
@@ -132,6 +133,7 @@ struct SetDetailView: View {
         }
         .onDisappear {
             entry.updatedAt = AppEnvironment.now
+            try? modelContext.save()
         }
     }
 
@@ -190,5 +192,6 @@ struct SetDetailView: View {
             updatedAt: now
         )
         modelContext.insert(duplicate)
+        try? modelContext.save()
     }
 }

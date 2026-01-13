@@ -15,22 +15,24 @@ enum SeedData {
             return
         }
         let defaults = UserDefaults.standard
-        if defaults.bool(forKey: didSeedKey) {
-            return
+        let didSeed = defaults.bool(forKey: didSeedKey)
+
+        if !didSeed {
+            let exerciseCount = (try? context.fetchCount(FetchDescriptor<Exercise>())) ?? 0
+            let supplementCount = (try? context.fetchCount(FetchDescriptor<SupplementType>())) ?? 0
+
+            if exerciseCount == 0 {
+                seedExercises(in: context)
+            }
+
+            if supplementCount == 0 {
+                seedSupplements(in: context)
+            }
+
+            defaults.set(true, forKey: didSeedKey)
         }
 
-        let exerciseCount = (try? context.fetchCount(FetchDescriptor<Exercise>())) ?? 0
-        let supplementCount = (try? context.fetchCount(FetchDescriptor<SupplementType>())) ?? 0
-
-        if exerciseCount == 0 {
-            seedExercises(in: context)
-        }
-
-        if supplementCount == 0 {
-            seedSupplements(in: context)
-        }
-
-        defaults.set(true, forKey: didSeedKey)
+        ensureSplitPlan(in: context)
     }
 
     static func seedExercises(in context: ModelContext) {
@@ -51,6 +53,31 @@ enum SeedData {
             SupplementType(name: "Protein Powder", defaultDose: 1, unit: .scoop, isFavorite: true)
         ]
         types.forEach { context.insert($0) }
+    }
+
+    static func ensureSplitPlan(in context: ModelContext) {
+        let planCount = (try? context.fetchCount(FetchDescriptor<SplitPlan>())) ?? 0
+        if planCount == 0 {
+            seedSplitPlan(in: context)
+        }
+    }
+
+    static func seedSplitPlan(in context: ModelContext) {
+        let now = AppEnvironment.now
+        let plan = SplitPlan(name: "Current Split", isActive: true, createdAt: now, updatedAt: now)
+        let days = Weekday.allCases.enumerated().map { index, weekday in
+            SplitDay(
+                weekday: weekday,
+                title: "",
+                notes: nil,
+                order: index,
+                createdAt: now,
+                updatedAt: now,
+                plan: plan
+            )
+        }
+        plan.days = days
+        context.insert(plan)
     }
 
     static func seedExerciseRows() -> [SeedExercise] {

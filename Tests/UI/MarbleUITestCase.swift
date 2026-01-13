@@ -18,6 +18,7 @@ enum MarbleAppearance {
 enum MarbleTab: String {
     case journal = "Journal"
     case calendar = "Calendar"
+    case split = "Split"
     case supplements = "Supplements"
     case trends = "Trends"
 
@@ -107,6 +108,14 @@ class MarbleUITestCase: XCTestCase {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), file: file, line: line)
     }
 
+    func waitForDisappearance(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {
+        let start = Date()
+        while element.exists && Date().timeIntervalSince(start) < timeout {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        XCTAssertFalse(element.exists, file: file, line: line)
+    }
+
     @discardableResult
     func waitForIdentifier(_ identifier: String, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) -> XCUIElement {
         let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
@@ -116,7 +125,15 @@ class MarbleUITestCase: XCTestCase {
 
     func setRows(in list: XCUIElement) -> XCUIElementQuery {
         let predicate = NSPredicate(format: "identifier BEGINSWITH %@", "SetRow.")
-        return list.descendants(matching: .any).matching(predicate)
+        let scoped = list.descendants(matching: .any).matching(predicate)
+        if scoped.count > 0 {
+            return scoped
+        }
+        let cells = list.cells
+        if cells.count > 0 {
+            return cells
+        }
+        return app.descendants(matching: .any).matching(predicate)
     }
 
     func supplementRow(named name: String, in list: XCUIElement) -> XCUIElement {

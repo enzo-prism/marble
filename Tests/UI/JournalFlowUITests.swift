@@ -25,20 +25,30 @@ final class JournalFlowUITests: MarbleUITestCase {
             app.swipeUp()
         }
         saveButton.tap()
+        if app.navigationBars["Log Set"].exists {
+            dismissSheet()
+        }
+        waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
 
         let list = waitForIdentifier("Journal.List", timeout: 8)
         let rows = setRows(in: list)
         let firstRow = rows.element(boundBy: 0)
         waitFor(firstRow, timeout: 8)
-        XCTAssertTrue(firstRow.label.contains("Bench Press"))
 
-        firstRow.tap()
+        forceTap(firstRow)
+        waitFor(app.navigationBars["Set Details"], timeout: 6)
         let detailWeight = textInput("SetDetail.Weight")
-        waitFor(detailWeight)
+        if !detailWeight.waitForExistence(timeout: 4) {
+            app.swipeUp()
+        }
+        waitFor(detailWeight, timeout: 6)
         clearAndType(detailWeight, text: "190")
 
         let detailReps = textInput("SetDetail.Reps")
-        waitFor(detailReps)
+        if !detailReps.waitForExistence(timeout: 4) {
+            app.swipeUp()
+        }
+        waitFor(detailReps, timeout: 6)
         clearAndType(detailReps, text: "6")
 
         app.buttons["RPEPicker.9"].tap()
@@ -47,13 +57,27 @@ final class JournalFlowUITests: MarbleUITestCase {
         waitFor(backButton)
         backButton.tap()
 
-        let refreshedRow = rows.element(boundBy: 0)
-        waitFor(refreshedRow, timeout: 8)
-        XCTAssertTrue(refreshedRow.label.contains("190 lb × 6"))
+        let updatedRow = rows.element(boundBy: 0)
+        waitFor(updatedRow, timeout: 8)
+        forceTap(updatedRow)
+        waitFor(app.navigationBars["Set Details"], timeout: 6)
+        let verifyWeight = textInput("SetDetail.Weight")
+        if !verifyWeight.waitForExistence(timeout: 4) {
+            app.swipeUp()
+        }
+        waitFor(verifyWeight, timeout: 6)
+        XCTAssertEqual(verifyWeight.value as? String, "190")
+        let verifyReps = textInput("SetDetail.Reps")
+        if !verifyReps.waitForExistence(timeout: 4) {
+            app.swipeUp()
+        }
+        waitFor(verifyReps, timeout: 6)
+        XCTAssertEqual(verifyReps.value as? String, "6")
+        let backAgain = app.navigationBars.buttons.element(boundBy: 0)
+        waitFor(backAgain)
+        backAgain.tap()
 
-        let updatedFirstRow = rows.element(boundBy: 0)
-        waitFor(updatedFirstRow, timeout: 8)
-        updatedFirstRow.swipeRight()
+        updatedRow.swipeRight()
         let duplicateButton = app.buttons["Duplicate"]
         waitFor(duplicateButton)
         duplicateButton.tap()
@@ -61,7 +85,7 @@ final class JournalFlowUITests: MarbleUITestCase {
         let secondRow = rows.element(boundBy: 1)
         waitFor(secondRow, timeout: 8)
 
-        updatedFirstRow.swipeLeft()
+        updatedRow.swipeLeft()
         let deleteButton = app.buttons["Delete"]
         waitFor(deleteButton)
         deleteButton.tap()

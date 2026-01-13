@@ -24,6 +24,13 @@ struct ContentView: View {
                 }
                 .tag(AppTab.calendar)
 
+            SplitView()
+                .tabItem {
+                    Label("Split", systemImage: "list.bullet.clipboard")
+                        .accessibilityIdentifier("Tab.Split")
+                }
+                .tag(AppTab.split)
+
             SupplementsView()
                 .tabItem {
                     Label("Supplements", systemImage: "pills")
@@ -50,6 +57,7 @@ struct ContentView: View {
         }
         .sheet(isPresented: $quickLog.isPresentingAddSet) {
             AddSetView(initialPerformedAt: quickLog.prefillDate)
+                .modelContext(modelContext)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()

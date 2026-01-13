@@ -55,4 +55,3 @@ enum SnapshotFixtures {
         context.insert(entry)
     }
 }
-
