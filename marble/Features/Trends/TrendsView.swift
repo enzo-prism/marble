@@ -61,6 +61,11 @@ struct TrendsView: View {
             .navigationTitle("Trends")
             .navigationBarTitleDisplayMode(.large)
             .navigationBarGlassBackground()
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AddSetToolbarButton()
+                }
+            }
         }
     }
 

@@ -68,13 +68,15 @@ struct SupplementsView: View {
             .navigationBarTitleDisplayMode(.large)
             .navigationBarGlassBackground()
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
                     NavigationLink {
                         SupplementTypeManagerView()
                     } label: {
                         Image(systemName: "slider.horizontal.3")
                     }
                     .accessibilityIdentifier("Supplements.ManageTypes")
+
+                    AddSetToolbarButton()
                 }
             }
             .overlay(alignment: .bottom) {

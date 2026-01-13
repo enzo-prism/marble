@@ -38,6 +38,11 @@ struct CalendarView: View {
             .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.large)
             .navigationBarGlassBackground()
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AddSetToolbarButton()
+                }
+            }
             .onAppear {
                 ensureTestDaySheetVisible()
             }

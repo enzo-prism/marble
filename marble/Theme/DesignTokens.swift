@@ -24,9 +24,7 @@ enum MarbleLayout {
     static let rowSpacing: CGFloat = MarbleSpacing.m
     static let rowInnerSpacing: CGFloat = MarbleSpacing.xxs
     static let chipMinHeight: CGFloat = 36
-    static let quickLogMinWidth: CGFloat = 88
-    static let quickLogMinHeight: CGFloat = 68
-    static let quickLogHintMaxWidth: CGFloat = 110
+    static let quickLogCircleSize: CGFloat = 52
 }
 
 enum MarbleTypography {

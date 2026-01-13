@@ -95,7 +95,7 @@ struct GlassTileBackground: View {
     }
 }
 
-private struct NavigationBarGlassBackgroundModifier: ViewModifier {
+struct GlassCircleBackground: View {
     @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
     @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
     @Environment(\.colorScheme) private var colorScheme
@@ -104,13 +104,37 @@ private struct NavigationBarGlassBackgroundModifier: ViewModifier {
         reduceTransparencyOverride ?? systemReduceTransparency
     }
 
-    func body(content: Content) -> some View {
-        let base = content.toolbarBackground(.visible, for: .navigationBar)
+    var body: some View {
+        let shape = Circle()
         if reduceTransparency {
-            base.toolbarBackground(Theme.backgroundColor(for: colorScheme), for: .navigationBar)
+            shape
+                .fill(Theme.backgroundColor(for: colorScheme))
+                .overlay(
+                    shape
+                        .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
+                )
+        } else if #available(iOS 26.0, *) {
+            shape
+                .fill(.clear)
+                .glassEffect()
         } else {
-            base.toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+            shape
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    shape
+                        .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 0.5)
+                )
         }
+    }
+}
+
+private struct NavigationBarGlassBackgroundModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Theme.backgroundColor(for: colorScheme), for: .navigationBar)
     }
 }
 

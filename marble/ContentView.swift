@@ -8,9 +8,6 @@ struct ContentView: View {
     @StateObject private var quickLog = QuickLogCoordinator()
     @StateObject private var tabSelection = TabSelection()
 
-    @Query(sort: \SetEntry.performedAt, order: .reverse)
-    private var recentSets: [SetEntry]
-
     var body: some View {
         TabView(selection: $tabSelection.selected) {
             JournalView()
@@ -43,7 +40,6 @@ struct ContentView: View {
         }
         .environmentObject(tabSelection)
         .environmentObject(quickLog)
-        .quickLogAccessory(isPresented: $quickLog.isPresentingAddSet, hint: quickLogHint)
         .tabBarGlassBackground()
         .tint(Theme.primaryTextColor(for: colorScheme))
         .onAppear {
@@ -66,10 +62,6 @@ struct ContentView: View {
                 tabSelection.selected = .calendar
             }
         }
-    }
-
-    private var quickLogHint: String? {
-        recentSets.first?.exercise.name
     }
 }
 

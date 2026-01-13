@@ -72,6 +72,11 @@ struct JournalView: View {
             .navigationTitle("Journal")
             .navigationBarTitleDisplayMode(.large)
             .navigationBarGlassBackground()
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AddSetToolbarButton()
+                }
+            }
             .overlay(alignment: .bottom) {
                 if let toast {
                     ToastView(
