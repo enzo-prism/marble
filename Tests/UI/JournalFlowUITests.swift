@@ -12,12 +12,9 @@ final class JournalFlowUITests: MarbleUITestCase {
         waitFor(weightField)
         clearAndType(weightField, text: "185")
 
-        let repsField = textInput("AddSet.Reps")
-        waitFor(repsField)
-        clearAndType(repsField, text: "5")
+        setSliderValue("AddSet.Reps", value: 5, range: 1...20)
 
         app.buttons["RPEPicker.9"].tap()
-        app.buttons["RestPicker.90"].tap()
 
         let saveButton = app.buttons["AddSet.Save"]
         waitFor(saveButton)
@@ -30,7 +27,7 @@ final class JournalFlowUITests: MarbleUITestCase {
         }
         waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
 
-        let list = waitForIdentifier("Journal.List", timeout: 8)
+        _ = waitForIdentifier("Journal.List", timeout: 8)
         let openLatest = app.buttons["Journal.TestOpenLatest"]
         waitFor(openLatest, timeout: 8)
 
@@ -119,12 +116,9 @@ final class JournalFlowUITests: MarbleUITestCase {
         waitFor(weightField)
         clearAndType(weightField, text: "185")
 
-        let repsField = textInput("AddSet.Reps")
-        waitFor(repsField)
-        clearAndType(repsField, text: "5")
+        setSliderValue("AddSet.Reps", value: 5, range: 1...20)
 
         app.buttons["RPEPicker.8"].tap()
-        app.buttons["RestPicker.90"].tap()
 
         let saveStartRest = app.buttons["AddSet.SaveStartRest"]
         var attempts = 0

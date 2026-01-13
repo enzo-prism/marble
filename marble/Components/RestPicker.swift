@@ -29,29 +29,13 @@ struct RestPicker: View {
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("RestPicker.\(seconds)")
                     }
-
-                    Button {
-                        restSeconds = max(restSeconds, 0)
-                    } label: {
-                        MarbleChipLabel(
-                            title: "Custom",
-                            isSelected: !presets.contains(restSeconds),
-                            isDisabled: false,
-                            isExpanded: false
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("RestPicker.Custom")
                 }
             }
 
-            Stepper(value: $restSeconds, in: 0...600, step: 15) {
-                Text("\(DateHelper.formattedDuration(seconds: restSeconds))")
-                    .font(MarbleTypography.rowSubtitle)
-                    .monospacedDigit()
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-            }
-            .accessibilityIdentifier("RestPicker.Stepper")
+            Text("\(DateHelper.formattedDuration(seconds: restSeconds))")
+                .font(MarbleTypography.rowSubtitle)
+                .monospacedDigit()
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
     }
 

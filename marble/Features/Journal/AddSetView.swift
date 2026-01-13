@@ -25,6 +25,8 @@ struct AddSetView: View {
     @State private var didInitialize = false
     @State private var showSaveError = false
     @State private var showMissingExercise = false
+    private let repsRange: ClosedRange<Int> = 1...20
+    private let defaultRepsValue: Int = 10
 
     init(initialPerformedAt: Date = AppEnvironment.now, initialExercise: Exercise? = nil, isPresented: Binding<Bool> = .constant(true)) {
         _performedAt = State(initialValue: initialPerformedAt)
@@ -49,6 +51,7 @@ struct AddSetView: View {
                                 .font(MarbleTypography.rowSubtitle)
                                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         }
+                        .padding(.vertical, MarbleSpacing.s)
                     }
                     .accessibilityIdentifier("AddSet.ExercisePicker")
                 }
@@ -59,6 +62,7 @@ struct AddSetView: View {
                             if exercise.metrics.weight == .optional {
                                 Toggle("Added load", isOn: $addedLoad)
                                     .tint(Theme.dividerColor(for: colorScheme))
+                                    .padding(.vertical, MarbleSpacing.s)
                                     .accessibilityIdentifier("AddSet.AddedLoad")
                             }
 
@@ -74,11 +78,30 @@ struct AddSetView: View {
                                     .tint(Theme.dividerColor(for: colorScheme))
                                     .accessibilityIdentifier("AddSet.WeightUnit")
                                 }
+                                .padding(.vertical, MarbleSpacing.s)
                             }
                         }
 
                         if exercise.metrics.usesReps {
-                            OptionalIntegerField(title: "Reps", value: $reps, accessibilityIdentifier: "AddSet.Reps")
+                            VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                                HStack {
+                                    Text("Reps")
+                                        .font(MarbleTypography.rowTitle)
+                                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                                    Spacer()
+                                    Text("\(repsDisplayValue)")
+                                        .font(MarbleTypography.rowSubtitle)
+                                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                        .monospacedDigit()
+                                }
+
+                                Slider(value: repsSliderValue, in: Double(repsRange.lowerBound)...Double(repsRange.upperBound), step: 1)
+                                    .tint(Theme.dividerColor(for: colorScheme))
+                                    .accessibilityIdentifier("AddSet.Reps")
+                                    .accessibilityLabel("Reps")
+                                    .accessibilityValue("\(repsDisplayValue) reps")
+                            }
+                            .padding(.vertical, MarbleSpacing.s)
                         }
 
                         if exercise.metrics.usesDuration {
@@ -89,6 +112,7 @@ struct AddSetView: View {
                                 DurationPicker(durationSeconds: $durationSeconds)
                                     .accessibilityIdentifier("AddSet.Duration")
                             }
+                            .padding(.vertical, MarbleSpacing.s)
                         }
                     } header: {
                         SectionHeaderView(title: "Metrics")
@@ -98,12 +122,14 @@ struct AddSetView: View {
                         RPEPicker(value: $difficulty)
                             .listRowBackground(Theme.backgroundColor(for: colorScheme))
                             .accessibilityIdentifier("AddSet.RPE")
+                            .padding(.vertical, MarbleSpacing.s)
                     }
 
                     Section {
                         RestPicker(restSeconds: $restAfterSeconds)
                             .listRowBackground(Theme.backgroundColor(for: colorScheme))
                             .accessibilityIdentifier("AddSet.RestPicker")
+                            .padding(.vertical, MarbleSpacing.s)
                     }
 
                     Section {
@@ -111,6 +137,7 @@ struct AddSetView: View {
                             .tint(Theme.dividerColor(for: colorScheme))
                             .accessibilityIdentifier("AddSet.PerformedAt")
                             .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                            .padding(.vertical, MarbleSpacing.s)
                         HStack {
                             Text("Now")
                                 .font(MarbleTypography.rowSubtitle)
@@ -128,6 +155,7 @@ struct AddSetView: View {
                             performedAt = AppEnvironment.now
                         }
                         .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        .padding(.vertical, MarbleSpacing.s)
                     }
 
                     Section {
@@ -135,6 +163,7 @@ struct AddSetView: View {
                             TextField("Notes", text: $notes, axis: .vertical)
                                 .marbleFieldStyle()
                                 .accessibilityIdentifier("AddSet.Notes")
+                                .padding(.vertical, MarbleSpacing.s)
                         } else {
                             Button("Add note") {
                                 showNotes = true
@@ -142,6 +171,7 @@ struct AddSetView: View {
                             .font(MarbleTypography.rowSubtitle)
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                             .accessibilityIdentifier("AddSet.AddNote")
+                            .padding(.vertical, MarbleSpacing.s)
                         }
                     }
                 }
@@ -229,6 +259,19 @@ struct AddSetView: View {
         return canSave || TestHooks.isUITesting
     }
 
+    private var repsDisplayValue: Int {
+        clampReps(reps ?? defaultRepsValue)
+    }
+
+    private var repsSliderValue: Binding<Double> {
+        Binding(
+            get: { Double(repsDisplayValue) },
+            set: { newValue in
+                reps = clampReps(Int(newValue.rounded()))
+            }
+        )
+    }
+
     private var saveButtons: some View {
         VStack(spacing: MarbleSpacing.s) {
             Button("Save") {
@@ -278,7 +321,11 @@ struct AddSetView: View {
         if let lastEntry {
             weight = lastEntry.weight
             weightUnit = lastEntry.weightUnit
-            reps = lastEntry.reps
+            if exercise.metrics.usesReps {
+                reps = lastEntry.reps.map { clampReps($0) } ?? defaultRepsValue
+            } else {
+                reps = nil
+            }
             durationSeconds = lastEntry.durationSeconds
             difficulty = lastEntry.difficulty
             restAfterSeconds = lastEntry.restAfterSeconds
@@ -286,7 +333,7 @@ struct AddSetView: View {
             return
         }
         weight = nil
-        reps = nil
+        reps = exercise.metrics.usesReps ? defaultRepsValue : nil
         durationSeconds = exercise.metrics.usesDuration ? 60 : nil
         difficulty = 8
         restAfterSeconds = exercise.defaultRestSeconds
@@ -367,6 +414,10 @@ struct AddSetView: View {
 
     private func dismissKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func clampReps(_ value: Int) -> Int {
+        min(max(value, repsRange.lowerBound), repsRange.upperBound)
     }
 }
 

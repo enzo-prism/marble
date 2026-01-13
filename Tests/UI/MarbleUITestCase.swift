@@ -164,6 +164,16 @@ class MarbleUITestCase: XCTestCase {
         element.typeText(text)
     }
 
+    func setSliderValue(_ identifier: String, value: Double, range: ClosedRange<Double>, file: StaticString = #file, line: UInt = #line) {
+        let slider = app.sliders[identifier]
+        XCTAssertTrue(slider.waitForExistence(timeout: 5), file: file, line: line)
+        if !slider.isHittable {
+            app.swipeUp()
+        }
+        let normalized = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+        slider.adjust(toNormalizedSliderPosition: min(max(normalized, 0), 1))
+    }
+
     func textInput(_ identifier: String) -> XCUIElement {
         let field = app.textFields[identifier]
         if field.exists {
