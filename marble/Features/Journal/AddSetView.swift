@@ -232,22 +232,15 @@ struct AddSetView: View {
     private var saveButtons: some View {
         VStack(spacing: MarbleSpacing.s) {
             Button("Save") {
-                save(keepOpen: false, startRest: false)
+                save(startRest: false)
             }
             .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
             .allowsHitTesting(effectiveCanSave)
             .accessibilityIdentifier("AddSet.Save")
 
-            Button("Save & Add Another") {
-                save(keepOpen: true, startRest: false)
-            }
-            .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
-            .allowsHitTesting(effectiveCanSave)
-            .accessibilityIdentifier("AddSet.SaveAddAnother")
-
             if restAfterSeconds > 0, canSave {
                 Button("Save & Start Rest") {
-                    save(keepOpen: false, startRest: true)
+                    save(startRest: true)
                 }
                 .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
                 .allowsHitTesting(effectiveCanSave)
@@ -300,7 +293,7 @@ struct AddSetView: View {
         addedLoad = false
     }
 
-    private func save(keepOpen: Bool, startRest: Bool) {
+    private func save(startRest: Bool) {
         dismissKeyboard()
         guard let selectedExerciseID else {
             showMissingExercise = selectedExerciseSnapshot != nil
@@ -355,11 +348,7 @@ struct AddSetView: View {
             return
         }
 
-        if keepOpen {
-            resetForm(for: snapshot, lastEntry: entry)
-        } else {
-            closeSheet()
-        }
+        closeSheet()
     }
 
     private func resetForm(for exercise: ExerciseSnapshot, lastEntry: SetEntry?) {

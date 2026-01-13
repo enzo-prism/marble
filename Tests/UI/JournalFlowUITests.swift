@@ -98,11 +98,13 @@ final class JournalFlowUITests: MarbleUITestCase {
         waitFor(deleteButton)
         deleteButton.tap()
 
-        let toast = waitForIdentifier("Toast", timeout: 5)
+        _ = waitForIdentifier("Toast", timeout: 5)
         let undoButton = app.buttons["Undo"]
         if undoButton.exists {
             undoButton.tap()
-            waitFor(app.tables.cells.element(boundBy: 1))
+            let listAfterUndo = waitForIdentifier("Journal.List", timeout: 8)
+            let rowsAfterUndo = setRows(in: listAfterUndo)
+            XCTAssertTrue(rowsAfterUndo.element(boundBy: 1).waitForExistence(timeout: 6))
         }
     }
 
@@ -141,58 +143,6 @@ final class JournalFlowUITests: MarbleUITestCase {
         restDone.tap()
 
         dismissSheet()
-        waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
-
-        let list = waitForIdentifier("Journal.List", timeout: 8)
-        let rows = setRows(in: list)
-        XCTAssertTrue(rows.element(boundBy: 0).exists)
-    }
-
-    func testSaveAddAnotherDoesNotCrash() {
-        launchApp(fixtureMode: "empty")
-        navigateToTab(.journal)
-
-        openAddSet()
-        selectExercise(identifier: "BenchPress")
-
-        let weightField = textInput("AddSet.Weight")
-        waitFor(weightField)
-        clearAndType(weightField, text: "135")
-
-        let repsField = textInput("AddSet.Reps")
-        waitFor(repsField)
-        clearAndType(repsField, text: "8")
-
-        app.buttons["RPEPicker.8"].tap()
-        app.buttons["RestPicker.60"].tap()
-
-        let saveAddAnother = app.buttons["AddSet.SaveAddAnother"]
-        waitFor(saveAddAnother)
-        if !saveAddAnother.isHittable {
-            app.swipeUp()
-        }
-        saveAddAnother.tap()
-
-        waitFor(app.navigationBars["Log Set"])
-        let saveButton = app.buttons["AddSet.Save"]
-        waitFor(saveButton)
-        if !saveButton.isHittable {
-            app.swipeUp()
-        }
-        saveButton.tap()
-
-        let missingExerciseAlert = app.alerts["Exercise Removed"]
-        if missingExerciseAlert.waitForExistence(timeout: 1) {
-            takeScreenshot("AddSet_MissingExercise")
-            XCTFail("Exercise removed alert appeared after save.")
-        }
-
-        let saveErrorAlert = app.alerts["Unable to Save"]
-        if saveErrorAlert.waitForExistence(timeout: 1) {
-            takeScreenshot("AddSet_SaveError")
-            XCTFail("Save error alert appeared after save.")
-        }
-
         waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
 
         let list = waitForIdentifier("Journal.List", timeout: 8)
