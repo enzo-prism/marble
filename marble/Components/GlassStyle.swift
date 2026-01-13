@@ -62,6 +62,39 @@ struct GlassPillBackground: View {
     }
 }
 
+struct GlassTileBackground: View {
+    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
+    @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var reduceTransparency: Bool {
+        reduceTransparencyOverride ?? systemReduceTransparency
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous)
+        if reduceTransparency {
+            shape
+                .fill(Theme.backgroundColor(for: colorScheme))
+                .overlay(
+                    shape
+                        .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
+                )
+        } else if #available(iOS 26.0, *) {
+            shape
+                .fill(.clear)
+                .glassEffect()
+        } else {
+            shape
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    shape
+                        .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 0.5)
+                )
+        }
+    }
+}
+
 private struct NavigationBarGlassBackgroundModifier: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
     @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride

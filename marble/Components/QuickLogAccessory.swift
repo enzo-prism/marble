@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct QuickLogPill: View {
+struct QuickLogTile: View {
     let hint: String?
     let action: () -> Void
 
@@ -16,30 +16,34 @@ struct QuickLogPill: View {
         if #available(iOS 26.0, *), !reduceTransparency {
             buttonContent
                 .buttonStyle(.glass)
-                .contentShape(Capsule(style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous))
         } else {
             buttonContent
                 .buttonStyle(.plain)
-                .background(GlassPillBackground())
+                .background(GlassTileBackground())
         }
     }
 
     private var buttonContent: some View {
         Button(action: action) {
-            HStack(spacing: MarbleSpacing.xs) {
+            VStack(spacing: MarbleSpacing.xxxs) {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 22, weight: .semibold))
                 Text("Log Set")
-                    .font(MarbleTypography.button)
+                    .font(MarbleTypography.sectionTitle)
                 if let hint {
                     Text(hint)
-                        .font(MarbleTypography.rowSubtitle)
+                        .font(MarbleTypography.smallLabel)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: MarbleLayout.quickLogHintMaxWidth)
                 }
             }
-            .padding(.horizontal, MarbleSpacing.m)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, MarbleSpacing.s)
             .padding(.vertical, MarbleSpacing.s)
+            .frame(minWidth: MarbleLayout.quickLogMinWidth, minHeight: MarbleLayout.quickLogMinHeight)
         }
         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
         .accessibilityIdentifier("QuickLog.Button")
@@ -57,32 +61,44 @@ struct QuickLogAccessoryModifier: ViewModifier {
             if TestHooks.isUITesting {
                 content
                     .tabViewBottomAccessory {
-                        GlassEffectContainer {
-                            QuickLogPill(hint: hint) {
-                                isPresented = true
+                        HStack {
+                            Spacer(minLength: 0)
+                            GlassEffectContainer {
+                                QuickLogTile(hint: hint) {
+                                    isPresented = true
+                                }
                             }
-                            .padding(.vertical, MarbleSpacing.xxs)
+                            Spacer(minLength: 0)
                         }
+                        .padding(.vertical, MarbleSpacing.xxs)
                     }
             } else {
                 content
                     .tabViewBottomAccessory {
-                        GlassEffectContainer {
-                            QuickLogPill(hint: hint) {
-                                isPresented = true
+                        HStack {
+                            Spacer(minLength: 0)
+                            GlassEffectContainer {
+                                QuickLogTile(hint: hint) {
+                                    isPresented = true
+                                }
                             }
-                            .padding(.vertical, MarbleSpacing.xxs)
+                            Spacer(minLength: 0)
                         }
+                        .padding(.vertical, MarbleSpacing.xxs)
                     }
                     .tabBarMinimizeBehavior(.onScrollDown)
             }
         } else {
             content
                 .safeAreaInset(edge: .bottom) {
-                    QuickLogPill(hint: hint) {
-                        isPresented = true
+                    HStack {
+                        Spacer(minLength: 0)
+                        QuickLogTile(hint: hint) {
+                            isPresented = true
+                        }
+                        Spacer(minLength: 0)
                     }
-                    .padding(.bottom, 8)
+                    .padding(.bottom, MarbleSpacing.xs)
                 }
         }
     }
