@@ -36,10 +36,10 @@
 
 /* Begin PBXFileReference section */
 		1D50B9A33DB313DD2AF37454 /* MarbleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarbleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		A4A3A702FB2046FF990AE054 /* Tests/MarbleTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xctestplan; path = Tests/MarbleTests.xctestplan; sourceTree = "<group>"; };
-		C25C6D1EACFE4BE39F3E2D08 /* Tests/MarbleSnapshotRecord.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xctestplan; path = Tests/MarbleSnapshotRecord.xctestplan; sourceTree = "<group>"; };
 		67315268D5C8382FDD67694F /* MarbleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarbleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C71F1F727C76D935495558D /* MarbleSnapshotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarbleSnapshotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A4A3A702FB2046FF990AE054 /* Tests/MarbleTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xctestplan; path = Tests/MarbleTests.xctestplan; sourceTree = "<group>"; };
+		C25C6D1EACFE4BE39F3E2D08 /* Tests/MarbleSnapshotRecord.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xctestplan; path = Tests/MarbleSnapshotRecord.xctestplan; sourceTree = "<group>"; };
 		C6B1ED632F154BA20044510C /* marble.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = marble.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 

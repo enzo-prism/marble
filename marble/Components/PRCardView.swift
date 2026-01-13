@@ -11,25 +11,26 @@ struct PRCardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
             Text(title)
-                .font(.caption)
+                .font(MarbleTypography.caption)
                 .foregroundColor(Theme.secondaryTextColor(for: colorScheme))
                 .accessibilityHidden(true)
                 .accessibilityIdentifier("Trends.PRCard.Title.\(identifierSlug)")
             Text(value)
-                .font(.headline)
+                .font(MarbleTypography.rowTitle)
+                .monospacedDigit()
                 .foregroundColor(Theme.primaryTextColor(for: colorScheme))
                 .accessibilityHidden(true)
                 .accessibilityIdentifier("Trends.PRCard.Value.\(identifierSlug)")
         }
-        .padding(12)
+        .padding(MarbleSpacing.s)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
                 .fill(Theme.backgroundColor(for: colorScheme))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
                         .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
                 )
         )

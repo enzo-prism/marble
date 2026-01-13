@@ -17,6 +17,7 @@ struct SupplementTypeEditorView: View {
         List {
             Section {
                 TextField("Name", text: $name)
+                    .marbleFieldStyle()
                     .accessibilityIdentifier("SupplementTypeEditor.Name")
                 OptionalNumberField(title: "Default Dose", formatter: Formatters.dose, value: $defaultDose, accessibilityIdentifier: "SupplementTypeEditor.DefaultDose")
                 Picker("Unit", selection: $unit) {
@@ -26,6 +27,7 @@ struct SupplementTypeEditorView: View {
                 }
                 .accessibilityIdentifier("SupplementTypeEditor.Unit")
                 Toggle("Favorite", isOn: $isFavorite)
+                    .tint(Theme.dividerColor(for: colorScheme))
                     .accessibilityIdentifier("SupplementTypeEditor.Favorite")
             }
         }

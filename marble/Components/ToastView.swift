@@ -9,28 +9,28 @@ struct ToastView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: MarbleSpacing.s) {
             Text(message)
-                .font(.subheadline)
+                .font(MarbleTypography.body)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
             Spacer(minLength: 8)
             if let actionTitle, let onAction {
                 Button(actionTitle, action: onAction)
-                    .font(.subheadline.weight(.semibold))
+                    .font(MarbleTypography.button)
                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, MarbleSpacing.m)
+        .padding(.vertical, MarbleSpacing.s)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous)
                 .fill(Theme.backgroundColor(for: colorScheme))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous)
                         .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
                 )
         )
-        .padding(.horizontal, 16)
+        .padding(.horizontal, MarbleSpacing.m)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("Toast")
         .onTapGesture {

@@ -18,12 +18,14 @@ struct SupplementsView: View {
             List {
                 Section {
                     quickAddRow
+                        .marbleRowInsets()
                 }
 
                 if entries.isEmpty {
                     EmptyStateView(title: "No supplements yet", message: "Log a quick add to get started.", systemImage: "pills")
                         .listRowSeparator(.hidden)
                         .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        .marbleRowInsets()
                         .accessibilityIdentifier("Supplements.EmptyState")
                 }
 
@@ -41,6 +43,7 @@ struct SupplementsView: View {
                                 .accessibilityIdentifier("SupplementRow.\(sanitizedName)")
                                 .accessibilityLabel(SupplementRowView.accessibilityLabel(for: entry))
                                 .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                                .marbleRowInsets()
                                 .swipeActions(edge: .trailing) {
                                     Button(role: .destructive) {
                                         delete(entry)
@@ -109,16 +112,17 @@ struct SupplementsView: View {
     private var quickAddRow: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick Add")
-                .font(.headline)
+                .font(MarbleTypography.sectionTitle)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
             HStack(spacing: 12) {
                 ForEach(quickTypes) { type in
-                    Button(type.name) {
+                    Button {
                         quickAdd(type)
+                    } label: {
+                        MarbleChipLabel(title: type.name, isSelected: false, isDisabled: false, isExpanded: true)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(Theme.primaryTextColor(for: colorScheme))
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("Supplements.QuickAdd.\(type.name.replacingOccurrences(of: " ", with: ""))")
                 }
             }

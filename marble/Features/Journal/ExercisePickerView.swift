@@ -56,6 +56,7 @@ struct ExercisePickerView: View {
                 } label: {
                     Label("Manage Exercises", systemImage: "slider.horizontal.3")
                 }
+                .marbleRowInsets()
                 .accessibilityIdentifier("ExercisePicker.Manage")
             }
         }
@@ -107,13 +108,16 @@ struct ExercisePickerView: View {
             selectedExercise = exercise
             dismiss()
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: MarbleLayout.rowSpacing) {
                 Image(systemName: exercise.category.symbolName)
-                    .frame(width: 24)
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
                 Text(exercise.name)
+                    .font(MarbleTypography.rowTitle)
             }
             .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
         }
+        .marbleRowInsets()
         .accessibilityIdentifier("ExercisePicker.Row.\(sanitizedName)")
     }
 }

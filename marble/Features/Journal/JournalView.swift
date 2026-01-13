@@ -18,6 +18,7 @@ struct JournalView: View {
                     EmptyStateView(title: "No sets yet", message: "Log your first set to start building momentum.", systemImage: "list.bullet.rectangle")
                         .listRowSeparator(.hidden)
                         .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        .marbleRowInsets()
                         .accessibilityIdentifier("Journal.EmptyState")
                 }
                 ForEach(sectionedDays, id: \.self) { day in
@@ -36,6 +37,7 @@ struct JournalView: View {
                                 .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
                                 .accessibilityLabel(SetRowView.accessibilitySummary(for: entry))
                                 .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                                .marbleRowInsets()
                                 .swipeActions(edge: .leading, allowsFullSwipe: false) {
                                     Button {
                                         duplicate(entry)

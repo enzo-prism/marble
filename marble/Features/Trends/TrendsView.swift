@@ -23,7 +23,7 @@ struct TrendsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: MarbleSpacing.l) {
                     rangePicker
                     exercisePicker
 
@@ -31,30 +31,30 @@ struct TrendsView: View {
                         EmptyStateView(title: "No trend data yet", message: "Log sets to see consistency and PRs.", systemImage: "chart.line.uptrend.xyaxis")
                             .accessibilityIdentifier("Trends.EmptyState")
                     } else {
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
                             Text("Consistency")
-                                .font(.headline)
+                                .font(MarbleTypography.sectionTitle)
                                 .foregroundColor(Theme.primaryTextColor(for: colorScheme))
                             consistencyChart
                         }
 
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
                             Text("Weekly Volume")
-                                .font(.headline)
+                                .font(MarbleTypography.sectionTitle)
                                 .foregroundColor(Theme.primaryTextColor(for: colorScheme))
                             volumeChart
                         }
 
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
                             Text("PRs")
-                                .font(.headline)
+                                .font(MarbleTypography.sectionTitle)
                                 .foregroundColor(Theme.primaryTextColor(for: colorScheme))
                                 .accessibilityHidden(true)
                             prCards
                         }
                     }
                 }
-                .padding(16)
+                .padding(MarbleLayout.pagePadding)
             }
             .accessibilityIdentifier("Trends.Scroll")
             .background(Theme.backgroundColor(for: colorScheme))

@@ -33,7 +33,7 @@ struct CalendarView: View {
 
                 Spacer()
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, MarbleLayout.pagePadding)
             .background(Theme.backgroundColor(for: colorScheme))
             .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.large)
@@ -122,7 +122,7 @@ struct CalendarView: View {
             .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
-        .font(.caption2)
+        .font(MarbleTypography.smallLabel)
         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         .padding(.horizontal, 4)
     }
@@ -148,28 +148,29 @@ struct DaySummarySheet: View {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(DateHelper.dayLabel(for: date))
-                            .font(.title3.weight(.semibold))
+                            .font(MarbleTypography.screenTitle)
                             .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
                         Text("\(entries.count) sets · \(uniqueExerciseCount) exercises · Avg RPE \(averageRPE)")
-                            .font(.subheadline)
+                            .font(MarbleTypography.rowSubtitle)
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
 
                         Button("Log Set for this day") {
                             quickLog.open(prefillDate: date)
                             dismiss()
                         }
-                        .buttonStyle(.bordered)
-                        .tint(Theme.primaryTextColor(for: colorScheme))
+                        .buttonStyle(MarbleActionButtonStyle())
                         .accessibilityIdentifier("Calendar.DaySheet.LogSet")
                     }
                     .padding(.vertical, 4)
+                    .marbleRowInsets()
                 }
 
                 if entries.isEmpty {
                     EmptyStateView(title: "No sets for this day", message: "Tap Log Set to add one here.", systemImage: "calendar")
                         .listRowSeparator(.hidden)
                         .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        .marbleRowInsets()
                         .accessibilityIdentifier("Calendar.DaySheet.EmptyState")
                 } else {
                     Section {
@@ -184,10 +185,12 @@ struct DaySummarySheet: View {
                             .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
                             .accessibilityLabel(SetRowView.accessibilitySummary(for: entry))
                             .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                            .marbleRowInsets()
                         }
                     } header: {
                         SectionHeaderView(title: "Sets")
                     }
+                    .textCase(nil)
                 }
             }
             .listStyle(.plain)

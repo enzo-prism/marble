@@ -29,11 +29,13 @@ struct SupplementDetailView: View {
                 .accessibilityIdentifier("SupplementDetail.Unit")
 
                 DatePicker("Taken", selection: $entry.takenAt)
+                    .tint(Theme.dividerColor(for: colorScheme))
                     .accessibilityIdentifier("SupplementDetail.TakenAt")
             }
 
             Section {
                 TextField("Notes", text: notesBinding, axis: .vertical)
+                    .marbleFieldStyle()
                     .accessibilityIdentifier("SupplementDetail.Notes")
             }
         }

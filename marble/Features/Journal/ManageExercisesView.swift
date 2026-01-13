@@ -21,12 +21,15 @@ struct ManageExercisesView: View {
                 NavigationLink {
                     ExerciseEditorView(exercise: exercise)
                 } label: {
-                    HStack {
+                    HStack(spacing: MarbleLayout.rowSpacing) {
                         Image(systemName: exercise.category.symbolName)
-                            .frame(width: 24)
+                            .font(.system(size: 18, weight: .semibold))
+                            .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
                         Text(exercise.name)
+                            .font(MarbleTypography.rowTitle)
                     }
                 }
+                .marbleRowInsets()
                 .accessibilityIdentifier("ManageExercises.Row.\(exercise.id.uuidString)")
             }
             .onDelete(perform: deleteExercises)

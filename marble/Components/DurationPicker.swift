@@ -7,7 +7,7 @@ struct DurationPicker: View {
     private let secondRange = stride(from: 0, through: 55, by: 5).map { $0 }
 
     var body: some View {
-        HStack {
+        HStack(spacing: MarbleSpacing.s) {
             Picker("Minutes", selection: minutesBinding) {
                 ForEach(minuteRange, id: \.self) { minute in
                     Text("\(minute)m").tag(minute)

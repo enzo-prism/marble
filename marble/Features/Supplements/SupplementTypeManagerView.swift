@@ -22,7 +22,9 @@ struct SupplementTypeManagerView: View {
                     SupplementTypeEditorView(type: type)
                 } label: {
                     Text(type.name)
+                        .font(MarbleTypography.rowTitle)
                 }
+                .marbleRowInsets()
                 .accessibilityIdentifier("SupplementType.Row.\(type.id.uuidString)")
             }
             .onDelete(perform: deleteTypes)

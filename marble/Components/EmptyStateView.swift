@@ -8,22 +8,23 @@ struct EmptyStateView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: MarbleSpacing.s) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.title)
+                    .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .accessibilityHidden(true)
             }
             Text(title)
-                .font(.headline)
+                .font(MarbleTypography.emptyTitle)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
             Text(message)
-                .font(.subheadline)
+                .font(MarbleTypography.emptyMessage)
+                .lineSpacing(2)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .multilineTextAlignment(.center)
         }
-        .padding(24)
+        .padding(MarbleSpacing.xl)
         .frame(maxWidth: .infinity)
     }
 }

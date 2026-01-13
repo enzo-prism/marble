@@ -18,29 +18,30 @@ struct SupplementRowView: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: MarbleLayout.rowSpacing) {
             Image(systemName: "pills")
-                .font(.title3)
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .frame(width: 28, height: 28)
+                .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
                 Text(entry.type.name)
-                    .font(.headline)
+                    .font(MarbleTypography.rowTitle)
                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
                 Text(summaryLine)
-                    .font(.subheadline)
+                    .font(MarbleTypography.rowSubtitle)
+                    .monospacedDigit()
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             }
 
             Spacer(minLength: 8)
 
             Text(Formatters.time.string(from: entry.takenAt))
-                .font(.caption)
+                .font(MarbleTypography.rowMeta)
+                .monospacedDigit()
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
-        .padding(.vertical, 8)
         .accessibilityHidden(true)
     }
 

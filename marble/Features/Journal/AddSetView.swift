@@ -40,9 +40,11 @@ struct AddSetView: View {
                     } label: {
                         HStack {
                             Text("Exercise")
+                                .font(MarbleTypography.rowTitle)
                                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                             Spacer()
                             Text(selectedExercise?.name ?? "Select")
+                                .font(MarbleTypography.rowSubtitle)
                                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         }
                     }
@@ -77,13 +79,14 @@ struct AddSetView: View {
                             OptionalIntegerField(title: "Reps", value: $reps, accessibilityIdentifier: "AddSet.Reps")
                         }
 
-                            if exercise.metrics.usesDuration {
-                                HStack {
-                                    Text("Duration")
-                                    Spacer()
-                                    DurationPicker(durationSeconds: $durationSeconds)
-                                        .accessibilityIdentifier("AddSet.Duration")
-                                }
+                        if exercise.metrics.usesDuration {
+                            HStack {
+                                Text("Duration")
+                                    .font(MarbleTypography.rowTitle)
+                                Spacer()
+                                DurationPicker(durationSeconds: $durationSeconds)
+                                    .accessibilityIdentifier("AddSet.Duration")
+                            }
                             }
                     } header: {
                         SectionHeaderView(title: "Metrics")
@@ -108,6 +111,7 @@ struct AddSetView: View {
                             .listRowBackground(Theme.backgroundColor(for: colorScheme))
                         HStack {
                             Text("Now")
+                                .font(MarbleTypography.rowSubtitle)
                                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                             Spacer()
                         }
@@ -127,11 +131,14 @@ struct AddSetView: View {
                     Section {
                         if showNotes || !notes.isEmpty {
                             TextField("Notes", text: $notes, axis: .vertical)
+                                .marbleFieldStyle()
                                 .accessibilityIdentifier("AddSet.Notes")
                         } else {
                             Button("Add note") {
                                 showNotes = true
                             }
+                            .font(MarbleTypography.rowSubtitle)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                             .accessibilityIdentifier("AddSet.AddNote")
                         }
                     }
@@ -141,12 +148,16 @@ struct AddSetView: View {
                     Button("Save") {
                         save(keepOpen: false, startRest: false)
                     }
+                    .buttonStyle(MarbleActionButtonStyle())
+                    .listRowSeparator(.hidden)
                     .disabled(!canSave)
                     .accessibilityIdentifier("AddSet.Save")
 
                     Button("Save & Add Another") {
                         save(keepOpen: true, startRest: false)
                     }
+                    .buttonStyle(MarbleActionButtonStyle())
+                    .listRowSeparator(.hidden)
                     .disabled(!canSave)
                     .accessibilityIdentifier("AddSet.SaveAddAnother")
 
@@ -154,6 +165,8 @@ struct AddSetView: View {
                         Button("Save & Start Rest") {
                             save(keepOpen: false, startRest: true)
                         }
+                        .buttonStyle(MarbleActionButtonStyle())
+                        .listRowSeparator(.hidden)
                         .disabled(!canSave)
                         .accessibilityIdentifier("AddSet.SaveStartRest")
                     }

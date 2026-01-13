@@ -30,26 +30,28 @@ struct SetRowView: View {
 
     var body: some View {
         let resolvedScheme = TestHooks.forcedColorScheme ?? colorScheme
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: MarbleLayout.rowSpacing) {
             Image(systemName: entry.exercise.category.symbolName)
-                .font(.title3)
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(Theme.primaryTextColor(for: resolvedScheme))
-                .frame(width: 28, height: 28)
+                .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
                 Text(entry.exercise.name)
-                    .font(.headline)
+                    .font(MarbleTypography.rowTitle)
                     .foregroundColor(Theme.primaryTextColor(for: resolvedScheme))
                     .accessibilityHidden(true)
 
                 Text(summaryLine)
-                    .font(.subheadline)
+                    .font(MarbleTypography.rowSubtitle)
+                    .monospacedDigit()
                     .foregroundColor(Theme.secondaryTextColor(for: resolvedScheme))
                     .accessibilityHidden(true)
 
                 Text(secondaryLine)
-                    .font(.caption)
+                    .font(MarbleTypography.rowMeta)
+                    .monospacedDigit()
                     .foregroundColor(Theme.secondaryTextColor(for: resolvedScheme))
                     .accessibilityHidden(true)
             }
@@ -57,11 +59,11 @@ struct SetRowView: View {
             Spacer(minLength: 8)
 
             Text(Formatters.time.string(from: entry.performedAt))
-                .font(.caption)
+                .font(MarbleTypography.rowMeta)
+                .monospacedDigit()
                 .foregroundColor(Theme.secondaryTextColor(for: resolvedScheme))
                 .accessibilityHidden(true)
         }
-        .padding(.vertical, 8)
         .background(Theme.backgroundColor(for: resolvedScheme))
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")

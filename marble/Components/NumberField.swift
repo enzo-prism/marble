@@ -22,6 +22,8 @@ struct OptionalNumberField: View {
             }
         ))
         .keyboardType(.decimalPad)
+        .monospacedDigit()
+        .marbleFieldStyle()
 
         if let accessibilityIdentifier {
             field.accessibilityIdentifier(accessibilityIdentifier)
@@ -51,6 +53,8 @@ struct OptionalIntegerField: View {
             }
         ))
         .keyboardType(.numberPad)
+        .monospacedDigit()
+        .marbleFieldStyle()
 
         if let accessibilityIdentifier {
             field.accessibilityIdentifier(accessibilityIdentifier)

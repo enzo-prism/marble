@@ -18,18 +18,18 @@ struct RestTimerView: View {
     var body: some View {
         VStack(spacing: 16) {
             Text("Rest")
-                .font(.title2.weight(.semibold))
+                .font(MarbleTypography.screenTitle)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
             Text(DateHelper.formattedDuration(seconds: remainingSeconds))
-                .font(.system(size: 48, weight: .bold, design: .rounded))
+                .font(MarbleTypography.timer)
+                .monospacedDigit()
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
             Button("Done") {
                 dismiss()
             }
-            .buttonStyle(.bordered)
-            .tint(Theme.primaryTextColor(for: colorScheme))
+            .buttonStyle(MarbleActionButtonStyle())
             .accessibilityIdentifier("RestTimer.Done")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

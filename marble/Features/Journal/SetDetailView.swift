@@ -18,8 +18,10 @@ struct SetDetailView: View {
                 } label: {
                     HStack {
                         Text("Exercise")
+                            .font(MarbleTypography.rowTitle)
                         Spacer()
                         Text(entry.exercise.name)
+                            .font(MarbleTypography.rowSubtitle)
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     }
                 }
@@ -61,6 +63,7 @@ struct SetDetailView: View {
                 if entry.exercise.metrics.usesDuration {
                     HStack {
                         Text("Duration")
+                            .font(MarbleTypography.rowTitle)
                         Spacer()
                         DurationPicker(durationSeconds: durationBinding)
                             .accessibilityIdentifier("SetDetail.Duration")
@@ -90,6 +93,7 @@ struct SetDetailView: View {
 
             Section {
                 TextField("Notes", text: notesBinding, axis: .vertical)
+                    .marbleFieldStyle()
                     .accessibilityIdentifier("SetDetail.Notes")
             }
 
@@ -97,6 +101,7 @@ struct SetDetailView: View {
                 Button("Duplicate") {
                     duplicate()
                 }
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("SetDetail.Duplicate")
 
                 Button("Delete", role: .destructive) {

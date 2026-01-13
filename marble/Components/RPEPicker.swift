@@ -10,20 +10,17 @@ struct RPEPicker: View {
     private let fullRange = Array(1...10)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Text("Difficulty (RPE)")
-                .font(.subheadline.weight(.semibold))
+                .font(MarbleTypography.sectionTitle)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: MarbleSpacing.xs), count: 5), spacing: MarbleSpacing.xs) {
                 ForEach(showAll ? fullRange : quickRange, id: \.self) { rating in
                     Button {
                         value = rating
                     } label: {
-                        Text("\(rating)")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, minHeight: 36)
-                            .background(chipBackground(isSelected: value == rating))
+                        MarbleChipLabel(title: "\(rating)", isSelected: value == rating, isDisabled: false, isExpanded: true)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("RPEPicker.\(rating)")
@@ -34,15 +31,10 @@ struct RPEPicker: View {
             Button(showAll ? "Show 6-10" : "Show 1-10") {
                 showAll.toggle()
             }
-            .font(.caption)
+            .font(MarbleTypography.caption)
             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             .buttonStyle(.plain)
             .accessibilityIdentifier("RPEPicker.Toggle")
         }
-    }
-
-    private func chipBackground(isSelected: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(isSelected ? Theme.dividerColor(for: colorScheme) : Theme.chipFillColor(for: colorScheme))
     }
 }

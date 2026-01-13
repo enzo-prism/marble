@@ -20,6 +20,7 @@ struct ExerciseEditorView: View {
         List {
             Section {
                 TextField("Name", text: $name)
+                    .marbleFieldStyle()
                     .accessibilityIdentifier("ExerciseEditor.Name")
                 Picker("Category", selection: $category) {
                     ForEach(ExerciseCategory.allCases) { category in

@@ -26,19 +26,20 @@ struct QuickLogPill: View {
 
     private var buttonContent: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
+            HStack(spacing: MarbleSpacing.xs) {
                 Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 18, weight: .semibold))
                 Text("Log Set")
-                    .font(.headline)
+                    .font(MarbleTypography.button)
                 if let hint {
                     Text(hint)
-                        .font(.subheadline)
+                        .font(MarbleTypography.rowSubtitle)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .lineLimit(1)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, MarbleSpacing.m)
+            .padding(.vertical, MarbleSpacing.s)
         }
         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
         .accessibilityIdentifier("QuickLog.Button")
@@ -60,7 +61,7 @@ struct QuickLogAccessoryModifier: ViewModifier {
                             QuickLogPill(hint: hint) {
                                 isPresented = true
                             }
-                            .padding(.vertical, 6)
+                            .padding(.vertical, MarbleSpacing.xxs)
                         }
                     }
             } else {
@@ -70,7 +71,7 @@ struct QuickLogAccessoryModifier: ViewModifier {
                             QuickLogPill(hint: hint) {
                                 isPresented = true
                             }
-                            .padding(.vertical, 6)
+                            .padding(.vertical, MarbleSpacing.xxs)
                         }
                     }
                     .tabBarMinimizeBehavior(.onScrollDown)
