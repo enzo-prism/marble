@@ -2,11 +2,16 @@ import Foundation
 
 enum ExerciseCategory: String, Codable, CaseIterable, Identifiable {
     case chest
+    case back
     case shoulders
+    case biceps
+    case triceps
+    case core
+    case quads
+    case hamstrings
+    case calves
     case legs
     case power
-    case back
-    case core
     case bar
     case recover
     case other
@@ -17,16 +22,26 @@ enum ExerciseCategory: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .chest:
             return "Chest"
+        case .back:
+            return "Back"
         case .shoulders:
             return "Shoulders"
+        case .biceps:
+            return "Biceps"
+        case .triceps:
+            return "Triceps"
+        case .core:
+            return "Core"
+        case .quads:
+            return "Quads"
+        case .hamstrings:
+            return "Hamstrings"
+        case .calves:
+            return "Calves"
         case .legs:
             return "Legs"
         case .power:
             return "Power"
-        case .back:
-            return "Back"
-        case .core:
-            return "Core"
         case .bar:
             return "Bar"
         case .recover:
@@ -40,16 +55,26 @@ enum ExerciseCategory: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .chest:
             return "heart.fill"
+        case .back:
+            return "arrow.triangle.2.circlepath"
         case .shoulders:
             return "figure.strengthtraining.traditional"
+        case .biceps:
+            return "dumbbell.fill"
+        case .triceps:
+            return "dumbbell"
+        case .core:
+            return "circle.grid.cross"
+        case .quads:
+            return "figure.run"
+        case .hamstrings:
+            return "figure.walk.motion"
+        case .calves:
+            return "figure.stairs"
         case .legs:
             return "figure.walk"
         case .power:
             return "bolt.fill"
-        case .back:
-            return "arrow.triangle.2.circlepath"
-        case .core:
-            return "circle.grid.cross"
         case .bar:
             return "figure.gymnastics"
         case .recover:
