@@ -40,6 +40,23 @@ struct TrendsView: View {
                             consistencyChart
                         }
 
+                        if let selectedExercise {
+                            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                                Text("Progress")
+                                    .font(MarbleTypography.sectionTitle)
+                                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                                if progressPoints.isEmpty {
+                                    Text("No progress yet")
+                                        .font(MarbleTypography.rowMeta)
+                                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                } else {
+                                    ExerciseProgressChart(points: progressPoints) { date in
+                                        sheetDestination = .day(date)
+                                    }
+                                }
+                            }
+                        }
+
                         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
                             Text("Weekly Volume")
                                 .font(MarbleTypography.sectionTitle)
@@ -461,6 +478,11 @@ struct TrendsView: View {
         return filteredEntries.filter { entry in
             entry.performedAt >= weekStart && entry.performedAt < weekEnd
         }
+    }
+
+    private var progressPoints: [ExerciseProgressPoint] {
+        guard let selectedExercise else { return [] }
+        return ExerciseProgressBuilder.buildPoints(entries: entries, exercise: selectedExercise, range: range)
     }
 
     private func setsLabel(for count: Int) -> String {

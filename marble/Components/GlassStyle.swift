@@ -198,4 +198,13 @@ extension View {
     func sheetGlassBackground() -> some View {
         modifier(SheetGlassBackgroundModifier())
     }
+
+    @ViewBuilder
+    func applyGlassButtonStyle() -> some View {
+        if #available(iOS 26.0, *) {
+            self.buttonStyle(.glass)
+        } else {
+            self.buttonStyle(.bordered)
+        }
+    }
 }

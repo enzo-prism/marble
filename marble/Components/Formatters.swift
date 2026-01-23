@@ -29,6 +29,13 @@ enum Formatters {
         formatter.dateFormat = "EEE, MMM d"
         return formatter
     }()
+
+    static let fullDateTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
 }
 
 enum DateHelper {
@@ -70,6 +77,18 @@ enum DateHelper {
             return "\(minutes)m"
         }
         return "\(minutes)m \(remaining)s"
+    }
+
+    static func formattedClockDuration(seconds: Int) -> String {
+        let minutes = seconds / 60
+        let remaining = seconds % 60
+        return String(format: "%d:%02d", minutes, remaining)
+    }
+
+    static func relativeTime(from date: Date, to reference: Date = AppEnvironment.now) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: date, relativeTo: reference)
     }
 
     static func nextDate(for weekday: Weekday, from date: Date = AppEnvironment.now, calendar: Calendar = .current) -> Date {
