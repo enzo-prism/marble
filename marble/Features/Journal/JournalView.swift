@@ -53,7 +53,7 @@ struct JournalView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     AddSetToolbarButton()
                 }
-                if TestHooks.isUITesting, let latest = entries.first {
+                if TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, let latest = entries.first {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Open Latest") {
                             navPath.append(latest.id)

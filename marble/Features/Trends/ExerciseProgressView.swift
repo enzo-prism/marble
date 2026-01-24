@@ -100,6 +100,7 @@ struct ExerciseProgressChart: View {
                 )
                 .foregroundStyle(Theme.dividerColor(for: colorScheme))
                 .lineStyle(StrokeStyle(lineWidth: 2))
+                .accessibilityHidden(true)
             }
 
             if let selectedPoint {
@@ -130,11 +131,48 @@ struct ExerciseProgressChart: View {
                 )
                 .symbolSize(70)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .accessibilityHidden(true)
             }
         }
         .frame(height: 180)
-        .chartXSelection(value: $selectedDate)
-        .accessibilityElement(children: .ignore)
+        .chartOverlay { proxy in
+            GeometryReader { geometry in
+                let frame = proxy.plotFrame.map { geometry[$0] } ?? geometry[proxy.plotAreaFrame]
+                let updateSelection: (CGPoint) -> Void = { location in
+                    let rawX = location.x - frame.origin.x
+                    let clampedX = min(max(rawX, 0), frame.size.width)
+                    let fallbackDate: Date? = {
+                        guard let start = points.first?.date,
+                              let end = points.last?.date else {
+                            return nil
+                        }
+                        if start == end {
+                            return start
+                        }
+                        let ratio = frame.size.width > 0 ? clampedX / frame.size.width : 0
+                        return start.addingTimeInterval(end.timeIntervalSince(start) * Double(ratio))
+                    }()
+
+                    if let date: Date = proxy.value(atX: clampedX) ?? fallbackDate {
+                        selectedDate = date
+                    }
+                }
+
+                Rectangle()
+                    .fill(Color.clear)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                updateSelection(value.location)
+                            }
+                            .onEnded { value in
+                                updateSelection(value.location)
+                            }
+                    )
+            }
+        }
+        .accessibilityElement(children: selectedPoint == nil ? .ignore : .contain)
         .accessibilityLabel("Progress chart")
         .accessibilityValue(progressAccessibilityValue)
     }

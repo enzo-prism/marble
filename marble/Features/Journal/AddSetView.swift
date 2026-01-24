@@ -137,6 +137,27 @@ struct AddSetView: View {
                     }
 
                     Section {
+                        if showNotes || !notes.isEmpty {
+                            TextField("Notes", text: $notes, axis: .vertical)
+                                .marbleFieldStyle()
+                                .accessibilityIdentifier("AddSet.Notes")
+                                .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                                .padding(.vertical, MarbleSpacing.s)
+                        } else {
+                            Button {
+                                showNotes = true
+                            } label: {
+                                Text("Add note")
+                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                            }
+                            .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: true, expandsHorizontally: true))
+                            .accessibilityIdentifier("AddSet.AddNote")
+                            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                            .padding(.vertical, MarbleSpacing.s)
+                        }
+                    }
+
+                    Section {
                         RPEPicker(value: $difficulty)
                             .listRowBackground(Theme.backgroundColor(for: colorScheme))
                             .accessibilityIdentifier("AddSet.RPE")
@@ -175,23 +196,6 @@ struct AddSetView: View {
                         .listRowBackground(Theme.backgroundColor(for: colorScheme))
                         .padding(.vertical, MarbleSpacing.s)
                     }
-
-                    Section {
-                        if showNotes || !notes.isEmpty {
-                            TextField("Notes", text: $notes, axis: .vertical)
-                                .marbleFieldStyle()
-                                .accessibilityIdentifier("AddSet.Notes")
-                                .padding(.vertical, MarbleSpacing.s)
-                        } else {
-                            Button("Add note") {
-                                showNotes = true
-                            }
-                            .font(MarbleTypography.rowSubtitle)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                            .accessibilityIdentifier("AddSet.AddNote")
-                            .padding(.vertical, MarbleSpacing.s)
-                        }
-                    }
                 }
 
                 }
@@ -200,11 +204,11 @@ struct AddSetView: View {
                 .scrollContentBackground(.hidden)
                 .background(Theme.backgroundColor(for: colorScheme))
                 .accessibilityIdentifier("AddSet.List")
+                .safeAreaInset(edge: .bottom) {
+                    saveButtons
+                }
             }
             .background(Theme.backgroundColor(for: colorScheme))
-            .safeAreaInset(edge: .bottom) {
-                saveButtons
-            }
             .navigationTitle("Log Set")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()

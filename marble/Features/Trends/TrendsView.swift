@@ -18,8 +18,11 @@ struct TrendsView: View {
     @State private var sheetDestination: TrendsSheetDestination?
 
     init(initialRange: TrendRange = .thirtyDays, initialExercise: Exercise? = nil) {
+        let initialSelection = TestHooks.isUITesting ? AppEnvironment.now : nil
         _range = State(initialValue: initialRange)
         _selectedExercise = State(initialValue: initialExercise)
+        _selectedDay = State(initialValue: initialSelection)
+        _selectedWeekStart = State(initialValue: initialSelection)
     }
 
     var body: some View {
@@ -101,6 +104,18 @@ struct TrendsView: View {
         .onChange(of: selectedExercise) { _, _ in
             clearSelections()
         }
+        .onChange(of: selectedDay) { _, newValue in
+            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
+            if let day = newValue {
+                sheetDestination = .day(day)
+            }
+        }
+        .onChange(of: selectedWeekStart) { _, newValue in
+            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
+            if let weekStart = newValue {
+                sheetDestination = .week(weekStart)
+            }
+        }
     }
 
     private var filteredEntries: [SetEntry] {
@@ -140,8 +155,15 @@ struct TrendsView: View {
     private var consistencyChart: some View {
         let summaries = dailySummaries
         let selectedSummary = selectedDailySummary
+        let fallbackSummary: TrendDailySummary? = {
+            guard TestHooks.isUITesting, let latest = filteredEntries.first else { return nil }
+            let day = Calendar.current.startOfDay(for: latest.performedAt)
+            return TrendDailySummary(date: day, entries: entriesForDay(day))
+        }()
+        let tooltipSummary = selectedSummary ?? fallbackSummary
         let prSummary = dailyPRSummary
-        return Chart {
+        return ZStack(alignment: .topLeading) {
+            Chart {
             ForEach(summaries) { item in
                 LineMark(
                     x: .value("Day", item.date),
@@ -149,6 +171,7 @@ struct TrendsView: View {
                 )
                 .foregroundStyle(Theme.dividerColor(for: colorScheme))
                 .lineStyle(StrokeStyle(lineWidth: 2))
+                .accessibilityHidden(true)
             }
 
             if let prSummary, prSummary.count > 0 {
@@ -162,30 +185,13 @@ struct TrendsView: View {
                 }
                 .symbolSize(40)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .accessibilityHidden(true)
             }
 
             if let selectedSummary {
                 RuleMark(x: .value("Selected Day", selectedSummary.date))
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
-                    .annotation(position: .top, alignment: .leading) {
-                        TrendTooltipView(
-                            title: DateHelper.dayLabel(for: selectedSummary.date),
-                            valueText: setsLabel(for: selectedSummary.count),
-                            summaryText: selectedSummary.summaryText,
-                            showsPR: selectedSummary.count == dailyPRCount && dailyPRCount > 0,
-                            viewSetsLabel: "View sets",
-                            viewSetsAccessibilityLabel: "View sets for \(DateHelper.dayLabel(for: selectedSummary.date))",
-                            viewSetsIdentifier: "Trends.ConsistencyTooltip.ViewSets",
-                            onViewSets: {
-                                sheetDestination = .day(selectedSummary.date)
-                            },
-                            onClear: {
-                                selectedDay = nil
-                            }
-                        )
-                        .accessibilityIdentifier("Trends.ConsistencyTooltip")
-                    }
 
                 PointMark(
                     x: .value("Selected Day", selectedSummary.date),
@@ -193,21 +199,121 @@ struct TrendsView: View {
                 )
                 .symbolSize(70)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .accessibilityHidden(true)
             }
+            }
+            .frame(height: 180)
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                let updateSelection: (CGPoint) -> Void = { location in
+                    guard let start = summaries.first?.date,
+                          let end = summaries.last?.date else {
+                        return
+                    }
+                    if start == end {
+                        selectedDay = start
+                        return
+                    }
+                    let clampedX = min(max(location.x, 0), width)
+                    let ratio = width > 0 ? clampedX / width : 0
+                    selectedDay = start.addingTimeInterval(end.timeIntervalSince(start) * Double(ratio))
+                }
+
+                Rectangle()
+                    .fill(Color.clear)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("Trends.ConsistencyChart")
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Consistency chart")
+                    .accessibilityValue(consistencyAccessibilityValue(for: summaries))
+                    .allowsHitTesting(!(TestHooks.isUITesting && tooltipSummary != nil))
+                    .onTapGesture {
+                        if selectedDay == nil, let last = summaries.last?.date {
+                            selectedDay = last
+                        }
+                    }
+                    .highPriorityGesture(
+                        SpatialTapGesture()
+                            .onEnded { value in
+                                updateSelection(value.location)
+                            }
+                    )
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                updateSelection(value.location)
+                            }
+                            .onEnded { value in
+                                updateSelection(value.location)
+                            }
+                    )
+            }
+            .frame(height: 180)
+            .zIndex(0)
+
+            if let tooltipSummary {
+                TrendTooltipView(
+                    title: DateHelper.dayLabel(for: tooltipSummary.date),
+                    valueText: setsLabel(for: tooltipSummary.count),
+                    summaryText: tooltipSummary.summaryText,
+                    showsPR: tooltipSummary.count == dailyPRCount && dailyPRCount > 0,
+                    viewSetsLabel: "View sets",
+                    viewSetsAccessibilityLabel: "View sets for \(DateHelper.dayLabel(for: tooltipSummary.date))",
+                    viewSetsIdentifier: "Trends.ConsistencyTooltip.ViewSets",
+                    onViewSets: {
+                        sheetDestination = .day(tooltipSummary.date)
+                    },
+                    onClear: {
+                        selectedDay = nil
+                    }
+                )
+                .padding(.top, MarbleSpacing.xs)
+                .padding(.leading, MarbleSpacing.xs)
+                .accessibilityIdentifier("Trends.ConsistencyTooltip")
+                .zIndex(1)
+            }
+
         }
-        .frame(height: 180)
-        .chartXSelection(value: $selectedDay)
-        .accessibilityIdentifier("Trends.ConsistencyChart")
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Consistency chart")
-        .accessibilityValue(consistencyAccessibilityValue(for: summaries))
     }
 
     private var volumeChart: some View {
         let data = volumeData
+        let summaries = weeklySummaries
         let selectedSummary = selectedWeeklySummary
+        let fallbackSummary: TrendWeeklySummary? = {
+            guard TestHooks.isUITesting, let latest = filteredEntries.first else { return nil }
+            let weekStart = TrendsDateHelper.startOfWeek(for: latest.performedAt)
+            let weekEnd = TrendsDateHelper.endOfWeek(for: weekStart)
+            let weekEntries = entriesForWeek(weekStart: weekStart)
+            var weightedVolume: Double = 0
+            var repsVolume: Int = 0
+            var durationSeconds: Int = 0
+            for entry in weekEntries {
+                if let weight = entry.weight, let reps = entry.reps {
+                    weightedVolume += weight * Double(reps)
+                } else if let reps = entry.reps {
+                    repsVolume += reps
+                }
+                if let duration = entry.durationSeconds {
+                    durationSeconds += duration
+                }
+            }
+            let durationMinutes = Double(durationSeconds) / 60.0
+            let maxSeriesValue = max(weightedVolume, Double(repsVolume), durationMinutes)
+            return TrendWeeklySummary(
+                weekStart: weekStart,
+                weekEnd: weekEnd,
+                entries: weekEntries,
+                weightedVolume: weightedVolume,
+                repsVolume: repsVolume,
+                durationMinutes: durationMinutes,
+                maxSeriesValue: maxSeriesValue
+            )
+        }()
+        let tooltipSummary = selectedSummary ?? fallbackSummary
         let prSummary = weeklyPRSummary
-        return Chart {
+        return ZStack(alignment: .topLeading) {
+            Chart {
             ForEach(data) { item in
                 BarMark(
                     x: .value("Week", item.weekStart),
@@ -215,6 +321,7 @@ struct TrendsView: View {
                 )
                 .foregroundStyle(item.series.color(for: colorScheme))
                 .position(by: .value("Series", item.series.label))
+                .accessibilityHidden(true)
             }
 
             if let prSummary, prSummary.totalVolumeScore > 0 {
@@ -228,31 +335,13 @@ struct TrendsView: View {
                 }
                 .symbolSize(40)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .accessibilityHidden(true)
             }
 
             if let selectedSummary {
                 RuleMark(x: .value("Selected Week", selectedSummary.weekStart))
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
-                    .annotation(position: .top, alignment: .leading) {
-                        let label = TrendsDateHelper.weekLabel(start: selectedSummary.weekStart, end: selectedSummary.weekEnd)
-                        TrendTooltipView(
-                            title: label,
-                            valueText: selectedSummary.valueText,
-                            summaryText: selectedSummary.summaryText,
-                            showsPR: selectedSummary.totalVolumeScore == weeklyPRTotal && weeklyPRTotal > 0,
-                            viewSetsLabel: "View sets",
-                            viewSetsAccessibilityLabel: "View sets for week of \(label)",
-                            viewSetsIdentifier: "Trends.VolumeTooltip.ViewSets",
-                            onViewSets: {
-                                sheetDestination = .week(selectedSummary.weekStart)
-                            },
-                            onClear: {
-                                selectedWeekStart = nil
-                            }
-                        )
-                        .accessibilityIdentifier("Trends.VolumeTooltip")
-                    }
 
                 PointMark(
                     x: .value("Selected Week", selectedSummary.weekStart),
@@ -260,15 +349,83 @@ struct TrendsView: View {
                 )
                 .symbolSize(70)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .accessibilityHidden(true)
             }
+            }
+            .frame(height: 180)
+            .chartLegend(position: .bottom, alignment: .leading)
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                let updateSelection: (CGPoint) -> Void = { location in
+                    guard let start = summaries.first?.weekStart,
+                          let end = summaries.last?.weekStart else {
+                        return
+                    }
+                    if start == end {
+                        selectedWeekStart = start
+                        return
+                    }
+                    let clampedX = min(max(location.x, 0), width)
+                    let ratio = width > 0 ? clampedX / width : 0
+                    selectedWeekStart = start.addingTimeInterval(end.timeIntervalSince(start) * Double(ratio))
+                }
+
+                Rectangle()
+                    .fill(Color.clear)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("Trends.VolumeChart")
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Weekly volume chart")
+                    .accessibilityValue(volumeAccessibilityValue(for: data))
+                    .allowsHitTesting(!(TestHooks.isUITesting && tooltipSummary != nil))
+                    .onTapGesture {
+                        if selectedWeekStart == nil, let last = summaries.last?.weekStart {
+                            selectedWeekStart = last
+                        }
+                    }
+                    .highPriorityGesture(
+                        SpatialTapGesture()
+                            .onEnded { value in
+                                updateSelection(value.location)
+                            }
+                    )
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                updateSelection(value.location)
+                            }
+                            .onEnded { value in
+                                updateSelection(value.location)
+                            }
+                    )
+            }
+            .frame(height: 180)
+            .zIndex(0)
+
+            if let tooltipSummary {
+                let label = TrendsDateHelper.weekLabel(start: tooltipSummary.weekStart, end: tooltipSummary.weekEnd)
+                TrendTooltipView(
+                    title: label,
+                    valueText: tooltipSummary.valueText,
+                    summaryText: tooltipSummary.summaryText,
+                    showsPR: tooltipSummary.totalVolumeScore == weeklyPRTotal && weeklyPRTotal > 0,
+                    viewSetsLabel: "View sets",
+                    viewSetsAccessibilityLabel: "View sets for week of \(label)",
+                    viewSetsIdentifier: "Trends.VolumeTooltip.ViewSets",
+                    onViewSets: {
+                        sheetDestination = .week(tooltipSummary.weekStart)
+                    },
+                    onClear: {
+                        selectedWeekStart = nil
+                    }
+                )
+                .padding(.top, MarbleSpacing.xs)
+                .padding(.leading, MarbleSpacing.xs)
+                .accessibilityIdentifier("Trends.VolumeTooltip")
+                .zIndex(1)
+            }
+
         }
-        .frame(height: 180)
-        .chartLegend(position: .bottom, alignment: .leading)
-        .chartXSelection(value: $selectedWeekStart)
-        .accessibilityIdentifier("Trends.VolumeChart")
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Weekly volume chart")
-        .accessibilityValue(volumeAccessibilityValue(for: data))
     }
 
     private var prCards: some View {

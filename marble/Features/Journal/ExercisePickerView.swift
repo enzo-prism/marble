@@ -57,7 +57,7 @@ struct ExercisePickerView: View {
                     Label("Manage Exercises", systemImage: "slider.horizontal.3")
                 }
                 .marbleRowInsets()
-                .accessibilityIdentifier("ExercisePicker.Manage")
+                .accessibilityIdentifier("ExercisePicker.ManageRow")
             }
         }
         .listStyle(.plain)
@@ -68,6 +68,14 @@ struct ExercisePickerView: View {
         .navigationTitle("Exercises")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarGlassBackground()
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink("Manage") {
+                    ManageExercisesView()
+                }
+                .accessibilityIdentifier("ExercisePicker.Manage")
+            }
+        }
         .searchable(text: $searchText)
     }
 

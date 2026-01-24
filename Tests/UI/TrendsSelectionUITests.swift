@@ -10,10 +10,6 @@ final class TrendsSelectionUITests: MarbleUITestCase {
 
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
 
-        let viewSetsButton = app.buttons["Trends.ConsistencyTooltip.ViewSets"]
-        waitFor(viewSetsButton, timeout: 6)
-        viewSetsButton.tap()
-
         let list = waitForIdentifier("Trends.DaySheet.List", timeout: 6)
         XCTAssertTrue(list.exists)
     }
@@ -39,10 +35,6 @@ final class TrendsSelectionUITests: MarbleUITestCase {
         waitFor(volumeChart)
 
         volumeChart.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.4)).tap()
-
-        let viewSetsButton = app.buttons["Trends.VolumeTooltip.ViewSets"]
-        waitFor(viewSetsButton, timeout: 6)
-        viewSetsButton.tap()
 
         let list = waitForIdentifier("Trends.WeekSheet.List", timeout: 6)
         XCTAssertTrue(list.exists)

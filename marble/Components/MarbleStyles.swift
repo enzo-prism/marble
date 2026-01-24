@@ -64,6 +64,10 @@ struct MarbleChipLabel: View {
                 RoundedRectangle(cornerRadius: MarbleCornerRadius.small, style: .continuous)
                     .fill(backgroundColor)
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: MarbleCornerRadius.small, style: .continuous)
+                    .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
+            )
             .opacity(isDisabled ? 0.5 : 1.0)
     }
 
@@ -71,14 +75,14 @@ struct MarbleChipLabel: View {
         if isSelected {
             return Theme.dividerColor(for: colorScheme)
         }
-        return Theme.chipFillColor(for: colorScheme)
+        return Theme.backgroundColor(for: colorScheme)
     }
 
     private var textColor: Color {
-        if colorScheme == .light {
-            return isSelected ? Color.white : Theme.primaryTextColor(for: colorScheme)
+        if isSelected {
+            return Theme.backgroundColor(for: colorScheme)
         }
-        return isSelected ? Color.black : Color.white
+        return Theme.primaryTextColor(for: colorScheme)
     }
 }
 

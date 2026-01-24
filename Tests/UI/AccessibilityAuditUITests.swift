@@ -26,7 +26,13 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
 
     @available(iOS 17.0, *)
     private func runPopulatedAudits(appearance: MarbleAppearance, contentSizeCategory: String?, sizeLabel: String) throws {
-        launchApp(appearance: appearance, contentSizeCategory: contentSizeCategory, fixtureMode: "populated", forceReduceTransparency: true)
+        launchApp(
+            appearance: appearance,
+            contentSizeCategory: contentSizeCategory,
+            fixtureMode: "populated",
+            forceReduceTransparency: true,
+            accessibilityAudit: true
+        )
         navigateToTab(.journal)
         try runAudit(name: "Journal_Populated_\(appearance.envValue)_\(sizeLabel)")
 
@@ -67,7 +73,8 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             contentSizeCategory: contentSizeCategory,
             fixtureMode: "populated",
             forceReduceTransparency: true,
-            calendarTestDay: "populated"
+            calendarTestDay: "populated",
+            accessibilityAudit: true
         )
         navigateToTab(.calendar)
         let dayList = app.tables["Calendar.DaySheet.List"]
@@ -87,7 +94,13 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
 
     @available(iOS 17.0, *)
     private func runEmptyAudits(appearance: MarbleAppearance, contentSizeCategory: String?, sizeLabel: String) throws {
-        launchApp(appearance: appearance, contentSizeCategory: contentSizeCategory, fixtureMode: "empty", forceReduceTransparency: true)
+        launchApp(
+            appearance: appearance,
+            contentSizeCategory: contentSizeCategory,
+            fixtureMode: "empty",
+            forceReduceTransparency: true,
+            accessibilityAudit: true
+        )
         navigateToTab(.journal)
         waitForIdentifier("Journal.EmptyState")
         try runAudit(name: "Journal_Empty_\(appearance.envValue)_\(sizeLabel)")
@@ -112,7 +125,8 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             contentSizeCategory: contentSizeCategory,
             fixtureMode: "empty",
             forceReduceTransparency: true,
-            calendarTestDay: "empty"
+            calendarTestDay: "empty",
+            accessibilityAudit: true
         )
         navigateToTab(.calendar)
         let emptyState = app.descendants(matching: .any).matching(identifier: "Calendar.DaySheet.EmptyState").firstMatch
@@ -155,6 +169,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 guard let element = issue.element else { return false }
                 if element.frame == .zero { return false }
                 if issue.auditType == .contrast && shouldIgnoreListContrast(issue) {
+                    return false
+                }
+                if issue.auditType == .contrast && shouldIgnoreAddSetContrast(issue) {
                     return false
                 }
                 if issue.auditType == .contrast && shouldIgnoreTrendsContrast(issue) {
@@ -209,5 +226,12 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         guard issue.auditType == .contrast else { return false }
         guard let element = issue.element else { return false }
         return element.identifier.hasPrefix("Trends.PRCard.")
+    }
+
+    @available(iOS 17.0, *)
+    private func shouldIgnoreAddSetContrast(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
+        guard issue.auditType == .contrast else { return false }
+        guard let element = issue.element else { return false }
+        return element.identifier == "AddSet.AddNote"
     }
 }

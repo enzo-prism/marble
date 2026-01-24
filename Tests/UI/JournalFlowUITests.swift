@@ -135,6 +135,8 @@ final class JournalFlowUITests: MarbleUITestCase {
         let restDone = app.buttons["RestTimer.Done"]
         waitFor(restDone, timeout: 6)
         restDone.tap()
+        waitForDisappearance(restDone, timeout: 6)
+        waitFor(app.navigationBars["Log Set"], timeout: 6)
 
         dismissSheet()
         waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
@@ -224,6 +226,7 @@ final class JournalFlowUITests: MarbleUITestCase {
 
         let manageList = waitForIdentifier("ManageExercises.List", timeout: 6)
         let tempCell = manageList.cells.containing(.staticText, identifier: "Temp Move").firstMatch
+        scrollToElement(tempCell, in: manageList)
         waitFor(tempCell, timeout: 6)
         tempCell.swipeLeft()
         let deleteButton = app.buttons["Delete"]

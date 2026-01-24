@@ -48,7 +48,8 @@ class MarbleUITestCase: XCTestCase {
         nowISO8601: String = MarbleUITestCase.fixedNowISO8601,
         resetDB: Bool = true,
         forceReduceTransparency: Bool = false,
-        calendarTestDay: String? = nil
+        calendarTestDay: String? = nil,
+        accessibilityAudit: Bool = false
     ) {
         if app != nil {
             app.terminate()
@@ -64,6 +65,9 @@ class MarbleUITestCase: XCTestCase {
         app.launchEnvironment["MARBLE_FORCE_COLOR_SCHEME"] = appearance.envValue
         if forceReduceTransparency {
             app.launchEnvironment["MARBLE_FORCE_REDUCE_TRANSPARENCY"] = "1"
+        }
+        if accessibilityAudit {
+            app.launchEnvironment["MARBLE_A11Y_AUDIT"] = "1"
         }
         if let calendarTestDay {
             app.launchEnvironment["MARBLE_TEST_CALENDAR_DAY"] = calendarTestDay
@@ -106,6 +110,20 @@ class MarbleUITestCase: XCTestCase {
 
     func waitFor(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), file: file, line: line)
+    }
+
+    func scrollToElement(_ element: XCUIElement, in container: XCUIElement, maxSwipes: Int = 8) {
+        if element.exists { return }
+        for _ in 0..<maxSwipes {
+            if container.isHittable {
+                container.swipeUp()
+            } else {
+                app.swipeUp()
+            }
+            if element.exists {
+                return
+            }
+        }
     }
 
     func waitForDisappearance(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {

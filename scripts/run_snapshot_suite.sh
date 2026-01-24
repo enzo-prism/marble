@@ -13,13 +13,25 @@ if [[ "${destination}" != id=* ]]; then
 fi
 
 SNAPSHOT_GROUPS=(
-  "MarbleSnapshotTests/AddSetSnapshotTests"
-  "MarbleSnapshotTests/CalendarSnapshotTests"
-  "MarbleSnapshotTests/ComponentGallerySnapshotTests"
-  "MarbleSnapshotTests/JournalSnapshotTests"
-  "MarbleSnapshotTests/SplitSnapshotTests"
-  "MarbleSnapshotTests/SupplementsSnapshotTests"
-  "MarbleSnapshotTests/TrendsSnapshotTests"
+  "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetWeightAndReps"
+  "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetRepsOnlyAddedLoadOff"
+  "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetRepsOnlyAddedLoadOn"
+  "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetDurationOnly"
+  "MarbleSnapshotTests/CalendarSnapshotTests/testCalendarMonthWithMarkers"
+  "MarbleSnapshotTests/CalendarSnapshotTests/testCalendarDaySheetWithEntries"
+  "MarbleSnapshotTests/CalendarSnapshotTests/testCalendarDaySheetEmpty"
+  "MarbleSnapshotTests/ComponentGallerySnapshotTests/testComponentGallery"
+  "MarbleSnapshotTests/JournalSnapshotTests/testJournalEmpty"
+  "MarbleSnapshotTests/JournalSnapshotTests/testJournalPopulated"
+  "MarbleSnapshotTests/JournalSnapshotTests/testJournalLongName"
+  "MarbleSnapshotTests/JournalSnapshotTests/testJournalExtremes"
+  "MarbleSnapshotTests/JournalSnapshotTests/testQuickLogVisible"
+  "MarbleSnapshotTests/SplitSnapshotTests/testSplitStates"
+  "MarbleSnapshotTests/SupplementsSnapshotTests/testSupplementsEmpty"
+  "MarbleSnapshotTests/SupplementsSnapshotTests/testSupplementsPopulated"
+  "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsEmpty"
+  "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsPopulated"
+  "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsFilteredExercise"
 )
 
 prepare_simulator() {

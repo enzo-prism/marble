@@ -19,6 +19,7 @@ enum TestHooks {
     static let forcedColorScheme: ColorScheme? = TestHooks.parseColorScheme(environmentValue("MARBLE_FORCE_COLOR_SCHEME"))
     static let forcedDynamicType: ContentSizeCategory? = TestHooks.parseContentSize(environmentValue("MARBLE_FORCE_DYNAMIC_TYPE"))
     static let forceReduceTransparency: Bool = environmentFlag("MARBLE_FORCE_REDUCE_TRANSPARENCY")
+    static let isAccessibilityAudit: Bool = environmentFlag("MARBLE_A11Y_AUDIT")
     static let fixtureMode: FixtureMode = FixtureMode(rawValue: (environmentValue("MARBLE_FIXTURE_MODE") ?? "populated").lowercased()) ?? .populated
     static let calendarTestDay: String? = environmentValue("MARBLE_TEST_CALENDAR_DAY")?.lowercased()
 

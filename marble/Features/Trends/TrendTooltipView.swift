@@ -15,41 +15,45 @@ struct TrendTooltipView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                Spacer()
-
-                if let onClear {
-                    Button("Clear") {
-                        onClear()
-                    }
-                    .font(MarbleTypography.smallLabel)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .accessibilityLabel("Clear selection")
-                }
-            }
-
-            HStack(spacing: MarbleSpacing.xxs) {
-                Text(valueText)
-                    .font(MarbleTypography.rowTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                if showsPR {
-                    Image(systemName: "trophy.fill")
-                        .font(.caption2)
+            VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(title)
+                        .font(MarbleTypography.rowSubtitle)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        .accessibilityHidden(true)
+
+                    Spacer()
+
+                    if let onClear {
+                        Button("Clear") {
+                            onClear()
+                        }
+                        .font(MarbleTypography.smallLabel)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .accessibilityLabel("Clear selection")
+                    }
+                }
+
+                HStack(spacing: MarbleSpacing.xxs) {
+                    Text(valueText)
+                        .font(MarbleTypography.rowTitle)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+
+                    if showsPR {
+                        Image(systemName: "trophy.fill")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                            .accessibilityHidden(true)
+                    }
+                }
+
+                if let summaryText {
+                    Text(summaryText)
+                        .font(MarbleTypography.rowMeta)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 }
             }
-
-            if let summaryText {
-                Text(summaryText)
-                    .font(MarbleTypography.rowMeta)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilitySummary)
 
             Button(viewSetsLabel) {
                 onViewSets()
@@ -58,15 +62,20 @@ struct TrendTooltipView: View {
             .accessibilityLabel(viewSetsAccessibilityLabel)
             .accessibilityIdentifier(viewSetsIdentifier)
         }
+        .accessibilityElement(children: .contain)
         .padding(MarbleSpacing.s)
         .background(Theme.backgroundColor(for: colorScheme))
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
+                onViewSets()
+            }
+        )
         .overlay(
             RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
                 .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilitySummary)
     }
 
     private var accessibilitySummary: String {
