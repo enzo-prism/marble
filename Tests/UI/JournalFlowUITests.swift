@@ -11,10 +11,18 @@ final class JournalFlowUITests: MarbleUITestCase {
         let weightField = textInput("AddSet.Weight")
         waitFor(weightField)
         clearAndType(weightField, text: "185")
+        dismissKeyboardIfPresent()
 
         setSliderValue("AddSet.Reps", value: 5, range: 1...20)
 
-        app.buttons["RPEPicker.9"].tap()
+        let addSetRPE = app.descendants(matching: .any).matching(identifier: "RPEPicker.9").firstMatch
+        let addSetList = waitForIdentifier("AddSet.List", timeout: 6)
+        scrollToElement(addSetRPE, in: addSetList, maxSwipes: 12)
+        waitFor(addSetRPE)
+        if !addSetRPE.isHittable {
+            app.swipeUp()
+        }
+        forceTap(addSetRPE)
 
         let saveButton = app.buttons["AddSet.Save"]
         waitFor(saveButton)
@@ -50,7 +58,14 @@ final class JournalFlowUITests: MarbleUITestCase {
         waitFor(detailReps, timeout: 6)
         clearAndType(detailReps, text: "6")
 
-        app.buttons["RPEPicker.9"].tap()
+        let detailList = app.tables.firstMatch
+        let detailRPE = app.descendants(matching: .any).matching(identifier: "RPEPicker.9").firstMatch
+        scrollToElement(detailRPE, in: detailList)
+        waitFor(detailRPE)
+        if !detailRPE.isHittable {
+            detailList.swipeUp()
+        }
+        forceTap(detailRPE)
 
         let backButton = app.navigationBars.buttons.element(boundBy: 0)
         waitFor(backButton)
@@ -103,47 +118,6 @@ final class JournalFlowUITests: MarbleUITestCase {
             let rowsAfterUndo = setRows(in: listAfterUndo)
             XCTAssertTrue(rowsAfterUndo.element(boundBy: 1).waitForExistence(timeout: 6))
         }
-    }
-
-    func testSaveAndStartRest() {
-        launchApp(fixtureMode: "empty")
-        navigateToTab(.journal)
-
-        openAddSet()
-        selectExercise(identifier: "BenchPress")
-
-        let weightField = textInput("AddSet.Weight")
-        waitFor(weightField)
-        clearAndType(weightField, text: "185")
-
-        setSliderValue("AddSet.Reps", value: 5, range: 1...20)
-
-        app.buttons["RPEPicker.8"].tap()
-
-        let saveStartRest = app.buttons["AddSet.SaveStartRest"]
-        var attempts = 0
-        while !saveStartRest.exists, attempts < 3 {
-            app.swipeUp()
-            attempts += 1
-        }
-        waitFor(saveStartRest)
-        if !saveStartRest.isHittable {
-            app.swipeUp()
-        }
-        saveStartRest.tap()
-
-        let restDone = app.buttons["RestTimer.Done"]
-        waitFor(restDone, timeout: 6)
-        restDone.tap()
-        waitForDisappearance(restDone, timeout: 6)
-        waitFor(app.navigationBars["Log Set"], timeout: 6)
-
-        dismissSheet()
-        waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
-
-        let list = waitForIdentifier("Journal.List", timeout: 8)
-        let rows = setRows(in: list)
-        XCTAssertTrue(rows.element(boundBy: 0).exists)
     }
 
     func testAddDurationSetDoesNotCrash() {

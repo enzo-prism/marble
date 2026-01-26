@@ -73,15 +73,12 @@ struct MarbleChipLabel: View {
 
     private var backgroundColor: Color {
         if isSelected {
-            return Theme.dividerColor(for: colorScheme)
+            return Theme.chipFillColor(for: colorScheme)
         }
         return Theme.backgroundColor(for: colorScheme)
     }
 
     private var textColor: Color {
-        if isSelected {
-            return Theme.backgroundColor(for: colorScheme)
-        }
         return Theme.primaryTextColor(for: colorScheme)
     }
 }

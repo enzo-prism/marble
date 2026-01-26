@@ -21,12 +21,10 @@ struct AddSetView: View {
     @State private var notes: String = ""
     @State private var showNotes = false
     @State private var addedLoad = false
-    @State private var showRestTimer = false
     @State private var didInitialize = false
     @State private var showSaveError = false
     @State private var showMissingExercise = false
     @State private var lastEntry: SetEntry?
-    @State private var showingProgress = false
     private let repsRange: ClosedRange<Int> = 1...20
     private let defaultRepsValue: Int = 10
 
@@ -61,12 +59,7 @@ struct AddSetView: View {
 
                 if let exercise = selectedExerciseSnapshot {
                     Section {
-                        LastTimeCardView(
-                            content: lastTimeContent,
-                            onViewProgress: {
-                                showingProgress = true
-                            }
-                        )
+                        LastTimeCardView(content: lastTimeContent)
                         .listRowSeparator(.hidden)
                         .listRowBackground(Theme.backgroundColor(for: colorScheme))
                         .marbleRowInsets()
@@ -160,7 +153,6 @@ struct AddSetView: View {
                     Section {
                         RPEPicker(value: $difficulty)
                             .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                            .accessibilityIdentifier("AddSet.RPE")
                             .padding(.vertical, MarbleSpacing.s)
                     }
 
@@ -230,27 +222,6 @@ struct AddSetView: View {
                 }
                 didInitialize = true
             }
-            .sheet(isPresented: $showRestTimer) {
-                RestTimerView(totalSeconds: restAfterSeconds)
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
-                    .sheetGlassBackground()
-            }
-            .sheet(isPresented: $showingProgress) {
-                if let selectedExerciseID, let exercise = fetchExercise(id: selectedExerciseID) {
-                    ExerciseProgressView(exercise: exercise)
-                        .presentationDetents([.large])
-                        .presentationDragIndicator(.visible)
-                        .sheetGlassBackground()
-                } else {
-                    Text("Exercise not found")
-                        .font(MarbleTypography.body)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        .presentationDetents([.medium])
-                        .presentationDragIndicator(.visible)
-                        .sheetGlassBackground()
-                }
-            }
             .alert("Unable to Save", isPresented: $showSaveError) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -313,54 +284,57 @@ struct AddSetView: View {
     private var lastTimeContent: LastTimeContent {
         guard let exercise = selectedExerciseSnapshot, let lastEntry else {
             return LastTimeContent(
-                summaryText: "No previous sets yet",
-                relativeTimeText: nil,
-                preciseDateText: nil,
-                metaText: nil,
-                notesText: nil,
-                deltaText: nil,
-                accessibilityLabel: "No previous sets yet"
+                primaryText: "No history for this exercise",
+                secondaryText: nil,
+                accessibilityLabel: "No history for this exercise",
+                hasHistory: false
             )
         }
 
-        let summary = lastTimeSummary(for: lastEntry, metrics: exercise.metrics)
-        let relativeTime = DateHelper.relativeTime(from: lastEntry.performedAt)
-        let preciseTime = Formatters.fullDateTime.string(from: lastEntry.performedAt)
-        let metaText = lastTimeMeta(for: lastEntry)
-        let notesText = lastTimeNotes(for: lastEntry)
-        let deltaText = deltaSummaryText(for: lastEntry, metrics: exercise.metrics)
-        let accessibilityLabel = [summary, relativeTime, preciseTime, metaText, notesText, deltaText]
-            .compactMap { $0 }
-            .joined(separator: ", ")
+        var summaryParts = lastTimeMetricParts(for: lastEntry, metrics: exercise.metrics)
+        summaryParts.append("Rest \(DateHelper.formattedDuration(seconds: lastEntry.restAfterSeconds))")
+        let summaryText = summaryParts.joined(separator: " · ")
+        let loggedAtText = "Logged \(Formatters.fullDateTime.string(from: lastEntry.performedAt))"
+        let accessibilityLabel = "\(summaryText), \(loggedAtText)"
 
         return LastTimeContent(
-            summaryText: summary,
-            relativeTimeText: relativeTime,
-            preciseDateText: preciseTime,
-            metaText: metaText,
-            notesText: notesText,
-            deltaText: deltaText,
-            accessibilityLabel: accessibilityLabel
+            primaryText: summaryText,
+            secondaryText: loggedAtText,
+            accessibilityLabel: accessibilityLabel,
+            hasHistory: true
         )
+    }
+
+    private func lastTimeMetricParts(for entry: SetEntry, metrics: ExerciseMetricsProfile) -> [String] {
+        var parts: [String] = []
+
+        if metrics.usesWeight {
+            if let weight = entry.weight {
+                parts.append(formattedWeight(weight, unit: entry.weightUnit))
+            } else if metrics.weight == .optional {
+                parts.append("Bodyweight")
+            }
+        }
+
+        if metrics.usesReps, let reps = entry.reps {
+            parts.append("\(reps) reps")
+        }
+
+        if parts.isEmpty, metrics.usesDuration, let duration = entry.durationSeconds {
+            parts.append("Duration \(DateHelper.formattedClockDuration(seconds: duration))")
+        }
+
+        return parts
     }
 
     private var saveButtons: some View {
         VStack(spacing: MarbleSpacing.s) {
             Button("Save") {
-                save(startRest: false)
+                save()
             }
             .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
             .allowsHitTesting(effectiveCanSave)
             .accessibilityIdentifier("AddSet.Save")
-
-            if restAfterSeconds > 0, canSave {
-                Button("Save & Start Rest") {
-                    save(startRest: true)
-                }
-                .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
-                .allowsHitTesting(effectiveCanSave)
-                .accessibilityIdentifier("AddSet.SaveStartRest")
-            }
         }
         .padding(.horizontal, MarbleLayout.pagePadding)
         .padding(.top, MarbleSpacing.s)
@@ -412,7 +386,7 @@ struct AddSetView: View {
         addedLoad = false
     }
 
-    private func save(startRest: Bool) {
+    private func save() {
         dismissKeyboard()
         guard let selectedExerciseID else {
             showMissingExercise = selectedExerciseSnapshot != nil
@@ -460,24 +434,7 @@ struct AddSetView: View {
             return
         }
 
-        let snapshot = ExerciseSnapshot(exercise)
-        if startRest {
-            resetForm(for: snapshot, lastEntry: entry)
-            showRestTimer = true
-            return
-        }
-
         closeSheet()
-    }
-
-    private func resetForm(for exercise: ExerciseSnapshot, lastEntry: SetEntry?) {
-        selectedExerciseID = exercise.id
-        selectedExerciseSnapshot = exercise
-        self.lastEntry = lastEntry
-        performedAt = AppEnvironment.now
-        applyDefaults(for: exercise, lastEntry: lastEntry)
-        notes = ""
-        showNotes = false
     }
 
     private func closeSheet() {
@@ -493,88 +450,10 @@ struct AddSetView: View {
         min(max(value, repsRange.lowerBound), repsRange.upperBound)
     }
 
-    private func lastTimeSummary(for entry: SetEntry, metrics: ExerciseMetricsProfile) -> String {
-        if metrics.usesDuration, let duration = entry.durationSeconds {
-            return DateHelper.formattedClockDuration(seconds: duration)
-        }
-
-        if metrics.usesWeight, let weight = entry.weight {
-            let weightText = formattedWeight(weight, unit: entry.weightUnit)
-            if let reps = entry.reps {
-                return "\(weightText) \(timesSymbol) \(reps)"
-            }
-            return weightText
-        }
-
-        if metrics.usesReps, let reps = entry.reps {
-            return "\(reps) reps"
-        }
-
-        if let duration = entry.durationSeconds {
-            return DateHelper.formattedClockDuration(seconds: duration)
-        }
-
-        return "No metrics"
-    }
-
-    private func lastTimeMeta(for entry: SetEntry) -> String? {
-        var parts: [String] = []
-        parts.append("RPE \(entry.difficulty)")
-        if entry.restAfterSeconds > 0 {
-            parts.append("Rest \(DateHelper.formattedDuration(seconds: entry.restAfterSeconds))")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    private func lastTimeNotes(for entry: SetEntry) -> String? {
-        let trimmed = entry.notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !trimmed.isEmpty else { return nil }
-        return "Notes: \(trimmed)"
-    }
-
-    private func deltaSummaryText(for entry: SetEntry, metrics: ExerciseMetricsProfile) -> String? {
-        var deltas: [String] = []
-
-        if metrics.usesWeight, (metrics.weightIsRequired || addedLoad),
-           let currentWeight = weight,
-           let lastWeight = entry.weight,
-           entry.weightUnit == weightUnit {
-            let diff = currentWeight - lastWeight
-            let formatted = Formatters.weight.string(from: NSNumber(value: abs(diff))) ?? "\(abs(diff))"
-            let sign = diff >= 0 ? "+" : "-"
-            deltas.append("\(sign)\(formatted) \(weightUnit.symbol)")
-        }
-
-        if metrics.usesReps,
-           let currentReps = reps,
-           let lastReps = entry.reps {
-            let diff = currentReps - lastReps
-            let sign = diff >= 0 ? "+" : "-"
-            let label = abs(diff) == 1 ? "rep" : "reps"
-            deltas.append("\(sign)\(abs(diff)) \(label)")
-        }
-
-        if metrics.usesDuration,
-           let currentDuration = durationSeconds,
-           let lastDuration = entry.durationSeconds,
-           currentDuration > 0,
-           lastDuration > 0 {
-            let diff = currentDuration - lastDuration
-            let sign = diff >= 0 ? "+" : "-"
-            let formatted = DateHelper.formattedClockDuration(seconds: abs(diff))
-            deltas.append("\(sign)\(formatted)")
-        }
-
-        guard !deltas.isEmpty else { return nil }
-        return "Delta vs last: " + deltas.joined(separator: " · ")
-    }
-
     private func formattedWeight(_ weight: Double, unit: WeightUnit) -> String {
         let formatted = Formatters.weight.string(from: NSNumber(value: weight)) ?? "\(weight)"
         return "\(formatted) \(unit.symbol)"
     }
-
-    private let timesSymbol = "\u{00D7}"
 }
 
 private extension AddSetView {
@@ -663,88 +542,41 @@ private extension AddSetView {
     }
 }
 
-private struct LastTimeContent {
-    let summaryText: String
-    let relativeTimeText: String?
-    let preciseDateText: String?
-    let metaText: String?
-    let notesText: String?
-    let deltaText: String?
+struct LastTimeContent {
+    let primaryText: String
+    let secondaryText: String?
     let accessibilityLabel: String
+    let hasHistory: Bool
 }
 
-private struct LastTimeCardView: View {
+struct LastTimeCardView: View {
     let content: LastTimeContent
-    let onViewProgress: () -> Void
-
-    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
-    @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
     @Environment(\.colorScheme) private var colorScheme
 
-    private var reduceTransparency: Bool {
-        reduceTransparencyOverride ?? systemReduceTransparency
-    }
-
     var body: some View {
-        let card = VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(content.summaryText)
-                    .font(MarbleTypography.rowTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+            Text(content.primaryText)
+                .font(content.hasHistory ? MarbleTypography.rowTitle : MarbleTypography.rowSubtitle)
+                .foregroundStyle(content.hasHistory ? Theme.primaryTextColor(for: colorScheme) : Theme.secondaryTextColor(for: colorScheme))
+                .monospacedDigit()
 
-                Spacer()
-
-                if let relativeTimeText = content.relativeTimeText {
-                    Text(relativeTimeText)
-                        .font(MarbleTypography.rowMeta)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                }
-            }
-
-            if let deltaText = content.deltaText {
-                Text(deltaText)
+            if let secondaryText = content.secondaryText {
+                Text(secondaryText)
                     .font(MarbleTypography.rowMeta)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             }
-
-            if let metaText = content.metaText {
-                Text(metaText)
-                    .font(MarbleTypography.rowMeta)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-            }
-
-            if let notesText = content.notesText {
-                Text(notesText)
-                    .font(MarbleTypography.rowMeta)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .lineLimit(2)
-            }
-
-            Button("View progress") {
-                onViewProgress()
-            }
-            .font(MarbleTypography.caption)
-            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-            .tint(Theme.dividerColor(for: colorScheme))
-            .accessibilityIdentifier("AddSet.LastTime.ViewProgress")
-            .accessibilityLabel("View progress")
-            .applyGlassButtonStyle()
         }
         .padding(MarbleSpacing.s)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(GlassTileBackground())
-        .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous))
-        .accessibilityElement(children: .combine)
+        .background(
+            RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous)
+                .fill(Theme.backgroundColor(for: colorScheme))
+                .overlay(
+                    RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous)
+                        .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
+                )
+        )
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(content.accessibilityLabel)
-
-        if reduceTransparency {
-            card
-        } else if #available(iOS 26.0, *) {
-            GlassEffectContainer(spacing: MarbleSpacing.s) {
-                card
-            }
-        } else {
-            card
-        }
     }
 }

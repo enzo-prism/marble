@@ -113,17 +113,35 @@ class MarbleUITestCase: XCTestCase {
     }
 
     func scrollToElement(_ element: XCUIElement, in container: XCUIElement, maxSwipes: Int = 8) {
-        if element.exists { return }
+        if element.exists && element.isHittable { return }
         for _ in 0..<maxSwipes {
             if container.isHittable {
                 container.swipeUp()
             } else {
                 app.swipeUp()
             }
-            if element.exists {
+            if element.exists && element.isHittable {
                 return
             }
         }
+    }
+
+    func dismissKeyboardIfPresent() {
+        guard app.keyboards.count > 0 else { return }
+        if app.buttons["Done"].exists {
+            app.buttons["Done"].tap()
+            return
+        }
+        if app.keyboards.buttons["Return"].exists {
+            app.keyboards.buttons["Return"].tap()
+            return
+        }
+        let navBar = app.navigationBars.element(boundBy: 0)
+        if navBar.exists {
+            navBar.tap()
+            return
+        }
+        app.tap()
     }
 
     func waitForDisappearance(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {

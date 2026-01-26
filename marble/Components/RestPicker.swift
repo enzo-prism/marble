@@ -9,7 +9,7 @@ struct RestPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            Text("Rest After")
+            Text("Rest")
                 .font(MarbleTypography.sectionTitle)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
@@ -19,12 +19,7 @@ struct RestPicker: View {
                         Button {
                             restSeconds = seconds
                         } label: {
-                            MarbleChipLabel(
-                                title: label(for: seconds),
-                                isSelected: restSeconds == seconds,
-                                isDisabled: false,
-                                isExpanded: false
-                            )
+                            restChipLabel(for: seconds, isSelected: restSeconds == seconds)
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("RestPicker.\(seconds)")
@@ -54,6 +49,23 @@ struct RestPicker: View {
         default:
             return DateHelper.formattedDuration(seconds: seconds)
         }
+    }
+
+    private func restChipLabel(for seconds: Int, isSelected: Bool) -> some View {
+        Text(label(for: seconds))
+            .font(MarbleTypography.chip)
+            .frame(minHeight: MarbleLayout.chipMinHeight)
+            .padding(.horizontal, MarbleSpacing.s)
+            .padding(.vertical, MarbleSpacing.xxs)
+            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            .background(
+                RoundedRectangle(cornerRadius: MarbleCornerRadius.small, style: .continuous)
+                    .fill(Theme.chipFillColor(for: colorScheme))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: MarbleCornerRadius.small, style: .continuous)
+                    .stroke(isSelected ? Theme.primaryTextColor(for: colorScheme) : Theme.dividerColor(for: colorScheme), lineWidth: 1)
+            )
     }
 
 }

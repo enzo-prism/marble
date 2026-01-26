@@ -15,6 +15,20 @@ final class AddSetSnapshotTests: SnapshotTestCase {
         assertSnapshot(view, named: "AddSet_WeightReps")
     }
 
+    func testAddSetWeightAndRepsWithHistory() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedBase(in: context)
+
+        SnapshotFixtures.addSet(in: context, exerciseName: "Bench Press", performedAt: SnapshotFixtures.now, weight: 185, reps: 5, difficulty: 8, restAfterSeconds: 90)
+        let bench = SnapshotFixtures.exercise(named: "Bench Press", in: context)
+
+        let view = AddSetView(initialPerformedAt: SnapshotFixtures.now, initialExercise: bench)
+            .modelContainer(container)
+            .environmentObject(QuickLogCoordinator())
+        assertSnapshot(view, named: "AddSet_WeightReps_History")
+    }
+
     func testAddSetRepsOnlyAddedLoadOff() {
         let container = SnapshotFixtures.makeContainer()
         let context = ModelContext(container)

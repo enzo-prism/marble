@@ -28,11 +28,23 @@ struct RPEPicker: View {
                 }
             }
 
-            Button(showAll ? "Show 6-10" : "Show 1-10") {
+            Button {
                 showAll.toggle()
+            } label: {
+                Text(showAll ? "Show 6-10" : "Show 1-10")
+                    .font(MarbleTypography.caption.weight(.semibold))
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .padding(.horizontal, MarbleSpacing.s)
+                    .padding(.vertical, MarbleSpacing.xxs)
+                    .background(
+                        RoundedRectangle(cornerRadius: MarbleCornerRadius.small, style: .continuous)
+                            .fill(Theme.chipFillColor(for: colorScheme))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: MarbleCornerRadius.small, style: .continuous)
+                            .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
+                    )
             }
-            .font(MarbleTypography.caption)
-            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             .buttonStyle(.plain)
             .accessibilityIdentifier("RPEPicker.Toggle")
         }
