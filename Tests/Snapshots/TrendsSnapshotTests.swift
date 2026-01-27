@@ -36,4 +36,27 @@ final class TrendsSnapshotTests: SnapshotTestCase {
             .environmentObject(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_Filtered")
     }
+
+    func testTrendsConsistencyTooltip() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedPopulated(in: context)
+
+        let view = TrendsView(initialSelectedDay: SnapshotFixtures.now)
+            .modelContainer(container)
+            .environmentObject(QuickLogCoordinator())
+        assertSnapshot(view, named: "Trends_ConsistencyTooltip")
+    }
+
+    func testTrendsVolumeTooltip() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedPopulated(in: context)
+
+        let weekStart = TrendsDateHelper.startOfWeek(for: SnapshotFixtures.now)
+        let view = TrendsView(initialSelectedWeekStart: weekStart)
+            .modelContainer(container)
+            .environmentObject(QuickLogCoordinator())
+        assertSnapshot(view, named: "Trends_VolumeTooltip")
+    }
 }

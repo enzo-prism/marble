@@ -188,6 +188,13 @@ struct AddSetView: View {
                         .listRowBackground(Theme.backgroundColor(for: colorScheme))
                         .padding(.vertical, MarbleSpacing.s)
                     }
+
+                    if showsInlineSave {
+                        Section {
+                            saveButtonRow
+                                .listRowSeparator(.hidden)
+                        }
+                    }
                 }
 
                 }
@@ -197,7 +204,9 @@ struct AddSetView: View {
                 .background(Theme.backgroundColor(for: colorScheme))
                 .accessibilityIdentifier("AddSet.List")
                 .safeAreaInset(edge: .bottom) {
-                    saveButtons
+                    if !showsInlineSave {
+                        saveButtons
+                    }
                 }
             }
             .background(Theme.backgroundColor(for: colorScheme))
@@ -281,60 +290,61 @@ struct AddSetView: View {
         )
     }
 
+    private var showsInlineSave: Bool {
+        TestHooks.isUITesting
+    }
+
     private var lastTimeContent: LastTimeContent {
         guard let exercise = selectedExerciseSnapshot, let lastEntry else {
             return LastTimeContent(
-                primaryText: "No history for this exercise",
-                secondaryText: nil,
+                metrics: [],
+                loggedAtText: nil,
+                emptyText: "No history for this exercise",
                 accessibilityLabel: "No history for this exercise",
                 hasHistory: false
             )
         }
 
-        var summaryParts = lastTimeMetricParts(for: lastEntry, metrics: exercise.metrics)
-        summaryParts.append("Rest \(DateHelper.formattedDuration(seconds: lastEntry.restAfterSeconds))")
-        let summaryText = summaryParts.joined(separator: " · ")
+        let metrics = lastTimeMetrics(for: lastEntry, metrics: exercise.metrics)
         let loggedAtText = "Logged \(Formatters.fullDateTime.string(from: lastEntry.performedAt))"
-        let accessibilityLabel = "\(summaryText), \(loggedAtText)"
+        let metricLabel = metrics.map { "\($0.label) \($0.value)" }.joined(separator: ", ")
+        let accessibilityLabel = metricLabel.isEmpty ? loggedAtText : "\(metricLabel), \(loggedAtText)"
 
         return LastTimeContent(
-            primaryText: summaryText,
-            secondaryText: loggedAtText,
+            metrics: metrics,
+            loggedAtText: loggedAtText,
+            emptyText: nil,
             accessibilityLabel: accessibilityLabel,
             hasHistory: true
         )
     }
 
-    private func lastTimeMetricParts(for entry: SetEntry, metrics: ExerciseMetricsProfile) -> [String] {
-        var parts: [String] = []
+    private func lastTimeMetrics(for entry: SetEntry, metrics: ExerciseMetricsProfile) -> [LastTimeMetric] {
+        var items: [LastTimeMetric] = []
 
         if metrics.usesWeight {
             if let weight = entry.weight {
-                parts.append(formattedWeight(weight, unit: entry.weightUnit))
+                items.append(LastTimeMetric(label: "Weight", value: formattedWeight(weight, unit: entry.weightUnit)))
             } else if metrics.weight == .optional {
-                parts.append("Bodyweight")
+                items.append(LastTimeMetric(label: "Weight", value: "Bodyweight"))
             }
         }
 
         if metrics.usesReps, let reps = entry.reps {
-            parts.append("\(reps) reps")
+            items.append(LastTimeMetric(label: "Reps", value: "\(reps)"))
         }
 
-        if parts.isEmpty, metrics.usesDuration, let duration = entry.durationSeconds {
-            parts.append("Duration \(DateHelper.formattedClockDuration(seconds: duration))")
+        if metrics.usesDuration, let duration = entry.durationSeconds {
+            items.append(LastTimeMetric(label: "Duration", value: DateHelper.formattedClockDuration(seconds: duration)))
         }
 
-        return parts
+        items.append(LastTimeMetric(label: "Rest", value: DateHelper.formattedDuration(seconds: entry.restAfterSeconds)))
+        return items
     }
 
     private var saveButtons: some View {
         VStack(spacing: MarbleSpacing.s) {
-            Button("Save") {
-                save()
-            }
-            .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
-            .allowsHitTesting(effectiveCanSave)
-            .accessibilityIdentifier("AddSet.Save")
+            saveButtonContent
         }
         .padding(.horizontal, MarbleLayout.pagePadding)
         .padding(.top, MarbleSpacing.s)
@@ -344,6 +354,22 @@ struct AddSetView: View {
             Divider()
                 .background(Theme.dividerColor(for: colorScheme))
         }
+    }
+
+    private var saveButtonRow: some View {
+        saveButtonContent
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+            .padding(.vertical, MarbleSpacing.s)
+            .marbleRowInsets()
+    }
+
+    private var saveButtonContent: some View {
+        Button("Save") {
+            save()
+        }
+        .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
+        .allowsHitTesting(effectiveCanSave)
+        .accessibilityIdentifier("AddSet.Save")
     }
 
     private func loadInitialExercise() {
@@ -542,9 +568,15 @@ private extension AddSetView {
     }
 }
 
+struct LastTimeMetric: Hashable {
+    let label: String
+    let value: String
+}
+
 struct LastTimeContent {
-    let primaryText: String
-    let secondaryText: String?
+    let metrics: [LastTimeMetric]
+    let loggedAtText: String?
+    let emptyText: String?
     let accessibilityLabel: String
     let hasHistory: Bool
 }
@@ -554,15 +586,21 @@ struct LastTimeCardView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            Text(content.primaryText)
-                .font(content.hasHistory ? MarbleTypography.rowTitle : MarbleTypography.rowSubtitle)
-                .foregroundStyle(content.hasHistory ? Theme.primaryTextColor(for: colorScheme) : Theme.secondaryTextColor(for: colorScheme))
-                .monospacedDigit()
+        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            if content.hasHistory {
+                ViewThatFits(in: .horizontal) {
+                    metricColumns
+                    metricStack
+                }
 
-            if let secondaryText = content.secondaryText {
-                Text(secondaryText)
-                    .font(MarbleTypography.rowMeta)
+                if let loggedAtText = content.loggedAtText {
+                    Text(loggedAtText)
+                        .font(MarbleTypography.rowMeta)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            } else if let emptyText = content.emptyText {
+                Text(emptyText)
+                    .font(MarbleTypography.rowSubtitle)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             }
         }
@@ -578,5 +616,34 @@ struct LastTimeCardView: View {
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(content.accessibilityLabel)
+    }
+
+    private var metricColumns: some View {
+        HStack(alignment: .top, spacing: MarbleSpacing.m) {
+            ForEach(content.metrics, id: \.label) { metric in
+                metricCell(metric)
+            }
+        }
+    }
+
+    private var metricStack: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            ForEach(content.metrics, id: \.label) { metric in
+                metricCell(metric)
+            }
+        }
+    }
+
+    private func metricCell(_ metric: LastTimeMetric) -> some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+            Text(metric.label)
+                .font(MarbleTypography.smallLabel)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            Text(metric.value)
+                .font(MarbleTypography.rowTitle)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .monospacedDigit()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

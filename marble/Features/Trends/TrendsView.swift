@@ -16,13 +16,18 @@ struct TrendsView: View {
     @State private var selectedDay: Date?
     @State private var selectedWeekStart: Date?
     @State private var sheetDestination: TrendsSheetDestination?
+    @State private var isScrubbingChart = false
 
-    init(initialRange: TrendRange = .thirtyDays, initialExercise: Exercise? = nil) {
-        let initialSelection = TestHooks.isUITesting ? AppEnvironment.now : nil
+    init(
+        initialRange: TrendRange = .thirtyDays,
+        initialExercise: Exercise? = nil,
+        initialSelectedDay: Date? = nil,
+        initialSelectedWeekStart: Date? = nil
+    ) {
         _range = State(initialValue: initialRange)
         _selectedExercise = State(initialValue: initialExercise)
-        _selectedDay = State(initialValue: initialSelection)
-        _selectedWeekStart = State(initialValue: initialSelection)
+        _selectedDay = State(initialValue: initialSelectedDay)
+        _selectedWeekStart = State(initialValue: initialSelectedWeekStart)
     }
 
     var body: some View {
@@ -53,7 +58,7 @@ struct TrendsView: View {
                                         .font(MarbleTypography.rowMeta)
                                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                                 } else {
-                                    ExerciseProgressChart(points: progressPoints) { date in
+                                    ExerciseProgressChart(points: progressPoints, isScrubbing: $isScrubbingChart) { date in
                                         sheetDestination = .day(date)
                                     }
                                 }
@@ -78,6 +83,7 @@ struct TrendsView: View {
                 }
                 .padding(MarbleLayout.pagePadding)
             }
+            .scrollDisabled(isScrubbingChart)
             .accessibilityIdentifier("Trends.Scroll")
             .background(Theme.backgroundColor(for: colorScheme))
             .navigationTitle("Trends")
@@ -155,101 +161,74 @@ struct TrendsView: View {
     private var consistencyChart: some View {
         let summaries = dailySummaries
         let selectedSummary = selectedDailySummary
-        let fallbackSummary: TrendDailySummary? = {
-            guard TestHooks.isUITesting, let latest = filteredEntries.first else { return nil }
-            let day = Calendar.current.startOfDay(for: latest.performedAt)
-            return TrendDailySummary(date: day, entries: entriesForDay(day))
-        }()
-        let tooltipSummary = selectedSummary ?? fallbackSummary
+        let tooltipSummary = selectedSummary
         let prSummary = dailyPRSummary
-        return ZStack(alignment: .topLeading) {
+        let dataRange: ClosedRange<Date>? = {
+            guard let start = summaries.first?.date,
+                  let end = summaries.last?.date else {
+                return nil
+            }
+            return start ... end
+        }()
+
+        return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Chart {
-            ForEach(summaries) { item in
-                LineMark(
-                    x: .value("Day", item.date),
-                    y: .value("Sets", item.count)
-                )
-                .foregroundStyle(Theme.dividerColor(for: colorScheme))
-                .lineStyle(StrokeStyle(lineWidth: 2))
-                .accessibilityHidden(true)
-            }
-
-            if let prSummary, prSummary.count > 0 {
-                PointMark(
-                    x: .value("PR Day", prSummary.date),
-                    y: .value("Sets", prSummary.count)
-                )
-                .symbol {
-                    Image(systemName: "trophy.fill")
-                        .font(.caption2)
+                ForEach(summaries) { item in
+                    LineMark(
+                        x: .value("Day", item.date),
+                        y: .value("Sets", item.count)
+                    )
+                    .foregroundStyle(Theme.dividerColor(for: colorScheme))
+                    .lineStyle(StrokeStyle(lineWidth: 2))
+                    .accessibilityHidden(true)
                 }
-                .symbolSize(40)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .accessibilityHidden(true)
-            }
 
-            if let selectedSummary {
-                RuleMark(x: .value("Selected Day", selectedSummary.date))
+                if let prSummary, prSummary.count > 0 {
+                    PointMark(
+                        x: .value("PR Day", prSummary.date),
+                        y: .value("Sets", prSummary.count)
+                    )
+                    .symbol {
+                        Image(systemName: "trophy.fill")
+                            .font(.caption2)
+                    }
+                    .symbolSize(40)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
-
-                PointMark(
-                    x: .value("Selected Day", selectedSummary.date),
-                    y: .value("Sets", selectedSummary.count)
-                )
-                .symbolSize(70)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .accessibilityHidden(true)
-            }
-            }
-            .frame(height: 180)
-            GeometryReader { geometry in
-                let width = geometry.size.width
-                let updateSelection: (CGPoint) -> Void = { location in
-                    guard let start = summaries.first?.date,
-                          let end = summaries.last?.date else {
-                        return
-                    }
-                    if start == end {
-                        selectedDay = start
-                        return
-                    }
-                    let clampedX = min(max(location.x, 0), width)
-                    let ratio = width > 0 ? clampedX / width : 0
-                    selectedDay = start.addingTimeInterval(end.timeIntervalSince(start) * Double(ratio))
+                    .accessibilityHidden(true)
                 }
 
-                Rectangle()
-                    .fill(Color.clear)
-                    .contentShape(Rectangle())
-                    .accessibilityIdentifier("Trends.ConsistencyChart")
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Consistency chart")
-                    .accessibilityValue(consistencyAccessibilityValue(for: summaries))
-                    .allowsHitTesting(!(TestHooks.isUITesting && tooltipSummary != nil))
-                    .onTapGesture {
-                        if selectedDay == nil, let last = summaries.last?.date {
-                            selectedDay = last
-                        }
-                    }
-                    .highPriorityGesture(
-                        SpatialTapGesture()
-                            .onEnded { value in
-                                updateSelection(value.location)
-                            }
+                if let selectedSummary {
+                    RuleMark(x: .value("Selected Day", selectedSummary.date))
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+
+                    PointMark(
+                        x: .value("Selected Day", selectedSummary.date),
+                        y: .value("Sets", selectedSummary.count)
                     )
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                updateSelection(value.location)
-                            }
-                            .onEnded { value in
-                                updateSelection(value.location)
-                            }
-                    )
+                    .symbolSize(70)
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityHidden(true)
+                }
             }
             .frame(height: 180)
-            .zIndex(0)
+            .chartOverlay { proxy in
+                GeometryReader { geometry in
+                    let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? geometry[proxy.plotAreaFrame]
+                    TrendsChartOverlay(
+                        plotSize: plotFrame.size,
+                        proxy: proxy,
+                        dataRange: dataRange,
+                        accessibilityIdentifier: "Trends.ConsistencyChart",
+                        accessibilityLabel: "Consistency chart",
+                        accessibilityValue: consistencyAccessibilityValue(for: summaries),
+                        isScrubbing: $isScrubbingChart
+                    ) { date in
+                        selectDay(date)
+                    }
+                    .position(x: plotFrame.midX, y: plotFrame.midY)
+                }
+            }
 
             if let tooltipSummary {
                 TrendTooltipView(
@@ -267,12 +246,8 @@ struct TrendsView: View {
                         selectedDay = nil
                     }
                 )
-                .padding(.top, MarbleSpacing.xs)
-                .padding(.leading, MarbleSpacing.xs)
                 .accessibilityIdentifier("Trends.ConsistencyTooltip")
-                .zIndex(1)
             }
-
         }
     }
 
@@ -280,127 +255,75 @@ struct TrendsView: View {
         let data = volumeData
         let summaries = weeklySummaries
         let selectedSummary = selectedWeeklySummary
-        let fallbackSummary: TrendWeeklySummary? = {
-            guard TestHooks.isUITesting, let latest = filteredEntries.first else { return nil }
-            let weekStart = TrendsDateHelper.startOfWeek(for: latest.performedAt)
-            let weekEnd = TrendsDateHelper.endOfWeek(for: weekStart)
-            let weekEntries = entriesForWeek(weekStart: weekStart)
-            var weightedVolume: Double = 0
-            var repsVolume: Int = 0
-            var durationSeconds: Int = 0
-            for entry in weekEntries {
-                if let weight = entry.weight, let reps = entry.reps {
-                    weightedVolume += weight * Double(reps)
-                } else if let reps = entry.reps {
-                    repsVolume += reps
-                }
-                if let duration = entry.durationSeconds {
-                    durationSeconds += duration
-                }
-            }
-            let durationMinutes = Double(durationSeconds) / 60.0
-            let maxSeriesValue = max(weightedVolume, Double(repsVolume), durationMinutes)
-            return TrendWeeklySummary(
-                weekStart: weekStart,
-                weekEnd: weekEnd,
-                entries: weekEntries,
-                weightedVolume: weightedVolume,
-                repsVolume: repsVolume,
-                durationMinutes: durationMinutes,
-                maxSeriesValue: maxSeriesValue
-            )
-        }()
-        let tooltipSummary = selectedSummary ?? fallbackSummary
+        let tooltipSummary = selectedSummary
         let prSummary = weeklyPRSummary
-        return ZStack(alignment: .topLeading) {
+        let dataRange: ClosedRange<Date>? = {
+            guard let start = summaries.first?.weekStart,
+                  let end = summaries.last?.weekStart else {
+                return nil
+            }
+            return start ... end
+        }()
+
+        return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Chart {
-            ForEach(data) { item in
-                BarMark(
-                    x: .value("Week", item.weekStart),
-                    y: .value("Value", item.value)
-                )
-                .foregroundStyle(item.series.color(for: colorScheme))
-                .position(by: .value("Series", item.series.label))
-                .accessibilityHidden(true)
-            }
-
-            if let prSummary, prSummary.totalVolumeScore > 0 {
-                PointMark(
-                    x: .value("PR Week", prSummary.weekStart),
-                    y: .value("Value", prSummary.maxSeriesValue)
-                )
-                .symbol {
-                    Image(systemName: "trophy.fill")
-                        .font(.caption2)
+                ForEach(data) { item in
+                    BarMark(
+                        x: .value("Week", item.weekStart),
+                        y: .value("Value", item.value)
+                    )
+                    .foregroundStyle(item.series.color(for: colorScheme))
+                    .position(by: .value("Series", item.series.label))
+                    .accessibilityHidden(true)
                 }
-                .symbolSize(40)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .accessibilityHidden(true)
-            }
 
-            if let selectedSummary {
-                RuleMark(x: .value("Selected Week", selectedSummary.weekStart))
+                if let prSummary, prSummary.totalVolumeScore > 0 {
+                    PointMark(
+                        x: .value("PR Week", prSummary.weekStart),
+                        y: .value("Value", prSummary.maxSeriesValue)
+                    )
+                    .symbol {
+                        Image(systemName: "trophy.fill")
+                            .font(.caption2)
+                    }
+                    .symbolSize(40)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+                    .accessibilityHidden(true)
+                }
 
-                PointMark(
-                    x: .value("Selected Week", selectedSummary.weekStart),
-                    y: .value("Value", selectedSummary.maxSeriesValue)
-                )
-                .symbolSize(70)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .accessibilityHidden(true)
-            }
+                if let selectedSummary {
+                    RuleMark(x: .value("Selected Week", selectedSummary.weekStart))
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+
+                    PointMark(
+                        x: .value("Selected Week", selectedSummary.weekStart),
+                        y: .value("Value", selectedSummary.maxSeriesValue)
+                    )
+                    .symbolSize(70)
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityHidden(true)
+                }
             }
             .frame(height: 180)
             .chartLegend(position: .bottom, alignment: .leading)
-            GeometryReader { geometry in
-                let width = geometry.size.width
-                let updateSelection: (CGPoint) -> Void = { location in
-                    guard let start = summaries.first?.weekStart,
-                          let end = summaries.last?.weekStart else {
-                        return
+            .chartOverlay { proxy in
+                GeometryReader { geometry in
+                    let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? geometry[proxy.plotAreaFrame]
+                    TrendsChartOverlay(
+                        plotSize: plotFrame.size,
+                        proxy: proxy,
+                        dataRange: dataRange,
+                        accessibilityIdentifier: "Trends.VolumeChart",
+                        accessibilityLabel: "Weekly volume chart",
+                        accessibilityValue: volumeAccessibilityValue(for: data),
+                        isScrubbing: $isScrubbingChart
+                    ) { date in
+                        selectWeekStart(date)
                     }
-                    if start == end {
-                        selectedWeekStart = start
-                        return
-                    }
-                    let clampedX = min(max(location.x, 0), width)
-                    let ratio = width > 0 ? clampedX / width : 0
-                    selectedWeekStart = start.addingTimeInterval(end.timeIntervalSince(start) * Double(ratio))
+                    .position(x: plotFrame.midX, y: plotFrame.midY)
                 }
-
-                Rectangle()
-                    .fill(Color.clear)
-                    .contentShape(Rectangle())
-                    .accessibilityIdentifier("Trends.VolumeChart")
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Weekly volume chart")
-                    .accessibilityValue(volumeAccessibilityValue(for: data))
-                    .allowsHitTesting(!(TestHooks.isUITesting && tooltipSummary != nil))
-                    .onTapGesture {
-                        if selectedWeekStart == nil, let last = summaries.last?.weekStart {
-                            selectedWeekStart = last
-                        }
-                    }
-                    .highPriorityGesture(
-                        SpatialTapGesture()
-                            .onEnded { value in
-                                updateSelection(value.location)
-                            }
-                    )
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                updateSelection(value.location)
-                            }
-                            .onEnded { value in
-                                updateSelection(value.location)
-                            }
-                    )
             }
-            .frame(height: 180)
-            .zIndex(0)
 
             if let tooltipSummary {
                 let label = TrendsDateHelper.weekLabel(start: tooltipSummary.weekStart, end: tooltipSummary.weekEnd)
@@ -419,12 +342,8 @@ struct TrendsView: View {
                         selectedWeekStart = nil
                     }
                 )
-                .padding(.top, MarbleSpacing.xs)
-                .padding(.leading, MarbleSpacing.xs)
                 .accessibilityIdentifier("Trends.VolumeTooltip")
-                .zIndex(1)
             }
-
         }
     }
 
@@ -644,6 +563,16 @@ struct TrendsView: View {
 
     private func setsLabel(for count: Int) -> String {
         count == 1 ? "1 set" : "\(count) sets"
+    }
+
+    private func selectDay(_ date: Date) {
+        selectedWeekStart = nil
+        selectedDay = date
+    }
+
+    private func selectWeekStart(_ date: Date) {
+        selectedDay = nil
+        selectedWeekStart = date
     }
 
     private func clearSelections() {

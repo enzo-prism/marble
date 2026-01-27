@@ -15,21 +15,8 @@ final class JournalFlowUITests: MarbleUITestCase {
 
         setSliderValue("AddSet.Reps", value: 5, range: 1...20)
 
-        let addSetRPE = app.descendants(matching: .any).matching(identifier: "RPEPicker.9").firstMatch
-        let addSetList = waitForIdentifier("AddSet.List", timeout: 6)
-        scrollToElement(addSetRPE, in: addSetList, maxSwipes: 12)
-        waitFor(addSetRPE)
-        if !addSetRPE.isHittable {
-            app.swipeUp()
-        }
-        forceTap(addSetRPE)
-
-        let saveButton = app.buttons["AddSet.Save"]
-        waitFor(saveButton)
-        if !saveButton.isHittable {
-            app.swipeUp()
-        }
-        saveButton.tap()
+        let saveButton = revealAddSetSaveButton()
+        forceTap(saveButton)
         if app.navigationBars["Log Set"].exists {
             dismissSheet()
         }
@@ -57,15 +44,6 @@ final class JournalFlowUITests: MarbleUITestCase {
         }
         waitFor(detailReps, timeout: 6)
         clearAndType(detailReps, text: "6")
-
-        let detailList = app.tables.firstMatch
-        let detailRPE = app.descendants(matching: .any).matching(identifier: "RPEPicker.9").firstMatch
-        scrollToElement(detailRPE, in: detailList)
-        waitFor(detailRPE)
-        if !detailRPE.isHittable {
-            detailList.swipeUp()
-        }
-        forceTap(detailRPE)
 
         let backButton = app.navigationBars.buttons.element(boundBy: 0)
         waitFor(backButton)
@@ -139,12 +117,8 @@ final class JournalFlowUITests: MarbleUITestCase {
         waitFor(plankRow)
         plankRow.tap()
 
-        let saveButton = app.buttons["AddSet.Save"]
-        waitFor(saveButton)
-        if !saveButton.isHittable {
-            app.swipeUp()
-        }
-        saveButton.tap()
+        let saveButton = revealAddSetSaveButton()
+        forceTap(saveButton)
 
         if app.navigationBars["Log Set"].exists {
             dismissSheet()

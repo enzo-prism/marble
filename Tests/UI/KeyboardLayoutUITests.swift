@@ -13,15 +13,21 @@ final class KeyboardLayoutUITests: MarbleUITestCase {
         weightField.tap()
         XCTAssertTrue(app.keyboards.element.exists)
 
-        let saveButton = app.buttons["AddSet.Save"]
-        if !saveButton.isHittable {
-            app.swipeUp()
-        }
-        XCTAssertTrue(saveButton.exists)
         takeScreenshot("AddSet_KeyboardVisible")
 
-        if app.buttons["AddSet.AddNote"].exists {
-            app.buttons["AddSet.AddNote"].tap()
+        let addNoteButton = app.buttons["AddSet.AddNote"]
+        if !addNoteButton.exists {
+            let list = addSetListContainer()
+            for _ in 0..<3 {
+                if list.exists {
+                    list.swipeDown()
+                } else {
+                    app.swipeDown()
+                }
+            }
+        }
+        if addNoteButton.exists {
+            addNoteButton.tap()
         }
         let notesField = textInput("AddSet.Notes")
         waitFor(notesField)

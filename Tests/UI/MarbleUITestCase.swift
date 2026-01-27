@@ -161,6 +161,47 @@ class MarbleUITestCase: XCTestCase {
         return element
     }
 
+    func addSetListContainer(timeout: TimeInterval = 6) -> XCUIElement {
+        let list = app.descendants(matching: .any).matching(identifier: "AddSet.List").firstMatch
+        if list.waitForExistence(timeout: timeout) {
+            return list
+        }
+        let table = app.tables.firstMatch
+        if table.exists {
+            return table
+        }
+        let collection = app.collectionViews.firstMatch
+        if collection.exists {
+            return collection
+        }
+        return app
+    }
+
+    func revealAddSetSaveButton(
+        maxSwipes: Int = 6,
+        timeout: TimeInterval = 2,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCUIElement {
+        let saveButton = app.descendants(matching: .any).matching(identifier: "AddSet.Save").firstMatch
+        if saveButton.exists {
+            return saveButton
+        }
+        let container = addSetListContainer(timeout: timeout)
+        for _ in 0..<maxSwipes {
+            if container.isHittable {
+                container.swipeUp()
+            } else {
+                app.swipeUp()
+            }
+            if saveButton.exists {
+                break
+            }
+        }
+        XCTAssertTrue(saveButton.waitForExistence(timeout: timeout), file: file, line: line)
+        return saveButton
+    }
+
     func setRows(in list: XCUIElement) -> XCUIElementQuery {
         let predicate = NSPredicate(format: "identifier BEGINSWITH %@", "SetRow.")
         let scoped = list.descendants(matching: .any).matching(predicate)
@@ -201,13 +242,26 @@ class MarbleUITestCase: XCTestCase {
     }
 
     func setSliderValue(_ identifier: String, value: Double, range: ClosedRange<Double>, file: StaticString = #file, line: UInt = #line) {
+        let normalized = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+        let clamped = min(max(normalized, 0), 1)
+
         let slider = app.sliders[identifier]
-        XCTAssertTrue(slider.waitForExistence(timeout: 5), file: file, line: line)
-        if !slider.isHittable {
+        if slider.waitForExistence(timeout: 5) {
+            if !slider.isHittable {
+                app.swipeUp()
+            }
+            slider.adjust(toNormalizedSliderPosition: clamped)
+            return
+        }
+
+        let fallback = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        XCTAssertTrue(fallback.waitForExistence(timeout: 5), file: file, line: line)
+        if !fallback.isHittable {
             app.swipeUp()
         }
-        let normalized = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
-        slider.adjust(toNormalizedSliderPosition: min(max(normalized, 0), 1))
+        let start = fallback.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
+        let end = fallback.coordinate(withNormalizedOffset: CGVector(dx: min(max(clamped, 0.05), 0.95), dy: 0.5))
+        start.press(forDuration: 0.01, thenDragTo: end)
     }
 
     func textInput(_ identifier: String) -> XCUIElement {
@@ -223,9 +277,21 @@ class MarbleUITestCase: XCTestCase {
         waitFor(picker)
         picker.tap()
 
+        let list = waitForIdentifier("ExercisePicker.List", timeout: 8)
         let row = app.buttons.matching(identifier: "ExercisePicker.Row.\(identifier)").firstMatch
-        waitFor(row)
-        row.tap()
+        waitFor(row, timeout: 8)
+        if !row.isHittable {
+            scrollToElement(row, in: list, maxSwipes: 12)
+        }
+        forceTap(row)
+        let exercisesNav = app.navigationBars["Exercises"]
+        if exercisesNav.waitForExistence(timeout: 2) {
+            let backButton = exercisesNav.buttons.element(boundBy: 0)
+            if backButton.exists {
+                backButton.tap()
+            }
+        }
+        waitFor(app.navigationBars["Log Set"], timeout: 8)
     }
 
     func openAddSet() {

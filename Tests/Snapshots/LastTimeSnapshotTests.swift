@@ -5,9 +5,14 @@ import XCTest
 final class LastTimeSnapshotTests: SnapshotTestCase {
     func testLastTimeCardHistory() {
         let content = LastTimeContent(
-            primaryText: "185 lb · 5 reps · Rest 1m 30s",
-            secondaryText: "Logged Jan 15, 2025 at 9:15 AM",
-            accessibilityLabel: "185 lb, 5 reps, Rest 1m 30s, Logged Jan 15, 2025 at 9:15 AM",
+            metrics: [
+                LastTimeMetric(label: "Weight", value: "185 lb"),
+                LastTimeMetric(label: "Reps", value: "5"),
+                LastTimeMetric(label: "Rest", value: "1m 30s")
+            ],
+            loggedAtText: "Logged Jan 15, 2025 at 9:15 AM",
+            emptyText: nil,
+            accessibilityLabel: "Weight 185 lb, Reps 5, Rest 1m 30s, Logged Jan 15, 2025 at 9:15 AM",
             hasHistory: true
         )
         let view = LastTimeCardPreview(content: content)
@@ -16,9 +21,14 @@ final class LastTimeSnapshotTests: SnapshotTestCase {
 
     func testLastTimeCardBodyweight() {
         let content = LastTimeContent(
-            primaryText: "Bodyweight · 12 reps · Rest 1m",
-            secondaryText: "Logged Jan 15, 2025 at 9:15 AM",
-            accessibilityLabel: "Bodyweight, 12 reps, Rest 1m, Logged Jan 15, 2025 at 9:15 AM",
+            metrics: [
+                LastTimeMetric(label: "Weight", value: "Bodyweight"),
+                LastTimeMetric(label: "Reps", value: "12"),
+                LastTimeMetric(label: "Rest", value: "1m")
+            ],
+            loggedAtText: "Logged Jan 15, 2025 at 9:15 AM",
+            emptyText: nil,
+            accessibilityLabel: "Weight Bodyweight, Reps 12, Rest 1m, Logged Jan 15, 2025 at 9:15 AM",
             hasHistory: true
         )
         let view = LastTimeCardPreview(content: content)
@@ -27,8 +37,9 @@ final class LastTimeSnapshotTests: SnapshotTestCase {
 
     func testLastTimeCardEmpty() {
         let content = LastTimeContent(
-            primaryText: "No history for this exercise",
-            secondaryText: nil,
+            metrics: [],
+            loggedAtText: nil,
+            emptyText: "No history for this exercise",
             accessibilityLabel: "No history for this exercise",
             hasHistory: false
         )
