@@ -50,6 +50,8 @@ struct ExerciseProgressView: View {
                 DayDetailsSheet(date: date, entries: entriesForDay(date))
             case .week:
                 EmptyView()
+            case .supplementDay:
+                EmptyView()
             }
         }
         .onAppear {

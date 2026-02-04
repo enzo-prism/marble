@@ -31,6 +31,17 @@ enum SnapshotFixtures {
         return new
     }
 
+    static func supplementType(named name: String, in context: ModelContext) -> SupplementType {
+        let types = (try? context.fetch(FetchDescriptor<SupplementType>())) ?? []
+        if let match = types.first(where: { $0.name == name }) {
+            return match
+        }
+        let new = SupplementType(name: name, unit: .count)
+        context.insert(new)
+        try? context.save()
+        return new
+    }
+
     static func addSet(
         in context: ModelContext,
         exerciseName: String,

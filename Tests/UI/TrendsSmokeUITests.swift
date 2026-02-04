@@ -10,6 +10,22 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         let volumeChart = app.otherElements["Trends.VolumeChart"]
         waitFor(volumeChart)
 
+        let supplementsChart = app.otherElements["Trends.SupplementsChart"]
+        if !supplementsChart.exists {
+            let scrollView = app.scrollViews["Trends.Scroll"]
+            for _ in 0..<3 {
+                if scrollView.exists {
+                    scrollView.swipeUp()
+                } else {
+                    app.swipeUp()
+                }
+                if supplementsChart.exists {
+                    break
+                }
+            }
+        }
+        waitFor(supplementsChart)
+
         let prCards = app.otherElements["Trends.PRCards"]
         if !prCards.exists {
             let scrollView = app.scrollViews["Trends.Scroll"]
@@ -43,6 +59,17 @@ final class TrendsSmokeUITests: MarbleUITestCase {
             }
             let pickerValue = exercisePicker.value as? String
             XCTAssertEqual(pickerValue, "Bench Press")
+        }
+
+        let supplementPicker = app.buttons["Trends.SupplementFilter"]
+        if supplementPicker.exists {
+            supplementPicker.tap()
+            let creatineOption = app.buttons["Creatine"].firstMatch
+            if creatineOption.exists {
+                creatineOption.tap()
+            }
+            let pickerValue = supplementPicker.value as? String
+            XCTAssertEqual(pickerValue, "Creatine")
         }
 
         XCTAssertTrue(app.otherElements["Trends.ConsistencyChart"].exists)

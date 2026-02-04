@@ -36,6 +36,7 @@ SNAPSHOT_GROUPS=(
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsEmpty"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsPopulated"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsFilteredExercise"
+  "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsSupplementsTooltip"
 )
 
 prepare_simulator() {

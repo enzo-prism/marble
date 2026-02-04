@@ -77,6 +77,7 @@ struct ExercisePickerView: View {
             }
         }
         .searchable(text: $searchText)
+        .searchToolbarBehavior(.minimize)
     }
 
     private var filteredExercises: [Exercise] {

@@ -3,6 +3,7 @@ import SwiftUI
 enum TrendsSheetDestination: Identifiable {
     case day(Date)
     case week(Date)
+    case supplementDay(Date)
 
     var id: String {
         switch self {
@@ -10,6 +11,8 @@ enum TrendsSheetDestination: Identifiable {
             return "day-\(date.timeIntervalSince1970)"
         case .week(let date):
             return "week-\(date.timeIntervalSince1970)"
+        case .supplementDay(let date):
+            return "supplement-day-\(date.timeIntervalSince1970)"
         }
     }
 }
@@ -169,5 +172,71 @@ struct WeekDetailsSheet: View {
             return String(format: "%.1f", avg)
         }()
         return "\(entries.count) sets · \(uniqueExercises) exercises · Avg RPE \(averageRPE)"
+    }
+}
+
+struct SupplementDayDetailsSheet: View {
+    let date: Date
+    let entries: [SupplementEntry]
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                        Text(DateHelper.dayLabel(for: date))
+                            .font(MarbleTypography.screenTitle)
+                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+
+                        Text(summaryText)
+                            .font(MarbleTypography.rowSubtitle)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    }
+                    .padding(.vertical, MarbleSpacing.xxs)
+                    .marbleRowInsets()
+                }
+
+                if entries.isEmpty {
+                    EmptyStateView(title: "No logs", message: "Log supplements to track this day.", systemImage: "pills")
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        .marbleRowInsets()
+                        .accessibilityIdentifier("Trends.SupplementDaySheet.EmptyState")
+                } else {
+                    Section {
+                        ForEach(entries.sorted { $0.takenAt > $1.takenAt }) { entry in
+                            NavigationLink {
+                                SupplementDetailView(entry: entry)
+                            } label: {
+                                SupplementRowView(entry: entry)
+                            }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityIdentifier("SupplementRow.\(entry.id.uuidString)")
+                            .accessibilityLabel(SupplementRowView.accessibilityLabel(for: entry))
+                            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                            .marbleRowInsets()
+                        }
+                    } header: {
+                        SectionHeaderView(title: "Logs")
+                    }
+                    .textCase(nil)
+                }
+            }
+            .listStyle(.plain)
+            .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
+            .scrollContentBackground(.hidden)
+            .background(Theme.backgroundColor(for: colorScheme))
+            .accessibilityIdentifier("Trends.SupplementDaySheet.List")
+            .navigationTitle("Supplement Logs")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarGlassBackground()
+        }
+    }
+
+    private var summaryText: String {
+        let uniqueTypes = Set(entries.map { $0.type.id }).count
+        return "\(entries.count) logs · \(uniqueTypes) supplements"
     }
 }

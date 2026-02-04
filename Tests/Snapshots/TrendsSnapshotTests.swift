@@ -59,4 +59,16 @@ final class TrendsSnapshotTests: SnapshotTestCase {
             .environmentObject(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_VolumeTooltip")
     }
+
+    func testTrendsSupplementsTooltip() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedPopulated(in: context)
+
+        let creatine = SnapshotFixtures.supplementType(named: "Creatine", in: context)
+        let view = TrendsView(initialSupplementType: creatine, initialSelectedSupplementDay: SnapshotFixtures.now)
+            .modelContainer(container)
+            .environmentObject(QuickLogCoordinator())
+        assertSnapshot(view, named: "Trends_SupplementsTooltip")
+    }
 }

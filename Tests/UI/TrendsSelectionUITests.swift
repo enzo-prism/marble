@@ -39,4 +39,18 @@ final class TrendsSelectionUITests: MarbleUITestCase {
         let list = waitForIdentifier("Trends.WeekSheet.List", timeout: 6)
         XCTAssertTrue(list.exists)
     }
+
+    func testTrendsSupplementsSelectionOpensSupplementDayDetails() {
+        launchApp(fixtureMode: "populated")
+        navigateToTab(.trends)
+
+        let scrollView = app.scrollViews["Trends.Scroll"]
+        let supplementsChart = app.otherElements["Trends.SupplementsChart"]
+        scrollToElement(supplementsChart, in: scrollView)
+        waitFor(supplementsChart)
+        forceTap(supplementsChart)
+
+        let list = waitForIdentifier("Trends.SupplementDaySheet.List", timeout: 6)
+        XCTAssertTrue(list.exists)
+    }
 }

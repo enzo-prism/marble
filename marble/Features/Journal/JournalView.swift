@@ -4,23 +4,44 @@ import SwiftData
 struct JournalView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var quickLog: QuickLogCoordinator
 
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
 
     @State private var toast: ToastData?
     @State private var pendingUndo: SetEntrySnapshot?
+    @State private var quickLogUndoID: UUID?
     @State private var navPath: [UUID] = []
 
     var body: some View {
         NavigationStack(path: $navPath) {
             List {
+                Section {
+                    QuickLogCardView(
+                        entry: entries.first,
+                        onLogAgain: { quickLogAgain() },
+                        onEdit: { openEdit() },
+                        onLogSet: { quickLog.open() }
+                    )
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                    .marbleRowInsets()
+                }
+
                 if entries.isEmpty {
-                    EmptyStateView(title: "No sets yet", message: "Log your first set to start building momentum.", systemImage: "list.bullet.rectangle")
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                        .marbleRowInsets()
-                        .accessibilityIdentifier("Journal.EmptyState")
+                    VStack(spacing: MarbleSpacing.m) {
+                        EmptyStateView(title: "No sets yet", message: "Log your first set to start building momentum.", systemImage: "list.bullet.rectangle")
+                        Button("Log Set") {
+                            quickLog.open()
+                        }
+                        .buttonStyle(MarbleActionButtonStyle())
+                        .accessibilityIdentifier("Journal.EmptyState.LogSet")
+                    }
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                    .marbleRowInsets()
+                    .accessibilityIdentifier("Journal.EmptyState")
                 }
                 ForEach(sectionedDays, id: \.self) { day in
                     if let dayEntries = groupedEntries[day] {
@@ -104,6 +125,7 @@ struct JournalView: View {
         modelContext.delete(entry)
         try? modelContext.save()
         pendingUndo = snapshot
+        quickLogUndoID = nil
         toast = ToastData(message: "Set deleted", actionTitle: "Undo") {
             undoDelete()
         }
@@ -115,6 +137,55 @@ struct JournalView: View {
         try? modelContext.save()
         pendingUndo = nil
         toast = nil
+    }
+
+    private func quickLogAgain() {
+        guard let latest = entries.first else { return }
+        let now = AppEnvironment.now
+        let duplicate = SetEntry(
+            exercise: latest.exercise,
+            performedAt: now,
+            weight: latest.weight,
+            weightUnit: latest.weightUnit,
+            reps: latest.reps,
+            durationSeconds: latest.durationSeconds,
+            difficulty: latest.difficulty,
+            restAfterSeconds: latest.restAfterSeconds,
+            notes: latest.notes,
+            createdAt: now,
+            updatedAt: now
+        )
+        modelContext.insert(duplicate)
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            return
+        }
+        pendingUndo = nil
+        quickLogUndoID = duplicate.id
+        toast = ToastData(message: "Set logged again", actionTitle: "Undo") {
+            undoQuickLog()
+        }
+    }
+
+    private func undoQuickLog() {
+        guard let id = quickLogUndoID else { return }
+        let descriptor = FetchDescriptor<SetEntry>(predicate: #Predicate { $0.id == id })
+        if let entry = (try? modelContext.fetch(descriptor))?.first {
+            modelContext.delete(entry)
+            try? modelContext.save()
+        }
+        quickLogUndoID = nil
+        toast = nil
+    }
+
+    private func openEdit() {
+        guard let latest = entries.first else {
+            quickLog.open()
+            return
+        }
+        quickLog.open(prefillExerciseID: latest.exercise.id)
     }
 
     private func duplicate(_ entry: SetEntry) {

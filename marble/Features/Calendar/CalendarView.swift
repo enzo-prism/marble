@@ -11,21 +11,33 @@ struct CalendarView: View {
     private var entries: [SetEntry]
 
     @State private var selectedDay: CalendarSelection?
+    @State private var selectedDate: Date?
 
     private let calendar = Calendar.current
 
     var body: some View {
         NavigationStack {
-            VStack {
+            VStack(alignment: .leading, spacing: MarbleSpacing.m) {
                 if TestHooks.isUITesting {
                     testControlsRow
                 }
 
+                calendarHeader
+
+                Button("Log Set") {
+                    let targetDate = selectedDate ?? AppEnvironment.now
+                    quickLog.open(prefillDate: targetDate)
+                }
+                .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
+                .accessibilityIdentifier("Calendar.LogSet")
+
                 CalendarRepresentable(decorations: dayDecorations) { components in
                     guard let components, let date = calendar.date(from: components) else {
                         selectedDay = nil
+                        selectedDate = nil
                         return
                     }
+                    selectedDate = date
                     selectedDay = CalendarSelection(date: date)
                 }
                 .frame(maxHeight: 360)
@@ -96,6 +108,7 @@ struct CalendarView: View {
         default:
             targetDate = now
         }
+        selectedDate = targetDate
         selectedDay = CalendarSelection(date: targetDate)
     }
 
@@ -130,6 +143,119 @@ struct CalendarView: View {
         .font(MarbleTypography.smallLabel)
         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         .padding(.horizontal, 4)
+    }
+
+    private var calendarHeader: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
+                    headerTitle
+                    Spacer(minLength: MarbleSpacing.s)
+                    streakBadge
+                }
+                VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                    headerTitle
+                    streakBadge
+                }
+            }
+
+            Text(daySummaryLine)
+                .font(MarbleTypography.rowSubtitle)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .lineLimit(nil)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("Calendar.Header.Summary")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("Calendar.Header")
+    }
+
+    private var headerTitle: some View {
+        Text(DateHelper.dayLabel(for: headerDate))
+            .font(MarbleTypography.sectionTitle)
+            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            .accessibilityIdentifier("Calendar.Header.DayLabel")
+    }
+
+    private var streakBadge: some View {
+        HStack(spacing: MarbleSpacing.xxxs) {
+            Image(systemName: "flame.fill")
+                .accessibilityHidden(true)
+            Text(streakLabel)
+        }
+        .font(MarbleTypography.smallLabel)
+        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+        .padding(.horizontal, MarbleSpacing.s)
+        .padding(.vertical, MarbleSpacing.xxs)
+        .background(
+            Capsule()
+                .fill(Theme.chipFillColor(for: colorScheme))
+        )
+        .overlay(
+            Capsule()
+                .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
+        )
+        .accessibilityLabel(streakLabel)
+        .accessibilityIdentifier("Calendar.Header.Streak")
+    }
+
+    private var headerDate: Date {
+        selectedDate ?? AppEnvironment.now
+    }
+
+    private var daySummaryLine: String {
+        let dayEntries = entriesForDay(headerDate)
+        let setCount = dayEntries.count
+        let exerciseCount = Set(dayEntries.map { $0.exercise.id }).count
+        let avgRPE = averageRPE(for: dayEntries)
+        let setLabel = pluralize(count: setCount, singular: "set", plural: "sets")
+        let exerciseLabel = pluralize(count: exerciseCount, singular: "exercise", plural: "exercises")
+        return "\(setCount) \(setLabel) · \(exerciseCount) \(exerciseLabel) · Avg RPE \(avgRPE)"
+    }
+
+    private var streakLabel: String {
+        let count = currentStreak
+        let dayLabel = pluralize(count: count, singular: "day", plural: "days")
+        return "Streak \(count) \(dayLabel)"
+    }
+
+    private var currentStreak: Int {
+        let loggedDays = Set(entries.map { calendar.startOfDay(for: $0.performedAt) })
+        guard !loggedDays.isEmpty else { return 0 }
+        let today = calendar.startOfDay(for: AppEnvironment.now)
+        let streakEnd: Date?
+        if loggedDays.contains(today) {
+            streakEnd = today
+        } else if let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
+                  loggedDays.contains(yesterday) {
+            streakEnd = yesterday
+        } else {
+            streakEnd = nil
+        }
+        guard let start = streakEnd else { return 0 }
+        var count = 0
+        var cursor = start
+        while loggedDays.contains(cursor) {
+            count += 1
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else {
+                break
+            }
+            cursor = previous
+        }
+        return count
+    }
+
+    private func averageRPE(for entries: [SetEntry]) -> String {
+        guard !entries.isEmpty else { return "-" }
+        let total = entries.reduce(0) { $0 + $1.difficulty }
+        let avg = Double(total) / Double(entries.count)
+        return String(format: "%.1f", avg)
+    }
+
+    private func pluralize(count: Int, singular: String, plural: String) -> String {
+        count == 1 ? singular : plural
     }
 
 }

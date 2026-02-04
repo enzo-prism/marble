@@ -146,27 +146,43 @@ enum TestFixtures {
         let supplementsByName = Dictionary(uniqueKeysWithValues: supplements.map { ($0.name, $0) })
 
         if let creatine = supplementsByName["Creatine"] {
-            context.insert(SupplementEntry(
-                type: creatine,
-                takenAt: at(days: 0, hour: 7, minute: 30),
-                dose: 5,
-                unit: .g,
-                notes: "With water",
-                createdAt: now,
-                updatedAt: now
-            ))
+            let creatineEntries: [(Int, Int, Int, Double?, String?)] = [
+                (0, 7, 30, 5, "With water"),
+                (-1, 7, 20, 5, nil),
+                (-2, 7, 45, 4.5, nil),
+                (-3, 8, 0, nil, "Forgot to measure"),
+                (-5, 7, 15, 5, nil)
+            ]
+            for entry in creatineEntries {
+                context.insert(SupplementEntry(
+                    type: creatine,
+                    takenAt: at(days: entry.0, hour: entry.1, minute: entry.2),
+                    dose: entry.3,
+                    unit: .g,
+                    notes: entry.4,
+                    createdAt: now,
+                    updatedAt: now
+                ))
+            }
         }
 
         if let protein = supplementsByName["Protein Powder"] {
-            context.insert(SupplementEntry(
-                type: protein,
-                takenAt: at(days: -1, hour: 10, minute: 15),
-                dose: 1,
-                unit: .scoop,
-                notes: "Chocolate",
-                createdAt: now,
-                updatedAt: now
-            ))
+            let proteinEntries: [(Int, Int, Int, Double?, String?)] = [
+                (0, 9, 15, 1, "Vanilla"),
+                (-2, 10, 15, 1.5, "Post workout"),
+                (-4, 11, 5, 1, "Chocolate")
+            ]
+            for entry in proteinEntries {
+                context.insert(SupplementEntry(
+                    type: protein,
+                    takenAt: at(days: entry.0, hour: entry.1, minute: entry.2),
+                    dose: entry.3,
+                    unit: .scoop,
+                    notes: entry.4,
+                    createdAt: now,
+                    updatedAt: now
+                ))
+            }
         }
     }
 

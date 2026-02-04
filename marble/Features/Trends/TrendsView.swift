@@ -11,10 +11,18 @@ struct TrendsView: View {
     @Query(sort: \Exercise.name)
     private var exercises: [Exercise]
 
+    @Query(sort: \SupplementEntry.takenAt, order: .reverse)
+    private var supplementEntries: [SupplementEntry]
+
+    @Query(sort: \SupplementType.name)
+    private var supplementTypes: [SupplementType]
+
     @State private var range: TrendRange = .thirtyDays
     @State private var selectedExercise: Exercise?
+    @State private var selectedSupplementType: SupplementType?
     @State private var selectedDay: Date?
     @State private var selectedWeekStart: Date?
+    @State private var selectedSupplementDay: Date?
     @State private var sheetDestination: TrendsSheetDestination?
     @State private var isScrubbingChart = false
 
@@ -22,12 +30,16 @@ struct TrendsView: View {
         initialRange: TrendRange = .thirtyDays,
         initialExercise: Exercise? = nil,
         initialSelectedDay: Date? = nil,
-        initialSelectedWeekStart: Date? = nil
+        initialSelectedWeekStart: Date? = nil,
+        initialSupplementType: SupplementType? = nil,
+        initialSelectedSupplementDay: Date? = nil
     ) {
         _range = State(initialValue: initialRange)
         _selectedExercise = State(initialValue: initialExercise)
         _selectedDay = State(initialValue: initialSelectedDay)
         _selectedWeekStart = State(initialValue: initialSelectedWeekStart)
+        _selectedSupplementType = State(initialValue: initialSupplementType)
+        _selectedSupplementDay = State(initialValue: initialSelectedSupplementDay)
     }
 
     var body: some View {
@@ -37,47 +49,64 @@ struct TrendsView: View {
                     rangePicker
                     exercisePicker
 
-                    if filteredEntries.isEmpty {
-                        EmptyStateView(title: "No trend data yet", message: "Log sets to see consistency and PRs.", systemImage: "chart.line.uptrend.xyaxis")
+                    let hasSetData = !filteredEntries.isEmpty
+                    let hasSupplementData = !filteredSupplementEntries.isEmpty
+
+                    if !hasSetData && !hasSupplementData {
+                        EmptyStateView(
+                            title: "No trend data yet",
+                            message: "Log sets or supplements to see trends.",
+                            systemImage: "chart.line.uptrend.xyaxis"
+                        )
                             .accessibilityIdentifier("Trends.EmptyState")
                     } else {
-                        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                            Text("Consistency")
-                                .font(MarbleTypography.sectionTitle)
-                                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-                            consistencyChart
-                        }
-
-                        if let selectedExercise {
+                        if hasSetData {
                             VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                Text("Progress")
+                                Text("Consistency")
                                     .font(MarbleTypography.sectionTitle)
                                     .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-                                if progressPoints.isEmpty {
-                                    Text("No progress yet")
-                                        .font(MarbleTypography.rowMeta)
-                                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                } else {
-                                    ExerciseProgressChart(points: progressPoints, isScrubbing: $isScrubbingChart) { date in
-                                        sheetDestination = .day(date)
+                                consistencyChart
+                            }
+
+                            if selectedExercise != nil {
+                                VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                                    Text("Progress")
+                                        .font(MarbleTypography.sectionTitle)
+                                        .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                                    if progressPoints.isEmpty {
+                                        Text("No progress yet")
+                                            .font(MarbleTypography.rowMeta)
+                                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                    } else {
+                                        ExerciseProgressChart(points: progressPoints, isScrubbing: $isScrubbingChart) { date in
+                                            sheetDestination = .day(date)
+                                        }
                                     }
                                 }
                             }
+
+                            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                                Text("Weekly Volume")
+                                    .font(MarbleTypography.sectionTitle)
+                                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                                volumeChart
+                            }
+                        } else {
+                            Text("No workout data for this range.")
+                                .font(MarbleTypography.rowMeta)
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         }
 
-                        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                            Text("Weekly Volume")
-                                .font(MarbleTypography.sectionTitle)
-                                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-                            volumeChart
-                        }
+                        supplementsSection
 
-                        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                            Text("PRs")
-                                .font(MarbleTypography.sectionTitle)
-                                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-                                .accessibilityHidden(true)
-                            prCards
+                        if hasSetData {
+                            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                                Text("PRs")
+                                    .font(MarbleTypography.sectionTitle)
+                                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                                    .accessibilityHidden(true)
+                                prCards
+                            }
                         }
                     }
                 }
@@ -102,12 +131,17 @@ struct TrendsView: View {
             case .week(let weekStart):
                 let weekEnd = TrendsDateHelper.endOfWeek(for: weekStart)
                 WeekDetailsSheet(weekStart: weekStart, weekEnd: weekEnd, entries: entriesForWeek(weekStart: weekStart))
+            case .supplementDay(let date):
+                SupplementDayDetailsSheet(date: date, entries: supplementEntriesForDay(date))
             }
         }
         .onChange(of: range) { _, _ in
             clearSelections()
         }
         .onChange(of: selectedExercise) { _, _ in
+            clearSelections()
+        }
+        .onChange(of: selectedSupplementType) { _, _ in
             clearSelections()
         }
         .onChange(of: selectedDay) { _, newValue in
@@ -122,6 +156,12 @@ struct TrendsView: View {
                 sheetDestination = .week(weekStart)
             }
         }
+        .onChange(of: selectedSupplementDay) { _, newValue in
+            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
+            if let day = newValue {
+                sheetDestination = .supplementDay(day)
+            }
+        }
     }
 
     private var filteredEntries: [SetEntry] {
@@ -131,6 +171,17 @@ struct TrendsView: View {
         }
         if let startDate = range.startDate {
             filtered = filtered.filter { $0.performedAt >= startDate }
+        }
+        return filtered
+    }
+
+    private var filteredSupplementEntries: [SupplementEntry] {
+        var filtered = supplementEntries
+        if let selectedSupplementType {
+            filtered = filtered.filter { $0.type == selectedSupplementType }
+        }
+        if let startDate = range.startDate {
+            filtered = filtered.filter { $0.takenAt >= startDate }
         }
         return filtered
     }
@@ -156,6 +207,19 @@ struct TrendsView: View {
         .pickerStyle(.menu)
         .accessibilityIdentifier("Trends.ExerciseFilter")
         .accessibilityValue(selectedExercise?.name ?? "All Exercises")
+    }
+
+    private var supplementPicker: some View {
+        Picker("Supplement", selection: $selectedSupplementType) {
+            Text("All Supplements").tag(SupplementType?.none)
+            ForEach(supplementTypes) { type in
+                Text(type.name).tag(type as SupplementType?)
+            }
+        }
+        .pickerStyle(.menu)
+        .tint(Theme.secondaryTextColor(for: colorScheme))
+        .accessibilityIdentifier("Trends.SupplementFilter")
+        .accessibilityValue(selectedSupplementType?.name ?? "All Supplements")
     }
 
     private var consistencyChart: some View {
@@ -347,6 +411,107 @@ struct TrendsView: View {
         }
     }
 
+    private var supplementsSection: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Supplements")
+                    .font(MarbleTypography.sectionTitle)
+                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+
+                Spacer(minLength: MarbleSpacing.s)
+
+                supplementPicker
+            }
+
+            if filteredSupplementEntries.isEmpty {
+                Text("No supplement data yet")
+                    .font(MarbleTypography.rowMeta)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .accessibilityIdentifier("Trends.SupplementsEmpty")
+            } else {
+                supplementsChart
+            }
+        }
+    }
+
+    private var supplementsChart: some View {
+        let summaries = supplementDailySummaries
+        let selectedSummary = selectedSupplementSummary
+        let dataRange: ClosedRange<Date>? = {
+            guard let start = summaries.first?.date,
+                  let end = summaries.last?.date else {
+                return nil
+            }
+            return start ... end
+        }()
+
+        return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+            Chart {
+                ForEach(summaries) { item in
+                    LineMark(
+                        x: .value("Day", item.date),
+                        y: .value("Value", item.chartValue)
+                    )
+                    .foregroundStyle(Theme.dividerColor(for: colorScheme))
+                    .lineStyle(StrokeStyle(lineWidth: 2))
+                    .accessibilityHidden(true)
+                }
+
+                if let selectedSummary {
+                    RuleMark(x: .value("Selected Day", selectedSummary.date))
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+
+                    PointMark(
+                        x: .value("Selected Day", selectedSummary.date),
+                        y: .value("Value", selectedSummary.chartValue)
+                    )
+                    .symbolSize(70)
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityHidden(true)
+                }
+            }
+            .frame(height: 180)
+            .chartOverlay { proxy in
+                GeometryReader { geometry in
+                    let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? geometry[proxy.plotAreaFrame]
+                    TrendsChartOverlay(
+                        plotSize: plotFrame.size,
+                        proxy: proxy,
+                        dataRange: dataRange,
+                        accessibilityIdentifier: "Trends.SupplementsChart",
+                        accessibilityLabel: "Supplements chart",
+                        accessibilityValue: supplementAccessibilityValue(for: summaries),
+                        isScrubbing: $isScrubbingChart
+                    ) { date in
+                        selectSupplementDay(date)
+                    }
+                    .position(x: plotFrame.midX, y: plotFrame.midY)
+                }
+            }
+
+            if let selectedSummary {
+                let label = DateHelper.dayLabel(for: selectedSummary.date)
+                TrendTooltipView(
+                    title: label,
+                    valueText: selectedSummary.valueText,
+                    summaryText: selectedSummary.summaryText,
+                    showsPR: false,
+                    viewSetsLabel: "View logs",
+                    viewSetsAccessibilityLabel: "View supplement logs for \(label)",
+                    viewSetsIdentifier: "Trends.SupplementsTooltip.ViewLogs",
+                    onViewSets: {
+                        sheetDestination = .supplementDay(selectedSummary.date)
+                    },
+                    onClear: {
+                        selectedSupplementDay = nil
+                    }
+                )
+                .accessibilityIdentifier("Trends.SupplementsTooltip")
+            }
+        }
+    }
+
     private var prCards: some View {
         let bestWeightEntry = filteredEntries
             .filter { $0.weight != nil }
@@ -490,6 +655,69 @@ struct TrendsView: View {
             .max(by: { $0.weekStart < $1.weekStart })
     }
 
+    private var supplementDisplayMode: SupplementTrendDisplayMode {
+        guard let selectedType = selectedSupplementType else {
+            return .count(reason: .allSupplements)
+        }
+
+        let entries = filteredSupplementEntries
+        let unitsWithDose = Set(entries.compactMap { entry in
+            entry.dose == nil ? nil : entry.unit
+        })
+        if unitsWithDose.count > 1 {
+            return .count(reason: .mixedUnits)
+        }
+        if unitsWithDose.isEmpty {
+            return .count(reason: .noDoseData)
+        }
+        return .dose(unit: unitsWithDose.first ?? selectedType.unit)
+    }
+
+    private var supplementDailySummaries: [SupplementDailySummary] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: filteredSupplementEntries) { entry in
+            calendar.startOfDay(for: entry.takenAt)
+        }
+
+        if range == .all {
+            return grouped.keys.sorted().map { day in
+                SupplementDailySummary(
+                    date: day,
+                    entries: grouped[day] ?? [],
+                    mode: supplementDisplayMode
+                )
+            }
+        }
+
+        guard let startDate = range.startDate else { return [] }
+        let endDate = calendar.startOfDay(for: AppEnvironment.now)
+        var dates: [Date] = []
+        var current = startDate
+        while current <= endDate {
+            dates.append(current)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
+            current = next
+        }
+
+        return dates.map { day in
+            SupplementDailySummary(
+                date: day,
+                entries: grouped[day] ?? [],
+                mode: supplementDisplayMode
+            )
+        }
+    }
+
+    private var supplementDailySummaryLookup: [Date: SupplementDailySummary] {
+        Dictionary(uniqueKeysWithValues: supplementDailySummaries.map { ($0.date, $0) })
+    }
+
+    private var selectedSupplementSummary: SupplementDailySummary? {
+        guard let selectedSupplementDay else { return nil }
+        guard let nearest = nearestSupplementDay(to: selectedSupplementDay, in: supplementDailySummaries) else { return nil }
+        return supplementDailySummaryLookup[nearest]
+    }
+
     private var volumeData: [VolumeDatum] {
         var data: [VolumeDatum] = []
         for summary in weeklySummaries {
@@ -507,6 +735,12 @@ struct TrendsView: View {
     }
 
     private func nearestDay(to date: Date, in data: [TrendDailySummary]) -> Date? {
+        guard !data.isEmpty else { return nil }
+        let target = Calendar.current.startOfDay(for: date)
+        return data.min(by: { abs($0.date.timeIntervalSince(target)) < abs($1.date.timeIntervalSince(target)) })?.date
+    }
+
+    private func nearestSupplementDay(to date: Date, in data: [SupplementDailySummary]) -> Date? {
         guard !data.isEmpty else { return nil }
         let target = Calendar.current.startOfDay(for: date)
         return data.min(by: { abs($0.date.timeIntervalSince(target)) < abs($1.date.timeIntervalSince(target)) })?.date
@@ -543,6 +777,21 @@ struct TrendsView: View {
         return "\(summary) across \(weekCount) weeks"
     }
 
+    private func supplementAccessibilityValue(for data: [SupplementDailySummary]) -> String {
+        guard !data.isEmpty else { return "No data" }
+        switch supplementDisplayMode {
+        case .dose(let unit):
+            let total = data.reduce(0.0) { $0 + $1.totalDose }
+            let formatted = Formatters.dose.string(from: NSNumber(value: total)) ?? "\(total)"
+            let activeDays = data.filter { $0.count > 0 }.count
+            return "Total \(formatted) \(unit.displayName) over \(activeDays) days"
+        case .count:
+            let total = data.reduce(0) { $0 + $1.count }
+            let activeDays = data.filter { $0.count > 0 }.count
+            return "\(total) logs over \(activeDays) days"
+        }
+    }
+
     private func entriesForDay(_ date: Date) -> [SetEntry] {
         let target = Calendar.current.startOfDay(for: date)
         return filteredEntries.filter { Calendar.current.isDate($0.performedAt, inSameDayAs: target) }
@@ -556,6 +805,11 @@ struct TrendsView: View {
         }
     }
 
+    private func supplementEntriesForDay(_ date: Date) -> [SupplementEntry] {
+        let target = Calendar.current.startOfDay(for: date)
+        return filteredSupplementEntries.filter { Calendar.current.isDate($0.takenAt, inSameDayAs: target) }
+    }
+
     private var progressPoints: [ExerciseProgressPoint] {
         guard let selectedExercise else { return [] }
         return ExerciseProgressBuilder.buildPoints(entries: entries, exercise: selectedExercise, range: range)
@@ -567,17 +821,26 @@ struct TrendsView: View {
 
     private func selectDay(_ date: Date) {
         selectedWeekStart = nil
+        selectedSupplementDay = nil
         selectedDay = date
     }
 
     private func selectWeekStart(_ date: Date) {
         selectedDay = nil
+        selectedSupplementDay = nil
         selectedWeekStart = date
+    }
+
+    private func selectSupplementDay(_ date: Date) {
+        selectedDay = nil
+        selectedWeekStart = nil
+        selectedSupplementDay = date
     }
 
     private func clearSelections() {
         selectedDay = nil
         selectedWeekStart = nil
+        selectedSupplementDay = nil
         sheetDestination = nil
     }
 

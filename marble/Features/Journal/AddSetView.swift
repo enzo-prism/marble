@@ -20,6 +20,7 @@ struct AddSetView: View {
     @State private var restAfterSeconds: Int = 60
     @State private var notes: String = ""
     @State private var showNotes = false
+    @State private var showDetails = false
     @State private var addedLoad = false
     @State private var didInitialize = false
     @State private var showSaveError = false
@@ -130,63 +131,60 @@ struct AddSetView: View {
                     }
 
                     Section {
-                        if showNotes || !notes.isEmpty {
-                            TextField("Notes", text: $notes, axis: .vertical)
-                                .marbleFieldStyle()
-                                .accessibilityIdentifier("AddSet.Notes")
-                                .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                                .padding(.vertical, MarbleSpacing.s)
-                        } else {
-                            Button {
-                                showNotes = true
-                            } label: {
-                                Text("Add note")
-                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        DisclosureGroup(isExpanded: $showDetails) {
+                            VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+                                if showNotes || !notes.isEmpty {
+                                    TextField("Notes", text: $notes, axis: .vertical)
+                                        .marbleFieldStyle()
+                                        .accessibilityIdentifier("AddSet.Notes")
+                                } else {
+                                    Button {
+                                        showNotes = true
+                                    } label: {
+                                        Text("Add note")
+                                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                                    }
+                                    .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: true, expandsHorizontally: true))
+                                    .accessibilityIdentifier("AddSet.AddNote")
+                                }
+
+                                RPEPicker(value: $difficulty)
+
+                                RestPicker(restSeconds: $restAfterSeconds)
+                                    .accessibilityIdentifier("AddSet.RestPicker")
+
+                                VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                                    DatePicker("Performed", selection: $performedAt)
+                                        .tint(Theme.dividerColor(for: colorScheme))
+                                        .accessibilityIdentifier("AddSet.PerformedAt")
+                                    HStack {
+                                        Text("Now")
+                                            .font(MarbleTypography.rowSubtitle)
+                                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                                        Spacer()
+                                    }
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        performedAt = AppEnvironment.now
+                                    }
+                                    .accessibilityIdentifier("AddSet.Now")
+                                    .accessibilityLabel("Now")
+                                    .accessibilityAddTraits(.isButton)
+                                    .accessibilityAction {
+                                        performedAt = AppEnvironment.now
+                                    }
+                                }
                             }
-                            .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: true, expandsHorizontally: true))
-                            .accessibilityIdentifier("AddSet.AddNote")
-                            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, MarbleSpacing.s)
-                        }
-                    }
-
-                    Section {
-                        RPEPicker(value: $difficulty)
-                            .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                            .padding(.vertical, MarbleSpacing.s)
-                    }
-
-                    Section {
-                        RestPicker(restSeconds: $restAfterSeconds)
-                            .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                            .accessibilityIdentifier("AddSet.RestPicker")
-                            .padding(.vertical, MarbleSpacing.s)
-                    }
-
-                    Section {
-                        DatePicker("Performed", selection: $performedAt)
-                            .tint(Theme.dividerColor(for: colorScheme))
-                            .accessibilityIdentifier("AddSet.PerformedAt")
-                            .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                            .padding(.vertical, MarbleSpacing.s)
-                        HStack {
-                            Text("Now")
-                                .font(MarbleTypography.rowSubtitle)
+                        } label: {
+                            Text("Details (optional)")
+                                .font(MarbleTypography.sectionTitle)
                                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                            Spacer()
                         }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            performedAt = AppEnvironment.now
-                        }
-                        .accessibilityIdentifier("AddSet.Now")
-                        .accessibilityLabel("Now")
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityAction {
-                            performedAt = AppEnvironment.now
-                        }
+                        .accessibilityIdentifier("AddSet.DetailsDisclosure")
                         .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                        .padding(.vertical, MarbleSpacing.s)
+                        .marbleRowInsets()
                     }
 
                     if showsInlineSave {
