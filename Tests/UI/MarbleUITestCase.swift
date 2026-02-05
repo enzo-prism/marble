@@ -36,6 +36,9 @@ class MarbleUITestCase: XCTestCase {
     }
 
     override func tearDown() {
+        if let run = testRun, !run.hasSucceeded {
+            attachFailureArtifacts()
+        }
         app?.terminate()
         app = nil
         super.tearDown()
@@ -151,6 +154,12 @@ class MarbleUITestCase: XCTestCase {
         }
         if element.exists && element.isHittable {
             XCTFail("Element still hittable after \(timeout)s", file: file, line: line)
+        }
+    }
+
+    func step(_ name: String, _ block: () throws -> Void) rethrows {
+        try XCTContext.runActivity(named: name) { _ in
+            try block()
         }
     }
 
@@ -357,4 +366,17 @@ class MarbleUITestCase: XCTestCase {
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter.string(from: date)
     }()
+
+    private func attachFailureArtifacts() {
+        guard let app else { return }
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Failure Screenshot"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Failure Hierarchy"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+    }
 }

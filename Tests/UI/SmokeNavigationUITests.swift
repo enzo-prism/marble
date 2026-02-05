@@ -2,7 +2,9 @@ import XCTest
 
 final class SmokeNavigationUITests: MarbleUITestCase {
     func testTabsPresentAndScreenshots() {
-        launchApp(fixtureMode: "populated")
+        step("Launch app") {
+            launchApp(fixtureMode: "populated")
+        }
 
         let tabAnchors: [MarbleTab: String] = [
             .journal: "Journal.List",
@@ -13,11 +15,13 @@ final class SmokeNavigationUITests: MarbleUITestCase {
         ]
 
         for tab in MarbleTab.allCases {
-            navigateToTab(tab)
-            if let anchor = tabAnchors[tab] {
-                waitForIdentifier(anchor, timeout: 8)
+            step("Open \(tab.rawValue) tab") {
+                navigateToTab(tab)
+                if let anchor = tabAnchors[tab] {
+                    waitForIdentifier(anchor, timeout: 8)
+                }
+                takeScreenshot("Tab_\(tab.rawValue)")
             }
-            takeScreenshot("Tab_\(tab.rawValue)")
         }
     }
 }

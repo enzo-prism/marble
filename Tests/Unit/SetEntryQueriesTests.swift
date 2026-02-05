@@ -2,10 +2,9 @@ import SwiftData
 import XCTest
 @testable import marble
 
-final class SetEntryQueriesTests: XCTestCase {
+final class SetEntryQueriesTests: MarbleTestCase {
     func testMostRecentEntryReturnsNilWhenEmpty() {
-        let container = PersistenceController.makeContainer(useInMemory: true)
-        let context = ModelContext(container)
+        let context = makeInMemoryContext()
 
         let exercise = Exercise(
             name: "Bench",
@@ -20,8 +19,7 @@ final class SetEntryQueriesTests: XCTestCase {
     }
 
     func testMostRecentEntryReturnsLatest() {
-        let container = PersistenceController.makeContainer(useInMemory: true)
-        let context = ModelContext(container)
+        let context = makeInMemoryContext()
 
         let exercise = Exercise(
             name: "Bench",

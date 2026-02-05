@@ -50,41 +50,44 @@ func assertSnapshot<V: View>(
     line: UInt = #line
 ) {
     for variant in SnapshotMatrix.variants {
-        let configured = view
-            .environment(\.colorScheme, variant.colorScheme)
-            .environment(\.sizeCategory, variant.sizeCategory)
-            .transaction { $0.disablesAnimations = true }
-            .frame(width: variant.device.size.width, height: variant.device.size.height)
-            .background(Theme.backgroundColor(for: variant.colorScheme))
+        let activityName = "\(name)_\(variant.suffix)"
+        XCTContext.runActivity(named: activityName) { _ in
+            let configured = view
+                .environment(\.colorScheme, variant.colorScheme)
+                .environment(\.sizeCategory, variant.sizeCategory)
+                .transaction { $0.disablesAnimations = true }
+                .frame(width: variant.device.size.width, height: variant.device.size.height)
+                .background(Theme.backgroundColor(for: variant.colorScheme))
 
-        let controller = UIHostingController(rootView: configured)
-        controller.view.backgroundColor = UIColor(Theme.backgroundColor(for: variant.colorScheme))
+            let controller = UIHostingController(rootView: configured)
+            controller.view.backgroundColor = UIColor(Theme.backgroundColor(for: variant.colorScheme))
 
-        let traits = UITraitCollection(traitsFrom: [
-            UITraitCollection(userInterfaceIdiom: .phone),
-            UITraitCollection(userInterfaceStyle: variant.colorScheme == .dark ? .dark : .light),
-            UITraitCollection(preferredContentSizeCategory: uiContentSizeCategory(from: variant.sizeCategory))
-        ])
+            let traits = UITraitCollection(traitsFrom: [
+                UITraitCollection(userInterfaceIdiom: .phone),
+                UITraitCollection(userInterfaceStyle: variant.colorScheme == .dark ? .dark : .light),
+                UITraitCollection(preferredContentSizeCategory: uiContentSizeCategory(from: variant.sizeCategory))
+            ])
 
-        let config = ViewImageConfig(
-            safeArea: variant.device.safeArea,
-            size: variant.device.size,
-            traits: traits
-        )
+            let config = ViewImageConfig(
+                safeArea: variant.device.safeArea,
+                size: variant.device.size,
+                traits: traits
+            )
 
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
 
-        let failure = verifySnapshot(
-            of: controller,
-            as: .image(on: config, precision: 0.98),
-            named: "\(name)_\(variant.suffix)",
-            file: file,
-            testName: testName,
-            line: line
-        )
+            let failure = verifySnapshot(
+                of: controller,
+                as: .image(on: config, precision: 0.98),
+                named: activityName,
+                file: file,
+                testName: testName,
+                line: line
+            )
 
-        if let failure, !shouldIgnoreSnapshotFailure() {
-            XCTFail(failure, file: file, line: line)
+            if let failure, !shouldIgnoreSnapshotFailure() {
+                XCTFail(failure, file: file, line: line)
+            }
         }
     }
 }

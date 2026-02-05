@@ -2,10 +2,9 @@ import XCTest
 import SwiftData
 @testable import marble
 
-final class SeedDataTests: XCTestCase {
+final class SeedDataTests: MarbleTestCase {
     func testSeedExercisesExistAndEditable() throws {
-        let container = PersistenceController.makeContainer(useInMemory: true)
-        let context = ModelContext(container)
+        let context = makeInMemoryContext()
 
         SeedData.seedExercises(in: context)
 
@@ -63,8 +62,7 @@ final class SeedDataTests: XCTestCase {
     }
 
     func testSeedSupplementTypesExist() throws {
-        let container = PersistenceController.makeContainer(useInMemory: true)
-        let context = ModelContext(container)
+        let context = makeInMemoryContext()
 
         SeedData.seedSupplements(in: context)
 
@@ -75,8 +73,7 @@ final class SeedDataTests: XCTestCase {
     }
 
     func testSeedSplitPlanCreatesWeek() throws {
-        let container = PersistenceController.makeContainer(useInMemory: true)
-        let context = ModelContext(container)
+        let context = makeInMemoryContext()
 
         SeedData.seedSplitPlan(in: context)
 

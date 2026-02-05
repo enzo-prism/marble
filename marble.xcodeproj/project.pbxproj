@@ -49,6 +49,11 @@
 			path = Tests/Snapshots;
 			sourceTree = "<group>";
 		};
+		5A2C1B9F0D2E4A8F9C9B12A3 /* Tests/TestSupport */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Tests/TestSupport;
+			sourceTree = "<group>";
+		};
 		C3D3B69F08E7F0DEEF7AD6BE /* Tests/UI */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Tests/UI;
@@ -105,6 +110,7 @@
 				A4A3A702FB2046FF990AE054 /* Tests/MarbleTests.xctestplan */,
 				C25C6D1EACFE4BE39F3E2D08 /* Tests/MarbleSnapshotRecord.xctestplan */,
 				F1B614DE8CBDA726994018D0 /* Tests/Unit */,
+				5A2C1B9F0D2E4A8F9C9B12A3 /* Tests/TestSupport */,
 				00A7CA843BE3D834C6DF6331 /* Tests/Snapshots */,
 				C3D3B69F08E7F0DEEF7AD6BE /* Tests/UI */,
 			);
@@ -216,6 +222,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				F1B614DE8CBDA726994018D0 /* Tests/Unit */,
+				5A2C1B9F0D2E4A8F9C9B12A3 /* Tests/TestSupport */,
 			);
 			name = MarbleTests;
 			productName = MarbleTests;

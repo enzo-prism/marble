@@ -1,26 +1,9 @@
 import XCTest
 @testable import marble
 
-final class ExerciseProgressBuilderTests: XCTestCase {
-    private let calendar: Calendar = {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.locale = Locale(identifier: "en_US_POSIX")
-        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
-        return calendar
-    }()
-
-    private let now = ISO8601DateFormatter().date(from: "2025-01-15T12:00:00Z")!
+final class ExerciseProgressBuilderTests: MarbleTestCase {
+    private let calendar = MarbleTestCase.stableCalendar
     private let timesSymbol = "\u{00D7}"
-
-    override func setUp() {
-        super.setUp()
-        TestHooks.overrideNow = now
-    }
-
-    override func tearDown() {
-        TestHooks.overrideNow = nil
-        super.tearDown()
-    }
 
     func testBestSetPerDayUsesHighestScore() {
         let exercise = Exercise(

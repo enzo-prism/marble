@@ -12,7 +12,9 @@ if [[ "${destination}" != id=* ]]; then
   sim_id=""
 fi
 
-SNAPSHOT_GROUPS=(
+SNAPSHOT_SUITE=${SNAPSHOT_SUITE:-full}
+
+SNAPSHOT_GROUPS_FULL=(
   "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetWeightAndReps"
   "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetRepsOnlyAddedLoadOff"
   "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetRepsOnlyAddedLoadOn"
@@ -38,6 +40,23 @@ SNAPSHOT_GROUPS=(
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsFilteredExercise"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsSupplementsTooltip"
 )
+
+SNAPSHOT_GROUPS_QUICK=(
+  "MarbleSnapshotTests/JournalSnapshotTests/testJournalPopulated"
+  "MarbleSnapshotTests/CalendarSnapshotTests/testCalendarMonthWithMarkers"
+  "MarbleSnapshotTests/SplitSnapshotTests/testSplitStates"
+  "MarbleSnapshotTests/SupplementsSnapshotTests/testSupplementsPopulated"
+  "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsPopulated"
+  "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetWeightAndReps"
+)
+
+if [[ -n "${SNAPSHOT_GROUPS_OVERRIDE:-}" ]]; then
+  IFS=',' read -r -a SNAPSHOT_GROUPS <<< "${SNAPSHOT_GROUPS_OVERRIDE}"
+elif [[ "${SNAPSHOT_SUITE}" == "quick" ]]; then
+  SNAPSHOT_GROUPS=("${SNAPSHOT_GROUPS_QUICK[@]}")
+else
+  SNAPSHOT_GROUPS=("${SNAPSHOT_GROUPS_FULL[@]}")
+fi
 
 prepare_simulator() {
   if [[ -z "${sim_id}" ]]; then

@@ -1,27 +1,8 @@
 import XCTest
 @testable import marble
 
-final class DateGroupingTests: XCTestCase {
-    private let calendar: Calendar = {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.locale = Locale(identifier: "en_US_POSIX")
-        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
-        return calendar
-    }()
-
-    private let now = ISO8601DateFormatter().date(from: "2025-01-15T12:00:00Z")!
-
-    override func setUp() {
-        super.setUp()
-        TestHooks.overrideNow = now
-        Formatters.day.locale = Locale(identifier: "en_US_POSIX")
-        Formatters.day.timeZone = TimeZone(secondsFromGMT: 0)
-    }
-
-    override func tearDown() {
-        TestHooks.overrideNow = nil
-        super.tearDown()
-    }
+final class DateGroupingTests: MarbleTestCase {
+    private let calendar = MarbleTestCase.stableCalendar
 
     func testTodayLabel() {
         let label = DateHelper.dayLabel(for: now, now: now, calendar: calendar)
@@ -40,4 +21,3 @@ final class DateGroupingTests: XCTestCase {
         XCTAssertEqual(label, Formatters.day.string(from: older))
     }
 }
-

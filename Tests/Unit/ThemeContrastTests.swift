@@ -1,7 +1,7 @@
 import XCTest
 @testable import marble
 
-final class ThemeContrastTests: XCTestCase {
+final class ThemeContrastTests: MarbleTestCase {
     func testPrimaryTextContrast() {
         let lightRatio = contrastRatio(ThemePalette.lightPrimaryText, ThemePalette.lightBackground)
         XCTAssertGreaterThanOrEqual(lightRatio, 4.5, "Light primary text should be >= 4.5:1")
@@ -40,4 +40,3 @@ final class ThemeContrastTests: XCTestCase {
         return pow((component + 0.055) / 1.055, 2.4)
     }
 }
-
