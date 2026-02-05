@@ -45,6 +45,7 @@ struct SplitDayEditorView: View {
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
+                            .tint(Theme.destructiveActionColor(for: colorScheme))
                         }
                     }
                 }

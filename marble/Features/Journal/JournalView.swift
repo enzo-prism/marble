@@ -241,6 +241,7 @@ private struct JournalRow: View {
                 Button(role: .destructive, action: onDelete) {
                     Label("Delete", systemImage: "trash")
                 }
+                .tint(Theme.destructiveActionColor(for: colorScheme))
                 .accessibilityIdentifier("SetRow.\(entry.id.uuidString).Delete")
             }
     }

@@ -12,6 +12,8 @@ enum ThemePalette {
     static let darkDivider: Double = 0.5
     static let lightChipFill: Double = 0.92
     static let darkChipFill: Double = 0.18
+    static let lightDestructiveAction: Double = 0.2
+    static let darkDestructiveAction: Double = 0.25
 }
 
 enum Theme {
@@ -42,6 +44,13 @@ enum Theme {
     static func chipFillColor(for scheme: ColorScheme) -> Color {
         let resolved = resolvedScheme(scheme)
         return resolved == .dark ? Color(white: ThemePalette.darkChipFill) : Color(white: ThemePalette.lightChipFill)
+    }
+
+    static func destructiveActionColor(for scheme: ColorScheme) -> Color {
+        let resolved = resolvedScheme(scheme)
+        return resolved == .dark
+            ? Color(white: ThemePalette.darkDestructiveAction)
+            : Color(white: ThemePalette.lightDestructiveAction)
     }
 
     static func applyTabBarAppearance(for scheme: ColorScheme) {

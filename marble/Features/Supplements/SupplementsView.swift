@@ -50,6 +50,7 @@ struct SupplementsView: View {
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
+                                    .tint(Theme.destructiveActionColor(for: colorScheme))
                                 }
                             }
                         } header: {
