@@ -76,8 +76,11 @@ struct ExercisePickerView: View {
                 .accessibilityIdentifier("ExercisePicker.Manage")
             }
         }
-        .searchable(text: $searchText)
-        .searchToolbarBehavior(.minimize)
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search exercises"
+        )
     }
 
     private var filteredExercises: [Exercise] {
