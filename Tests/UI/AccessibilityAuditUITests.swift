@@ -230,8 +230,6 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
 
     @available(iOS 17.0, *)
     private func shouldIgnoreAddSetContrast(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
-        guard issue.auditType == .contrast else { return false }
-        guard let element = issue.element else { return false }
-        return element.identifier == "AddSet.AddNote"
+        false
     }
 }

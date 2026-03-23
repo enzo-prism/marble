@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import Combine
 
 struct AddSetView: View {
     @Environment(\.modelContext) private var modelContext
@@ -15,13 +16,18 @@ struct AddSetView: View {
     @State private var weight: Double?
     @State private var weightUnit: WeightUnit = .lb
     @State private var reps: Int?
+    @State private var distance: Double?
+    @State private var distanceUnit: DistanceUnit = .meters
     @State private var durationSeconds: Int?
     @State private var difficulty: Int = 8
     @State private var restAfterSeconds: Int = 60
     @State private var notes: String = ""
-    @State private var showNotes = false
     @State private var showDetails = false
     @State private var addedLoad = false
+    @State private var logReps = false
+    @State private var logDistance = false
+    @State private var logDuration = false
+    @State private var isKeyboardVisible = false
     @State private var didInitialize = false
     @State private var showSaveError = false
     @State private var showMissingExercise = false
@@ -42,21 +48,12 @@ struct AddSetView: View {
                     Section {
                         NavigationLink {
                             ExercisePickerView(selectedExercise: exerciseSelection)
-                    } label: {
-                        HStack {
-                            Text("Exercise")
-                                .font(MarbleTypography.rowTitle)
-                                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                            Spacer()
-                            Text(selectedExerciseSnapshot?.name ?? "Select")
-                                .font(MarbleTypography.rowSubtitle)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        } label: {
+                            exercisePickerRow
                         }
-                        .padding(.vertical, MarbleSpacing.s)
+                        .accessibilityIdentifier("AddSet.ExercisePicker")
+                        .accessibilityValue(selectedExerciseSnapshot?.name ?? "Select")
                     }
-                    .accessibilityIdentifier("AddSet.ExercisePicker")
-                    .accessibilityValue(selectedExerciseSnapshot?.name ?? "Select")
-                }
 
                 if let exercise = selectedExerciseSnapshot {
                     Section {
@@ -72,82 +69,143 @@ struct AddSetView: View {
                     Section {
                         if exercise.metrics.usesWeight {
                             if exercise.metrics.weight == .optional {
-                                Toggle("Added load", isOn: $addedLoad)
+                                Toggle(ExerciseMetricKind.weight.optionalToggleTitle, isOn: $addedLoad)
                                     .tint(Theme.dividerColor(for: colorScheme))
                                     .padding(.vertical, MarbleSpacing.s)
                                     .accessibilityIdentifier("AddSet.AddedLoad")
                             }
 
-                            if exercise.metrics.weightIsRequired || addedLoad {
-                                HStack {
-                                    OptionalNumberField(title: "Weight", formatter: Formatters.weight, value: $weight, accessibilityIdentifier: "AddSet.Weight")
-                                    Picker("Unit", selection: $weightUnit) {
-                                        ForEach(WeightUnit.allCases) { unit in
-                                            Text(unit.symbol).tag(unit)
+                            if shouldCaptureWeight(for: exercise.metrics) {
+                                VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                                    HStack {
+                                        OptionalNumberField(
+                                            title: exercise.weightInputTitle,
+                                            formatter: Formatters.weight,
+                                            value: $weight,
+                                            accessibilityIdentifier: "AddSet.Weight"
+                                        )
+                                        Picker("Unit", selection: $weightUnit) {
+                                            ForEach(WeightUnit.allCases) { unit in
+                                                Text(unit.symbol).tag(unit)
+                                            }
                                         }
+                                        .pickerStyle(.segmented)
+                                        .tint(Theme.dividerColor(for: colorScheme))
+                                        .accessibilityIdentifier("AddSet.WeightUnit")
                                     }
-                                    .pickerStyle(.segmented)
-                                    .tint(Theme.dividerColor(for: colorScheme))
-                                    .accessibilityIdentifier("AddSet.WeightUnit")
+
+                                    Text(exercise.weightInputHelperText)
+                                        .font(MarbleTypography.caption)
+                                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                                 .padding(.vertical, MarbleSpacing.s)
                             }
                         }
 
                         if exercise.metrics.usesReps {
-                            VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                                HStack {
-                                    Text("Reps")
-                                        .font(MarbleTypography.rowTitle)
-                                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                                    Spacer()
-                                    Text("\(repsDisplayValue)")
-                                        .font(MarbleTypography.rowSubtitle)
-                                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                        .monospacedDigit()
-                                }
-
-                                Slider(value: repsSliderValue, in: Double(repsRange.lowerBound)...Double(repsRange.upperBound), step: 1)
+                            if exercise.metrics.reps == .optional {
+                                Toggle(ExerciseMetricKind.reps.optionalToggleTitle, isOn: $logReps)
                                     .tint(Theme.dividerColor(for: colorScheme))
-                                    .accessibilityIdentifier("AddSet.Reps")
-                                    .accessibilityLabel("Reps")
-                                    .accessibilityValue("\(repsDisplayValue) reps")
+                                    .padding(.vertical, MarbleSpacing.s)
+                                    .accessibilityIdentifier("AddSet.LogReps")
                             }
-                            .padding(.vertical, MarbleSpacing.s)
+
+                            if shouldCaptureReps(for: exercise.metrics) {
+                                VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                                    HStack {
+                                        Text("Reps")
+                                            .font(MarbleTypography.rowTitle)
+                                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                                        Spacer()
+                                        Text("\(repsDisplayValue)")
+                                            .font(MarbleTypography.rowSubtitle)
+                                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                            .monospacedDigit()
+                                    }
+
+                                    Slider(value: repsSliderValue, in: Double(repsRange.lowerBound)...Double(repsRange.upperBound), step: 1)
+                                        .tint(Theme.dividerColor(for: colorScheme))
+                                        .accessibilityIdentifier("AddSet.Reps")
+                                        .accessibilityLabel("Reps")
+                                        .accessibilityValue("\(repsDisplayValue) reps")
+                                }
+                                .padding(.vertical, MarbleSpacing.s)
+                            }
+                        }
+
+                        if exercise.metrics.usesDistance {
+                            if exercise.metrics.distance == .optional {
+                                Toggle(ExerciseMetricKind.distance.optionalToggleTitle, isOn: $logDistance)
+                                    .tint(Theme.dividerColor(for: colorScheme))
+                                    .padding(.vertical, MarbleSpacing.s)
+                                    .accessibilityIdentifier("AddSet.LogDistance")
+                            }
+
+                            if shouldCaptureDistance(for: exercise.metrics) {
+                                VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                                    HStack {
+                                        OptionalNumberField(
+                                            title: "Distance",
+                                            formatter: Formatters.distance,
+                                            value: $distance,
+                                            accessibilityIdentifier: "AddSet.Distance"
+                                        )
+                                        Picker("Unit", selection: $distanceUnit) {
+                                            ForEach(DistanceUnit.allCases) { unit in
+                                                Text(unit.symbol.uppercased()).tag(unit)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .tint(Theme.dividerColor(for: colorScheme))
+                                        .accessibilityIdentifier("AddSet.DistanceUnit")
+                                    }
+
+                                    Text("Track each effort in \(distanceUnit.title.lowercased()).")
+                                        .font(MarbleTypography.caption)
+                                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                .padding(.vertical, MarbleSpacing.s)
+                            }
                         }
 
                         if exercise.metrics.usesDuration {
-                            HStack {
-                                Text("Duration")
-                                    .font(MarbleTypography.rowTitle)
-                                Spacer()
-                                DurationPicker(durationSeconds: $durationSeconds)
-                                    .accessibilityIdentifier("AddSet.Duration")
+                            if exercise.metrics.durationSeconds == .optional {
+                                Toggle(ExerciseMetricKind.duration.optionalToggleTitle, isOn: $logDuration)
+                                    .tint(Theme.dividerColor(for: colorScheme))
+                                    .padding(.vertical, MarbleSpacing.s)
+                                    .accessibilityIdentifier("AddSet.LogDuration")
                             }
-                            .padding(.vertical, MarbleSpacing.s)
+
+                            if shouldCaptureDuration(for: exercise.metrics) {
+                                HStack {
+                                    Text("Duration")
+                                        .font(MarbleTypography.rowTitle)
+                                    Spacer()
+                                    DurationPicker(durationSeconds: $durationSeconds)
+                                }
+                                .padding(.vertical, MarbleSpacing.s)
+                                .accessibilityElement(children: .contain)
+                                .accessibilityIdentifier("AddSet.Duration")
+                            }
                         }
                     } header: {
                         SectionHeaderView(title: "Metrics")
                     }
 
                     Section {
+                        TextField("Optional note", text: $notes, axis: .vertical)
+                            .marbleFieldStyle()
+                            .accessibilityIdentifier("AddSet.Notes")
+                            .padding(.vertical, MarbleSpacing.s)
+                    } header: {
+                        SectionHeaderView(title: "Notes (optional)")
+                    }
+
+                    Section {
                         DisclosureGroup(isExpanded: $showDetails) {
                             VStack(alignment: .leading, spacing: MarbleSpacing.m) {
-                                if showNotes || !notes.isEmpty {
-                                    TextField("Notes", text: $notes, axis: .vertical)
-                                        .marbleFieldStyle()
-                                        .accessibilityIdentifier("AddSet.Notes")
-                                } else {
-                                    Button {
-                                        showNotes = true
-                                    } label: {
-                                        Text("Add note")
-                                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                                    }
-                                    .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: true, expandsHorizontally: true))
-                                    .accessibilityIdentifier("AddSet.AddNote")
-                                }
-
                                 RPEPicker(value: $difficulty)
 
                                 RestPicker(restSeconds: $restAfterSeconds)
@@ -178,11 +236,20 @@ struct AddSetView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, MarbleSpacing.s)
                         } label: {
-                            Text("Details (optional)")
-                                .font(MarbleTypography.sectionTitle)
-                                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                                Text("Details (optional)")
+                                    .font(MarbleTypography.sectionTitle)
+                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+
+                                Text("Set your effort, rest time, and adjust when you performed the set.")
+                                    .font(MarbleTypography.rowSubtitle)
+                                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .accessibilityIdentifier("AddSet.DetailsDisclosure")
+                        .accessibilityHint("Opens extra logging fields like difficulty, rest time, and performed time.")
                         .listRowBackground(Theme.backgroundColor(for: colorScheme))
                         .marbleRowInsets()
                     }
@@ -202,7 +269,7 @@ struct AddSetView: View {
                 .background(Theme.backgroundColor(for: colorScheme))
                 .accessibilityIdentifier("AddSet.List")
                 .safeAreaInset(edge: .bottom) {
-                    if !showsInlineSave {
+                    if !showsInlineSave && !isKeyboardVisible {
                         saveButtons
                     }
                 }
@@ -211,6 +278,15 @@ struct AddSetView: View {
             .navigationTitle("Log Set")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") {
+                        save()
+                    }
+                    .disabled(!effectiveCanSave)
+                    .accessibilityIdentifier("AddSet.Save")
+                }
+            }
             .onChange(of: selectedExerciseID) { _, newValue in
                 guard let newValue else {
                     selectedExerciseSnapshot = nil
@@ -229,6 +305,41 @@ struct AddSetView: View {
                 }
                 didInitialize = true
             }
+            .onChange(of: addedLoad) { _, newValue in
+                if !newValue {
+                    weight = nil
+                }
+            }
+            .onChange(of: logReps) { _, newValue in
+                if newValue, reps == nil {
+                    reps = defaultRepsValue
+                }
+                if !newValue {
+                    reps = nil
+                }
+            }
+            .onChange(of: logDistance) { _, newValue in
+                if newValue, distance == nil {
+                    distance = 100
+                }
+                if !newValue {
+                    distance = nil
+                }
+            }
+            .onChange(of: logDuration) { _, newValue in
+                if newValue, (durationSeconds ?? 0) == 0 {
+                    durationSeconds = 60
+                }
+                if !newValue {
+                    durationSeconds = nil
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                isKeyboardVisible = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                isKeyboardVisible = false
+            }
             .alert("Unable to Save", isPresented: $showSaveError) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -240,11 +351,22 @@ struct AddSetView: View {
                 Text("That exercise was removed. Choose another one before saving.")
             }
         }
+        .marbleKeyboardToolbar(
+            primaryAction: KeyboardToolbarAction(
+                title: "Save",
+                accessibilityIdentifier: "Keyboard.Save",
+                isEnabled: effectiveCanSave,
+                handler: save
+            )
+        )
     }
 
     private var exerciseSelection: Binding<Exercise?> {
         Binding(
-            get: { nil },
+            get: {
+                guard let selectedExerciseID else { return nil }
+                return fetchExercise(id: selectedExerciseID)
+            },
             set: { newValue in
                 guard let newValue else {
                     selectedExerciseID = nil
@@ -258,13 +380,16 @@ struct AddSetView: View {
 
     private var canSave: Bool {
         guard let exercise = selectedExerciseSnapshot else { return false }
-        if exercise.metrics.weightIsRequired, weight == nil {
+        if shouldCaptureWeight(for: exercise.metrics), weight == nil {
             return false
         }
-        if exercise.metrics.repsIsRequired, reps == nil {
+        if shouldCaptureReps(for: exercise.metrics), reps == nil {
             return false
         }
-        if exercise.metrics.durationIsRequired, (durationSeconds ?? 0) == 0 {
+        if shouldCaptureDistance(for: exercise.metrics), distance == nil {
+            return false
+        }
+        if shouldCaptureDuration(for: exercise.metrics), (durationSeconds ?? 0) == 0 {
             return false
         }
         return true
@@ -289,7 +414,7 @@ struct AddSetView: View {
     }
 
     private var showsInlineSave: Bool {
-        TestHooks.isUITesting
+        false
     }
 
     private var lastTimeContent: LastTimeContent {
@@ -322,7 +447,7 @@ struct AddSetView: View {
 
         if metrics.usesWeight {
             if let weight = entry.weight {
-                items.append(LastTimeMetric(label: "Weight", value: formattedWeight(weight, unit: entry.weightUnit)))
+                items.append(LastTimeMetric(label: "Weight", value: entry.exercise.formattedWeightSummary(weight, unit: entry.weightUnit)))
             } else if metrics.weight == .optional {
                 items.append(LastTimeMetric(label: "Weight", value: "Bodyweight"))
             }
@@ -330,6 +455,10 @@ struct AddSetView: View {
 
         if metrics.usesReps, let reps = entry.reps {
             items.append(LastTimeMetric(label: "Reps", value: "\(reps)"))
+        }
+
+        if metrics.usesDistance, let distance = entry.distance {
+            items.append(LastTimeMetric(label: "Distance", value: entry.exercise.formattedDistanceSummary(distance, unit: entry.distanceUnit)))
         }
 
         if metrics.usesDuration, let duration = entry.durationSeconds {
@@ -362,12 +491,36 @@ struct AddSetView: View {
     }
 
     private var saveButtonContent: some View {
-        Button("Save") {
+        Button("Save Set") {
             save()
         }
         .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
         .allowsHitTesting(effectiveCanSave)
-        .accessibilityIdentifier("AddSet.Save")
+        .accessibilityIdentifier("AddSet.BottomSave")
+    }
+
+    private var exercisePickerRow: some View {
+        HStack(spacing: MarbleLayout.rowSpacing) {
+            Text("Exercise")
+                .font(MarbleTypography.rowTitle)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+
+            Spacer()
+
+            if let exercise = selectedExerciseSnapshot {
+                HStack(spacing: MarbleSpacing.xs) {
+                    ExerciseIconView(icon: exercise.displayIcon, fontSize: 18, frameSize: 24)
+                    Text(exercise.name)
+                        .font(MarbleTypography.rowSubtitle)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            } else {
+                Text("Select")
+                    .font(MarbleTypography.rowSubtitle)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            }
+        }
+        .padding(.vertical, MarbleSpacing.s)
     }
 
     private func loadInitialExercise() {
@@ -389,25 +542,59 @@ struct AddSetView: View {
 
     private func applyDefaults(for exercise: ExerciseSnapshot, lastEntry: SetEntry?) {
         if let lastEntry {
-            weight = lastEntry.weight
+            weight = exercise.displayedWeightInput(fromStoredWeight: lastEntry.weight)
             weightUnit = lastEntry.weightUnit
+            addedLoad = exercise.metrics.weightIsRequired || lastEntry.weight != nil
             if exercise.metrics.usesReps {
-                reps = lastEntry.reps.map { clampReps($0) } ?? defaultRepsValue
+                if exercise.metrics.reps == .required {
+                    reps = lastEntry.reps.map { clampReps($0) } ?? defaultRepsValue
+                    logReps = true
+                } else {
+                    reps = lastEntry.reps.map { clampReps($0) }
+                    logReps = lastEntry.reps != nil
+                }
             } else {
                 reps = nil
+                logReps = false
             }
-            durationSeconds = lastEntry.durationSeconds
+            if exercise.metrics.distance == .required {
+                distance = lastEntry.distance ?? 100
+                distanceUnit = lastEntry.distanceUnit
+                logDistance = true
+            } else if exercise.metrics.distance == .optional {
+                distance = lastEntry.distance
+                distanceUnit = lastEntry.distanceUnit
+                logDistance = lastEntry.distance != nil
+            } else {
+                distance = nil
+                distanceUnit = exercise.preferredDistanceUnit
+                logDistance = false
+            }
+            if exercise.metrics.durationSeconds == .required {
+                durationSeconds = lastEntry.durationSeconds ?? 60
+                logDuration = true
+            } else if exercise.metrics.durationSeconds == .optional {
+                durationSeconds = lastEntry.durationSeconds
+                logDuration = lastEntry.durationSeconds != nil
+            } else {
+                durationSeconds = nil
+                logDuration = false
+            }
             difficulty = lastEntry.difficulty
             restAfterSeconds = lastEntry.restAfterSeconds
-            addedLoad = lastEntry.weight != nil
             return
         }
         weight = nil
-        reps = exercise.metrics.usesReps ? defaultRepsValue : nil
-        durationSeconds = exercise.metrics.usesDuration ? 60 : nil
+        addedLoad = exercise.metrics.weightIsRequired
+        reps = exercise.metrics.repsIsRequired ? defaultRepsValue : nil
+        logReps = exercise.metrics.repsIsRequired
+        distance = exercise.metrics.distanceIsRequired ? 100 : nil
+        distanceUnit = exercise.preferredDistanceUnit
+        logDistance = exercise.metrics.distanceIsRequired
+        durationSeconds = exercise.metrics.durationIsRequired ? 60 : nil
+        logDuration = exercise.metrics.durationIsRequired
         difficulty = 8
         restAfterSeconds = exercise.defaultRestSeconds
-        addedLoad = false
     }
 
     private func save() {
@@ -430,15 +617,35 @@ struct AddSetView: View {
             }
             return weight
         }()
+        let resolvedReps: Int? = {
+            if metrics.reps == .optional, !logReps {
+                return nil
+            }
+            return metrics.usesReps ? reps : nil
+        }()
+        let resolvedDistance: Double? = {
+            if metrics.distance == .optional, !logDistance {
+                return nil
+            }
+            return metrics.usesDistance ? distance : nil
+        }()
+        let resolvedDurationSeconds: Int? = {
+            if metrics.durationSeconds == .optional, !logDuration {
+                return nil
+            }
+            return metrics.usesDuration ? durationSeconds : nil
+        }()
 
         let now = AppEnvironment.now
         let entry = SetEntry(
             exercise: exercise,
             performedAt: performedAt,
-            weight: resolvedWeight,
+            weight: exercise.storedWeight(from: resolvedWeight),
             weightUnit: weightUnit,
-            reps: metrics.usesReps ? reps : nil,
-            durationSeconds: metrics.usesDuration ? durationSeconds : nil,
+            reps: resolvedReps,
+            distance: resolvedDistance,
+            distanceUnit: distanceUnit,
+            durationSeconds: resolvedDurationSeconds,
             difficulty: difficulty,
             restAfterSeconds: restAfterSeconds,
             notes: notes.isEmpty ? nil : notes,
@@ -467,16 +674,27 @@ struct AddSetView: View {
     }
 
     private func dismissKeyboard() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        MarbleKeyboard.dismiss()
     }
 
     private func clampReps(_ value: Int) -> Int {
         min(max(value, repsRange.lowerBound), repsRange.upperBound)
     }
 
-    private func formattedWeight(_ weight: Double, unit: WeightUnit) -> String {
-        let formatted = Formatters.weight.string(from: NSNumber(value: weight)) ?? "\(weight)"
-        return "\(formatted) \(unit.symbol)"
+    private func shouldCaptureWeight(for metrics: ExerciseMetricsProfile) -> Bool {
+        metrics.weightIsRequired || (metrics.weight == .optional && addedLoad)
+    }
+
+    private func shouldCaptureReps(for metrics: ExerciseMetricsProfile) -> Bool {
+        metrics.repsIsRequired || (metrics.reps == .optional && logReps)
+    }
+
+    private func shouldCaptureDistance(for metrics: ExerciseMetricsProfile) -> Bool {
+        metrics.distanceIsRequired || (metrics.distance == .optional && logDistance)
+    }
+
+    private func shouldCaptureDuration(for metrics: ExerciseMetricsProfile) -> Bool {
+        metrics.durationIsRequired || (metrics.durationSeconds == .optional && logDuration)
     }
 }
 
@@ -485,15 +703,37 @@ private extension AddSetView {
         let id: UUID
         let name: String
         let category: ExerciseCategory
+        let displayIcon: ExerciseDisplayIcon
         let metrics: ExerciseMetricsProfile
+        let resistanceTrackingStyle: ResistanceTrackingStyle
+        let preferredDistanceUnit: DistanceUnit
         let defaultRestSeconds: Int
 
         init(_ exercise: Exercise) {
             id = exercise.id
             name = exercise.name
             category = exercise.category
+            displayIcon = exercise.displayIcon
             metrics = exercise.metrics
+            resistanceTrackingStyle = exercise.resistanceTrackingStyle
+            preferredDistanceUnit = exercise.preferredDistanceUnit
             defaultRestSeconds = exercise.defaultRestSeconds
+        }
+
+        var weightInputTitle: String {
+            resistanceTrackingStyle.fieldTitle
+        }
+
+        var weightInputHelperText: String {
+            resistanceTrackingStyle.loggerHelperText
+        }
+
+        func displayedWeightInput(fromStoredWeight storedWeight: Double?) -> Double? {
+            resistanceTrackingStyle.inputWeight(from: storedWeight)
+        }
+
+        func storedWeight(from inputWeight: Double?) -> Double? {
+            resistanceTrackingStyle.storedWeight(from: inputWeight)
         }
     }
 

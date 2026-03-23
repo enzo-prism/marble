@@ -24,7 +24,6 @@ struct DurationPicker: View {
             .pickerStyle(.menu)
             .accessibilityIdentifier("DurationPicker.Seconds")
         }
-        .accessibilityElement(children: .combine)
     }
 
     private var minutesBinding: Binding<Int> {

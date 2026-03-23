@@ -9,16 +9,20 @@ struct SetRowView: View {
     static func accessibilitySummary(for entry: SetEntry) -> String {
         var parts: [String] = []
         if let weight = entry.weight {
-            let formattedWeight = Formatters.weight.string(from: NSNumber(value: weight)) ?? "\(weight)"
+            let formattedWeight = entry.exercise.formattedWeightSummary(weight, unit: entry.weightUnit)
             if let reps = entry.reps {
-                parts.append("\(formattedWeight) \(entry.weightUnit.symbol) × \(reps)")
+                parts.append("\(formattedWeight) × \(reps)")
             } else {
-                parts.append("\(formattedWeight) \(entry.weightUnit.symbol)")
+                parts.append(formattedWeight)
             }
         }
 
         if entry.weight == nil, let reps = entry.reps {
             parts.append("\(reps) reps")
+        }
+
+        if let distance = entry.distance {
+            parts.append(entry.exercise.formattedDistanceSummary(distance, unit: entry.distanceUnit))
         }
 
         if let duration = entry.durationSeconds {
@@ -37,10 +41,8 @@ struct SetRowView: View {
     var body: some View {
         let resolvedScheme = TestHooks.forcedColorScheme ?? colorScheme
         let row = HStack(alignment: .top, spacing: MarbleLayout.rowSpacing) {
-            Image(systemName: entry.exercise.category.symbolName)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(Theme.primaryTextColor(for: resolvedScheme))
-                .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
+            ExerciseIconView(exercise: entry.exercise, fontSize: 20, frameSize: MarbleLayout.rowIconSize)
+                .environment(\.colorScheme, resolvedScheme)
 
             VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
                 Text(entry.exercise.name)
@@ -81,16 +83,20 @@ struct SetRowView: View {
     private var summaryLine: String {
         var parts: [String] = []
         if let weight = entry.weight {
-            let formattedWeight = Formatters.weight.string(from: NSNumber(value: weight)) ?? "\(weight)"
+            let formattedWeight = entry.exercise.formattedWeightSummary(weight, unit: entry.weightUnit)
             if let reps = entry.reps {
-                parts.append("\(formattedWeight) \(entry.weightUnit.symbol) × \(reps)")
+                parts.append("\(formattedWeight) × \(reps)")
             } else {
-                parts.append("\(formattedWeight) \(entry.weightUnit.symbol)")
+                parts.append(formattedWeight)
             }
         }
 
         if entry.weight == nil, let reps = entry.reps {
             parts.append("\(reps) reps")
+        }
+
+        if let distance = entry.distance {
+            parts.append(entry.exercise.formattedDistanceSummary(distance, unit: entry.distanceUnit))
         }
 
         if let duration = entry.durationSeconds {

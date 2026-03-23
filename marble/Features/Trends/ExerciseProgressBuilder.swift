@@ -47,6 +47,12 @@ enum ExerciseProgressBuilder {
     }
 
     private static func progressMetric(for profile: ExerciseMetricsProfile) -> ExerciseProgressMetric {
+        if profile.usesDistance && profile.usesDuration && !profile.usesWeight && !profile.usesReps {
+            return .speed
+        }
+        if profile.usesDistance && !profile.usesWeight && !profile.usesReps {
+            return .distance
+        }
         if profile.usesDuration && !profile.usesWeight && !profile.usesReps {
             return .duration
         }
@@ -58,6 +64,9 @@ enum ExerciseProgressBuilder {
         }
         if profile.usesDuration {
             return .duration
+        }
+        if profile.usesDistance {
+            return .distance
         }
         if profile.usesWeight {
             return .weighted
@@ -72,8 +81,12 @@ enum ExerciseProgressBuilder {
                 return weightedBestSet(for: entry)
             case .reps:
                 return repsBestSet(for: entry)
+            case .distance:
+                return distanceBestSet(for: entry)
             case .duration:
                 return durationBestSet(for: entry)
+            case .speed:
+                return speedBestSet(for: entry)
             }
         }
         return candidates.max(by: { $0.score < $1.score })
@@ -81,7 +94,7 @@ enum ExerciseProgressBuilder {
 
     private static func weightedBestSet(for entry: SetEntry) -> BestSet? {
         guard let weight = entry.weight else { return nil }
-        let weightText = formattedWeight(weight, unit: entry.weightUnit)
+        let weightText = entry.exercise.formattedWeightSummary(weight, unit: entry.weightUnit)
         if let reps = entry.reps {
             let score = weight * Double(reps)
             let bestSetSummary = "\(weightText) \(timesSymbol) \(reps)"
@@ -96,19 +109,41 @@ enum ExerciseProgressBuilder {
         return BestSet(entry: entry, score: Double(reps), bestSetSummary: "\(reps) reps", scoreSummary: nil)
     }
 
+    private static func distanceBestSet(for entry: SetEntry) -> BestSet? {
+        guard let distance = entry.distance else { return nil }
+        let summary = entry.exercise.formattedDistanceSummary(distance, unit: entry.distanceUnit)
+        if let seconds = entry.durationSeconds, seconds > 0 {
+            return BestSet(entry: entry, score: distance, bestSetSummary: "\(summary) in \(DateHelper.formattedClockDuration(seconds: seconds))", scoreSummary: nil)
+        }
+        return BestSet(entry: entry, score: distance, bestSetSummary: summary, scoreSummary: nil)
+    }
+
     private static func durationBestSet(for entry: SetEntry) -> BestSet? {
         guard let seconds = entry.durationSeconds, seconds > 0 else { return nil }
         let summary = DateHelper.formattedClockDuration(seconds: seconds)
         return BestSet(entry: entry, score: Double(seconds), bestSetSummary: summary, scoreSummary: nil)
     }
 
-    private static func formattedWeight(_ weight: Double, unit: WeightUnit) -> String {
-        let formatted = Formatters.weight.string(from: NSNumber(value: weight)) ?? "\(weight)"
-        return "\(formatted) \(unit.symbol)"
+    private static func speedBestSet(for entry: SetEntry) -> BestSet? {
+        guard let distance = entry.distance,
+              let seconds = entry.durationSeconds,
+              seconds > 0 else {
+            return nil
+        }
+
+        let speed = distance / Double(seconds)
+        let speedText = formattedNumber(speed)
+        let distanceSummary = entry.exercise.formattedDistanceSummary(distance, unit: entry.distanceUnit)
+        return BestSet(
+            entry: entry,
+            score: speed,
+            bestSetSummary: "\(distanceSummary) in \(DateHelper.formattedClockDuration(seconds: seconds))",
+            scoreSummary: "\(speedText) \(entry.distanceUnit.symbol)/s"
+        )
     }
 
     private static func formattedNumber(_ value: Double) -> String {
-        Formatters.weight.string(from: NSNumber(value: value)) ?? "\(value)"
+        Formatters.distance.string(from: NSNumber(value: value)) ?? "\(value)"
     }
 
     private static let timesSymbol = "\u{00D7}"
@@ -117,7 +152,9 @@ enum ExerciseProgressBuilder {
 private enum ExerciseProgressMetric {
     case weighted
     case reps
+    case distance
     case duration
+    case speed
 }
 
 private struct BestSet {

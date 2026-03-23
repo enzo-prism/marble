@@ -9,6 +9,14 @@ enum Formatters {
         return formatter
     }()
 
+    static let distance: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 2
+        return formatter
+    }()
+
     static let dose: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal

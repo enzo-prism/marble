@@ -46,6 +46,7 @@ struct SupplementDetailView: View {
         .navigationTitle("Supplement")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarGlassBackground()
+        .marbleKeyboardToolbar()
         .onDisappear {
             entry.updatedAt = AppEnvironment.now
         }

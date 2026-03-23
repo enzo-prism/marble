@@ -32,7 +32,8 @@ SNAPSHOT_GROUPS_FULL=(
   "MarbleSnapshotTests/LastTimeSnapshotTests/testLastTimeCardHistory"
   "MarbleSnapshotTests/LastTimeSnapshotTests/testLastTimeCardBodyweight"
   "MarbleSnapshotTests/LastTimeSnapshotTests/testLastTimeCardEmpty"
-  "MarbleSnapshotTests/SplitSnapshotTests/testSplitStates"
+  "MarbleSnapshotTests/SplitSnapshotTests/testSplitEmpty"
+  "MarbleSnapshotTests/SplitSnapshotTests/testSplitPopulated"
   "MarbleSnapshotTests/SupplementsSnapshotTests/testSupplementsEmpty"
   "MarbleSnapshotTests/SupplementsSnapshotTests/testSupplementsPopulated"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsEmpty"
@@ -44,7 +45,7 @@ SNAPSHOT_GROUPS_FULL=(
 SNAPSHOT_GROUPS_QUICK=(
   "MarbleSnapshotTests/JournalSnapshotTests/testJournalPopulated"
   "MarbleSnapshotTests/CalendarSnapshotTests/testCalendarMonthWithMarkers"
-  "MarbleSnapshotTests/SplitSnapshotTests/testSplitStates"
+  "MarbleSnapshotTests/SplitSnapshotTests/testSplitPopulated"
   "MarbleSnapshotTests/SupplementsSnapshotTests/testSupplementsPopulated"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsPopulated"
   "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetWeightAndReps"

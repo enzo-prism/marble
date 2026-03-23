@@ -40,6 +40,8 @@ enum SeedData {
             Exercise(
                 name: $0.name,
                 category: $0.category,
+                resistanceTrackingStyle: $0.resistanceTrackingStyle,
+                preferredDistanceUnit: $0.preferredDistanceUnit,
                 metrics: $0.metrics,
                 defaultRestSeconds: $0.defaultRestSeconds
             )
@@ -85,7 +87,7 @@ enum SeedData {
             // Chest
             SeedExercise(name: "Bench Press", category: .chest, metrics: .weightAndRepsRequired, defaultRestSeconds: 120),
             SeedExercise(name: "Push Ups", category: .chest, metrics: ExerciseMetricsProfile(weight: .optional, reps: .required, durationSeconds: .none), defaultRestSeconds: 60),
-            SeedExercise(name: "DB Pec Fly", category: .chest, metrics: .weightAndRepsRequired, defaultRestSeconds: 90),
+            SeedExercise(name: "DB Pec Fly", category: .chest, resistanceTrackingStyle: .singleDumbbellPair, metrics: .weightAndRepsRequired, defaultRestSeconds: 90),
             SeedExercise(name: "Cable Pec Fly", category: .chest, metrics: .weightAndRepsRequired, defaultRestSeconds: 90),
             SeedExercise(name: "Dips", category: .chest, metrics: ExerciseMetricsProfile(weight: .optional, reps: .required, durationSeconds: .none), defaultRestSeconds: 90),
 
@@ -108,10 +110,12 @@ enum SeedData {
             SeedExercise(name: "Power Clean", category: .power, metrics: .weightAndRepsRequired, defaultRestSeconds: 180),
             SeedExercise(name: "Hang Snatch", category: .power, metrics: .weightAndRepsRequired, defaultRestSeconds: 180),
             SeedExercise(name: "Power Snatch", category: .power, metrics: .weightAndRepsRequired, defaultRestSeconds: 180),
+            SeedExercise(name: "Sprint", category: .power, preferredDistanceUnit: .meters, metrics: .distanceAndDurationRequired, defaultRestSeconds: 60),
+            SeedExercise(name: "Pogo Hops", category: .power, metrics: .repsOnlyRequired, defaultRestSeconds: 75),
 
             // Back
             SeedExercise(name: "Deadlift", category: .back, metrics: .weightAndRepsRequired, defaultRestSeconds: 180),
-            SeedExercise(name: "Bent Over DB Row", category: .back, metrics: .weightAndRepsRequired, defaultRestSeconds: 120),
+            SeedExercise(name: "Bent Over DB Row", category: .back, resistanceTrackingStyle: .singleDumbbellPair, metrics: .weightAndRepsRequired, defaultRestSeconds: 120),
             SeedExercise(name: "Cable Row", category: .back, metrics: .weightAndRepsRequired, defaultRestSeconds: 120),
             SeedExercise(name: "Lat Pulldown", category: .back, metrics: .weightAndRepsRequired, defaultRestSeconds: 120),
             SeedExercise(name: "Lat Pushdown", category: .back, metrics: .weightAndRepsRequired, defaultRestSeconds: 90),
@@ -141,6 +145,24 @@ enum SeedData {
 struct SeedExercise {
     let name: String
     let category: ExerciseCategory
+    let resistanceTrackingStyle: ResistanceTrackingStyle
+    let preferredDistanceUnit: DistanceUnit
     let metrics: ExerciseMetricsProfile
     let defaultRestSeconds: Int
+
+    init(
+        name: String,
+        category: ExerciseCategory,
+        resistanceTrackingStyle: ResistanceTrackingStyle = .totalLoad,
+        preferredDistanceUnit: DistanceUnit = .meters,
+        metrics: ExerciseMetricsProfile,
+        defaultRestSeconds: Int
+    ) {
+        self.name = name
+        self.category = category
+        self.resistanceTrackingStyle = resistanceTrackingStyle
+        self.preferredDistanceUnit = preferredDistanceUnit
+        self.metrics = metrics
+        self.defaultRestSeconds = defaultRestSeconds
+    }
 }

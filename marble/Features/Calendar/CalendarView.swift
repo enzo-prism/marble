@@ -12,6 +12,7 @@ struct CalendarView: View {
 
     @State private var selectedDay: CalendarSelection?
     @State private var selectedDate: Date?
+    @State private var visibleMonth = Calendar.current.dateComponents([.year, .month], from: AppEnvironment.now)
 
     private let calendar = Calendar.current
 
@@ -31,15 +32,22 @@ struct CalendarView: View {
                 .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
                 .accessibilityIdentifier("Calendar.LogSet")
 
-                CalendarRepresentable(decorations: dayDecorations) { components in
-                    guard let components, let date = calendar.date(from: components) else {
-                        selectedDay = nil
-                        selectedDate = nil
-                        return
+                CalendarRepresentable(
+                    decorations: dayDecorations,
+                    visibleMonth: visibleMonth,
+                    onSelect: { components in
+                        guard let components, let date = calendar.date(from: components) else {
+                            selectedDay = nil
+                            selectedDate = nil
+                            return
+                        }
+                        selectedDate = date
+                        selectedDay = CalendarSelection(date: date)
+                    },
+                    onVisibleMonthChange: { components in
+                        visibleMonth = components
                     }
-                    selectedDate = date
-                    selectedDay = CalendarSelection(date: date)
-                }
+                )
                 .frame(maxHeight: 360)
                 .accessibilityIdentifier("Calendar.View")
 
@@ -348,13 +356,16 @@ struct DaySummarySheet: View {
 
 struct CalendarRepresentable: UIViewRepresentable {
     var decorations: [DateComponents: Int]
+    var visibleMonth: DateComponents
     var onSelect: (DateComponents?) -> Void
+    var onVisibleMonthChange: (DateComponents) -> Void
 
     func makeUIView(context: Context) -> UICalendarView {
         let view = UICalendarView()
         view.calendar = Calendar.current
         view.locale = Locale.current
         view.delegate = context.coordinator
+        view.visibleDateComponents = visibleMonth
         view.accessibilityIdentifier = "Calendar.View"
         let selection = UICalendarSelectionSingleDate(delegate: context.coordinator)
         view.selectionBehavior = selection
@@ -363,21 +374,39 @@ struct CalendarRepresentable: UIViewRepresentable {
 
     func updateUIView(_ uiView: UICalendarView, context: Context) {
         context.coordinator.decorations = decorations
+        context.coordinator.visibleMonth = visibleMonth
         let keys = Array(decorations.keys)
         uiView.reloadDecorations(forDateComponents: keys, animated: true)
+        if uiView.visibleDateComponents.year != visibleMonth.year || uiView.visibleDateComponents.month != visibleMonth.month {
+            uiView.visibleDateComponents = visibleMonth
+        }
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onSelect: onSelect, decorations: decorations)
+        Coordinator(
+            onSelect: onSelect,
+            onVisibleMonthChange: onVisibleMonthChange,
+            decorations: decorations,
+            visibleMonth: visibleMonth
+        )
     }
 
     final class Coordinator: NSObject, UICalendarViewDelegate, UICalendarSelectionSingleDateDelegate {
         let onSelect: (DateComponents?) -> Void
+        let onVisibleMonthChange: (DateComponents) -> Void
         var decorations: [DateComponents: Int]
+        var visibleMonth: DateComponents
 
-        init(onSelect: @escaping (DateComponents?) -> Void, decorations: [DateComponents: Int]) {
+        init(
+            onSelect: @escaping (DateComponents?) -> Void,
+            onVisibleMonthChange: @escaping (DateComponents) -> Void,
+            decorations: [DateComponents: Int],
+            visibleMonth: DateComponents
+        ) {
             self.onSelect = onSelect
+            self.onVisibleMonthChange = onVisibleMonthChange
             self.decorations = decorations
+            self.visibleMonth = visibleMonth
         }
 
         func calendarView(_ calendarView: UICalendarView, decorationFor dateComponents: DateComponents) -> UICalendarView.Decoration? {
@@ -390,6 +419,15 @@ struct CalendarRepresentable: UIViewRepresentable {
 
         func dateSelection(_ selection: UICalendarSelectionSingleDate, didSelectDate dateComponents: DateComponents?) {
             onSelect(dateComponents)
+        }
+
+        func calendarView(_ calendarView: UICalendarView, didChangeVisibleDateComponentsFrom previousDateComponents: DateComponents) {
+            let updatedComponents = calendarView.visibleDateComponents
+            guard updatedComponents.year != visibleMonth.year || updatedComponents.month != visibleMonth.month else {
+                return
+            }
+            visibleMonth = updatedComponents
+            onVisibleMonthChange(updatedComponents)
         }
 
         private func dateSelection(_ selection: UICalendarSelectionSingleDate, didDeselectDate dateComponents: DateComponents?) {

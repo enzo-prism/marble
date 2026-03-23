@@ -3,7 +3,7 @@ import XCTest
 @testable import marble
 
 final class SplitSnapshotTests: SnapshotTestCase {
-    func testSplitStates() {
+    func testSplitEmpty() {
         let container = SnapshotFixtures.makeContainer()
         let context = ModelContext(container)
         SnapshotFixtures.seedBase(in: context)
@@ -11,12 +11,17 @@ final class SplitSnapshotTests: SnapshotTestCase {
         let emptyView = SplitView()
             .modelContainer(container)
             .environmentObject(QuickLogCoordinator())
-        assertSnapshot(emptyView, named: "Split_Empty")
+        assertSnapshot(emptyView, named: "Split_Empty", testName: "testSplitStates")
+    }
 
+    func testSplitPopulated() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
         SnapshotFixtures.seedPopulated(in: context)
+
         let populatedView = SplitView()
             .modelContainer(container)
             .environmentObject(QuickLogCoordinator())
-        assertSnapshot(populatedView, named: "Split_Populated")
+        assertSnapshot(populatedView, named: "Split_Populated", testName: "testSplitStates")
     }
 }

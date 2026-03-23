@@ -49,7 +49,6 @@ struct JournalView: View {
                             ForEach(dayEntries) { entry in
                                 JournalRow(
                                     entry: entry,
-                                    onSelect: { navPath.append(entry.id) },
                                     onDuplicate: { duplicate(entry) },
                                     onDelete: { delete(entry) }
                                 )
@@ -74,15 +73,6 @@ struct JournalView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     AddSetToolbarButton()
                 }
-                if TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, let latest = entries.first {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Open Latest") {
-                            navPath.append(latest.id)
-                        }
-                        .accessibilityIdentifier("Journal.TestOpenLatest")
-                        .opacity(0.01)
-                    }
-                }
             }
             .navigationDestination(for: UUID.self) { entryID in
                 if let entry = entries.first(where: { $0.id == entryID }) {
@@ -103,6 +93,18 @@ struct JournalView: View {
                     )
                     .padding(.bottom, 12)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                if TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, let latest = entries.first {
+                    Button {
+                        navPath.append(latest.id)
+                    } label: {
+                        Color.white.opacity(0.001)
+                    }
+                    .frame(width: 44, height: 44)
+                    .accessibilityLabel("Open Latest")
+                    .accessibilityIdentifier("Journal.TestOpenLatest")
                 }
             }
         }
@@ -210,24 +212,23 @@ struct JournalView: View {
 
 private struct JournalRow: View {
     let entry: SetEntry
-    let onSelect: () -> Void
     let onDuplicate: () -> Void
     let onDelete: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        SetRowView(entry: entry)
-            .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-            .contentShape(Rectangle())
-            .onTapGesture(perform: onSelect)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(SetRowView.accessibilitySummary(for: entry))
+        NavigationLink(value: entry.id) {
+            SetRowView(
+                entry: entry,
+                accessibilityIdentifier: "SetRow.\(entry.id.uuidString)"
+            )
+                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .contentShape(Rectangle())
+        }
             .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction {
-                onSelect()
-            }
+            .accessibilityLabel(SetRowView.accessibilitySummary(for: entry))
+            .accessibilityHint("Open set details")
             .listRowBackground(Theme.backgroundColor(for: colorScheme))
             .marbleRowInsets()
             .swipeActions(edge: .leading, allowsFullSwipe: false) {

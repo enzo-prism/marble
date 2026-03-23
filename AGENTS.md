@@ -125,3 +125,18 @@ Use these commands (preferred):
   - Unit/
   - Snapshots/
   - UI/
+
+## asc cli reference
+
+Prefer the repo-level `asc` wiring over ad hoc commands.
+
+- App Store Connect app: `marble.fit` (`Prism.marble`, app ID `6757725234`)
+- Xcode project + scheme: `marble.xcodeproj` + `marble`
+- Deterministic release artifacts: `.asc/artifacts/marble.xcarchive` and `.asc/artifacts/marble.ipa`
+- Start a new machine/session with: `make asc-auth`, `make asc-doctor`, `make asc-version`
+- Use: `make asc-builds`, `make asc-archive`, and `make asc-export ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist`
+- Prefer `make asc-version` over raw `asc xcode version view`, because this project uses generated Info.plists and the helper prints a reliable `MARKETING_VERSION` fallback
+- `make asc-archive` already bakes in the required `generic/platform=iOS` destination for this project
+- The current app target requires the iOS `26.2` platform. If `xcodebuild`/`asc` reports “no destinations” or says iOS `26.2` is not installed, install that platform/runtime from Xcode > Settings > Components before debugging further.
+
+See `ASC.md` for the fuller Marble-specific command reference.

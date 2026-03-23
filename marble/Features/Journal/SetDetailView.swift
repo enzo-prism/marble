@@ -9,6 +9,9 @@ struct SetDetailView: View {
     @Bindable var entry: SetEntry
 
     @State private var addedLoad = false
+    @State private var logReps = false
+    @State private var logDistance = false
+    @State private var logDuration = false
 
     var body: some View {
         List {
@@ -16,13 +19,16 @@ struct SetDetailView: View {
                 NavigationLink {
                     ExercisePickerView(selectedExercise: exerciseBinding)
                 } label: {
-                    HStack {
+                    HStack(spacing: MarbleLayout.rowSpacing) {
                         Text("Exercise")
                             .font(MarbleTypography.rowTitle)
                         Spacer()
-                        Text(entry.exercise.name)
-                            .font(MarbleTypography.rowSubtitle)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        HStack(spacing: MarbleSpacing.xs) {
+                            ExerciseIconView(exercise: entry.exercise, fontSize: 18, frameSize: 24)
+                            Text(entry.exercise.name)
+                                .font(MarbleTypography.rowSubtitle)
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        }
                     }
                 }
                 .accessibilityIdentifier("SetDetail.ExercisePicker")
@@ -31,7 +37,7 @@ struct SetDetailView: View {
             Section {
                 if entry.exercise.metrics.usesWeight {
                     if entry.exercise.metrics.weight == .optional {
-                        Toggle("Added load", isOn: $addedLoad)
+                        Toggle(ExerciseMetricKind.weight.optionalToggleTitle, isOn: $addedLoad)
                             .tint(Theme.dividerColor(for: colorScheme))
                             .onChange(of: addedLoad) { _, newValue in
                                 if !newValue {
@@ -41,32 +47,114 @@ struct SetDetailView: View {
                             .accessibilityIdentifier("SetDetail.AddedLoad")
                     }
 
-                    if entry.exercise.metrics.weightIsRequired || addedLoad {
-                        HStack {
-                            OptionalNumberField(title: "Weight", formatter: Formatters.weight, value: weightBinding, accessibilityIdentifier: "SetDetail.Weight")
-                            Picker("Unit", selection: $entry.weightUnit) {
-                                ForEach(WeightUnit.allCases) { unit in
-                                    Text(unit.symbol).tag(unit)
+                    if shouldCaptureWeight {
+                        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                            HStack {
+                                OptionalNumberField(
+                                    title: entry.exercise.weightInputTitle,
+                                    formatter: Formatters.weight,
+                                    value: weightBinding,
+                                    accessibilityIdentifier: "SetDetail.Weight"
+                                )
+                                Picker("Unit", selection: $entry.weightUnit) {
+                                    ForEach(WeightUnit.allCases) { unit in
+                                        Text(unit.symbol).tag(unit)
+                                    }
                                 }
+                                .pickerStyle(.segmented)
+                                .tint(Theme.dividerColor(for: colorScheme))
+                                .accessibilityIdentifier("SetDetail.WeightUnit")
                             }
-                            .pickerStyle(.segmented)
-                            .tint(Theme.dividerColor(for: colorScheme))
-                            .accessibilityIdentifier("SetDetail.WeightUnit")
+
+                            Text(entry.exercise.weightInputHelperText)
+                                .font(MarbleTypography.caption)
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
 
                 if entry.exercise.metrics.usesReps {
-                    OptionalIntegerField(title: "Reps", value: repsBinding, accessibilityIdentifier: "SetDetail.Reps")
+                    if entry.exercise.metrics.reps == .optional {
+                        Toggle(ExerciseMetricKind.reps.optionalToggleTitle, isOn: $logReps)
+                            .tint(Theme.dividerColor(for: colorScheme))
+                            .onChange(of: logReps) { _, newValue in
+                                if newValue, entry.reps == nil {
+                                    entry.reps = 10
+                                }
+                                if !newValue {
+                                    entry.reps = nil
+                                }
+                            }
+                            .accessibilityIdentifier("SetDetail.LogReps")
+                    }
+
+                    if shouldCaptureReps {
+                        OptionalIntegerField(title: "Reps", value: repsBinding, accessibilityIdentifier: "SetDetail.Reps")
+                    }
+                }
+
+                if entry.exercise.metrics.usesDistance {
+                    if entry.exercise.metrics.distance == .optional {
+                        Toggle(ExerciseMetricKind.distance.optionalToggleTitle, isOn: $logDistance)
+                            .tint(Theme.dividerColor(for: colorScheme))
+                            .onChange(of: logDistance) { _, newValue in
+                                if newValue, entry.distance == nil {
+                                    entry.distance = 100
+                                }
+                                if !newValue {
+                                    entry.distance = nil
+                                }
+                            }
+                            .accessibilityIdentifier("SetDetail.LogDistance")
+                    }
+
+                    if shouldCaptureDistance {
+                        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                            HStack {
+                                OptionalNumberField(title: "Distance", formatter: Formatters.distance, value: distanceBinding, accessibilityIdentifier: "SetDetail.Distance")
+                                Picker("Unit", selection: distanceUnitBinding) {
+                                    ForEach(DistanceUnit.allCases) { unit in
+                                        Text(unit.symbol.uppercased()).tag(unit)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .tint(Theme.dividerColor(for: colorScheme))
+                                .accessibilityIdentifier("SetDetail.DistanceUnit")
+                            }
+
+                            Text("Track this effort in \(entry.distanceUnit.title.lowercased()).")
+                                .font(MarbleTypography.caption)
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                 }
 
                 if entry.exercise.metrics.usesDuration {
-                    HStack {
-                        Text("Duration")
-                            .font(MarbleTypography.rowTitle)
-                        Spacer()
-                        DurationPicker(durationSeconds: durationBinding)
-                            .accessibilityIdentifier("SetDetail.Duration")
+                    if entry.exercise.metrics.durationSeconds == .optional {
+                        Toggle(ExerciseMetricKind.duration.optionalToggleTitle, isOn: $logDuration)
+                            .tint(Theme.dividerColor(for: colorScheme))
+                            .onChange(of: logDuration) { _, newValue in
+                                if newValue, (entry.durationSeconds ?? 0) == 0 {
+                                    entry.durationSeconds = 60
+                                }
+                                if !newValue {
+                                    entry.durationSeconds = nil
+                                }
+                            }
+                            .accessibilityIdentifier("SetDetail.LogDuration")
+                    }
+
+                    if shouldCaptureDuration {
+                        HStack {
+                            Text("Duration")
+                                .font(MarbleTypography.rowTitle)
+                            Spacer()
+                            DurationPicker(durationSeconds: durationBinding)
+                        }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("SetDetail.Duration")
                     }
                 }
             } header: {
@@ -119,17 +207,12 @@ struct SetDetailView: View {
         .navigationTitle("Set Details")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarGlassBackground()
+        .marbleKeyboardToolbar()
         .onAppear {
-            if entry.exercise.metrics.weight == .optional {
-                addedLoad = entry.weight != nil
-            }
+            syncOptionalMetricState()
         }
         .onChange(of: entry.exercise) { _, newValue in
-            if newValue.metrics.weight == .optional {
-                addedLoad = entry.weight != nil
-            } else {
-                addedLoad = true
-            }
+            syncOptionalMetricState(for: newValue)
         }
         .onDisappear {
             entry.updatedAt = AppEnvironment.now
@@ -150,8 +233,8 @@ struct SetDetailView: View {
 
     private var weightBinding: Binding<Double?> {
         Binding(
-            get: { entry.weight },
-            set: { entry.weight = $0 }
+            get: { entry.exercise.displayedWeightInput(from: entry.weight) },
+            set: { entry.weight = entry.exercise.storedWeight(from: $0) }
         )
     }
 
@@ -159,6 +242,20 @@ struct SetDetailView: View {
         Binding(
             get: { entry.reps },
             set: { entry.reps = $0 }
+        )
+    }
+
+    private var distanceBinding: Binding<Double?> {
+        Binding(
+            get: { entry.distance },
+            set: { entry.distance = $0 }
+        )
+    }
+
+    private var distanceUnitBinding: Binding<DistanceUnit> {
+        Binding(
+            get: { entry.distanceUnit },
+            set: { entry.distanceUnit = $0 }
         )
     }
 
@@ -176,6 +273,22 @@ struct SetDetailView: View {
         )
     }
 
+    private var shouldCaptureWeight: Bool {
+        entry.exercise.metrics.weightIsRequired || (entry.exercise.metrics.weight == .optional && addedLoad)
+    }
+
+    private var shouldCaptureReps: Bool {
+        entry.exercise.metrics.repsIsRequired || (entry.exercise.metrics.reps == .optional && logReps)
+    }
+
+    private var shouldCaptureDistance: Bool {
+        entry.exercise.metrics.distanceIsRequired || (entry.exercise.metrics.distance == .optional && logDistance)
+    }
+
+    private var shouldCaptureDuration: Bool {
+        entry.exercise.metrics.durationIsRequired || (entry.exercise.metrics.durationSeconds == .optional && logDuration)
+    }
+
     private func duplicate() {
         let now = AppEnvironment.now
         let duplicate = SetEntry(
@@ -184,6 +297,8 @@ struct SetDetailView: View {
             weight: entry.weight,
             weightUnit: entry.weightUnit,
             reps: entry.reps,
+            distance: entry.distance,
+            distanceUnit: entry.distanceUnit,
             durationSeconds: entry.durationSeconds,
             difficulty: entry.difficulty,
             restAfterSeconds: entry.restAfterSeconds,
@@ -193,5 +308,13 @@ struct SetDetailView: View {
         )
         modelContext.insert(duplicate)
         try? modelContext.save()
+    }
+
+    private func syncOptionalMetricState(for exercise: Exercise? = nil) {
+        let currentExercise = exercise ?? entry.exercise
+        addedLoad = currentExercise.metrics.weightIsRequired || entry.weight != nil
+        logReps = currentExercise.metrics.repsIsRequired || entry.reps != nil
+        logDistance = currentExercise.metrics.distanceIsRequired || entry.distance != nil
+        logDuration = currentExercise.metrics.durationIsRequired || entry.durationSeconds != nil
     }
 }

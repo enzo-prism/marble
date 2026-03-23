@@ -131,8 +131,16 @@ class MarbleUITestCase: XCTestCase {
 
     func dismissKeyboardIfPresent() {
         guard app.keyboards.count > 0 else { return }
+        if app.buttons["Keyboard.Done"].exists {
+            app.buttons["Keyboard.Done"].tap()
+            return
+        }
         if app.buttons["Done"].exists {
             app.buttons["Done"].tap()
+            return
+        }
+        if app.buttons["Keyboard.Save"].exists {
+            app.buttons["Keyboard.Save"].tap()
             return
         }
         if app.keyboards.buttons["Return"].exists {
@@ -192,7 +200,12 @@ class MarbleUITestCase: XCTestCase {
         file: StaticString = #file,
         line: UInt = #line
     ) -> XCUIElement {
-        let saveButton = app.descendants(matching: .any).matching(identifier: "AddSet.Save").firstMatch
+        let navSaveButton = app.navigationBars.buttons["AddSet.Save"]
+        if navSaveButton.waitForExistence(timeout: timeout) {
+            return navSaveButton
+        }
+
+        let saveButton = app.descendants(matching: .any).matching(identifier: "AddSet.BottomSave").firstMatch
         if saveButton.exists {
             return saveButton
         }
@@ -228,10 +241,6 @@ class MarbleUITestCase: XCTestCase {
         let cellsById = list.cells.matching(predicate)
         if cellsById.count > 0 {
             return cellsById
-        }
-        let cells = list.cells
-        if cells.count > 0 {
-            return cells
         }
         return app.descendants(matching: .any).matching(predicate)
     }
@@ -278,7 +287,11 @@ class MarbleUITestCase: XCTestCase {
         if field.exists {
             return field
         }
-        return app.textViews[identifier]
+        let textView = app.textViews[identifier]
+        if textView.exists {
+            return textView
+        }
+        return app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
     func selectExercise(identifier: String) {
@@ -288,6 +301,13 @@ class MarbleUITestCase: XCTestCase {
 
         let list = waitForIdentifier("ExercisePicker.List", timeout: 8)
         let row = app.buttons.matching(identifier: "ExercisePicker.Row.\(identifier)").firstMatch
+        if !row.waitForExistence(timeout: 2) {
+            let searchField = app.searchFields.firstMatch
+            if searchField.waitForExistence(timeout: 2) {
+                searchField.tap()
+                searchField.typeText(exerciseSearchQuery(for: identifier))
+            }
+        }
         waitFor(row, timeout: 8)
         if !row.isHittable {
             scrollToElement(row, in: list, maxSwipes: 12)
@@ -301,6 +321,14 @@ class MarbleUITestCase: XCTestCase {
             }
         }
         waitFor(app.navigationBars["Log Set"], timeout: 8)
+    }
+
+    private func exerciseSearchQuery(for identifier: String) -> String {
+        identifier.replacingOccurrences(
+            of: "([a-z])([A-Z])",
+            with: "$1 $2",
+            options: .regularExpression
+        )
     }
 
     func openAddSet() {

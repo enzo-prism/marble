@@ -8,3 +8,4 @@ xcuserdata/
 *.xcscmblueprint
 *.xccheckout
 .swiftpm/
+.asc/artifacts/

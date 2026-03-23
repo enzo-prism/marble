@@ -518,20 +518,41 @@ struct TrendsView: View {
             .max { (lhs, rhs) in
                 (lhs.weight ?? 0) < (rhs.weight ?? 0)
             }
+        let bestDistanceEntry = filteredEntries
+            .filter { $0.distance != nil }
+            .max { (lhs, rhs) in
+                (lhs.distance ?? 0) < (rhs.distance ?? 0)
+            }
+        let fastestSpeedEntry = filteredEntries
+            .filter { ($0.distance ?? 0) > 0 && ($0.durationSeconds ?? 0) > 0 }
+            .max { lhs, rhs in
+                let lhsSpeed = (lhs.distance ?? 0) / Double(max(lhs.durationSeconds ?? 1, 1))
+                let rhsSpeed = (rhs.distance ?? 0) / Double(max(rhs.durationSeconds ?? 1, 1))
+                return lhsSpeed < rhsSpeed
+            }
         let bestReps = filteredEntries.compactMap { $0.reps }.max()
         let bestDuration = filteredEntries.compactMap { $0.durationSeconds }.max()
         let sessionCount = Set(filteredEntries.map { DateHelper.startOfDay(for: $0.performedAt) }).count
+        let showsDistancePRs = bestDistanceEntry != nil
 
         return VStack(spacing: 12) {
             HStack(spacing: 12) {
                 PRCardView(
-                    title: "Best Weight",
-                    value: bestWeightEntry.map {
-                        let formatted = Formatters.weight.string(from: NSNumber(value: $0.weight ?? 0)) ?? "\($0.weight ?? 0)"
-                        return "\(formatted) \($0.weightUnit.symbol)"
-                    } ?? "-"
+                    title: showsDistancePRs ? "Best Distance" : "Best Weight",
+                    value: showsDistancePRs
+                        ? bestDistanceEntry.map { $0.exercise.formattedDistanceSummary($0.distance ?? 0, unit: $0.distanceUnit) } ?? "-"
+                        : bestWeightEntry.map { $0.exercise.formattedWeightSummary($0.weight ?? 0, unit: $0.weightUnit) } ?? "-"
                 )
-                PRCardView(title: "Best Reps", value: bestReps.map { "\($0) reps" } ?? "-")
+                PRCardView(
+                    title: showsDistancePRs ? "Fastest Pace" : "Best Reps",
+                    value: showsDistancePRs
+                        ? fastestSpeedEntry.map { fastestEntry in
+                            let speed = (fastestEntry.distance ?? 0) / Double(max(fastestEntry.durationSeconds ?? 1, 1))
+                            let formatted = Formatters.distance.string(from: NSNumber(value: speed)) ?? "\(speed)"
+                            return "\(formatted) \(fastestEntry.distanceUnit.symbol)/s"
+                        } ?? "-"
+                        : bestReps.map { "\($0) reps" } ?? "-"
+                )
             }
             HStack(spacing: 12) {
                 PRCardView(title: "Longest Duration", value: bestDuration.map { DateHelper.formattedDuration(seconds: $0) } ?? "-")
@@ -541,6 +562,8 @@ struct TrendsView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(prCardsAccessibilityLabel(
             bestWeightEntry: bestWeightEntry,
+            bestDistanceEntry: bestDistanceEntry,
+            fastestSpeedEntry: fastestSpeedEntry,
             bestReps: bestReps,
             bestDuration: bestDuration,
             sessionCount: sessionCount
@@ -846,6 +869,8 @@ struct TrendsView: View {
 
     private func prCardsAccessibilityLabel(
         bestWeightEntry: SetEntry?,
+        bestDistanceEntry: SetEntry?,
+        fastestSpeedEntry: SetEntry?,
         bestReps: Int?,
         bestDuration: Int?,
         sessionCount: Int
@@ -858,10 +883,32 @@ struct TrendsView: View {
             weightText = "Best weight none"
         }
 
+        let distanceText: String
+        if let entry = bestDistanceEntry, let distance = entry.distance {
+            distanceText = "Best distance \(entry.exercise.formattedDistanceSummary(distance, unit: entry.distanceUnit))"
+        } else {
+            distanceText = "Best distance none"
+        }
+
+        let speedText: String
+        if let entry = fastestSpeedEntry,
+           let distance = entry.distance,
+           let durationSeconds = entry.durationSeconds,
+           durationSeconds > 0 {
+            let speed = distance / Double(durationSeconds)
+            let formatted = Formatters.distance.string(from: NSNumber(value: speed)) ?? "\(speed)"
+            speedText = "Fastest pace \(formatted) \(entry.distanceUnit.symbol) per second"
+        } else {
+            speedText = "Fastest pace none"
+        }
+
         let repsText = bestReps.map { "Best reps \($0)" } ?? "Best reps none"
         let durationText = bestDuration.map { "Longest duration \(DateHelper.formattedDuration(seconds: $0))" } ?? "Longest duration none"
         let sessionsText = "Sessions \(sessionCount)"
-        return [weightText, repsText, durationText, sessionsText].joined(separator: ", ")
+        let primaryParts = bestDistanceEntry != nil
+            ? [distanceText, speedText, durationText, sessionsText]
+            : [weightText, repsText, durationText, sessionsText]
+        return primaryParts.joined(separator: ", ")
     }
 }
 

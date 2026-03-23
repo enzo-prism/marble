@@ -20,19 +20,25 @@ final class JournalFlowUITests: MarbleUITestCase {
 
             let saveButton = revealAddSetSaveButton()
             forceTap(saveButton)
-            if app.navigationBars["Log Set"].exists {
+            let logSetNav = app.navigationBars["Log Set"]
+            if logSetNav.waitForExistence(timeout: 1) {
+                waitForDisappearance(logSetNav, timeout: 4)
+            }
+            if logSetNav.exists {
                 dismissSheet()
             }
-            waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
+            waitForDisappearance(logSetNav, timeout: 6)
             _ = waitForIdentifier("Journal.List", timeout: 8)
         }
 
         step("Edit the latest set") {
-            let openLatest = app.buttons["Journal.TestOpenLatest"]
-            waitFor(openLatest, timeout: 8)
-            forceTap(openLatest)
+            let list = waitForIdentifier("Journal.List", timeout: 8)
+            let rows = setRows(in: list)
+            let latestRow = rows.element(boundBy: 0)
+            waitFor(latestRow, timeout: 8)
+            forceTap(latestRow)
             if !app.navigationBars["Set Details"].waitForExistence(timeout: 3) {
-                forceTap(openLatest)
+                forceTap(latestRow)
             }
             waitFor(app.navigationBars["Set Details"], timeout: 6)
             let detailWeight = textInput("SetDetail.Weight")
@@ -54,9 +60,11 @@ final class JournalFlowUITests: MarbleUITestCase {
             backButton.tap()
 
             _ = waitForIdentifier("Journal.List", timeout: 8)
-            let openLatestAgain = app.buttons["Journal.TestOpenLatest"]
-            waitFor(openLatestAgain, timeout: 8)
-            forceTap(openLatestAgain)
+            let updatedList = waitForIdentifier("Journal.List", timeout: 8)
+            let updatedRows = setRows(in: updatedList)
+            let latestUpdatedRow = updatedRows.element(boundBy: 0)
+            waitFor(latestUpdatedRow, timeout: 8)
+            forceTap(latestUpdatedRow)
             waitFor(app.navigationBars["Set Details"], timeout: 6)
             let verifyWeight = textInput("SetDetail.Weight")
             if !verifyWeight.waitForExistence(timeout: 4) {
@@ -120,19 +128,7 @@ final class JournalFlowUITests: MarbleUITestCase {
 
         step("Add a duration set") {
             openAddSet()
-            let picker = app.buttons["AddSet.ExercisePicker"]
-            waitFor(picker)
-            picker.tap()
-
-            let searchField = app.searchFields.firstMatch
-            if searchField.waitForExistence(timeout: 2) {
-                searchField.tap()
-                searchField.typeText("Plank")
-            }
-
-            let plankRow = app.buttons.matching(identifier: "ExercisePicker.Row.Plank").firstMatch
-            waitFor(plankRow)
-            plankRow.tap()
+            selectExercise(identifier: "Plank")
 
             let saveButton = revealAddSetSaveButton()
             forceTap(saveButton)
@@ -174,19 +170,17 @@ final class JournalFlowUITests: MarbleUITestCase {
             nameField.tap()
             nameField.typeText("Temp Move")
 
+            let bodyweightTemplate = app.buttons["ExerciseEditor.Template.bodyweight"]
+            scrollToElement(bodyweightTemplate, in: app.tables.firstMatch)
+            waitFor(bodyweightTemplate)
+            forceTap(bodyweightTemplate)
+
             let saveExercise = app.buttons["ExerciseEditor.Save"]
             waitFor(saveExercise)
             saveExercise.tap()
 
-            let backFromManage = app.navigationBars.buttons.element(boundBy: 0)
-            waitFor(backFromManage)
-            backFromManage.tap()
-
-            let tempRow = app.buttons["ExercisePicker.Row.TempMove"]
-            waitFor(tempRow)
-            tempRow.tap()
-
             waitFor(app.navigationBars["Log Set"])
+            XCTAssertEqual(exercisePicker.value as? String, "Temp Move")
             let exercisePickerAgain = app.buttons["AddSet.ExercisePicker"]
             waitFor(exercisePickerAgain)
             exercisePickerAgain.tap()
@@ -217,4 +211,258 @@ final class JournalFlowUITests: MarbleUITestCase {
             XCTAssertTrue(app.navigationBars["Log Set"].exists)
         }
     }
+
+    func testCreateExerciseFromPickerSearchAndUseItImmediately() {
+        step("Launch and open Journal tab") {
+            launchApp(fixtureMode: "empty")
+            navigateToTab(.journal)
+        }
+
+        step("Create a new exercise directly from the picker search flow") {
+            openAddSet()
+
+            let exercisePicker = app.buttons["AddSet.ExercisePicker"]
+            waitFor(exercisePicker)
+            exercisePicker.tap()
+
+            let searchField = app.searchFields.firstMatch
+            waitFor(searchField, timeout: 4)
+            searchField.tap()
+            searchField.typeText("Ring Row")
+
+            let createButton = app.buttons["ExercisePicker.CreateFromSearch"]
+            waitFor(createButton)
+            forceTap(createButton)
+
+            let nameField = app.textFields["ExerciseEditor.Name"]
+            waitFor(nameField)
+            XCTAssertEqual(nameField.value as? String, "Ring Row")
+
+            let iconMode = app.segmentedControls["ExerciseEditor.IconMode"]
+            waitFor(iconMode)
+            iconMode.buttons["Emoji"].tap()
+
+            let firstEmojiSuggestion = app.buttons["ExerciseEditor.EmojiSuggestion.0"]
+            waitFor(firstEmojiSuggestion)
+            forceTap(firstEmojiSuggestion)
+
+            let weightedBodyweightTemplate = app.buttons["ExerciseEditor.Template.weightedBodyweight"]
+            scrollToElement(weightedBodyweightTemplate, in: app.tables.firstMatch)
+            waitFor(weightedBodyweightTemplate)
+            forceTap(weightedBodyweightTemplate)
+
+            let saveExercise = app.buttons["ExerciseEditor.Save"]
+            waitFor(saveExercise)
+            forceTap(saveExercise)
+        }
+
+        step("Use the new exercise with the expected logging fields") {
+            waitFor(app.navigationBars["Log Set"], timeout: 6)
+
+            let exercisePicker = app.buttons["AddSet.ExercisePicker"]
+            waitFor(exercisePicker)
+            XCTAssertEqual(exercisePicker.value as? String, "Ring Row")
+
+            let addedLoadToggle = app.switches["AddSet.AddedLoad"]
+            waitFor(addedLoadToggle)
+            let repsSlider = app.sliders["AddSet.Reps"]
+            if repsSlider.waitForExistence(timeout: 2) {
+                setSliderValue("AddSet.Reps", value: 8, range: 1...20)
+            }
+
+            let saveButton = revealAddSetSaveButton()
+            forceTap(saveButton)
+            if app.navigationBars["Log Set"].exists {
+                dismissSheet()
+            }
+            waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
+
+            let list = waitForIdentifier("Journal.List", timeout: 8)
+            XCTAssertTrue(setRows(in: list).element(boundBy: 0).exists)
+        }
+    }
+
+    func testEditExistingExerciseCanSwitchToEmojiIcon() {
+        step("Launch and open Journal tab") {
+            launchApp(fixtureMode: "populated")
+            navigateToTab(.journal)
+        }
+
+        step("Open Bench Press in exercise management") {
+            openAddSet()
+
+            let exercisePicker = app.buttons["AddSet.ExercisePicker"]
+            waitFor(exercisePicker)
+            exercisePicker.tap()
+
+            let manage = app.buttons["ExercisePicker.Manage"]
+            waitFor(manage)
+            manage.tap()
+
+            let manageList = waitForIdentifier("ManageExercises.List", timeout: 6)
+            let benchPressRow = app.buttons["ManageExercises.Row.BenchPress"]
+            scrollToElement(benchPressRow, in: manageList)
+            waitFor(benchPressRow, timeout: 6)
+            forceTap(benchPressRow)
+        }
+
+        step("Change the icon to an emoji and save") {
+            waitFor(app.navigationBars["Edit Exercise"], timeout: 6)
+
+            let iconMode = app.segmentedControls["ExerciseEditor.IconMode"]
+            waitFor(iconMode)
+            iconMode.buttons["Emoji"].tap()
+
+            let firstEmojiSuggestion = app.buttons["ExerciseEditor.EmojiSuggestion.0"]
+            waitFor(firstEmojiSuggestion)
+            forceTap(firstEmojiSuggestion)
+
+            let saveExercise = app.buttons["ExerciseEditor.Save"]
+            waitFor(saveExercise)
+            forceTap(saveExercise)
+        }
+
+        step("Reopen the exercise and confirm the emoji choice persisted") {
+            let manageList = waitForIdentifier("ManageExercises.List", timeout: 6)
+            let benchPressRow = app.buttons["ManageExercises.Row.BenchPress"]
+            scrollToElement(benchPressRow, in: manageList)
+            waitFor(benchPressRow, timeout: 6)
+            forceTap(benchPressRow)
+
+            waitFor(app.navigationBars["Edit Exercise"], timeout: 6)
+
+            let customEmojiField = app.textFields["ExerciseEditor.CustomEmoji"]
+            waitFor(customEmojiField)
+            XCTAssertEqual(customEmojiField.value as? String, "🏋️")
+        }
+    }
+
+    func testDualDumbbellExerciseStoresTotalLoadButKeepsPerHandEditing() {
+        step("Launch and open Journal tab") {
+            launchApp(fixtureMode: "empty")
+            navigateToTab(.journal)
+        }
+
+        step("Create a dual dumbbell exercise from the picker") {
+            openAddSet()
+
+            let exercisePicker = app.buttons["AddSet.ExercisePicker"]
+            waitFor(exercisePicker)
+            exercisePicker.tap()
+
+            let searchField = app.searchFields.firstMatch
+            waitFor(searchField, timeout: 4)
+            searchField.tap()
+            searchField.typeText("DB Incline Press")
+
+            let createButton = app.buttons["ExercisePicker.CreateFromSearch"]
+            waitFor(createButton)
+            forceTap(createButton)
+
+            let dualDumbbellTemplate = app.buttons["ExerciseEditor.Template.dualDumbbell"]
+            scrollToElement(dualDumbbellTemplate, in: app.tables.firstMatch)
+            waitFor(dualDumbbellTemplate)
+            forceTap(dualDumbbellTemplate)
+
+            let saveExercise = app.buttons["ExerciseEditor.Save"]
+            waitFor(saveExercise)
+            forceTap(saveExercise)
+        }
+
+        step("Log a set using one dumbbell weight") {
+            waitFor(app.navigationBars["Log Set"], timeout: 6)
+
+            let weightField = textInput("AddSet.Weight")
+            waitFor(weightField)
+            clearAndType(weightField, text: "25")
+            dismissKeyboardIfPresent()
+
+            setSliderValue("AddSet.Reps", value: 8, range: 1...20)
+
+            let saveButton = revealAddSetSaveButton()
+            forceTap(saveButton)
+            waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
+        }
+
+        step("Confirm the journal and edit flow reflect per-hand input correctly") {
+            let list = waitForIdentifier("Journal.List", timeout: 8)
+            let rows = setRows(in: list)
+            let latestRow = rows.element(boundBy: 0)
+            waitFor(latestRow, timeout: 8)
+            XCTAssertTrue((latestRow.label as String).contains("50 lb total"))
+
+            forceTap(latestRow)
+            waitFor(app.navigationBars["Set Details"], timeout: 6)
+
+            let detailWeight = textInput("SetDetail.Weight")
+            waitFor(detailWeight)
+            XCTAssertEqual(detailWeight.value as? String, "25")
+        }
+    }
+
+    func testSprintExerciseShowsDistanceAndDurationLogging() {
+        step("Launch and open Journal tab") {
+            launchApp(fixtureMode: "empty")
+            navigateToTab(.journal)
+        }
+
+        step("Create a sprint-style exercise from the picker") {
+            openAddSet()
+
+            let exercisePicker = app.buttons["AddSet.ExercisePicker"]
+            waitFor(exercisePicker)
+            exercisePicker.tap()
+
+            let searchField = app.searchFields.firstMatch
+            waitFor(searchField, timeout: 4)
+            searchField.tap()
+            searchField.typeText("Track Sprint")
+
+            let createButton = app.buttons["ExercisePicker.CreateFromSearch"]
+            waitFor(createButton)
+            forceTap(createButton)
+
+            let sprintTemplate = app.buttons["ExerciseEditor.Template.sprint"]
+            scrollToElement(sprintTemplate, in: app.tables.firstMatch)
+            waitFor(sprintTemplate)
+            forceTap(sprintTemplate)
+
+            let saveExercise = app.buttons["ExerciseEditor.Save"]
+            waitFor(saveExercise)
+            forceTap(saveExercise)
+        }
+
+        step("Log a sprint with distance and time") {
+            waitFor(app.navigationBars["Log Set"], timeout: 6)
+
+            let distanceField = textInput("AddSet.Distance")
+            waitFor(distanceField)
+            clearAndType(distanceField, text: "100")
+            dismissKeyboardIfPresent()
+
+            let durationControl = app.otherElements["AddSet.Duration"]
+            waitFor(durationControl)
+
+            let saveButton = revealAddSetSaveButton()
+            forceTap(saveButton)
+            waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
+        }
+
+        step("Confirm the saved set still exposes distance and duration") {
+            let list = waitForIdentifier("Journal.List", timeout: 8)
+            let rows = setRows(in: list)
+            let latestRow = rows.element(boundBy: 0)
+            waitFor(latestRow, timeout: 8)
+            XCTAssertTrue((latestRow.label as String).contains("100 m"))
+
+            forceTap(latestRow)
+            waitFor(app.navigationBars["Set Details"], timeout: 6)
+
+            let detailDistance = textInput("SetDetail.Distance")
+            waitFor(detailDistance)
+            XCTAssertEqual(detailDistance.value as? String, "100")
+            XCTAssertTrue(app.otherElements["SetDetail.Duration"].waitForExistence(timeout: 2))
+        }
+    }
+
 }

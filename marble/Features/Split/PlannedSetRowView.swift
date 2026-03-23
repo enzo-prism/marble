@@ -7,10 +7,7 @@ struct PlannedSetRowView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: MarbleLayout.rowSpacing) {
-            Image(systemName: plannedSet.exercise.category.symbolName)
-                .font(.system(size: 18, weight: .semibold))
-                .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            ExerciseIconView(exercise: plannedSet.exercise, fontSize: 18, frameSize: MarbleLayout.rowIconSize)
 
             VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
                 Text(plannedSet.exercise.name)

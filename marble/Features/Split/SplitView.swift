@@ -36,9 +36,7 @@ struct SplitView: View {
         List {
             Section {
                 ForEach(orderedDays(from: plan)) { day in
-                    NavigationLink {
-                        SplitDayEditorView(day: day)
-                    } label: {
+                    NavigationLink(value: day.id) {
                         SplitDayRowView(day: day)
                     }
                     .marbleRowInsets()
@@ -53,6 +51,13 @@ struct SplitView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme))
         .accessibilityIdentifier("Split.List")
+        .navigationDestination(for: UUID.self) { dayID in
+            if let day = orderedDays(from: plan).first(where: { $0.id == dayID }) {
+                SplitDayEditorView(day: day)
+            } else {
+                missingDayState
+            }
+        }
     }
 
     private var emptyState: some View {
@@ -80,6 +85,11 @@ struct SplitView: View {
             }
             return $0.weekday.rawValue < $1.weekday.rawValue
         }
+    }
+
+    private var missingDayState: some View {
+        ContentUnavailableView("Day Unavailable", systemImage: "calendar")
+            .background(Theme.backgroundColor(for: colorScheme))
     }
 }
 

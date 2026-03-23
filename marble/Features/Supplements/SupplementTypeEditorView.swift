@@ -38,6 +38,14 @@ struct SupplementTypeEditorView: View {
         .navigationTitle(type == nil ? "New Type" : "Edit Type")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarGlassBackground()
+        .marbleKeyboardToolbar(
+            primaryAction: KeyboardToolbarAction(
+                title: "Save",
+                accessibilityIdentifier: "Keyboard.Save",
+                isEnabled: !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                handler: save
+            )
+        )
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Save") {
