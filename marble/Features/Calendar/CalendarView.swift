@@ -33,7 +33,7 @@ struct CalendarView: View {
                 .accessibilityIdentifier("Calendar.LogSet")
 
                 CalendarRepresentable(
-                    decorations: dayDecorations,
+                    activeDays: activeWorkoutDays,
                     visibleMonth: visibleMonth,
                     onSelect: { components in
                         guard let components, let date = calendar.date(from: components) else {
@@ -78,28 +78,10 @@ struct CalendarView: View {
         }
     }
 
-    private var dayDecorations: [DateComponents: Int] {
-        var counts: [DateComponents: Int] = [:]
-        let grouped = Dictionary(grouping: entries) { entry in
-            calendar.startOfDay(for: entry.performedAt)
-        }
-        for (day, dayEntries) in grouped {
-            let components = calendar.dateComponents([.year, .month, .day], from: day)
-            let count = dayEntries.count
-            let tier: Int
-            switch count {
-            case 0:
-                tier = 0
-            case 1:
-                tier = 1
-            case 2...4:
-                tier = 2
-            default:
-                tier = 3
-            }
-            counts[components] = tier
-        }
-        return counts
+    private var activeWorkoutDays: Set<CalendarDayKey> {
+        Set(entries.map { entry in
+            CalendarDayKey(date: entry.performedAt, calendar: calendar)
+        })
     }
 
     private func entriesForDay(_ date: Date) -> [SetEntry] {
@@ -273,6 +255,49 @@ private struct CalendarSelection: Identifiable {
     let date: Date
 }
 
+struct CalendarDayKey: Sendable {
+    let year: Int
+    let month: Int
+    let day: Int
+
+    init?(dateComponents: DateComponents) {
+        guard
+            let year = dateComponents.year,
+            let month = dateComponents.month,
+            let day = dateComponents.day
+        else {
+            return nil
+        }
+        self.year = year
+        self.month = month
+        self.day = day
+    }
+
+    init(date: Date, calendar: Calendar) {
+        let components = calendar.dateComponents([.year, .month, .day], from: calendar.startOfDay(for: date))
+        guard let key = CalendarDayKey(dateComponents: components) else {
+            preconditionFailure("Expected a valid year/month/day for calendar day key.")
+        }
+        self = key
+    }
+
+    var dateComponents: DateComponents {
+        DateComponents(year: year, month: month, day: day)
+    }
+}
+
+extension CalendarDayKey: Hashable {
+    nonisolated static func == (lhs: CalendarDayKey, rhs: CalendarDayKey) -> Bool {
+        lhs.year == rhs.year && lhs.month == rhs.month && lhs.day == rhs.day
+    }
+
+    nonisolated func hash(into hasher: inout Hasher) {
+        hasher.combine(year)
+        hasher.combine(month)
+        hasher.combine(day)
+    }
+}
+
 struct DaySummarySheet: View {
     let date: Date
     let entries: [SetEntry]
@@ -355,7 +380,7 @@ struct DaySummarySheet: View {
 }
 
 struct CalendarRepresentable: UIViewRepresentable {
-    var decorations: [DateComponents: Int]
+    var activeDays: Set<CalendarDayKey>
     var visibleMonth: DateComponents
     var onSelect: (DateComponents?) -> Void
     var onVisibleMonthChange: (DateComponents) -> Void
@@ -373,10 +398,13 @@ struct CalendarRepresentable: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UICalendarView, context: Context) {
-        context.coordinator.decorations = decorations
+        let daysToReload = Set(context.coordinator.activeDays).union(activeDays)
+        context.coordinator.activeDays = activeDays
         context.coordinator.visibleMonth = visibleMonth
-        let keys = Array(decorations.keys)
-        uiView.reloadDecorations(forDateComponents: keys, animated: true)
+        uiView.reloadDecorations(
+            forDateComponents: daysToReload.map(\.dateComponents),
+            animated: true
+        )
         if uiView.visibleDateComponents.year != visibleMonth.year || uiView.visibleDateComponents.month != visibleMonth.month {
             uiView.visibleDateComponents = visibleMonth
         }
@@ -386,7 +414,7 @@ struct CalendarRepresentable: UIViewRepresentable {
         Coordinator(
             onSelect: onSelect,
             onVisibleMonthChange: onVisibleMonthChange,
-            decorations: decorations,
+            activeDays: activeDays,
             visibleMonth: visibleMonth
         )
     }
@@ -394,27 +422,29 @@ struct CalendarRepresentable: UIViewRepresentable {
     final class Coordinator: NSObject, UICalendarViewDelegate, UICalendarSelectionSingleDateDelegate {
         let onSelect: (DateComponents?) -> Void
         let onVisibleMonthChange: (DateComponents) -> Void
-        var decorations: [DateComponents: Int]
+        var activeDays: Set<CalendarDayKey>
         var visibleMonth: DateComponents
 
         init(
             onSelect: @escaping (DateComponents?) -> Void,
             onVisibleMonthChange: @escaping (DateComponents) -> Void,
-            decorations: [DateComponents: Int],
+            activeDays: Set<CalendarDayKey>,
             visibleMonth: DateComponents
         ) {
             self.onSelect = onSelect
             self.onVisibleMonthChange = onVisibleMonthChange
-            self.decorations = decorations
+            self.activeDays = activeDays
             self.visibleMonth = visibleMonth
         }
 
         func calendarView(_ calendarView: UICalendarView, decorationFor dateComponents: DateComponents) -> UICalendarView.Decoration? {
-            guard let tier = decorations[dateComponents], tier > 0 else {
+            guard
+                let dayKey = CalendarDayKey(dateComponents: dateComponents),
+                activeDays.contains(dayKey)
+            else {
                 return nil
             }
-            let image = CalendarDecoration.image(forTier: tier)
-            return .image(image)
+            return .image(CalendarDecoration.image(for: calendarView.traitCollection))
         }
 
         func dateSelection(_ selection: UICalendarSelectionSingleDate, didSelectDate dateComponents: DateComponents?) {
@@ -437,23 +467,26 @@ struct CalendarRepresentable: UIViewRepresentable {
 }
 
 enum CalendarDecoration {
-    static func image(forTier tier: Int) -> UIImage {
-        let count = min(max(tier, 1), 3)
-        let size = CGSize(width: 18, height: 6)
-        let renderer = UIGraphicsImageRenderer(size: size)
+    private static let lightImage = dotImage(color: UIColor(white: ThemePalette.lightSecondaryText, alpha: 1.0))
+    private static let darkImage = dotImage(color: UIColor(white: ThemePalette.darkSecondaryText, alpha: 1.0))
+
+    static func image(for traits: UITraitCollection) -> UIImage {
+        traits.userInterfaceStyle == .dark ? darkImage : lightImage
+    }
+
+    private static func dotImage(color: UIColor) -> UIImage {
+        let canvasSize = CGSize(width: 18, height: 8)
+        let dotSize: CGFloat = 6
+        let dotRect = CGRect(
+            x: (canvasSize.width - dotSize) / 2,
+            y: (canvasSize.height - dotSize) / 2,
+            width: dotSize,
+            height: dotSize
+        )
+        let renderer = UIGraphicsImageRenderer(size: canvasSize)
         return renderer.image { context in
-            let dotSize: CGFloat = 4
-            let spacing: CGFloat = 2
-            let totalWidth = CGFloat(count) * dotSize + CGFloat(count - 1) * spacing
-            let startX = (size.width - totalWidth) / 2
-            let y = (size.height - dotSize) / 2
-            let color = UIColor(white: 0.5, alpha: 1.0)
-            for index in 0..<count {
-                let x = startX + CGFloat(index) * (dotSize + spacing)
-                let rect = CGRect(x: x, y: y, width: dotSize, height: dotSize)
-                context.cgContext.setFillColor(color.cgColor)
-                context.cgContext.fillEllipse(in: rect)
-            }
+            context.cgContext.setFillColor(color.cgColor)
+            context.cgContext.fillEllipse(in: dotRect)
         }
     }
 }
