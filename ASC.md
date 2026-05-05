@@ -157,10 +157,10 @@ Direct equivalents:
 
 ```bash
 asc status --app "6757725234" --output table
-asc review status --app "6757725234" --version "1.5" --platform IOS --output table
-asc review doctor --app "6757725234" --version "1.5" --platform IOS --output table
-asc validate --app "6757725234" --version "1.5" --platform IOS --output table
-asc builds next-build-number --app "6757725234" --version "1.5" --platform IOS --output table
+asc review status --app "6757725234" --version "1.6" --platform IOS --output table
+asc review doctor --app "6757725234" --version "1.6" --platform IOS --output table
+asc validate --app "6757725234" --version "1.6" --platform IOS --output table
+asc builds next-build-number --app "6757725234" --version "1.6" --platform IOS --output table
 ```
 
 `asc validate` is the canonical App Store submission readiness report in the
@@ -249,7 +249,7 @@ asc publish appstore \
   --ipa-path .asc/artifacts/marble.ipa \
   --archive-xcodebuild-flag=-destination \
   --archive-xcodebuild-flag=generic/platform=iOS \
-  --version "1.5" \
+  --version "1.6" \
   --dry-run --output json --pretty
 ```
 
@@ -290,7 +290,7 @@ asc validate --help
 Useful direct commands:
 
 ```bash
-asc builds list --app "6757725234" --version "1.5"
+asc builds list --app "6757725234" --version "1.6"
 asc testflight groups list --app "6757725234"
 asc status --app "6757725234"
 ```
