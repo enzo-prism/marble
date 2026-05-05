@@ -5,12 +5,12 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         launchApp(fixtureMode: "populated")
         navigateToTab(.trends)
 
-        let consistencyChart = app.otherElements["Trends.ConsistencyChart"]
+        let consistencyChart = chartElement("Trends.ConsistencyChart")
         waitFor(consistencyChart)
-        let volumeChart = app.otherElements["Trends.VolumeChart"]
+        let volumeChart = chartElement("Trends.VolumeChart")
         waitFor(volumeChart)
 
-        let supplementsChart = app.otherElements["Trends.SupplementsChart"]
+        let supplementsChart = chartElement("Trends.SupplementsChart")
         if !supplementsChart.exists {
             let scrollView = app.scrollViews["Trends.Scroll"]
             for _ in 0..<3 {
@@ -72,6 +72,14 @@ final class TrendsSmokeUITests: MarbleUITestCase {
             XCTAssertEqual(pickerValue, "Creatine")
         }
 
-        XCTAssertTrue(app.otherElements["Trends.ConsistencyChart"].exists)
+        XCTAssertTrue(chartElement("Trends.ConsistencyChart").exists)
+    }
+
+    private func chartElement(_ identifier: String) -> XCUIElement {
+        let legacyChartElement = app.otherElements[identifier]
+        if legacyChartElement.exists {
+            return legacyChartElement
+        }
+        return app.buttons[identifier]
     }
 }

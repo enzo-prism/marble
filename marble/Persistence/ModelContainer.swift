@@ -10,7 +10,8 @@ enum PersistenceController {
             SupplementEntry.self,
             SplitPlan.self,
             SplitDay.self,
-            PlannedSet.self
+            PlannedSet.self,
+            ProgressMediaAttachment.self
         ])
 
         let configuration: ModelConfiguration

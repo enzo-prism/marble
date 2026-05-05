@@ -17,26 +17,19 @@ struct TrendTooltipView: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(title)
-                        .font(MarbleTypography.rowSubtitle)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    titleText
 
                     Spacer()
 
-                    if let onClear {
-                        Button("Clear") {
-                            onClear()
-                        }
-                        .font(MarbleTypography.smallLabel)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        .accessibilityLabel("Clear selection")
-                    }
+                    clearSelectionButton
                 }
 
-                HStack(spacing: MarbleSpacing.xxs) {
+                HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.xxs) {
                     Text(valueText)
                         .font(MarbleTypography.rowTitle)
                         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     if showsPR {
                         Image(systemName: "trophy.fill")
@@ -50,6 +43,8 @@ struct TrendTooltipView: View {
                     Text(summaryText)
                         .font(MarbleTypography.rowMeta)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .accessibilityElement(children: .combine)
@@ -58,24 +53,19 @@ struct TrendTooltipView: View {
             Button(viewSetsLabel) {
                 onViewSets()
             }
-            .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
+            .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .primary))
             .accessibilityLabel(viewSetsAccessibilityLabel)
             .accessibilityIdentifier(viewSetsIdentifier)
         }
         .accessibilityElement(children: .contain)
         .padding(MarbleSpacing.s)
-        .background(Theme.backgroundColor(for: colorScheme))
+        .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
         .simultaneousGesture(
             TapGesture().onEnded {
                 guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
                 onViewSets()
             }
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
     }
 
     private var accessibilitySummary: String {
@@ -87,5 +77,29 @@ struct TrendTooltipView: View {
             parts.append("Personal record")
         }
         return parts.joined(separator: ", ")
+    }
+
+    private var titleText: some View {
+        Text(title)
+            .font(MarbleTypography.rowSubtitle)
+            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private var clearSelectionButton: some View {
+        if let onClear {
+            Button("Clear") {
+                onClear()
+            }
+            .font(MarbleTypography.smallLabel)
+            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            .frame(minHeight: MarbleLayout.chipMinHeight, alignment: .trailing)
+            .padding(.horizontal, MarbleSpacing.xxs)
+            .contentShape(Rectangle())
+            .accessibilityLabel("Clear selection")
+            .accessibilityIdentifier("\(viewSetsIdentifier).Clear")
+        }
     }
 }

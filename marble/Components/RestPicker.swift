@@ -54,6 +54,10 @@ struct RestPicker: View {
     private func restChipLabel(for seconds: Int, isSelected: Bool) -> some View {
         Text(label(for: seconds))
             .font(MarbleTypography.chip)
+            .lineLimit(2)
+            .minimumScaleFactor(0.85)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
             .frame(minHeight: MarbleLayout.chipMinHeight)
             .padding(.horizontal, MarbleSpacing.s)
             .padding(.vertical, MarbleSpacing.xxs)

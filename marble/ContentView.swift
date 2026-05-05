@@ -52,8 +52,8 @@ struct ContentView: View {
         .onAppear {
             Theme.applyTabBarAppearance(for: colorScheme)
         }
-        .onChange(of: colorScheme) { scheme in
-            Theme.applyTabBarAppearance(for: scheme)
+        .onChange(of: colorScheme) { _, newScheme in
+            Theme.applyTabBarAppearance(for: newScheme)
         }
         .sheet(isPresented: $quickLog.isPresentingAddSet, onDismiss: {
             quickLog.prefillExerciseID = nil

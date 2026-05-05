@@ -5,7 +5,7 @@ final class TrendsSelectionUITests: MarbleUITestCase {
         launchApp(fixtureMode: "populated")
         navigateToTab(.trends)
 
-        let chart = app.otherElements["Trends.ConsistencyChart"]
+        let chart = chartElement("Trends.ConsistencyChart")
         waitFor(chart)
 
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
@@ -19,7 +19,7 @@ final class TrendsSelectionUITests: MarbleUITestCase {
         navigateToTab(.trends)
 
         let scrollView = app.scrollViews["Trends.Scroll"]
-        let volumeChart = app.otherElements["Trends.VolumeChart"]
+        let volumeChart = chartElement("Trends.VolumeChart")
         if !volumeChart.exists {
             for _ in 0..<3 {
                 if scrollView.exists {
@@ -45,12 +45,20 @@ final class TrendsSelectionUITests: MarbleUITestCase {
         navigateToTab(.trends)
 
         let scrollView = app.scrollViews["Trends.Scroll"]
-        let supplementsChart = app.otherElements["Trends.SupplementsChart"]
+        let supplementsChart = chartElement("Trends.SupplementsChart")
         scrollToElement(supplementsChart, in: scrollView)
         waitFor(supplementsChart)
         forceTap(supplementsChart)
 
         let list = waitForIdentifier("Trends.SupplementDaySheet.List", timeout: 6)
         XCTAssertTrue(list.exists)
+    }
+
+    private func chartElement(_ identifier: String) -> XCUIElement {
+        let legacyChartElement = app.otherElements[identifier]
+        if legacyChartElement.exists {
+            return legacyChartElement
+        }
+        return app.buttons[identifier]
     }
 }

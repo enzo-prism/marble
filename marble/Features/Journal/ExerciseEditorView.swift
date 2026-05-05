@@ -15,6 +15,7 @@ struct ExerciseEditorView: View {
     let exercise: Exercise?
     let initialName: String
     let onSave: ((Exercise) -> Void)?
+    let dismissAfterSave: Bool
 
     @FocusState private var focusedField: Field?
 
@@ -36,10 +37,12 @@ struct ExerciseEditorView: View {
     init(
         exercise: Exercise?,
         initialName: String = "",
+        dismissAfterSave: Bool = true,
         onSave: ((Exercise) -> Void)? = nil
     ) {
         self.exercise = exercise
         self.initialName = initialName
+        self.dismissAfterSave = dismissAfterSave
         self.onSave = onSave
     }
 
@@ -340,6 +343,12 @@ struct ExerciseEditorView: View {
                 customIconEmoji = sanitized
             }
         }
+        .onChange(of: iconSource) { _, _ in
+            ensureDefaultEmojiSelection()
+        }
+        .onChange(of: category) { _, _ in
+            ensureDefaultEmojiSelection()
+        }
         .alert("Unable to Save", isPresented: $showSaveError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -535,6 +544,11 @@ struct ExerciseEditorView: View {
     private func selectSuggestedEmoji(_ emoji: String) {
         focusedField = nil
         customIconEmoji = emoji
+    }
+
+    private func ensureDefaultEmojiSelection() {
+        guard iconSource == .emoji, resolvedCustomIconEmoji == nil else { return }
+        customIconEmoji = category.emojiSuggestions.first ?? ""
     }
 
     private func editorFieldBlock<Content: View>(
@@ -746,7 +760,9 @@ struct ExerciseEditorView: View {
         }
 
         onSave?(savedExercise)
-        dismiss()
+        if dismissAfterSave {
+            dismiss()
+        }
     }
 }
 

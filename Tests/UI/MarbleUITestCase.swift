@@ -357,6 +357,18 @@ class MarbleUITestCase: XCTestCase {
     }
 
     func selectCalendarDay(_ day: String) {
+        let calendar = app.otherElements["Calendar.View"]
+        if calendar.waitForExistence(timeout: 4) {
+            let predicate = NSPredicate(format: "label == %@ OR label BEGINSWITH %@ OR label CONTAINS %@", day, "\(day)", day)
+            let dayElement = calendar.descendants(matching: .any)
+                .matching(predicate)
+                .firstMatch
+            if dayElement.waitForExistence(timeout: 4) {
+                dayElement.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                return
+            }
+        }
+
         let testPopulated = app.buttons["Calendar.TestOpenPopulated"]
         if day == "15", testPopulated.exists {
             forceTap(testPopulated)
@@ -365,17 +377,7 @@ class MarbleUITestCase: XCTestCase {
         let testEmpty = app.buttons["Calendar.TestOpenEmpty"]
         if day == "1", testEmpty.exists {
             forceTap(testEmpty)
-            return
         }
-
-        let calendar = app.otherElements["Calendar.View"]
-        waitFor(calendar)
-        let predicate = NSPredicate(format: "label == %@ OR label BEGINSWITH %@ OR label CONTAINS %@", day, "\(day)", day)
-        let dayElement = calendar.descendants(matching: .any)
-            .matching(predicate)
-            .firstMatch
-        waitFor(dayElement, timeout: 8)
-        dayElement.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     static let fixedNowISO8601: String = {

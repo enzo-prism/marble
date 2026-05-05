@@ -61,12 +61,13 @@ struct SupplementsView: View {
                 }
             }
             .listStyle(.plain)
-            .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
+            .listRowSeparatorTint(Theme.subtleDividerColor(for: colorScheme))
             .scrollContentBackground(.hidden)
+            .contentMargins(.top, MarbleSpacing.xs, for: .scrollContent)
             .background(Theme.backgroundColor(for: colorScheme))
             .accessibilityIdentifier("Supplements.List")
             .navigationTitle("Supplements")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {

@@ -4,77 +4,79 @@ import UIKit
 
 struct CalendarView: View {
     @EnvironmentObject private var quickLog: QuickLogCoordinator
-    @EnvironmentObject private var tabSelection: TabSelection
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
 
+    @Query(sort: \ProgressMediaAttachment.createdAt, order: .reverse)
+    private var progressMediaAttachments: [ProgressMediaAttachment]
+
     @State private var selectedDay: CalendarSelection?
     @State private var selectedDate: Date?
     @State private var visibleMonth = Calendar.current.dateComponents([.year, .month], from: AppEnvironment.now)
+    @State private var didOpenRequestedTestDay = false
 
     private let calendar = Calendar.current
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: MarbleSpacing.m) {
-                if TestHooks.isUITesting {
-                    testControlsRow
-                }
-
-                calendarHeader
-
-                Button("Log Set") {
-                    let targetDate = selectedDate ?? AppEnvironment.now
-                    quickLog.open(prefillDate: targetDate)
-                }
-                .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
-                .accessibilityIdentifier("Calendar.LogSet")
-
-                CalendarRepresentable(
-                    activeDays: activeWorkoutDays,
-                    visibleMonth: visibleMonth,
-                    onSelect: { components in
-                        guard let components, let date = calendar.date(from: components) else {
-                            selectedDay = nil
-                            selectedDate = nil
-                            return
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+                        if TestHooks.isUITesting && !TestHooks.isAccessibilityAudit {
+                            testControlsRow
                         }
-                        selectedDate = date
-                        selectedDay = CalendarSelection(date: date)
-                    },
-                    onVisibleMonthChange: { components in
-                        visibleMonth = components
-                    }
-                )
-                .frame(maxHeight: 360)
-                .accessibilityIdentifier("Calendar.View")
 
-                Spacer()
+                        calendarHeader
+
+                        calendarActionRow
+
+                        CalendarRepresentable(
+                            activeDays: activeDays,
+                            visibleMonth: visibleMonth,
+                            onSelect: { components in
+                                guard let components, let date = calendar.date(from: components) else {
+                                    selectedDay = nil
+                                    selectedDate = nil
+                                    return
+                                }
+                                selectedDate = date
+                                presentDaySheet(for: date)
+                            },
+                            onVisibleMonthChange: { components in
+                                visibleMonth = components
+                            }
+                        )
+                        .frame(width: max(0, geometry.size.width - MarbleLayout.pagePadding * 4), height: 360)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, calendarTopPadding)
+                        .accessibilityIdentifier("Calendar.View")
+                    }
+                    .padding(.horizontal, MarbleLayout.pagePadding)
+                    .padding(.bottom, MarbleSpacing.xxl)
+                    .frame(width: geometry.size.width, alignment: .leading)
+                }
+                .background(Theme.backgroundColor(for: colorScheme))
             }
-            .padding(.horizontal, MarbleLayout.pagePadding)
-            .background(Theme.backgroundColor(for: colorScheme))
             .navigationTitle("Calendar")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     AddSetToolbarButton()
                 }
             }
-            .onAppear {
-                ensureTestDaySheetVisible()
-            }
-            .onChange(of: tabSelection.selected) { _, selection in
-                if selection == .calendar {
-                    ensureTestDaySheetVisible()
-                }
-            }
-            .sheet(item: $selectedDay) { selection in
-                DaySummarySheet(date: selection.date, entries: entriesForDay(selection.date))
-                    .environmentObject(quickLog)
-            }
+        }
+        .sheet(item: $selectedDay) { selectedDay in
+            DaySummarySheet(date: selectedDay.date, entries: entriesForDay(selectedDay.date))
+                .environmentObject(quickLog)
+                .presentationDragIndicator(.visible)
+                .sheetGlassBackground()
+        }
+        .onAppear {
+            openRequestedTestDayIfNeeded()
         }
     }
 
@@ -82,6 +84,16 @@ struct CalendarView: View {
         Set(entries.map { entry in
             CalendarDayKey(date: entry.performedAt, calendar: calendar)
         })
+    }
+
+    private var activeProgressMediaDays: Set<CalendarDayKey> {
+        Set(progressMediaAttachments.map { attachment in
+            CalendarDayKey(date: attachment.attachedToDate, calendar: calendar)
+        })
+    }
+
+    private var activeDays: Set<CalendarDayKey> {
+        activeWorkoutDays.union(activeProgressMediaDays)
     }
 
     private func entriesForDay(_ date: Date) -> [SetEntry] {
@@ -99,14 +111,34 @@ struct CalendarView: View {
             targetDate = now
         }
         selectedDate = targetDate
-        selectedDay = CalendarSelection(date: targetDate)
+        presentDaySheet(for: targetDate)
     }
 
-    private func ensureTestDaySheetVisible() {
-        guard TestHooks.isUITesting, let mode = TestHooks.calendarTestDay else { return }
-        selectedDay = nil
-        DispatchQueue.main.async {
+    private func openRequestedTestDayIfNeeded() {
+        guard
+            TestHooks.isUITesting,
+            TestHooks.isAccessibilityAudit,
+            let mode = TestHooks.calendarTestDay,
+            !didOpenRequestedTestDay
+        else { return }
+        didOpenRequestedTestDay = true
+        Task { @MainActor in
+            await Task.yield()
             openTestDay(mode: mode)
+        }
+    }
+
+    private func presentDaySheet(for date: Date) {
+        let selection = CalendarSelection(date: date)
+        guard selectedDay != nil else {
+            selectedDay = selection
+            return
+        }
+
+        selectedDay = nil
+        Task { @MainActor in
+            await Task.yield()
+            selectedDay = selection
         }
     }
 
@@ -135,21 +167,74 @@ struct CalendarView: View {
         .padding(.horizontal, 4)
     }
 
+    private var calendarActionRow: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            selectedDaySummaryCard
+            if !dynamicTypeSize.isAccessibilitySize {
+                logSetButton
+            }
+        }
+    }
+
+    private var selectedDaySummaryCard: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+            Text("Selected day")
+                .font(MarbleTypography.smallLabel)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .textCase(.uppercase)
+
+            summaryMetricsView(
+                setCount: daySummaryMetrics.sets,
+                exerciseCount: daySummaryMetrics.exercises,
+                averageRPE: daySummaryMetrics.averageRPE,
+                emphasis: .primary
+            )
+        }
+        .padding(.horizontal, MarbleSpacing.s)
+        .padding(.vertical, MarbleSpacing.xs)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+    }
+
+    @ViewBuilder
+    private var logSetButton: some View {
+        Button(action: logSelectedDateSet) {
+            Label("Log Set", systemImage: "plus")
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .primary))
+        .accessibilityIdentifier("Calendar.LogSet")
+        .accessibilityHint("Logs a set for \(DateHelper.dayLabel(for: headerDate)).")
+    }
+
+    private func logSelectedDateSet() {
+        let targetDate = selectedDate ?? AppEnvironment.now
+        quickLog.open(prefillDate: targetDate)
+    }
+
     private var calendarHeader: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
-                    headerTitle
-                    Spacer(minLength: MarbleSpacing.s)
-                    streakBadge
-                }
+            if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
                     headerTitle
                     streakBadge
                 }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
+                        headerTitle
+                        Spacer(minLength: MarbleSpacing.s)
+                        streakBadge
+                    }
+                    VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                        headerTitle
+                        streakBadge
+                    }
+                }
             }
 
-            Text(daySummaryLine)
+            Text(monthContextLine)
                 .font(MarbleTypography.rowSubtitle)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .lineLimit(nil)
@@ -169,24 +254,32 @@ struct CalendarView: View {
             .accessibilityIdentifier("Calendar.Header.DayLabel")
     }
 
+    @ViewBuilder
     private var streakBadge: some View {
         HStack(spacing: MarbleSpacing.xxxs) {
             Image(systemName: "flame.fill")
                 .accessibilityHidden(true)
             Text(streakLabel)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .font(MarbleTypography.smallLabel)
         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-        .padding(.horizontal, MarbleSpacing.s)
-        .padding(.vertical, MarbleSpacing.xxs)
-        .background(
-            Capsule()
-                .fill(Theme.chipFillColor(for: colorScheme))
-        )
-        .overlay(
-            Capsule()
-                .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
-        )
+        .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 0 : MarbleSpacing.s)
+        .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 0 : MarbleSpacing.xxs)
+        .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, alignment: .leading)
+        .background {
+            if !dynamicTypeSize.isAccessibilitySize {
+                Capsule()
+                    .fill(Theme.chipFillColor(for: colorScheme))
+            }
+        }
+        .overlay {
+            if !dynamicTypeSize.isAccessibilitySize {
+                Capsule()
+                    .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
+            }
+        }
         .accessibilityLabel(streakLabel)
         .accessibilityIdentifier("Calendar.Header.Streak")
     }
@@ -195,14 +288,21 @@ struct CalendarView: View {
         selectedDate ?? AppEnvironment.now
     }
 
-    private var daySummaryLine: String {
+    private var monthContextLine: String {
+        "Sets and progress media by day."
+    }
+
+    private var calendarTopPadding: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? 160 : MarbleSpacing.xxl + MarbleSpacing.l
+    }
+
+    private var daySummaryMetrics: CalendarSummaryMetrics {
         let dayEntries = entriesForDay(headerDate)
-        let setCount = dayEntries.count
-        let exerciseCount = Set(dayEntries.map { $0.exercise.id }).count
-        let avgRPE = averageRPE(for: dayEntries)
-        let setLabel = pluralize(count: setCount, singular: "set", plural: "sets")
-        let exerciseLabel = pluralize(count: exerciseCount, singular: "exercise", plural: "exercises")
-        return "\(setCount) \(setLabel) · \(exerciseCount) \(exerciseLabel) · Avg RPE \(avgRPE)"
+        return CalendarSummaryMetrics(
+            sets: dayEntries.count,
+            exercises: Set(dayEntries.map { $0.exercise.id }).count,
+            averageRPE: averageRPE(for: dayEntries)
+        )
     }
 
     private var streakLabel: String {
@@ -246,6 +346,23 @@ struct CalendarView: View {
 
     private func pluralize(count: Int, singular: String, plural: String) -> String {
         count == 1 ? singular : plural
+    }
+
+    @ViewBuilder
+    private func summaryMetricsView(
+        setCount: Int,
+        exerciseCount: Int,
+        averageRPE: String,
+        emphasis: CalendarSummaryMetricsView.Emphasis
+    ) -> some View {
+        CalendarSummaryMetricsView(
+            metrics: CalendarSummaryMetrics(
+                sets: setCount,
+                exercises: exerciseCount,
+                averageRPE: averageRPE
+            ),
+            emphasis: emphasis
+        )
     }
 
 }
@@ -305,62 +422,98 @@ struct DaySummarySheet: View {
     @EnvironmentObject private var quickLog: QuickLogCoordinator
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(DateHelper.dayLabel(for: date))
-                            .font(MarbleTypography.screenTitle)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                        Text("\(entries.count) sets · \(uniqueExerciseCount) exercises · Avg RPE \(averageRPE)")
-                            .font(MarbleTypography.rowSubtitle)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                        Button("Log Set for this day") {
-                            quickLog.open(prefillDate: date)
-                            dismiss()
-                        }
-                        .buttonStyle(MarbleActionButtonStyle())
-                        .accessibilityIdentifier("Calendar.DaySheet.LogSet")
-                    }
-                    .padding(.vertical, 4)
-                    .marbleRowInsets()
-                }
-
-                if entries.isEmpty {
-                    EmptyStateView(title: "No sets for this day", message: "Tap Log Set to add one here.", systemImage: "calendar")
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                        .marbleRowInsets()
-                        .accessibilityIdentifier("Calendar.DaySheet.EmptyState")
-                } else {
+            ZStack {
+                List {
                     Section {
-                        ForEach(entries.sorted { $0.performedAt > $1.performedAt }) { entry in
-                            NavigationLink {
-                                SetDetailView(entry: entry)
-                            } label: {
-                                SetRowView(entry: entry)
+                        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                            VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                                Text(dayLabel)
+                                    .font(MarbleTypography.sectionTitle)
+                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                                    .lineLimit(nil)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
+                                    .accessibilityHidden(true)
+
+                                CalendarSummaryMetricsView(
+                                    metrics: CalendarSummaryMetrics(
+                                        sets: entries.count,
+                                        exercises: uniqueExerciseCount,
+                                        averageRPE: averageRPE
+                                    ),
+                                    emphasis: .secondary
+                                )
+                                .accessibilityHidden(true)
                             }
                             .accessibilityElement(children: .ignore)
-                            .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
-                            .accessibilityLabel(SetRowView.accessibilitySummary(for: entry))
+                            .accessibilityLabel(dayOverviewAccessibilityLabel)
+                            .accessibilityIdentifier("Calendar.DaySheet.Overview")
+
+                            Button {
+                                quickLog.open(prefillDate: date)
+                                dismiss()
+                            } label: {
+                                HStack(spacing: MarbleSpacing.xxs) {
+                                    Image(systemName: "plus")
+                                        .accessibilityHidden(true)
+
+                                    Text("Log Set for this day")
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.center)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .accessibilityHidden(true)
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 32, alignment: .center)
+                            }
+                            .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .primary))
+                            .accessibilityIdentifier("Calendar.DaySheet.LogSet")
+                            .accessibilityLabel("Log Set for this day")
+                        }
+                        .padding(.vertical, 4)
+                        .marbleRowInsets()
+                    }
+
+                    ProgressMediaSection(date: date)
+
+                    if entries.isEmpty {
+                        EmptyStateView(title: "No sets for this day", message: "Tap Log Set to add one here.", systemImage: "calendar")
+                            .listRowSeparator(.hidden)
                             .listRowBackground(Theme.backgroundColor(for: colorScheme))
                             .marbleRowInsets()
+                            .accessibilityElement(children: .combine)
+                            .accessibilityIdentifier("Calendar.DaySheet.EmptyState")
+                    } else {
+                        Section {
+                            ForEach(entries.sorted { $0.performedAt > $1.performedAt }) { entry in
+                                NavigationLink {
+                                    SetDetailView(entry: entry)
+                                } label: {
+                                    SetRowView(entry: entry)
+                                }
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
+                                .accessibilityLabel(SetRowView.accessibilitySummary(for: entry))
+                                .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                                .marbleRowInsets()
+                            }
+                        } header: {
+                            SectionHeaderView(title: "Sets")
                         }
-                    } header: {
-                        SectionHeaderView(title: "Sets")
+                        .textCase(nil)
                     }
-                    .textCase(nil)
                 }
+                .listStyle(.plain)
+                .listRowSeparatorTint(Theme.subtleDividerColor(for: colorScheme))
+                .scrollContentBackground(.hidden)
+                .contentMargins(.top, MarbleSpacing.xs, for: .scrollContent)
+                .background(Theme.backgroundColor(for: colorScheme))
+                .accessibilityIdentifier("Calendar.DaySheet.List")
             }
-            .listStyle(.plain)
-            .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
-            .scrollContentBackground(.hidden)
             .background(Theme.backgroundColor(for: colorScheme))
-            .accessibilityIdentifier("Calendar.DaySheet.List")
             .navigationTitle("Summary")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
@@ -371,11 +524,103 @@ struct DaySummarySheet: View {
         Set(entries.map { $0.exercise.id }).count
     }
 
+    private var dayLabel: String {
+        DateHelper.dayLabel(for: date)
+    }
+
+    private var dayOverviewAccessibilityLabel: String {
+        let setLabel = pluralize(count: entries.count, singular: "set", plural: "sets")
+        let exerciseLabel = pluralize(count: uniqueExerciseCount, singular: "exercise", plural: "exercises")
+        return "\(dayLabel), \(entries.count) \(setLabel), \(uniqueExerciseCount) \(exerciseLabel), average RPE \(averageRPE)"
+    }
+
+    private func pluralize(count: Int, singular: String, plural: String) -> String {
+        count == 1 ? singular : plural
+    }
+
     private var averageRPE: String {
         guard !entries.isEmpty else { return "-" }
         let total = entries.reduce(0) { $0 + $1.difficulty }
         let avg = Double(total) / Double(entries.count)
         return String(format: "%.1f", avg)
+    }
+}
+
+private struct CalendarSummaryMetrics {
+    let sets: Int
+    let exercises: Int
+    let averageRPE: String
+
+    var accessibilityLabel: String {
+        "\(sets) \(setLabel), \(exercises) \(exerciseLabel), average RPE \(averageRPE)"
+    }
+
+    var setLabel: String {
+        sets == 1 ? "set" : "sets"
+    }
+
+    var exerciseLabel: String {
+        exercises == 1 ? "exercise" : "exercises"
+    }
+}
+
+private struct CalendarSummaryMetricsView: View {
+    enum Emphasis {
+        case primary
+        case secondary
+    }
+
+    let metrics: CalendarSummaryMetrics
+    let emphasis: Emphasis
+
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                    metricText("\(metrics.sets) \(metrics.setLabel)")
+                    metricText("\(metrics.exercises) \(metrics.exerciseLabel)")
+                    metricText("Avg RPE \(metrics.averageRPE)")
+                }
+            } else {
+                HStack(spacing: MarbleSpacing.s) {
+                    metricText("\(metrics.sets) \(metrics.setLabel)")
+                    separator
+                    metricText("\(metrics.exercises) \(metrics.exerciseLabel)")
+                    separator
+                    metricText("Avg RPE \(metrics.averageRPE)")
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(metrics.accessibilityLabel)
+    }
+
+    private func metricText(_ value: String) -> some View {
+        Text(value)
+            .font(MarbleTypography.rowSubtitle)
+            .foregroundStyle(textColor)
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var separator: some View {
+        Circle()
+            .fill(Theme.secondaryTextColor(for: colorScheme))
+            .frame(width: 3, height: 3)
+            .accessibilityHidden(true)
+    }
+
+    private var textColor: Color {
+        switch emphasis {
+        case .primary:
+            Theme.primaryTextColor(for: colorScheme)
+        case .secondary:
+            Theme.secondaryTextColor(for: colorScheme)
+        }
     }
 }
 
@@ -389,6 +634,7 @@ struct CalendarRepresentable: UIViewRepresentable {
         let view = UICalendarView()
         view.calendar = Calendar.current
         view.locale = Locale.current
+        view.tintColor = .label
         view.delegate = context.coordinator
         view.visibleDateComponents = visibleMonth
         view.accessibilityIdentifier = "Calendar.View"
@@ -401,6 +647,7 @@ struct CalendarRepresentable: UIViewRepresentable {
         let daysToReload = Set(context.coordinator.activeDays).union(activeDays)
         context.coordinator.activeDays = activeDays
         context.coordinator.visibleMonth = visibleMonth
+        uiView.tintColor = .label
         uiView.reloadDecorations(
             forDateComponents: daysToReload.map(\.dateComponents),
             animated: true

@@ -18,7 +18,7 @@ struct SplitView: View {
                 }
             }
             .navigationTitle("Split")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -47,8 +47,9 @@ struct SplitView: View {
             }
         }
         .listStyle(.plain)
-        .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
+        .listRowSeparatorTint(Theme.subtleDividerColor(for: colorScheme))
         .scrollContentBackground(.hidden)
+        .contentMargins(.top, MarbleSpacing.xs, for: .scrollContent)
         .background(Theme.backgroundColor(for: colorScheme))
         .accessibilityIdentifier("Split.List")
         .navigationDestination(for: UUID.self) { dayID in
@@ -70,7 +71,7 @@ struct SplitView: View {
             Button("Create Split") {
                 SeedData.ensureSplitPlan(in: modelContext)
             }
-            .buttonStyle(MarbleActionButtonStyle())
+            .buttonStyle(MarbleActionButtonStyle(prominence: .primary))
             .accessibilityIdentifier("Split.Create")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -77,16 +77,10 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             accessibilityAudit: true
         )
         navigateToTab(.calendar)
-        let dayList = app.tables["Calendar.DaySheet.List"]
-        if !dayList.waitForExistence(timeout: 8) {
-            let fallback = app.collectionViews["Calendar.DaySheet.List"]
-            if !fallback.waitForExistence(timeout: 5) {
-                let other = app.otherElements["Calendar.DaySheet.List"]
-                if !other.waitForExistence(timeout: 5) {
-                    selectCalendarDay("15")
-                    waitFor(app.otherElements["Calendar.DaySheet.List"], timeout: 8)
-                }
-            }
+        let daySheet = app.descendants(matching: .any).matching(identifier: "Calendar.DaySheet.List").firstMatch
+        if !daySheet.waitForExistence(timeout: 8) {
+            selectCalendarDay("15")
+            waitForIdentifier("Calendar.DaySheet.List", timeout: 8)
         }
         try runAudit(name: "Calendar_Day_Populated_\(appearance.envValue)_\(sizeLabel)")
         dismissSheet()

@@ -9,7 +9,7 @@ struct QuickLogTile: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                GlassCircleBackground()
+                GlassCircleBackground(isInteractive: true)
                 Image(systemName: "plus")
                     .font(.system(size: 22, weight: .semibold))
             }

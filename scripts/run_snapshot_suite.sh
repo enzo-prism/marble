@@ -22,6 +22,7 @@ SNAPSHOT_GROUPS_FULL=(
   "MarbleSnapshotTests/CalendarSnapshotTests/testCalendarMonthWithMarkers"
   "MarbleSnapshotTests/CalendarSnapshotTests/testCalendarDaySheetWithEntries"
   "MarbleSnapshotTests/CalendarSnapshotTests/testCalendarDaySheetEmpty"
+  "MarbleSnapshotTests/CalendarSnapshotTests/testCalendarDaySheetWithProgressMedia"
   "MarbleSnapshotTests/ComponentGallerySnapshotTests/testComponentGallery"
   "MarbleSnapshotTests/ExerciseProgressSnapshotTests/testExerciseProgressTooltip"
   "MarbleSnapshotTests/JournalSnapshotTests/testJournalEmpty"
@@ -39,6 +40,8 @@ SNAPSHOT_GROUPS_FULL=(
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsEmpty"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsPopulated"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsFilteredExercise"
+  "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsConsistencyTooltip"
+  "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsVolumeTooltip"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsSupplementsTooltip"
 )
 

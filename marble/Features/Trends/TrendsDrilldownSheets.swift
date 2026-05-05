@@ -67,8 +67,9 @@ struct DayDetailsSheet: View {
                 }
             }
             .listStyle(.plain)
-            .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
+            .listRowSeparatorTint(Theme.subtleDividerColor(for: colorScheme))
             .scrollContentBackground(.hidden)
+            .contentMargins(.top, MarbleSpacing.xs, for: .scrollContent)
             .background(Theme.backgroundColor(for: colorScheme))
             .accessibilityIdentifier("Trends.DaySheet.List")
             .navigationTitle("Day Details")
@@ -153,8 +154,9 @@ struct WeekDetailsSheet: View {
                 }
             }
             .listStyle(.plain)
-            .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
+            .listRowSeparatorTint(Theme.subtleDividerColor(for: colorScheme))
             .scrollContentBackground(.hidden)
+            .contentMargins(.top, MarbleSpacing.xs, for: .scrollContent)
             .background(Theme.backgroundColor(for: colorScheme))
             .accessibilityIdentifier("Trends.WeekSheet.List")
             .navigationTitle("Week Details")
@@ -225,8 +227,9 @@ struct SupplementDayDetailsSheet: View {
                 }
             }
             .listStyle(.plain)
-            .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
+            .listRowSeparatorTint(Theme.subtleDividerColor(for: colorScheme))
             .scrollContentBackground(.hidden)
+            .contentMargins(.top, MarbleSpacing.xs, for: .scrollContent)
             .background(Theme.backgroundColor(for: colorScheme))
             .accessibilityIdentifier("Trends.SupplementDaySheet.List")
             .navigationTitle("Supplement Logs")

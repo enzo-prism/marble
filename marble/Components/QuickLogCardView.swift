@@ -7,67 +7,141 @@ struct QuickLogCardView: View {
     let onLogSet: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+        VStack(alignment: .leading, spacing: MarbleSpacing.m) {
             if let entry {
-                Text("Quick Log")
-                    .font(MarbleTypography.sectionTitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                Text(entry.exercise.name)
-                    .font(MarbleTypography.rowTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                Text(summaryLine(for: entry))
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .monospacedDigit()
-
-                Text(lastLoggedLine(for: entry))
-                    .font(MarbleTypography.rowMeta)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                HStack(spacing: MarbleSpacing.s) {
-                    Button("Log Again") {
-                        onLogAgain()
-                    }
-                    .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
-                    .accessibilityIdentifier("Journal.QuickLog.LogAgain")
-
-                    Button("Edit") {
-                        onEdit()
-                    }
-                    .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
-                    .accessibilityIdentifier("Journal.QuickLog.Edit")
-                }
+                populatedContent(for: entry)
             } else {
-                Text("Log your first set")
-                    .font(MarbleTypography.rowTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                Text("Start building momentum.")
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                Button("Log Set") {
-                    onLogSet()
-                }
-                .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
-                .accessibilityIdentifier("Journal.QuickLog.EmptyLogSet")
+                emptyContent
             }
         }
         .padding(MarbleSpacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous)
-                .fill(Theme.backgroundColor(for: colorScheme))
-                .overlay(
-                    RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous)
-                        .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
-                )
-        )
+        .marbleCardBackground()
         .accessibilityElement(children: .contain)
+    }
+
+    private func populatedContent(for entry: SetEntry) -> some View {
+        let summary = summaryLine(for: entry)
+        let lastLogged = lastLoggedLine(for: entry)
+
+        return VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            HStack(alignment: .top, spacing: MarbleSpacing.s) {
+                VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                    Text("Ready to log")
+                        .font(MarbleTypography.smallLabel)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .textCase(.uppercase)
+
+                    Text(entry.exercise.name)
+                        .font(MarbleTypography.rowTitle)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(summary)
+                        .font(MarbleTypography.rowSubtitle)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .monospacedDigit()
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(entry.exercise.name), \(summary), \(lastLogged)")
+
+                Spacer(minLength: MarbleSpacing.xs)
+
+                ExerciseIconView(exercise: entry.exercise, fontSize: 17, frameSize: 28)
+            }
+
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: MarbleSpacing.xs) {
+                    logAgainButton
+                    editButton
+                }
+            } else {
+                HStack(spacing: MarbleSpacing.xs) {
+                    logAgainButton
+                    editButton
+                }
+            }
+        }
+    }
+
+    private func actionLabel(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: MarbleSpacing.xs) {
+            Image(systemName: systemImage)
+                .accessibilityHidden(true)
+            Text(title)
+                .accessibilityHidden(true)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var emptyContent: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            HStack(alignment: .top, spacing: MarbleSpacing.s) {
+                VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                    Text("Start today")
+                        .font(MarbleTypography.smallLabel)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .textCase(.uppercase)
+
+                    Text("Log your first set")
+                        .font(MarbleTypography.rowTitle)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+
+                    Text("One quick entry is enough to start your history.")
+                        .font(MarbleTypography.rowSubtitle)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: MarbleSpacing.xs)
+
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .accessibilityHidden(true)
+            }
+
+            Button {
+                onLogSet()
+            } label: {
+                actionLabel("Log Set", systemImage: "plus")
+            }
+            .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .primary))
+            .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Log Set")
+        .accessibilityIdentifier("Journal.QuickLog.EmptyLogSet")
+    }
+    }
+
+    private var logAgainButton: some View {
+        Button {
+            onLogAgain()
+        } label: {
+            actionLabel("Log Again", systemImage: "plus")
+        }
+        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .primary))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Log Again")
+        .accessibilityIdentifier("Journal.QuickLog.LogAgain")
+    }
+
+    private var editButton: some View {
+        Button {
+            onEdit()
+        } label: {
+            actionLabel("Edit", systemImage: "pencil")
+        }
+        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Edit")
+        .accessibilityIdentifier("Journal.QuickLog.Edit")
     }
 
     private func summaryLine(for entry: SetEntry) -> String {

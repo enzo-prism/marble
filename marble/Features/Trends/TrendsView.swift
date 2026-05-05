@@ -4,6 +4,7 @@ import Charts
 
 struct TrendsView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
@@ -18,8 +19,8 @@ struct TrendsView: View {
     private var supplementTypes: [SupplementType]
 
     @State private var range: TrendRange = .thirtyDays
-    @State private var selectedExercise: Exercise?
-    @State private var selectedSupplementType: SupplementType?
+    @State private var selectedExerciseID: UUID?
+    @State private var selectedSupplementTypeID: UUID?
     @State private var selectedDay: Date?
     @State private var selectedWeekStart: Date?
     @State private var selectedSupplementDay: Date?
@@ -35,10 +36,10 @@ struct TrendsView: View {
         initialSelectedSupplementDay: Date? = nil
     ) {
         _range = State(initialValue: initialRange)
-        _selectedExercise = State(initialValue: initialExercise)
+        _selectedExerciseID = State(initialValue: initialExercise?.id)
         _selectedDay = State(initialValue: initialSelectedDay)
         _selectedWeekStart = State(initialValue: initialSelectedWeekStart)
-        _selectedSupplementType = State(initialValue: initialSupplementType)
+        _selectedSupplementTypeID = State(initialValue: initialSupplementType?.id)
         _selectedSupplementDay = State(initialValue: initialSelectedSupplementDay)
     }
 
@@ -46,11 +47,14 @@ struct TrendsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: MarbleSpacing.l) {
-                    rangePicker
-                    exercisePicker
-
                     let hasSetData = !filteredEntries.isEmpty
                     let hasSupplementData = !filteredSupplementEntries.isEmpty
+
+                    rangePicker
+                    exercisePicker
+                    if hasSetData || hasSupplementData {
+                        trendSummaryStrip
+                    }
 
                     if !hasSetData && !hasSupplementData {
                         EmptyStateView(
@@ -98,6 +102,7 @@ struct TrendsView: View {
                         }
 
                         supplementsSection
+                            .padding(.top, MarbleSpacing.xxl)
 
                         if hasSetData {
                             VStack(alignment: .leading, spacing: MarbleSpacing.s) {
@@ -112,11 +117,16 @@ struct TrendsView: View {
                 }
                 .padding(MarbleLayout.pagePadding)
             }
+            .safeAreaInset(edge: .bottom) {
+                Color.clear
+                    .frame(height: MarbleSpacing.xxl)
+                    .accessibilityHidden(true)
+            }
             .scrollDisabled(isScrubbingChart)
             .accessibilityIdentifier("Trends.Scroll")
             .background(Theme.backgroundColor(for: colorScheme))
             .navigationTitle("Trends")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -125,23 +135,28 @@ struct TrendsView: View {
             }
         }
         .sheet(item: $sheetDestination) { destination in
-            switch destination {
-            case .day(let date):
-                DayDetailsSheet(date: date, entries: entriesForDay(date))
-            case .week(let weekStart):
-                let weekEnd = TrendsDateHelper.endOfWeek(for: weekStart)
-                WeekDetailsSheet(weekStart: weekStart, weekEnd: weekEnd, entries: entriesForWeek(weekStart: weekStart))
-            case .supplementDay(let date):
-                SupplementDayDetailsSheet(date: date, entries: supplementEntriesForDay(date))
+            Group {
+                switch destination {
+                case .day(let date):
+                    DayDetailsSheet(date: date, entries: entriesForDay(date))
+                case .week(let weekStart):
+                    let weekEnd = TrendsDateHelper.endOfWeek(for: weekStart)
+                    WeekDetailsSheet(weekStart: weekStart, weekEnd: weekEnd, entries: entriesForWeek(weekStart: weekStart))
+                case .supplementDay(let date):
+                    SupplementDayDetailsSheet(date: date, entries: supplementEntriesForDay(date))
+                }
             }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .sheetGlassBackground()
         }
         .onChange(of: range) { _, _ in
             clearSelections()
         }
-        .onChange(of: selectedExercise) { _, _ in
+        .onChange(of: selectedExerciseID) { _, _ in
             clearSelections()
         }
-        .onChange(of: selectedSupplementType) { _, _ in
+        .onChange(of: selectedSupplementTypeID) { _, _ in
             clearSelections()
         }
         .onChange(of: selectedDay) { _, newValue in
@@ -166,8 +181,8 @@ struct TrendsView: View {
 
     private var filteredEntries: [SetEntry] {
         var filtered = entries
-        if let selectedExercise {
-            filtered = filtered.filter { $0.exercise == selectedExercise }
+        if let selectedExerciseID {
+            filtered = filtered.filter { $0.exercise.id == selectedExerciseID }
         }
         if let startDate = range.startDate {
             filtered = filtered.filter { $0.performedAt >= startDate }
@@ -177,13 +192,23 @@ struct TrendsView: View {
 
     private var filteredSupplementEntries: [SupplementEntry] {
         var filtered = supplementEntries
-        if let selectedSupplementType {
-            filtered = filtered.filter { $0.type == selectedSupplementType }
+        if let selectedSupplementTypeID {
+            filtered = filtered.filter { $0.type.id == selectedSupplementTypeID }
         }
         if let startDate = range.startDate {
             filtered = filtered.filter { $0.takenAt >= startDate }
         }
         return filtered
+    }
+
+    private var selectedExercise: Exercise? {
+        guard let selectedExerciseID else { return nil }
+        return exercises.first { $0.id == selectedExerciseID }
+    }
+
+    private var selectedSupplementType: SupplementType? {
+        guard let selectedSupplementTypeID else { return nil }
+        return supplementTypes.first { $0.id == selectedSupplementTypeID }
     }
 
     private var rangePicker: some View {
@@ -193,33 +218,77 @@ struct TrendsView: View {
             }
         }
         .pickerStyle(.segmented)
-        .tint(Theme.dividerColor(for: colorScheme))
+        .tint(Theme.primaryTextColor(for: colorScheme))
         .accessibilityIdentifier("Trends.Range")
     }
 
     private var exercisePicker: some View {
-        Picker("Exercise", selection: $selectedExercise) {
-            Text("All Exercises").tag(Exercise?.none)
-            ForEach(exercises) { exercise in
-                Text(exercise.name).tag(exercise as Exercise?)
+        HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
+            Text("Exercise")
+                .font(MarbleTypography.rowSubtitle.weight(.semibold))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+
+            Spacer(minLength: MarbleSpacing.s)
+
+            Picker("Exercise", selection: $selectedExerciseID) {
+                Text("All Exercises").tag(UUID?.none)
+                ForEach(exercises) { exercise in
+                    Text(exercise.name).tag(exercise.id as UUID?)
+                }
             }
+            .pickerStyle(.menu)
+            .tint(Theme.primaryTextColor(for: colorScheme))
+            .accessibilityIdentifier("Trends.ExerciseFilter")
+            .accessibilityValue(selectedExercise?.name ?? "All Exercises")
         }
-        .pickerStyle(.menu)
-        .accessibilityIdentifier("Trends.ExerciseFilter")
-        .accessibilityValue(selectedExercise?.name ?? "All Exercises")
+        .padding(.horizontal, MarbleSpacing.s)
+        .padding(.vertical, MarbleSpacing.xs)
+        .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
     }
 
     private var supplementPicker: some View {
-        Picker("Supplement", selection: $selectedSupplementType) {
-            Text("All Supplements").tag(SupplementType?.none)
+        Picker("Supplement", selection: $selectedSupplementTypeID) {
+            Text("All Supplements").tag(UUID?.none)
             ForEach(supplementTypes) { type in
-                Text(type.name).tag(type as SupplementType?)
+                Text(type.name).tag(type.id as UUID?)
             }
         }
         .pickerStyle(.menu)
-        .tint(Theme.secondaryTextColor(for: colorScheme))
+        .tint(Theme.primaryTextColor(for: colorScheme))
         .accessibilityIdentifier("Trends.SupplementFilter")
         .accessibilityValue(selectedSupplementType?.name ?? "All Supplements")
+    }
+
+    private var trendSummaryStrip: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: MarbleSpacing.xs) {
+                ForEach(trendSummaryItems) { item in
+                    TrendSummaryItemView(item: item)
+                }
+            }
+
+            VStack(spacing: MarbleSpacing.xs) {
+                ForEach(trendSummaryItems) { item in
+                    TrendSummaryItemView(item: item)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("Trends.Summary")
+    }
+
+    private var trendSummaryItems: [TrendSummaryItem] {
+        let activeDays = Set(filteredEntries.map { Calendar.current.startOfDay(for: $0.performedAt) }).count
+        let bestWeek = weeklySummaries.max { $0.setCount < $1.setCount }
+        let supplementLogs = filteredSupplementEntries.count
+        var items: [TrendSummaryItem] = [
+            TrendSummaryItem(title: "Sets", value: "\(filteredEntries.count)", detail: "\(activeDays) active days"),
+            TrendSummaryItem(title: "Best Week", value: bestWeek.map { "\($0.setCount)" } ?? "-", detail: bestWeek.map { TrendsDateHelper.weekLabel(start: $0.weekStart, end: $0.weekEnd) } ?? "No week yet")
+        ]
+        if supplementLogs > 0 {
+            items.append(TrendSummaryItem(title: "Supplements", value: "\(supplementLogs)", detail: selectedSupplementType?.name ?? "All types"))
+        }
+        return items
     }
 
     private var consistencyChart: some View {
@@ -227,6 +296,7 @@ struct TrendsView: View {
         let selectedSummary = selectedDailySummary
         let tooltipSummary = selectedSummary
         let prSummary = dailyPRSummary
+        let yDomain = paddedNumericDomain(maxValue: Double(max(dailyPRCount, 1)))
         let dataRange: ClosedRange<Date>? = {
             guard let start = summaries.first?.date,
                   let end = summaries.last?.date else {
@@ -234,6 +304,7 @@ struct TrendsView: View {
             }
             return start ... end
         }()
+        let chartDomain = paddedDateDomain(dataRange, component: .day, value: 1)
 
         return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Chart {
@@ -253,10 +324,11 @@ struct TrendsView: View {
                         y: .value("Sets", prSummary.count)
                     )
                     .symbol {
-                        Image(systemName: "trophy.fill")
-                            .font(.caption2)
+                        Circle()
+                            .stroke(Theme.secondaryTextColor(for: colorScheme), lineWidth: 1.5)
+                            .frame(width: 8, height: 8)
                     }
-                    .symbolSize(40)
+                    .symbolSize(28)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .accessibilityHidden(true)
                 }
@@ -275,22 +347,52 @@ struct TrendsView: View {
                     .accessibilityHidden(true)
                 }
             }
-            .frame(height: 180)
+            .frame(height: chartHeight)
+            .chartDateDomain(chartDomain)
+            .chartYScale(domain: yDomain)
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 3)) { _ in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { _ in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisValueLabel()
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            }
+            .chartPlotStyle { plot in
+                plot
+                    .background(Theme.surfaceColor(for: colorScheme))
+                    .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
+                    .padding(.trailing, MarbleSpacing.xs)
+            }
             .chartOverlay { proxy in
                 GeometryReader { geometry in
-                    let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? geometry[proxy.plotAreaFrame]
-                    TrendsChartOverlay(
-                        plotSize: plotFrame.size,
-                        proxy: proxy,
-                        dataRange: dataRange,
-                        accessibilityIdentifier: "Trends.ConsistencyChart",
-                        accessibilityLabel: "Consistency chart",
-                        accessibilityValue: consistencyAccessibilityValue(for: summaries),
-                        isScrubbing: $isScrubbingChart
-                    ) { date in
-                        selectDay(date)
+                    if let plotFrameAnchor = proxy.plotFrame {
+                        let plotFrame = geometry[plotFrameAnchor]
+                        TrendsChartOverlay(
+                            plotSize: plotFrame.size,
+                            proxy: proxy,
+                            dataRange: dataRange,
+                            accessibilityIdentifier: "Trends.ConsistencyChart",
+                            accessibilityLabel: "Consistency chart",
+                            accessibilityValue: consistencyAccessibilityValue(for: summaries),
+                            isScrubbing: $isScrubbingChart
+                        ) { date in
+                            selectDay(date)
+                        }
+                        .position(x: plotFrame.midX, y: plotFrame.midY)
                     }
-                    .position(x: plotFrame.midX, y: plotFrame.midY)
                 }
             }
 
@@ -328,6 +430,7 @@ struct TrendsView: View {
             }
             return start ... end
         }()
+        let chartDomain = paddedDateDomain(dataRange, component: .day, value: 4)
 
         return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Chart {
@@ -347,10 +450,11 @@ struct TrendsView: View {
                         y: .value("Value", prSummary.maxSeriesValue)
                     )
                     .symbol {
-                        Image(systemName: "trophy.fill")
-                            .font(.caption2)
+                        Circle()
+                            .stroke(Theme.secondaryTextColor(for: colorScheme), lineWidth: 1.5)
+                            .frame(width: 8, height: 8)
                     }
-                    .symbolSize(40)
+                    .symbolSize(28)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .accessibilityHidden(true)
                 }
@@ -369,23 +473,56 @@ struct TrendsView: View {
                     .accessibilityHidden(true)
                 }
             }
-            .frame(height: 180)
+            .frame(height: chartHeight)
+            .chartDateDomain(chartDomain)
             .chartLegend(position: .bottom, alignment: .leading)
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 3)) { _ in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisValueLabel {
+                        if let doubleValue = value.as(Double.self) {
+                            Text(Formatters.compactNumberText(doubleValue))
+                        }
+                    }
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            }
+            .chartPlotStyle { plot in
+                plot
+                    .background(Theme.surfaceColor(for: colorScheme))
+                    .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
+                    .padding(.trailing, MarbleSpacing.xs)
+            }
             .chartOverlay { proxy in
                 GeometryReader { geometry in
-                    let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? geometry[proxy.plotAreaFrame]
-                    TrendsChartOverlay(
-                        plotSize: plotFrame.size,
-                        proxy: proxy,
-                        dataRange: dataRange,
-                        accessibilityIdentifier: "Trends.VolumeChart",
-                        accessibilityLabel: "Weekly volume chart",
-                        accessibilityValue: volumeAccessibilityValue(for: data),
-                        isScrubbing: $isScrubbingChart
-                    ) { date in
-                        selectWeekStart(date)
+                    if let plotFrameAnchor = proxy.plotFrame {
+                        let plotFrame = geometry[plotFrameAnchor]
+                        TrendsChartOverlay(
+                            plotSize: plotFrame.size,
+                            proxy: proxy,
+                            dataRange: dataRange,
+                            accessibilityIdentifier: "Trends.VolumeChart",
+                            accessibilityLabel: "Weekly volume chart",
+                            accessibilityValue: volumeAccessibilityValue(for: data),
+                            isScrubbing: $isScrubbingChart
+                        ) { date in
+                            selectWeekStart(date)
+                        }
+                        .position(x: plotFrame.midX, y: plotFrame.midY)
                     }
-                    .position(x: plotFrame.midX, y: plotFrame.midY)
                 }
             }
 
@@ -417,6 +554,7 @@ struct TrendsView: View {
                 Text("Supplements")
                     .font(MarbleTypography.sectionTitle)
                     .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityHidden(true)
 
                 Spacer(minLength: MarbleSpacing.s)
 
@@ -437,6 +575,7 @@ struct TrendsView: View {
     private var supplementsChart: some View {
         let summaries = supplementDailySummaries
         let selectedSummary = selectedSupplementSummary
+        let yDomain = paddedNumericDomain(maxValue: summaries.map(\.chartValue).max() ?? 1)
         let dataRange: ClosedRange<Date>? = {
             guard let start = summaries.first?.date,
                   let end = summaries.last?.date else {
@@ -444,6 +583,7 @@ struct TrendsView: View {
             }
             return start ... end
         }()
+        let chartDomain = paddedDateDomain(dataRange, component: .day, value: 1)
 
         return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Chart {
@@ -471,22 +611,52 @@ struct TrendsView: View {
                     .accessibilityHidden(true)
                 }
             }
-            .frame(height: 180)
+            .frame(height: chartHeight)
+            .chartDateDomain(chartDomain)
+            .chartYScale(domain: yDomain)
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 3)) { _ in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { _ in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisValueLabel()
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            }
+            .chartPlotStyle { plot in
+                plot
+                    .background(Theme.surfaceColor(for: colorScheme))
+                    .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
+                    .padding(.trailing, MarbleSpacing.xs)
+            }
             .chartOverlay { proxy in
                 GeometryReader { geometry in
-                    let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? geometry[proxy.plotAreaFrame]
-                    TrendsChartOverlay(
-                        plotSize: plotFrame.size,
-                        proxy: proxy,
-                        dataRange: dataRange,
-                        accessibilityIdentifier: "Trends.SupplementsChart",
-                        accessibilityLabel: "Supplements chart",
-                        accessibilityValue: supplementAccessibilityValue(for: summaries),
-                        isScrubbing: $isScrubbingChart
-                    ) { date in
-                        selectSupplementDay(date)
+                    if let plotFrameAnchor = proxy.plotFrame {
+                        let plotFrame = geometry[plotFrameAnchor]
+                        TrendsChartOverlay(
+                            plotSize: plotFrame.size,
+                            proxy: proxy,
+                            dataRange: dataRange,
+                            accessibilityIdentifier: "Trends.SupplementsChart",
+                            accessibilityLabel: "Supplements chart",
+                            accessibilityValue: supplementAccessibilityValue(for: summaries),
+                            isScrubbing: $isScrubbingChart
+                        ) { date in
+                            selectSupplementDay(date)
+                        }
+                        .position(x: plotFrame.midX, y: plotFrame.midY)
                     }
-                    .position(x: plotFrame.midX, y: plotFrame.midY)
                 }
             }
 
@@ -535,28 +705,44 @@ struct TrendsView: View {
         let sessionCount = Set(filteredEntries.map { DateHelper.startOfDay(for: $0.performedAt) }).count
         let showsDistancePRs = bestDistanceEntry != nil
 
-        return VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                PRCardView(
-                    title: showsDistancePRs ? "Best Distance" : "Best Weight",
-                    value: showsDistancePRs
-                        ? bestDistanceEntry.map { $0.exercise.formattedDistanceSummary($0.distance ?? 0, unit: $0.distanceUnit) } ?? "-"
-                        : bestWeightEntry.map { $0.exercise.formattedWeightSummary($0.weight ?? 0, unit: $0.weightUnit) } ?? "-"
-                )
-                PRCardView(
-                    title: showsDistancePRs ? "Fastest Pace" : "Best Reps",
-                    value: showsDistancePRs
-                        ? fastestSpeedEntry.map { fastestEntry in
-                            let speed = (fastestEntry.distance ?? 0) / Double(max(fastestEntry.durationSeconds ?? 1, 1))
-                            let formatted = Formatters.distance.string(from: NSNumber(value: speed)) ?? "\(speed)"
-                            return "\(formatted) \(fastestEntry.distanceUnit.symbol)/s"
-                        } ?? "-"
-                        : bestReps.map { "\($0) reps" } ?? "-"
-                )
-            }
-            HStack(spacing: 12) {
-                PRCardView(title: "Longest Duration", value: bestDuration.map { DateHelper.formattedDuration(seconds: $0) } ?? "-")
-                PRCardView(title: "Sessions", value: "\(sessionCount)")
+        let firstCard = PRCardMetric(
+            title: showsDistancePRs ? "Best Distance" : "Best Weight",
+            value: showsDistancePRs
+                ? bestDistanceEntry.map { $0.exercise.formattedDistanceSummary($0.distance ?? 0, unit: $0.distanceUnit) } ?? "-"
+                : bestWeightEntry.map { $0.exercise.formattedWeightSummary($0.weight ?? 0, unit: $0.weightUnit) } ?? "-"
+        )
+        let secondCard = PRCardMetric(
+            title: showsDistancePRs ? "Fastest Pace" : "Best Reps",
+            value: showsDistancePRs
+                ? fastestSpeedEntry.map { fastestEntry in
+                    let speed = (fastestEntry.distance ?? 0) / Double(max(fastestEntry.durationSeconds ?? 1, 1))
+                    let formatted = Formatters.distance.string(from: NSNumber(value: speed)) ?? "\(speed)"
+                    return "\(formatted) \(fastestEntry.distanceUnit.symbol)/s"
+                } ?? "-"
+                : bestReps.map { "\($0) reps" } ?? "-"
+        )
+        let thirdCard = PRCardMetric(title: "Longest Duration", value: bestDuration.map { DateHelper.formattedDuration(seconds: $0) } ?? "-")
+        let fourthCard = PRCardMetric(title: "Sessions", value: "\(sessionCount)")
+
+        return Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 12) {
+                    PRCardView(title: firstCard.title, value: firstCard.value)
+                    PRCardView(title: secondCard.title, value: secondCard.value)
+                    PRCardView(title: thirdCard.title, value: thirdCard.value)
+                    PRCardView(title: fourthCard.title, value: fourthCard.value)
+                }
+            } else {
+                VStack(spacing: 12) {
+                    HStack(spacing: 12) {
+                        PRCardView(title: firstCard.title, value: firstCard.value)
+                        PRCardView(title: secondCard.title, value: secondCard.value)
+                    }
+                    HStack(spacing: 12) {
+                        PRCardView(title: thirdCard.title, value: thirdCard.value)
+                        PRCardView(title: fourthCard.title, value: fourthCard.value)
+                    }
+                }
             }
         }
         .accessibilityElement(children: .ignore)
@@ -569,6 +755,10 @@ struct TrendsView: View {
             sessionCount: sessionCount
         ))
         .accessibilityIdentifier("Trends.PRCards")
+    }
+
+    private var chartHeight: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? 220 : 180
     }
 
     private var dailySummaries: [TrendDailySummary] {
@@ -741,6 +931,10 @@ struct TrendsView: View {
         return supplementDailySummaryLookup[nearest]
     }
 
+    private var supplementSummariesWithLogs: [SupplementDailySummary] {
+        supplementDailySummaries.filter { $0.count > 0 }
+    }
+
     private var volumeData: [VolumeDatum] {
         var data: [VolumeDatum] = []
         for summary in weeklySummaries {
@@ -842,6 +1036,24 @@ struct TrendsView: View {
         count == 1 ? "1 set" : "\(count) sets"
     }
 
+    private func paddedDateDomain(
+        _ range: ClosedRange<Date>?,
+        component: Calendar.Component,
+        value: Int
+    ) -> ClosedRange<Date>? {
+        guard let range else { return nil }
+        let calendar = Calendar.current
+        let lowerBound = calendar.date(byAdding: component, value: -value, to: range.lowerBound) ?? range.lowerBound
+        let upperBound = calendar.date(byAdding: component, value: value, to: range.upperBound) ?? range.upperBound
+        return lowerBound ... upperBound
+    }
+
+    private func paddedNumericDomain(maxValue: Double) -> ClosedRange<Double> {
+        let upperValue = max(maxValue, 1)
+        let padding = max(1, upperValue * 0.12)
+        return 0 ... (upperValue + padding)
+    }
+
     private func selectDay(_ date: Date) {
         selectedWeekStart = nil
         selectedSupplementDay = nil
@@ -855,9 +1067,13 @@ struct TrendsView: View {
     }
 
     private func selectSupplementDay(_ date: Date) {
+        let selectedDate = nearestSupplementDay(to: date, in: supplementSummariesWithLogs) ?? date
         selectedDay = nil
         selectedWeekStart = nil
-        selectedSupplementDay = date
+        selectedSupplementDay = selectedDate
+        if TestHooks.isUITesting, !TestHooks.isAccessibilityAudit {
+            sheetDestination = .supplementDay(selectedDate)
+        }
     }
 
     private func clearSelections() {
@@ -909,6 +1125,63 @@ struct TrendsView: View {
             ? [distanceText, speedText, durationText, sessionsText]
             : [weightText, repsText, durationText, sessionsText]
         return primaryParts.joined(separator: ", ")
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func chartDateDomain(_ domain: ClosedRange<Date>?) -> some View {
+        if let domain {
+            self.chartXScale(domain: domain)
+        } else {
+            self
+        }
+    }
+}
+
+private struct TrendSummaryItem: Identifiable {
+    let title: String
+    let value: String
+    let detail: String
+
+    var id: String { title }
+}
+
+private struct PRCardMetric {
+    let title: String
+    let value: String
+}
+
+private struct TrendSummaryItemView: View {
+    let item: TrendSummaryItem
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+            Text(item.title)
+                .font(MarbleTypography.smallLabel)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .textCase(.uppercase)
+
+            Text(item.value)
+                .font(MarbleTypography.rowTitle)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .monospacedDigit()
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(item.detail)
+                .font(MarbleTypography.rowMeta)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(MarbleSpacing.s)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.title), \(item.value), \(item.detail)")
     }
 }
 

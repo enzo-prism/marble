@@ -264,8 +264,9 @@ struct AddSetView: View {
 
                 }
                 .listStyle(.plain)
-                .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
+                .listRowSeparatorTint(Theme.subtleDividerColor(for: colorScheme))
                 .scrollContentBackground(.hidden)
+                .contentMargins(.top, MarbleSpacing.xs, for: .scrollContent)
                 .background(Theme.backgroundColor(for: colorScheme))
                 .accessibilityIdentifier("AddSet.List")
                 .safeAreaInset(edge: .bottom) {
@@ -284,6 +285,7 @@ struct AddSetView: View {
                         save()
                     }
                     .disabled(!effectiveCanSave)
+                    .tint(Theme.primaryTextColor(for: colorScheme))
                     .accessibilityIdentifier("AddSet.Save")
                 }
             }
@@ -476,10 +478,10 @@ struct AddSetView: View {
         .padding(.horizontal, MarbleLayout.pagePadding)
         .padding(.top, MarbleSpacing.s)
         .padding(.bottom, MarbleSpacing.m)
-        .background(Theme.backgroundColor(for: colorScheme))
+        .background(Theme.surfaceColor(for: colorScheme))
         .overlay(alignment: .top) {
             Divider()
-                .background(Theme.dividerColor(for: colorScheme))
+                .background(Theme.subtleDividerColor(for: colorScheme))
         }
     }
 
@@ -491,36 +493,59 @@ struct AddSetView: View {
     }
 
     private var saveButtonContent: some View {
-        Button("Save Set") {
+        Button {
             save()
+        } label: {
+            Label("Save Set", systemImage: "checkmark")
+                .frame(maxWidth: .infinity)
         }
-        .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true))
+        .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true, prominence: .primary))
         .allowsHitTesting(effectiveCanSave)
         .accessibilityIdentifier("AddSet.BottomSave")
     }
 
     private var exercisePickerRow: some View {
-        HStack(spacing: MarbleLayout.rowSpacing) {
-            Text("Exercise")
-                .font(MarbleTypography.rowTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+        HStack(alignment: .center, spacing: MarbleLayout.rowSpacing) {
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                Text("Exercise")
+                    .font(MarbleTypography.rowSubtitle.weight(.semibold))
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
-            Spacer()
-
-            if let exercise = selectedExerciseSnapshot {
-                HStack(spacing: MarbleSpacing.xs) {
-                    ExerciseIconView(icon: exercise.displayIcon, fontSize: 18, frameSize: 24)
-                    Text(exercise.name)
-                        .font(MarbleTypography.rowSubtitle)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                if let exercise = selectedExerciseSnapshot {
+                    HStack(alignment: .top, spacing: MarbleSpacing.xs) {
+                        ExerciseIconView(icon: exercise.displayIcon, fontSize: 17, frameSize: 24)
+                        Text(exercise.name)
+                            .font(MarbleTypography.rowTitle)
+                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(minHeight: 28, alignment: .leading)
+                            .accessibilityHidden(true)
+                    }
+                } else {
+                    Text("Select an exercise")
+                        .font(MarbleTypography.rowTitle)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 }
-            } else {
-                Text("Select")
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             }
+
+            Spacer(minLength: MarbleSpacing.s)
+
+            Text(selectedExerciseSnapshot == nil ? "Select" : "Change")
+                .font(MarbleTypography.rowSubtitle)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
-        .padding(.vertical, MarbleSpacing.s)
+        .padding(.vertical, MarbleSpacing.xs)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(exercisePickerAccessibilityLabel)
+        .accessibilityValue(selectedExerciseSnapshot == nil ? "Select" : "Change")
+    }
+
+    private var exercisePickerAccessibilityLabel: String {
+        if let selectedExerciseSnapshot {
+            return "Exercise, \(selectedExerciseSnapshot.name)"
+        }
+        return "Exercise, select an exercise"
     }
 
     private func loadInitialExercise() {
@@ -844,14 +869,7 @@ struct LastTimeCardView: View {
         }
         .padding(MarbleSpacing.s)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous)
-                .fill(Theme.backgroundColor(for: colorScheme))
-                .overlay(
-                    RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous)
-                        .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
-                )
-        )
+        .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(content.accessibilityLabel)
     }
@@ -877,6 +895,7 @@ struct LastTimeCardView: View {
             Text(metric.label)
                 .font(MarbleTypography.smallLabel)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .textCase(.uppercase)
             Text(metric.value)
                 .font(MarbleTypography.rowTitle)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))

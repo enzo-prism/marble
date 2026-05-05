@@ -71,7 +71,7 @@ struct ComponentGalleryView: View {
                 .frame(width: 36, height: 36)
         }
         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-        .background(GlassPillBackground())
+        .background(GlassPillBackground(isInteractive: true))
         .accessibilityIdentifier(identifier)
     }
 

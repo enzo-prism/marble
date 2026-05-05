@@ -45,14 +45,19 @@ struct ExerciseProgressView: View {
             .navigationBarGlassBackground()
         }
         .sheet(item: $sheetDestination) { destination in
-            switch destination {
-            case .day(let date):
-                DayDetailsSheet(date: date, entries: entriesForDay(date))
-            case .week:
-                EmptyView()
-            case .supplementDay:
-                EmptyView()
+            Group {
+                switch destination {
+                case .day(let date):
+                    DayDetailsSheet(date: date, entries: entriesForDay(date))
+                case .week:
+                    EmptyView()
+                case .supplementDay:
+                    EmptyView()
+                }
             }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .sheetGlassBackground()
         }
         .onAppear {
             reloadEntries()
@@ -73,7 +78,7 @@ struct ExerciseProgressView: View {
             }
         }
         .pickerStyle(.segmented)
-        .tint(Theme.dividerColor(for: colorScheme))
+        .tint(Theme.primaryTextColor(for: colorScheme))
         .accessibilityIdentifier("ExerciseProgress.Range")
     }
 
@@ -93,6 +98,7 @@ struct ExerciseProgressChart: View {
     let onViewSets: (Date) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedDate: Date?
 
     init(
@@ -115,6 +121,8 @@ struct ExerciseProgressChart: View {
             }
             return start ... end
         }()
+        let dateDomain = paddedDateDomain(dataRange)
+        let yDomain = paddedScoreDomain
 
         return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Chart {
@@ -125,6 +133,16 @@ struct ExerciseProgressChart: View {
                     )
                     .foregroundStyle(Theme.dividerColor(for: colorScheme))
                     .lineStyle(StrokeStyle(lineWidth: 2))
+                    .accessibilityHidden(true)
+                }
+
+                ForEach(points) { point in
+                    PointMark(
+                        x: .value("Day", point.date),
+                        y: .value("Score", point.score)
+                    )
+                    .symbolSize(32)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .accessibilityHidden(true)
                 }
 
@@ -142,22 +160,52 @@ struct ExerciseProgressChart: View {
                     .accessibilityHidden(true)
                 }
             }
-            .frame(height: 180)
+            .frame(height: chartHeight)
+            .exerciseChartDateDomain(dateDomain)
+            .chartYScale(domain: yDomain)
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 3)) { _ in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { _ in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
+                    AxisValueLabel()
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            }
+            .chartPlotStyle { plot in
+                plot
+                    .background(Theme.surfaceColor(for: colorScheme))
+                    .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
+                    .padding(.trailing, MarbleSpacing.xs)
+            }
             .chartOverlay { proxy in
                 GeometryReader { geometry in
-                    let plotFrame = proxy.plotFrame.map { geometry[$0] } ?? geometry[proxy.plotAreaFrame]
-                    TrendsChartOverlay(
-                        plotSize: plotFrame.size,
-                        proxy: proxy,
-                        dataRange: dataRange,
-                        accessibilityIdentifier: "ExerciseProgress.Chart",
-                        accessibilityLabel: "Progress chart",
-                        accessibilityValue: progressAccessibilityValue,
-                        isScrubbing: $isScrubbing
-                    ) { date in
-                        selectedDate = date
+                    if let plotFrameAnchor = proxy.plotFrame {
+                        let plotFrame = geometry[plotFrameAnchor]
+                        TrendsChartOverlay(
+                            plotSize: plotFrame.size,
+                            proxy: proxy,
+                            dataRange: dataRange,
+                            accessibilityIdentifier: "ExerciseProgress.Chart",
+                            accessibilityLabel: "Progress chart",
+                            accessibilityValue: progressAccessibilityValue,
+                            isScrubbing: $isScrubbing
+                        ) { date in
+                            selectedDate = date
+                        }
+                        .position(x: plotFrame.midX, y: plotFrame.midY)
                     }
-                    .position(x: plotFrame.midX, y: plotFrame.midY)
                 }
             }
 
@@ -190,5 +238,34 @@ struct ExerciseProgressChart: View {
     private var progressAccessibilityValue: String {
         guard !points.isEmpty else { return "No data" }
         return "\(points.count) sessions"
+    }
+
+    private var chartHeight: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? 220 : 180
+    }
+
+    private var paddedScoreDomain: ClosedRange<Double> {
+        let maxScore = max(points.map(\.score).max() ?? 1, 1)
+        let padding = max(1, maxScore * 0.12)
+        return 0 ... (maxScore + padding)
+    }
+
+    private func paddedDateDomain(_ range: ClosedRange<Date>?) -> ClosedRange<Date>? {
+        guard let range else { return nil }
+        let calendar = Calendar.current
+        let lowerBound = calendar.date(byAdding: .day, value: -1, to: range.lowerBound) ?? range.lowerBound
+        let upperBound = calendar.date(byAdding: .day, value: 1, to: range.upperBound) ?? range.upperBound
+        return lowerBound ... upperBound
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func exerciseChartDateDomain(_ domain: ClosedRange<Date>?) -> some View {
+        if let domain {
+            self.chartXScale(domain: domain)
+        } else {
+            self
+        }
     }
 }

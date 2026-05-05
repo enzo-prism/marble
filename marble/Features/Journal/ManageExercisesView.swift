@@ -18,6 +18,7 @@ struct ManageExercisesView: View {
     @State private var searchText: String = ""
     @State private var newExerciseSeedName = ""
     @State private var pendingSavedExercise: Exercise?
+    @State private var editingExercise: Exercise?
 
     let onExerciseSaved: ((Exercise) -> Void)?
 
@@ -49,8 +50,8 @@ struct ManageExercisesView: View {
             } else {
                 ForEach(filteredExercises) { exercise in
                     let sanitizedName = exercise.name.replacingOccurrences(of: " ", with: "")
-                    NavigationLink {
-                        ExerciseEditorView(exercise: exercise)
+                    Button {
+                        editingExercise = exercise
                     } label: {
                         HStack(spacing: MarbleLayout.rowSpacing) {
                             ExerciseIconView(exercise: exercise, fontSize: 18, frameSize: MarbleLayout.rowIconSize)
@@ -75,8 +76,14 @@ struct ManageExercisesView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Image(systemName: "chevron.right")
+                                .font(MarbleTypography.rowMeta)
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                .accessibilityHidden(true)
                         }
                     }
+                    .buttonStyle(.plain)
                     .marbleRowInsets()
                     .accessibilityIdentifier("ManageExercises.Row.\(sanitizedName)")
                 }
@@ -114,6 +121,11 @@ struct ManageExercisesView: View {
                     searchText = exercise.name
                     pendingSavedExercise = exercise
                 }
+            }
+        }
+        .navigationDestination(item: $editingExercise) { exercise in
+            ExerciseEditorView(exercise: exercise) { _ in
+                editingExercise = nil
             }
         }
         .alert("Cannot Delete Exercise", isPresented: $showCannotDelete) {

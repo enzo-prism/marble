@@ -35,27 +35,30 @@ struct GlassPillBackground: View {
     @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
     @Environment(\.colorScheme) private var colorScheme
 
+    var isInteractive = false
+
     private var reduceTransparency: Bool {
         reduceTransparencyOverride ?? systemReduceTransparency
     }
 
     var body: some View {
+        let shape = Capsule(style: .continuous)
         if reduceTransparency {
-            Capsule(style: .continuous)
+            shape
                 .fill(Theme.backgroundColor(for: colorScheme))
                 .overlay(
-                    Capsule(style: .continuous)
+                    shape
                         .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
                 )
         } else if #available(iOS 26.0, *) {
-            Capsule(style: .continuous)
+            shape
                 .fill(.clear)
-                .glassEffect()
+                .glassEffect(isInteractive ? .regular.interactive() : .regular, in: shape)
         } else {
-            Capsule(style: .continuous)
+            shape
                 .fill(.ultraThinMaterial)
                 .overlay(
-                    Capsule(style: .continuous)
+                    shape
                         .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 0.5)
                 )
         }
@@ -66,6 +69,8 @@ struct GlassTileBackground: View {
     @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
     @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
     @Environment(\.colorScheme) private var colorScheme
+
+    var isInteractive = false
 
     private var reduceTransparency: Bool {
         reduceTransparencyOverride ?? systemReduceTransparency
@@ -83,7 +88,7 @@ struct GlassTileBackground: View {
         } else if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .glassEffect()
+                .glassEffect(isInteractive ? .regular.interactive() : .regular, in: shape)
         } else {
             shape
                 .fill(.ultraThinMaterial)
@@ -99,6 +104,8 @@ struct GlassCircleBackground: View {
     @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
     @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
     @Environment(\.colorScheme) private var colorScheme
+
+    var isInteractive = false
 
     private var reduceTransparency: Bool {
         reduceTransparencyOverride ?? systemReduceTransparency
@@ -116,7 +123,7 @@ struct GlassCircleBackground: View {
         } else if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .glassEffect()
+                .glassEffect(isInteractive ? .regular.interactive() : .regular, in: shape)
         } else {
             shape
                 .fill(.ultraThinMaterial)
@@ -129,12 +136,21 @@ struct GlassCircleBackground: View {
 }
 
 private struct NavigationBarGlassBackgroundModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
+    @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
     @Environment(\.colorScheme) private var colorScheme
 
+    private var reduceTransparency: Bool {
+        reduceTransparencyOverride ?? systemReduceTransparency
+    }
+
     func body(content: Content) -> some View {
-        content
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(Theme.backgroundColor(for: colorScheme), for: .navigationBar)
+        let base = content.toolbarBackground(.visible, for: .navigationBar)
+        if reduceTransparency {
+            base.toolbarBackground(Theme.backgroundColor(for: colorScheme), for: .navigationBar)
+        } else {
+            base.toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        }
     }
 }
 

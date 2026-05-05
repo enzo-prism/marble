@@ -12,6 +12,12 @@ enum ThemePalette {
     static let darkDivider: Double = 0.5
     static let lightChipFill: Double = 0.92
     static let darkChipFill: Double = 0.18
+    static let lightSurfaceFill: Double = 0.985
+    static let darkSurfaceFill: Double = 0.035
+    static let lightControlFill: Double = 0.95
+    static let darkControlFill: Double = 0.12
+    static let lightSubtleDivider: Double = 0.82
+    static let darkSubtleDivider: Double = 0.28
     static let lightDestructiveAction: Double = 0.2
     static let darkDestructiveAction: Double = 0.25
 }
@@ -46,6 +52,21 @@ enum Theme {
         return resolved == .dark ? Color(white: ThemePalette.darkChipFill) : Color(white: ThemePalette.lightChipFill)
     }
 
+    static func surfaceColor(for scheme: ColorScheme) -> Color {
+        let resolved = resolvedScheme(scheme)
+        return resolved == .dark ? Color(white: ThemePalette.darkSurfaceFill) : Color(white: ThemePalette.lightSurfaceFill)
+    }
+
+    static func controlFillColor(for scheme: ColorScheme) -> Color {
+        let resolved = resolvedScheme(scheme)
+        return resolved == .dark ? Color(white: ThemePalette.darkControlFill) : Color(white: ThemePalette.lightControlFill)
+    }
+
+    static func subtleDividerColor(for scheme: ColorScheme) -> Color {
+        let resolved = resolvedScheme(scheme)
+        return resolved == .dark ? Color(white: ThemePalette.darkSubtleDivider) : Color(white: ThemePalette.lightSubtleDivider)
+    }
+
     static func destructiveActionColor(for scheme: ColorScheme) -> Color {
         let resolved = resolvedScheme(scheme)
         return resolved == .dark
@@ -55,10 +76,20 @@ enum Theme {
 
     static func applyTabBarAppearance(for scheme: ColorScheme) {
         let resolved = resolvedScheme(scheme)
+        let reduceTransparency = UIAccessibility.isReduceTransparencyEnabled || TestHooks.forceReduceTransparency
         let selected = UIColor(primaryTextColor(for: resolved))
         let unselected = UIColor(secondaryTextColor(for: resolved))
         let appearance = UITabBarAppearance()
-        appearance.configureWithTransparentBackground()
+
+        if reduceTransparency {
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = UIColor(backgroundColor(for: resolved))
+        } else {
+            appearance.configureWithTransparentBackground()
+            appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+            appearance.backgroundColor = UIColor(backgroundColor(for: resolved)).withAlphaComponent(resolved == .dark ? 0.74 : 0.82)
+        }
+        appearance.shadowColor = UIColor(subtleDividerColor(for: resolved))
 
         let stacked = appearance.stackedLayoutAppearance
         stacked.normal.iconColor = unselected

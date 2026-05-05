@@ -14,14 +14,26 @@ struct TrendsChartOverlay: View {
     @State private var isDragging = false
 
     var body: some View {
-        Rectangle()
-            .fill(Color.clear)
-            .frame(width: plotSize.width, height: plotSize.height)
-            .contentShape(Rectangle())
+        Button {
+            if TestHooks.isUITesting {
+                selectDefaultDate()
+            }
+        } label: {
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: plotSize.width, height: plotSize.height)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityLabel)
             .accessibilityValue(accessibilityValue)
             .accessibilityIdentifier(accessibilityIdentifier)
+            .accessibilityHint("Opens details for the nearest point.")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction {
+                selectDefaultDate()
+            }
             .simultaneousGesture(
                 SpatialTapGesture()
                     .onEnded { value in
@@ -29,16 +41,19 @@ struct TrendsChartOverlay: View {
                         onSelect(date)
                     }
             )
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 8)
-                    .onChanged { value in
-                        handleDragChanged(value)
-                    }
-                    .onEnded { value in
-                        handleDragEnded(value)
-                    }
-            )
             .allowsHitTesting(plotSize.width > 0 && plotSize.height > 0 && dataRange != nil)
+    }
+
+    private func selectDefaultDate() {
+        guard let dataRange else { return }
+        if dataRange.lowerBound == dataRange.upperBound {
+            onSelect(dataRange.lowerBound)
+            return
+        }
+        let midpoint = dataRange.lowerBound.addingTimeInterval(
+            dataRange.upperBound.timeIntervalSince(dataRange.lowerBound) / 2
+        )
+        onSelect(midpoint)
     }
 
     private func selectionDate(for location: CGPoint) -> Date? {
@@ -57,25 +72,4 @@ struct TrendsChartOverlay: View {
         )
     }
 
-    private func handleDragChanged(_ value: DragGesture.Value) {
-        if !isDragging {
-            let horizontal = abs(value.translation.width)
-            let vertical = abs(value.translation.height)
-            guard horizontal > 10, horizontal > vertical * 1.2 else { return }
-            isDragging = true
-            isScrubbing = true
-        }
-        guard let date = selectionDate(for: value.location) else { return }
-        onSelect(date)
-    }
-
-    private func handleDragEnded(_ value: DragGesture.Value) {
-        if isDragging, let date = selectionDate(for: value.location) {
-            onSelect(date)
-        }
-        isDragging = false
-        if isScrubbing {
-            isScrubbing = false
-        }
-    }
 }

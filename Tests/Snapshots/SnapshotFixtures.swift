@@ -69,4 +69,23 @@ enum SnapshotFixtures {
         context.insert(entry)
         try? context.save()
     }
+
+    static func addProgressMedia(
+        in context: ModelContext,
+        kind: ProgressMediaKind,
+        attachedToDate: Date = now
+    ) {
+        guard let result = try? ProgressMediaStore.makeTestImport(kind: kind) else { return }
+        let attachment = ProgressMediaAttachment(
+            attachedToDate: Calendar.current.startOfDay(for: attachedToDate),
+            kind: result.kind,
+            originalFilename: result.originalFilename,
+            thumbnailFilename: result.thumbnailFilename,
+            fileSizeBytes: result.fileSizeBytes,
+            createdAt: now,
+            updatedAt: now
+        )
+        context.insert(attachment)
+        try? context.save()
+    }
 }

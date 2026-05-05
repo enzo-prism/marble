@@ -25,6 +25,14 @@ enum Formatters {
         return formatter
     }()
 
+    static let compactNumber: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 1
+        return formatter
+    }()
+
     static let time: DateFormatter = {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
@@ -44,6 +52,20 @@ enum Formatters {
         formatter.timeStyle = .short
         return formatter
     }()
+
+    static func compactNumberText(_ value: Double) -> String {
+        let absoluteValue = abs(value)
+        let sign = value < 0 ? "-" : ""
+        if absoluteValue >= 1_000_000 {
+            let formatted = compactNumber.string(from: NSNumber(value: absoluteValue / 1_000_000)) ?? "\(absoluteValue / 1_000_000)"
+            return "\(sign)\(formatted)M"
+        }
+        if absoluteValue >= 1_000 {
+            let formatted = compactNumber.string(from: NSNumber(value: absoluteValue / 1_000)) ?? "\(absoluteValue / 1_000)"
+            return "\(sign)\(formatted)K"
+        }
+        return weight.string(from: NSNumber(value: value)) ?? "\(value)"
+    }
 }
 
 enum DateHelper {

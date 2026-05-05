@@ -35,7 +35,7 @@ struct JournalView: View {
                         Button("Log Set") {
                             quickLog.open()
                         }
-                        .buttonStyle(MarbleActionButtonStyle())
+                        .buttonStyle(MarbleActionButtonStyle(prominence: .primary))
                         .accessibilityIdentifier("Journal.EmptyState.LogSet")
                     }
                     .listRowSeparator(.hidden)
@@ -62,12 +62,13 @@ struct JournalView: View {
                 }
             }
             .listStyle(.plain)
-            .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
+            .listRowSeparatorTint(Theme.subtleDividerColor(for: colorScheme))
             .scrollContentBackground(.hidden)
+            .contentMargins(.top, MarbleSpacing.xs, for: .scrollContent)
             .background(Theme.backgroundColor(for: colorScheme))
             .accessibilityIdentifier("Journal.List")
             .navigationTitle("Journal")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
