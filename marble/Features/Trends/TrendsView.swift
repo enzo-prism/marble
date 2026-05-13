@@ -25,6 +25,7 @@ struct TrendsView: View {
     @State private var selectedWeekStart: Date?
     @State private var selectedSupplementDay: Date?
     @State private var sheetDestination: TrendsSheetDestination?
+    @State private var isPresentingExerciseSearch = false
     @State private var isScrubbingChart = false
 
     init(
@@ -51,7 +52,9 @@ struct TrendsView: View {
                     let hasSupplementData = !filteredSupplementEntries.isEmpty
 
                     rangePicker
-                    exercisePicker
+                    if let selectedLiftBests {
+                        LiftBestsHighlightView(bests: selectedLiftBests)
+                    }
                     if hasSetData || hasSupplementData {
                         trendSummaryStrip
                     }
@@ -126,10 +129,12 @@ struct TrendsView: View {
             .accessibilityIdentifier("Trends.Scroll")
             .background(Theme.backgroundColor(for: colorScheme))
             .navigationTitle("Trends")
+            .navigationSubtitle(selectedExerciseName)
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    exerciseSearchButton
                     AddSetToolbarButton()
                 }
             }
@@ -147,6 +152,18 @@ struct TrendsView: View {
                 }
             }
             .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .sheetGlassBackground()
+        }
+        .sheet(isPresented: $isPresentingExerciseSearch) {
+            NavigationStack {
+                TrendsExerciseSearchView(
+                    exercises: exercises,
+                    entries: entries,
+                    selectedExerciseID: $selectedExerciseID
+                )
+            }
+            .presentationDetents([.large])
             .presentationDragIndicator(.visible)
             .sheetGlassBackground()
         }
@@ -222,28 +239,21 @@ struct TrendsView: View {
         .accessibilityIdentifier("Trends.Range")
     }
 
-    private var exercisePicker: some View {
-        HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
-            Text("Exercise")
-                .font(MarbleTypography.rowSubtitle.weight(.semibold))
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-            Spacer(minLength: MarbleSpacing.s)
-
-            Picker("Exercise", selection: $selectedExerciseID) {
-                Text("All Exercises").tag(UUID?.none)
-                ForEach(exercises) { exercise in
-                    Text(exercise.name).tag(exercise.id as UUID?)
-                }
-            }
-            .pickerStyle(.menu)
-            .tint(Theme.primaryTextColor(for: colorScheme))
-            .accessibilityIdentifier("Trends.ExerciseFilter")
-            .accessibilityValue(selectedExercise?.name ?? "All Exercises")
+    private var exerciseSearchButton: some View {
+        Button {
+            isPresentingExerciseSearch = true
+        } label: {
+            Image(systemName: selectedExercise == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                .font(.system(size: 17, weight: .semibold))
         }
-        .padding(.horizontal, MarbleSpacing.s)
-        .padding(.vertical, MarbleSpacing.xs)
-        .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+        .accessibilityIdentifier("Trends.ExerciseSearchButton")
+        .accessibilityLabel("Filter Exercise")
+        .accessibilityValue(selectedExerciseName)
+    }
+
+    private var selectedExerciseName: String {
+        selectedExercise?.name ?? "All Exercises"
     }
 
     private var supplementPicker: some View {
@@ -1032,6 +1042,11 @@ struct TrendsView: View {
         return ExerciseProgressBuilder.buildPoints(entries: entries, exercise: selectedExercise, range: range)
     }
 
+    private var selectedLiftBests: ExerciseLiftBests? {
+        guard let selectedExercise else { return nil }
+        return ExerciseProgressBuilder.buildLiftBests(entries: entries, exercise: selectedExercise, range: range)
+    }
+
     private func setsLabel(for count: Int) -> String {
         count == 1 ? "1 set" : "\(count) sets"
     }
@@ -1150,6 +1165,319 @@ private struct TrendSummaryItem: Identifiable {
 private struct PRCardMetric {
     let title: String
     let value: String
+}
+
+struct TrendsExerciseSearchView: View {
+    let exercises: [Exercise]
+    let entries: [SetEntry]
+    @Binding var selectedExerciseID: UUID?
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var searchText = ""
+
+    var body: some View {
+        List {
+            Section {
+                allExercisesRow
+            }
+
+            if trimmedSearchText.isEmpty, !recentExercises.isEmpty {
+                Section {
+                    ForEach(recentExercises) { exercise in
+                        exerciseRow(for: exercise)
+                    }
+                } header: {
+                    SectionHeaderView(title: "Recent")
+                }
+            }
+
+            if filteredExercises.isEmpty {
+                Section {
+                    VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                        Text("No exercises match that search.")
+                            .font(MarbleTypography.rowTitle)
+                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        Text("Clear the search or choose All Exercises to see the full trend view.")
+                            .font(MarbleTypography.rowSubtitle)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    }
+                    .padding(.vertical, MarbleSpacing.xs)
+                    .marbleRowInsets()
+                    .accessibilityIdentifier("Trends.ExerciseSearch.EmptyState")
+                }
+            } else {
+                ForEach(ExerciseCategory.allCases) { category in
+                    let categoryExercises = filteredExercises.filter { $0.category == category }
+                    if !categoryExercises.isEmpty {
+                        Section {
+                            ForEach(categoryExercises) { exercise in
+                                exerciseRow(for: exercise)
+                            }
+                        } header: {
+                            SectionHeaderView(title: category.displayName)
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.plain)
+        .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
+        .scrollContentBackground(.hidden)
+        .background(Theme.backgroundColor(for: colorScheme))
+        .accessibilityIdentifier("Trends.ExerciseSearch.List")
+        .navigationTitle("Filter Exercise")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarGlassBackground()
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search exercises"
+        )
+        .searchToolbarBehavior(.minimize)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") {
+                    dismiss()
+                }
+                .accessibilityIdentifier("Trends.ExerciseSearch.Done")
+            }
+        }
+    }
+
+    private var allExercisesRow: some View {
+        Button {
+            selectedExerciseID = nil
+            dismiss()
+        } label: {
+            HStack(spacing: MarbleLayout.rowSpacing) {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
+                    Text("All Exercises")
+                        .font(MarbleTypography.rowTitle)
+                    Text("Show every logged set in Trends.")
+                        .font(MarbleTypography.rowMeta)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if selectedExerciseID == nil {
+                    Image(systemName: "checkmark")
+                        .font(MarbleTypography.rowMeta.weight(.semibold))
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        .accessibilityHidden(true)
+                }
+            }
+            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+        }
+        .buttonStyle(.plain)
+        .marbleRowInsets()
+        .accessibilityIdentifier("Trends.ExerciseSearch.All")
+        .accessibilityValue(selectedExerciseID == nil ? "Selected" : "Not selected")
+    }
+
+    private var trimmedSearchText: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var filteredExercises: [Exercise] {
+        if trimmedSearchText.isEmpty {
+            return exercises
+        }
+        return exercises.filter { $0.name.localizedCaseInsensitiveContains(trimmedSearchText) }
+    }
+
+    private var recentExercises: [Exercise] {
+        var seen = Set<UUID>()
+        var unique: [Exercise] = []
+        let availableIDs = Set(exercises.map(\.id))
+
+        for entry in entries {
+            let exercise = entry.exercise
+            guard availableIDs.contains(exercise.id), !seen.contains(exercise.id) else { continue }
+            seen.insert(exercise.id)
+            unique.append(exercise)
+            if unique.count >= 5 {
+                break
+            }
+        }
+
+        return unique
+    }
+
+    private func exerciseRow(for exercise: Exercise) -> some View {
+        let sanitizedName = exercise.name.replacingOccurrences(of: " ", with: "")
+        return Button {
+            selectedExerciseID = exercise.id
+            dismiss()
+        } label: {
+            HStack(spacing: MarbleLayout.rowSpacing) {
+                ExerciseIconView(exercise: exercise, fontSize: 18, frameSize: MarbleLayout.rowIconSize)
+
+                VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
+                    HStack(spacing: MarbleSpacing.xs) {
+                        Text(exercise.name)
+                            .font(MarbleTypography.rowTitle)
+
+                        if exercise.isFavorite {
+                            Image(systemName: "star.fill")
+                                .font(MarbleTypography.rowMeta)
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                .accessibilityHidden(true)
+                        }
+                    }
+
+                    Text(exercise.configurationSummaryText)
+                        .font(MarbleTypography.rowMeta)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if selectedExerciseID == exercise.id {
+                    Image(systemName: "checkmark")
+                        .font(MarbleTypography.rowMeta.weight(.semibold))
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        .accessibilityHidden(true)
+                }
+            }
+            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+        }
+        .buttonStyle(.plain)
+        .marbleRowInsets()
+        .accessibilityIdentifier("Trends.ExerciseSearch.Row.\(sanitizedName)")
+        .accessibilityValue(exercise.configurationSummaryText)
+    }
+}
+
+struct LiftBestsHighlightView: View {
+    let bests: ExerciseLiftBests
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            Text("Exercise Bests")
+                .font(MarbleTypography.sectionTitle)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: MarbleSpacing.xs) {
+                    ForEach(metrics) { metric in
+                        LiftBestMetricView(metric: metric)
+                    }
+                }
+
+                VStack(spacing: MarbleSpacing.xs) {
+                    ForEach(metrics) { metric in
+                        LiftBestMetricView(metric: metric)
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier("Trends.LiftBests")
+    }
+
+    private var metrics: [LiftBestMetric] {
+        [
+            LiftBestMetric(
+                title: "Heaviest",
+                value: heaviestValue,
+                detail: heaviestDetail,
+                identifier: "Heaviest"
+            ),
+            LiftBestMetric(
+                title: "Most Reps",
+                value: mostRepsValue,
+                detail: mostRepsDetail,
+                identifier: "MostReps"
+            )
+        ]
+    }
+
+    private var heaviestValue: String {
+        guard let entry = bests.heaviestEntry, let weight = entry.weight else { return "-" }
+        return entry.exercise.formattedWeightSummary(weight, unit: entry.weightUnit)
+    }
+
+    private var heaviestDetail: String {
+        guard let entry = bests.heaviestEntry else { return "No weight logged" }
+        var parts: [String] = []
+        if let reps = entry.reps {
+            parts.append(reps == 1 ? "1 rep" : "\(reps) reps")
+        }
+        parts.append(DateHelper.dayLabel(for: entry.performedAt))
+        return parts.joined(separator: " · ")
+    }
+
+    private var mostRepsValue: String {
+        guard let reps = bests.mostRepsEntry?.reps else { return "-" }
+        return reps == 1 ? "1 rep" : "\(reps) reps"
+    }
+
+    private var mostRepsDetail: String {
+        guard let entry = bests.mostRepsEntry else { return "No reps logged" }
+        var parts: [String] = []
+        if let weight = entry.weight {
+            parts.append(entry.exercise.formattedWeightSummary(weight, unit: entry.weightUnit))
+        }
+        parts.append(DateHelper.dayLabel(for: entry.performedAt))
+        return parts.joined(separator: " · ")
+    }
+
+    private var accessibilityLabel: String {
+        "\(bests.exerciseName) bests, heaviest \(heaviestValue), \(heaviestDetail), most reps \(mostRepsValue), \(mostRepsDetail)"
+    }
+}
+
+private struct LiftBestMetric: Identifiable {
+    let title: String
+    let value: String
+    let detail: String
+    let identifier: String
+
+    var id: String { identifier }
+}
+
+private struct LiftBestMetricView: View {
+    let metric: LiftBestMetric
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+            Text(metric.title)
+                .font(MarbleTypography.smallLabel)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .textCase(.uppercase)
+
+            Text(metric.value)
+                .font(MarbleTypography.rowTitle)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .monospacedDigit()
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(metric.detail)
+                .font(MarbleTypography.rowMeta)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(MarbleSpacing.s)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(metric.title), \(metric.value), \(metric.detail)")
+        .accessibilityIdentifier("Trends.LiftBest.\(metric.identifier)")
+    }
 }
 
 private struct TrendSummaryItemView: View {

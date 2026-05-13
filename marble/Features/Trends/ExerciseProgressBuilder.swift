@@ -10,6 +10,16 @@ struct ExerciseProgressPoint: Identifiable {
     var id: Date { date }
 }
 
+struct ExerciseLiftBests {
+    let exerciseName: String
+    let heaviestEntry: SetEntry?
+    let mostRepsEntry: SetEntry?
+
+    var hasAnyBest: Bool {
+        heaviestEntry != nil || mostRepsEntry != nil
+    }
+}
+
 enum ExerciseProgressBuilder {
     static func buildPoints(
         entries: [SetEntry],
@@ -44,6 +54,52 @@ enum ExerciseProgressBuilder {
                 entry: best.entry
             )
         }
+    }
+
+    static func buildLiftBests(
+        entries: [SetEntry],
+        exercise: Exercise,
+        range: TrendRange
+    ) -> ExerciseLiftBests? {
+        guard exercise.metrics.usesWeight, exercise.metrics.usesReps else { return nil }
+
+        let startDate = range.startDate
+        let filtered = entries.filter { entry in
+            guard entry.exercise.id == exercise.id else { return false }
+            if let startDate {
+                return entry.performedAt >= startDate
+            }
+            return true
+        }
+
+        let heaviestEntry = filtered
+            .filter { $0.weight != nil }
+            .max { lhs, rhs in
+                let lhsWeight = lhs.weight ?? 0
+                let rhsWeight = rhs.weight ?? 0
+                if lhsWeight == rhsWeight {
+                    return (lhs.reps ?? 0) < (rhs.reps ?? 0)
+                }
+                return lhsWeight < rhsWeight
+            }
+
+        let mostRepsEntry = filtered
+            .filter { $0.reps != nil }
+            .max { lhs, rhs in
+                let lhsReps = lhs.reps ?? 0
+                let rhsReps = rhs.reps ?? 0
+                if lhsReps == rhsReps {
+                    return (lhs.weight ?? 0) < (rhs.weight ?? 0)
+                }
+                return lhsReps < rhsReps
+            }
+
+        let bests = ExerciseLiftBests(
+            exerciseName: exercise.name,
+            heaviestEntry: heaviestEntry,
+            mostRepsEntry: mostRepsEntry
+        )
+        return bests.hasAnyBest ? bests : nil
     }
 
     private static func progressMetric(for profile: ExerciseMetricsProfile) -> ExerciseProgressMetric {
@@ -96,10 +152,9 @@ enum ExerciseProgressBuilder {
         guard let weight = entry.weight else { return nil }
         let weightText = entry.exercise.formattedWeightSummary(weight, unit: entry.weightUnit)
         if let reps = entry.reps {
-            let score = weight * Double(reps)
             let bestSetSummary = "\(weightText) \(timesSymbol) \(reps)"
-            let scoreSummary = "Volume \(formattedNumber(score))"
-            return BestSet(entry: entry, score: score, bestSetSummary: bestSetSummary, scoreSummary: scoreSummary)
+            let scoreSummary = "\(reps) reps"
+            return BestSet(entry: entry, score: weight, bestSetSummary: bestSetSummary, scoreSummary: scoreSummary)
         }
         return BestSet(entry: entry, score: weight, bestSetSummary: weightText, scoreSummary: nil)
     }

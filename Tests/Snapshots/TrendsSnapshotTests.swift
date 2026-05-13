@@ -1,4 +1,5 @@
 import SwiftData
+import SwiftUI
 import XCTest
 @testable import marble
 
@@ -37,6 +38,24 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         assertSnapshot(view, named: "Trends_Filtered")
     }
 
+    func testTrendsExerciseSearch() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedPopulated(in: context)
+
+        let bench = SnapshotFixtures.exercise(named: "Bench Press", in: context)
+        let exercises = (try? context.fetch(FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)]))) ?? []
+        let entries = (try? context.fetch(FetchDescriptor<SetEntry>(sortBy: [SortDescriptor(\.performedAt, order: .reverse)]))) ?? []
+        let view = TrendsExerciseSearchFixture(
+            exercises: exercises,
+            entries: entries,
+            initialSelection: bench.id
+        )
+            .modelContainer(container)
+
+        assertSnapshot(view, named: "Trends_ExerciseSearch")
+    }
+
     func testTrendsConsistencyTooltip() {
         let container = SnapshotFixtures.makeContainer()
         let context = ModelContext(container)
@@ -70,5 +89,27 @@ final class TrendsSnapshotTests: SnapshotTestCase {
             .modelContainer(container)
             .environmentObject(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_SupplementsTooltip")
+    }
+}
+
+private struct TrendsExerciseSearchFixture: View {
+    let exercises: [Exercise]
+    let entries: [SetEntry]
+    @State private var selectedExerciseID: UUID?
+
+    init(exercises: [Exercise], entries: [SetEntry], initialSelection: UUID?) {
+        self.exercises = exercises
+        self.entries = entries
+        _selectedExerciseID = State(initialValue: initialSelection)
+    }
+
+    var body: some View {
+        NavigationStack {
+            TrendsExerciseSearchView(
+                exercises: exercises,
+                entries: entries,
+                selectedExerciseID: $selectedExerciseID
+            )
+        }
     }
 }

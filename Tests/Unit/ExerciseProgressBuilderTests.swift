@@ -5,7 +5,7 @@ final class ExerciseProgressBuilderTests: MarbleTestCase {
     private let calendar = MarbleTestCase.stableCalendar
     private let timesSymbol = "\u{00D7}"
 
-    func testBestSetPerDayUsesHighestScore() {
+    func testWeightedProgressUsesHeaviestSetInsteadOfVolume() {
         let exercise = Exercise(
             name: "Bench",
             category: .chest,
@@ -41,7 +41,57 @@ final class ExerciseProgressBuilderTests: MarbleTestCase {
         )
 
         XCTAssertEqual(points.count, 1)
-        XCTAssertEqual(points.first?.bestSetSummary, "90 lb \(timesSymbol) 8")
+        XCTAssertEqual(points.first?.bestSetSummary, "100 lb \(timesSymbol) 5")
+        XCTAssertEqual(points.first?.score, 100.0)
+    }
+
+    func testLiftBestsTrackHeaviestAndMostRepsSeparately() {
+        let exercise = Exercise(
+            name: "Power Clean",
+            category: .power,
+            metrics: .weightAndRepsRequired,
+            defaultRestSeconds: 180
+        )
+        let heaviest = SetEntry(
+            exercise: exercise,
+            performedAt: date(daysFromNow: -1, hour: 9, minute: 0),
+            weight: 185,
+            weightUnit: .lb,
+            reps: 2,
+            durationSeconds: nil,
+            difficulty: 9,
+            restAfterSeconds: 180
+        )
+        let mostReps = SetEntry(
+            exercise: exercise,
+            performedAt: date(daysFromNow: 0, hour: 9, minute: 0),
+            weight: 155,
+            weightUnit: .lb,
+            reps: 5,
+            durationSeconds: nil,
+            difficulty: 8,
+            restAfterSeconds: 180
+        )
+        let middle = SetEntry(
+            exercise: exercise,
+            performedAt: date(daysFromNow: 0, hour: 9, minute: 20),
+            weight: 175,
+            weightUnit: .lb,
+            reps: 3,
+            durationSeconds: nil,
+            difficulty: 8,
+            restAfterSeconds: 180
+        )
+
+        let bests = ExerciseProgressBuilder.buildLiftBests(
+            entries: [middle, mostReps, heaviest],
+            exercise: exercise,
+            range: .all
+        )
+
+        XCTAssertEqual(bests?.exerciseName, "Power Clean")
+        XCTAssertEqual(bests?.heaviestEntry?.id, heaviest.id)
+        XCTAssertEqual(bests?.mostRepsEntry?.id, mostReps.id)
     }
 
     func testRangeFiltersOldEntries() {

@@ -40,6 +40,7 @@ SNAPSHOT_GROUPS_FULL=(
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsEmpty"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsPopulated"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsFilteredExercise"
+  "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsExerciseSearch"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsConsistencyTooltip"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsVolumeTooltip"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsSupplementsTooltip"

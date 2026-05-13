@@ -50,16 +50,24 @@ final class TrendsSmokeUITests: MarbleUITestCase {
             XCTAssertTrue(sevenDay.isSelected)
         }
 
-        let exercisePicker = app.buttons["Trends.ExerciseFilter"]
-        if exercisePicker.exists {
-            exercisePicker.tap()
-            let benchOption = app.buttons["Bench Press"].firstMatch
-            if benchOption.exists {
-                benchOption.tap()
-            }
-            let pickerValue = exercisePicker.value as? String
-            XCTAssertEqual(pickerValue, "Bench Press")
-        }
+        let exerciseFilterButton = app.buttons["Trends.ExerciseSearchButton"]
+        waitFor(exerciseFilterButton)
+        forceTap(exerciseFilterButton)
+
+        let searchField = app.searchFields["Search exercises"]
+        waitFor(searchField)
+        searchField.tap()
+        searchField.typeText("Bench")
+
+        let benchOption = waitForIdentifier("Trends.ExerciseSearch.Row.BenchPress", timeout: 6)
+        forceTap(benchOption)
+        XCTAssertEqual(exerciseFilterButton.value as? String, "Bench Press")
+        XCTAssertTrue(chartElement("Trends.ConsistencyChart").exists)
+
+        forceTap(exerciseFilterButton)
+        let allExercisesOption = waitForIdentifier("Trends.ExerciseSearch.All", timeout: 6)
+        forceTap(allExercisesOption)
+        XCTAssertEqual(exerciseFilterButton.value as? String, "All Exercises")
 
         let supplementPicker = app.buttons["Trends.SupplementFilter"]
         if supplementPicker.exists {
