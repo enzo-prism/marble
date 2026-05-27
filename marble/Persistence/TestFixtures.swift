@@ -194,6 +194,7 @@ enum TestFixtures {
         let splitPlans = (try? context.fetch(FetchDescriptor<SplitPlan>())) ?? []
         let splitDays = (try? context.fetch(FetchDescriptor<SplitDay>())) ?? []
         let plannedSets = (try? context.fetch(FetchDescriptor<PlannedSet>())) ?? []
+        let customNotifications = (try? context.fetch(FetchDescriptor<CustomNotification>())) ?? []
 
         sets.forEach { context.delete($0) }
         supplements.forEach { context.delete($0) }
@@ -202,6 +203,7 @@ enum TestFixtures {
         plannedSets.forEach { context.delete($0) }
         splitDays.forEach { context.delete($0) }
         splitPlans.forEach { context.delete($0) }
+        customNotifications.forEach { context.delete($0) }
     }
 
     private static func seedSplit(in context: ModelContext, now: Date, populated: Bool) {

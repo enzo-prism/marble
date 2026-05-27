@@ -52,6 +52,7 @@ class MarbleUITestCase: XCTestCase {
         resetDB: Bool = true,
         forceReduceTransparency: Bool = false,
         calendarTestDay: String? = nil,
+        notificationAuthorization: String? = nil,
         accessibilityAudit: Bool = false
     ) {
         if app != nil {
@@ -74,6 +75,9 @@ class MarbleUITestCase: XCTestCase {
         }
         if let calendarTestDay {
             app.launchEnvironment["MARBLE_TEST_CALENDAR_DAY"] = calendarTestDay
+        }
+        if let notificationAuthorization {
+            app.launchEnvironment["MARBLE_NOTIFICATION_AUTHORIZATION"] = notificationAuthorization
         }
         if let contentSizeCategory {
             app.launchEnvironment["MARBLE_FORCE_DYNAMIC_TYPE"] = contentSizeCategory
@@ -253,7 +257,8 @@ class MarbleUITestCase: XCTestCase {
     func clearAndType(_ element: XCUIElement, text: String) {
         element.tap()
         if let value = element.value as? String, !value.isEmpty {
-            let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count)
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+            let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count + 2)
             element.typeText(deleteString)
         }
         element.typeText(text)

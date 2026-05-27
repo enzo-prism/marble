@@ -22,6 +22,7 @@ enum TestHooks {
     static let isAccessibilityAudit: Bool = environmentFlag("MARBLE_A11Y_AUDIT")
     static let fixtureMode: FixtureMode = FixtureMode(rawValue: (environmentValue("MARBLE_FIXTURE_MODE") ?? "populated").lowercased()) ?? .populated
     static let calendarTestDay: String? = environmentValue("MARBLE_TEST_CALENDAR_DAY")?.lowercased()
+    static let notificationAuthorizationStatus: String? = environmentValue("MARBLE_NOTIFICATION_AUTHORIZATION")
 
     static var now: Date {
         if let overrideNow { return overrideNow }

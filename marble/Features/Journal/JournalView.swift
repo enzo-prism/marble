@@ -71,7 +71,15 @@ struct JournalView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    NavigationLink {
+                        NotificationsView(scheduler: CustomNotificationScheduler.live())
+                    } label: {
+                        Image(systemName: "bell")
+                    }
+                    .accessibilityLabel("Notifications")
+                    .accessibilityIdentifier("Journal.Notifications")
+
                     AddSetToolbarButton()
                 }
             }

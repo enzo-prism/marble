@@ -36,6 +36,13 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         navigateToTab(.journal)
         try runAudit(name: "Journal_Populated_\(appearance.envValue)_\(sizeLabel)")
 
+        openNotifications()
+        try runAudit(name: "Notifications_List_\(appearance.envValue)_\(sizeLabel)")
+        app.buttons["Notifications.Add"].tap()
+        waitFor(app.navigationBars["New Notification"], timeout: 5)
+        try runAudit(name: "NotificationEditor_New_\(appearance.envValue)_\(sizeLabel)")
+        app.buttons["NotificationEditor.Cancel"].tap()
+
         navigateToTab(.calendar)
         try runAudit(name: "Calendar_Month_\(appearance.envValue)_\(sizeLabel)")
 
@@ -192,6 +199,13 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         }
     }
 
+    private func openNotifications() {
+        let button = app.buttons["Journal.Notifications"]
+        waitFor(button)
+        button.tap()
+        waitForIdentifier("Notifications.List", timeout: 5)
+    }
+
     @available(iOS 17.0, *)
     private func shouldIgnoreListContrast(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
         guard issue.auditType == .contrast else { return false }
@@ -200,6 +214,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         }
         let listIdentifiers = [
             "Journal.List",
+            "Notifications.List",
             "Calendar.DaySheet.List",
             "Supplements.List",
             "AddSet.List",
