@@ -4,7 +4,6 @@ import SwiftData
 struct ExerciseEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
 
     @Query(sort: \Exercise.name)
     private var exercises: [Exercise]
@@ -31,6 +30,7 @@ struct ExerciseEditorView: View {
     @State private var durationRequirement: MetricRequirement = .none
     @State private var defaultRestSeconds: Int = 60
     @State private var isFavorite: Bool = false
+    @State private var showCustomMetrics = false
     @State private var showSaveError = false
     @State private var didInitialize = false
 
@@ -48,277 +48,14 @@ struct ExerciseEditorView: View {
 
     var body: some View {
         List {
-            Section {
-                Text(introText)
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .padding(.vertical, MarbleSpacing.xs)
-                    .accessibilityIdentifier("ExerciseEditor.Intro")
-            }
-
-            Section {
-                editorFieldBlock(
-                    title: "Exercise name",
-                    description: "Use the name you'll want to search for and recognize instantly while logging."
-                ) {
-                    TextField("e.g. Bench Press", text: $name)
-                        .focused($focusedField, equals: .name)
-                        .marbleFieldStyle(nameValidationState)
-                        .accessibilityIdentifier("ExerciseEditor.Name")
-                }
-
-                editorFieldBlock(
-                    title: "Category",
-                    description: "This keeps the exercise grouped correctly in the picker and sets the default system icon when you're not using a custom emoji."
-                ) {
-                    Picker("Category", selection: $category) {
-                        ForEach(ExerciseCategory.allCases) { category in
-                            Text(category.displayName).tag(category)
-                        }
-                    }
-                    .accessibilityIdentifier("ExerciseEditor.Category")
-                }
-
-                editorFieldBlock(
-                    title: "Exercise icon",
-                    description: "Use the category icon or pick one emoji that makes this exercise instantly recognizable."
-                ) {
-                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                        HStack(spacing: MarbleSpacing.s) {
-                            ExerciseIconView(icon: draftDisplayIcon, fontSize: 28, frameSize: 44)
-                                .accessibilityHidden(true)
-
-                            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-                                Text(iconSource == .emoji ? "Custom emoji icon" : "Category icon")
-                                    .font(MarbleTypography.rowTitle)
-                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                                Text(iconPreviewDescription)
-                                    .font(MarbleTypography.caption)
-                                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        .accessibilityIdentifier("ExerciseEditor.IconPreview")
-
-                        Picker("Icon style", selection: $iconSource) {
-                            ForEach(ExerciseIconSource.allCases) { source in
-                                Text(source.title).tag(source)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .tint(Theme.dividerColor(for: colorScheme))
-                        .accessibilityIdentifier("ExerciseEditor.IconMode")
-
-                        if iconSource == .emoji {
-                            TextField("e.g. 💪", text: $customIconEmoji)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .marbleFieldStyle(emojiValidationState)
-                                .accessibilityIdentifier("ExerciseEditor.CustomEmoji")
-
-                            Text("Use one emoji. If you paste several, Marble keeps the first valid one.")
-                                .font(MarbleTypography.caption)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: MarbleSpacing.xs) {
-                                    ForEach(Array(category.emojiSuggestions.enumerated()), id: \.offset) { index, emoji in
-                                        Button {
-                                            selectSuggestedEmoji(emoji)
-                                        } label: {
-                                            Text(emoji)
-                                                .font(.system(size: 24))
-                                                .frame(minWidth: 44, minHeight: 44)
-                                                .background(
-                                                    RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                                                        .fill(Theme.backgroundColor(for: colorScheme))
-                                                )
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                                                        .stroke(
-                                                            resolvedCustomIconEmoji == emoji
-                                                                ? Theme.primaryTextColor(for: colorScheme)
-                                                                : Theme.dividerColor(for: colorScheme),
-                                                            lineWidth: 1
-                                                        )
-                                                )
-                                        }
-                                        .buttonStyle(.plain)
-                                        .simultaneousGesture(TapGesture().onEnded {
-                                            selectSuggestedEmoji(emoji)
-                                        })
-                                        .accessibilityIdentifier("ExerciseEditor.EmojiSuggestion.\(index)")
-                                    }
-                                }
-                                .padding(.vertical, 1)
-                            }
-                        }
-                    }
-                }
-
-                editorFieldBlock(
-                    title: "Favorites",
-                    description: "Favorites float up in the exercise picker so repeat logging is faster."
-                ) {
-                    Toggle("Show in favorites", isOn: $isFavorite)
-                        .tint(Theme.dividerColor(for: colorScheme))
-                        .accessibilityIdentifier("ExerciseEditor.Favorite")
-                }
-            } header: {
-                SectionHeaderView(title: "Basics")
-            }
-
-            Section {
-                metricRequirementGuideCard
-                    .accessibilityIdentifier("ExerciseEditor.RequirementGuide")
-
-                editorCard {
-                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                        Text("Start from a common setup")
-                            .font(MarbleTypography.rowTitle)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                        Text("Start with the closest mold for this exercise, then fine-tune any field below.")
-                            .font(MarbleTypography.rowSubtitle)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                        LazyVGrid(columns: templateColumns, spacing: MarbleSpacing.s) {
-                            ForEach(ExerciseLoggingTemplate.allCases) { template in
-                                Button {
-                                    applyTemplateSelection(template)
-                                } label: {
-                                    ExerciseTemplateCard(
-                                        template: template,
-                                        isSelected: selectedTemplate == template
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                                .simultaneousGesture(TapGesture().onEnded {
-                                    applyTemplateSelection(template)
-                                })
-                                .accessibilityIdentifier("ExerciseEditor.Template.\(template.id)")
-                            }
-                        }
-                    }
-                }
-                .accessibilityIdentifier("ExerciseEditor.Templates")
-
-                ForEach(ExerciseMetricKind.allCases) { kind in
-                    metricConfigurationCard(kind: kind, selection: requirementBinding(for: kind))
-                        .accessibilityIdentifier("ExerciseEditor.Metric.\(kind.id)")
-                }
-
-                if !validationMessages.isEmpty {
-                    editorCard {
-                        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                            Text(exercise == nil ? "Finish setup" : "Fix before saving")
-                                .font(MarbleTypography.rowTitle)
-                                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                            ForEach(validationMessages, id: \.self) { message in
-                                HStack(alignment: .top, spacing: MarbleSpacing.xs) {
-                                    Text("•")
-                                        .font(MarbleTypography.rowSubtitle)
-                                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                    Text(message)
-                                        .font(MarbleTypography.rowSubtitle)
-                                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                        }
-                    }
-                    .accessibilityIdentifier("ExerciseEditor.Validation")
-                }
-            } header: {
-                SectionHeaderView(title: "How You Log It")
-            }
-
-            Section {
-                editorCard {
-                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                        Text(metricsProfile.previewTitle)
-                            .font(MarbleTypography.rowTitle)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                        Text(metricsProfile.previewDescription)
-                            .font(MarbleTypography.rowSubtitle)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                        Divider()
-
-                        VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
-                            Text("Exercise summary")
-                                .font(MarbleTypography.smallLabel)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                            Text(previewSummaryText)
-                                .font(MarbleTypography.rowSubtitle)
-                                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                        }
-
-                        if !previewBehaviorNotes.isEmpty {
-                            Divider()
-
-                            VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
-                                Text("How Marble will interpret your logs")
-                                    .font(MarbleTypography.smallLabel)
-                                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                                ForEach(previewBehaviorNotes, id: \.self) { note in
-                                    Text(note)
-                                        .font(MarbleTypography.rowSubtitle)
-                                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                        }
-                    }
-                }
-                .accessibilityIdentifier("ExerciseEditor.Preview")
-            } header: {
-                SectionHeaderView(title: "Logging Preview")
-            }
-
-            if existingHistoryCount > 0 {
-                Section {
-                    editorCard {
-                        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                            Text("\(existingHistoryCount) logged \(existingHistoryCount == 1 ? "set" : "sets") already use this exercise")
-                                .font(MarbleTypography.rowTitle)
-                                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                            Text("Changing the logging setup updates how those saved sets are interpreted across the app. Double-check metric changes before saving.")
-                                .font(MarbleTypography.rowSubtitle)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        }
-                    }
-                    .accessibilityIdentifier("ExerciseEditor.HistoryImpact")
-                } header: {
-                    SectionHeaderView(title: "History Impact")
-                }
-            }
-
-            Section {
-                editorCard {
-                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                        Text("Default rest")
-                            .font(MarbleTypography.rowTitle)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                        Text("This prefills the rest timer whenever you start a new log for this exercise.")
-                            .font(MarbleTypography.rowSubtitle)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        RestPicker(restSeconds: $defaultRestSeconds)
-                            .accessibilityIdentifier("ExerciseEditor.DefaultRest")
-                    }
-                }
-            } header: {
-                SectionHeaderView(title: "Defaults")
-            }
+            nameSection
+            iconSection
+            typeSection
+            loggingDetailSection
+            defaultsSection
+            historySection
         }
-        .listStyle(.plain)
-        .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
-        .scrollContentBackground(.hidden)
-        .background(Theme.backgroundColor(for: colorScheme))
+        .listStyle(.insetGrouped)
         .scrollDismissesKeyboard(.immediately)
         .navigationTitle(exercise == nil ? "Create Exercise" : "Edit Exercise")
         .navigationBarTitleDisplayMode(.inline)
@@ -356,6 +93,201 @@ struct ExerciseEditorView: View {
         }
     }
 
+    // MARK: - Sections
+
+    private var nameSection: some View {
+        Section {
+            TextField("Exercise name", text: $name)
+                .focused($focusedField, equals: .name)
+                .submitLabel(.done)
+                .accessibilityIdentifier("ExerciseEditor.Name")
+
+            Picker("Category", selection: $category) {
+                ForEach(ExerciseCategory.allCases) { category in
+                    Text(category.displayName).tag(category)
+                }
+            }
+            .accessibilityIdentifier("ExerciseEditor.Category")
+        } footer: {
+            if let nameError {
+                Text(nameError)
+            } else {
+                Text("Use the name you'll search for and recognize instantly while logging.")
+            }
+        }
+    }
+
+    private var iconSection: some View {
+        Section {
+            LabeledContent {
+                ExerciseIconView(icon: draftDisplayIcon, fontSize: 26, frameSize: 36)
+                    .accessibilityHidden(true)
+            } label: {
+                Text(iconSource == .emoji ? "Custom emoji" : "Category icon")
+            }
+
+            Picker("Icon style", selection: $iconSource) {
+                ForEach(ExerciseIconSource.allCases) { source in
+                    Text(source.title).tag(source)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("ExerciseEditor.IconMode")
+
+            if iconSource == .emoji {
+                TextField("Emoji", text: $customIconEmoji)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .accessibilityIdentifier("ExerciseEditor.CustomEmoji")
+
+                emojiSuggestionRow
+            }
+        } header: {
+            Text("Icon")
+        } footer: {
+            Text(iconFooter)
+        }
+    }
+
+    private var emojiSuggestionRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: MarbleSpacing.xs) {
+                ForEach(Array(category.emojiSuggestions.enumerated()), id: \.offset) { index, emoji in
+                    Button {
+                        selectSuggestedEmoji(emoji)
+                    } label: {
+                        Text(emoji)
+                            .font(.system(size: 24))
+                            .frame(width: 44, height: 44)
+                            .background(
+                                RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
+                                    .fill(.quaternary.opacity(resolvedCustomIconEmoji == emoji ? 0.9 : 0.4))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
+                                    .strokeBorder(.tint, lineWidth: resolvedCustomIconEmoji == emoji ? 2 : 0)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("ExerciseEditor.EmojiSuggestion.\(index)")
+                    .accessibilityLabel("Emoji option \(index + 1)")
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+    }
+
+    private var typeSection: some View {
+        Section {
+            ForEach(ExerciseLoggingTemplate.allCases) { template in
+                Button {
+                    applyTemplateSelection(template)
+                } label: {
+                    HStack(spacing: MarbleSpacing.s) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(template.title)
+                                .foregroundStyle(.primary)
+                            Text(template.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: MarbleSpacing.s)
+                        Image(systemName: "checkmark")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.tint)
+                            .opacity(selectedTemplate == template ? 1 : 0)
+                            .accessibilityHidden(true)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("ExerciseEditor.Template.\(template.id)")
+                .accessibilityAddTraits(selectedTemplate == template ? [.isSelected] : [])
+            }
+        } header: {
+            Text("Type")
+        } footer: {
+            Text(typeFooter)
+        }
+    }
+
+    @ViewBuilder
+    private var loggingDetailSection: some View {
+        Section {
+            if metricsProfile.usesWeight {
+                Picker("Load entry", selection: $resistanceTrackingStyle) {
+                    ForEach(ResistanceTrackingStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("ExerciseEditor.WeightTrackingStyle")
+            }
+
+            if metricsProfile.usesDistance {
+                Picker("Distance unit", selection: $preferredDistanceUnit) {
+                    ForEach(DistanceUnit.allCases) { unit in
+                        Text(unit.title).tag(unit)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("ExerciseEditor.DistanceUnit")
+            }
+
+            DisclosureGroup(isExpanded: $showCustomMetrics) {
+                ForEach(ExerciseMetricKind.allCases) { kind in
+                    Picker(kind.editorTitle, selection: requirementBinding(for: kind)) {
+                        Text("Off").tag(MetricRequirement.none)
+                        Text("Optional").tag(MetricRequirement.optional)
+                        Text("Required").tag(MetricRequirement.required)
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityIdentifier("ExerciseEditor.Metric.\(kind.id)")
+                }
+            } label: {
+                LabeledContent("Customize metrics") {
+                    Text(selectedTemplate == nil ? "Custom" : "")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("Logging")
+        } footer: {
+            Text("Off hides the field. Optional adds a per-set toggle. Required asks for it every time.")
+        }
+    }
+
+    private var defaultsSection: some View {
+        Section {
+            RestPicker(restSeconds: $defaultRestSeconds)
+                .accessibilityIdentifier("ExerciseEditor.DefaultRest")
+
+            Toggle("Favorite", isOn: $isFavorite)
+                .accessibilityIdentifier("ExerciseEditor.Favorite")
+        } header: {
+            Text("Defaults")
+        } footer: {
+            Text("Default rest prefills the timer for new logs. Favorites float to the top of the picker.")
+        }
+    }
+
+    @ViewBuilder
+    private var historySection: some View {
+        if existingHistoryCount > 0 {
+            Section {
+                Text("\(existingHistoryCount) logged \(existingHistoryCount == 1 ? "set" : "sets") use this exercise. Changing the logging setup updates how those saved sets are interpreted.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("ExerciseEditor.HistoryImpact")
+            } header: {
+                Text("History")
+            }
+        }
+    }
+
+    // MARK: - Derived state
+
     private var metricsProfile: ExerciseMetricsProfile {
         ExerciseMetricsProfile(
             weight: weightRequirement,
@@ -380,20 +312,20 @@ struct ExerciseEditorView: View {
         return .symbol(category.symbolName)
     }
 
-    private var iconPreviewDescription: String {
+    private var iconFooter: String {
         if iconSource == .emoji {
             return resolvedCustomIconEmoji == nil
-                ? "Choose one emoji and Marble will use it everywhere this exercise appears."
-                : "Your emoji will appear anywhere this exercise is shown."
+                ? "Choose one emoji. If you paste several, Marble keeps the first valid one."
+                : "Your emoji appears everywhere this exercise is shown."
         }
-        return "Uses the \(category.displayName) system icon automatically until you switch to a custom emoji."
+        return "Uses the \(category.displayName) system icon until you switch to a custom emoji."
     }
 
-    private var introText: String {
-        if exercise == nil {
-            return "Set this exercise up once so future logging is obvious, fast, and tailored to how you actually train."
+    private var typeFooter: String {
+        if selectedTemplate == nil {
+            return "Custom setup. Adjust each metric under Logging below."
         }
-        return "Refine how this exercise behaves in the logger so future sets are easy to enter and easy to trust."
+        return metricsProfile.previewTitle
     }
 
     private var existingHistoryCount: Int {
@@ -407,6 +339,16 @@ struct ExerciseEditorView: View {
             candidate.name.trimmingCharacters(in: .whitespacesAndNewlines)
                 .localizedCaseInsensitiveCompare(trimmedName) == .orderedSame
         }
+    }
+
+    private var nameError: String? {
+        if trimmedName.isEmpty {
+            return nil
+        }
+        if let duplicateExercise {
+            return "\"\(duplicateExercise.name)\" already exists. Edit that exercise or choose a more specific name."
+        }
+        return nil
     }
 
     private var validationMessages: [String] {
@@ -429,44 +371,6 @@ struct ExerciseEditorView: View {
         }
 
         return messages
-    }
-
-    private var previewSummaryText: String {
-        let title = trimmedName.isEmpty ? "This exercise" : trimmedName
-        return "\(title) · \(metricsProfile.summaryText(defaultRestSeconds: defaultRestSeconds, loadTrackingStyle: resistanceTrackingStyle, distanceUnit: preferredDistanceUnit))"
-    }
-
-    private var previewBehaviorNotes: [String] {
-        var notes: [String] = []
-
-        if metricsProfile.usesWeight {
-            notes.append(resistanceTrackingStyle.editorDescription)
-        }
-
-        if metricsProfile.usesDistance {
-            notes.append("Distance uses \(preferredDistanceUnit.title.lowercased()) by default when you log this exercise.")
-        }
-
-        if metricsProfile.usesDistance && metricsProfile.usesDuration {
-            notes.append("This setup works well for sprints and intervals where both distance and time matter.")
-        }
-
-        return notes
-    }
-
-    private var nameValidationState: MarbleFieldState {
-        (trimmedName.isEmpty || duplicateExercise != nil) ? .error : .normal
-    }
-
-    private var emojiValidationState: MarbleFieldState {
-        iconSource == .emoji && resolvedCustomIconEmoji == nil ? .error : .normal
-    }
-
-    private var templateColumns: [GridItem] {
-        [
-            GridItem(.flexible(), spacing: MarbleSpacing.s),
-            GridItem(.flexible(), spacing: MarbleSpacing.s)
-        ]
     }
 
     private var selectedTemplate: ExerciseLoggingTemplate? {
@@ -516,13 +420,21 @@ struct ExerciseEditorView: View {
         )
     }
 
+    // MARK: - Actions
+
     private func configureInitialState() {
         if let exercise {
             load(from: exercise)
         } else {
             name = initialName.trimmingCharacters(in: .whitespacesAndNewlines)
-            DispatchQueue.main.async {
-                focusedField = .name
+            // Only raise the keyboard for a genuinely blank create. When a name is
+            // pre-filled (e.g. created from search) keep focus clear so the type
+            // rows just below stay fully tappable and we don't pop the keyboard
+            // for nothing.
+            if name.isEmpty {
+                DispatchQueue.main.async {
+                    focusedField = .name
+                }
             }
         }
     }
@@ -551,158 +463,6 @@ struct ExerciseEditorView: View {
         customIconEmoji = category.emojiSuggestions.first ?? ""
     }
 
-    private func editorFieldBlock<Content: View>(
-        title: String,
-        description: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            Text(title)
-                .font(MarbleTypography.rowTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-            Text(description)
-                .font(MarbleTypography.rowSubtitle)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-            content()
-        }
-        .padding(.vertical, MarbleSpacing.xs)
-    }
-
-    private var metricRequirementGuideCard: some View {
-        editorCard {
-            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                Text("Choose what each set should capture")
-                    .font(MarbleTypography.rowTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                Text("Off means the logger never shows that field. Optional adds a per-set toggle. Required shows it every time.")
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                    requirementGuideRow(
-                        title: "Off",
-                        description: "Hide this field entirely for the exercise."
-                    )
-                    requirementGuideRow(
-                        title: "Optional",
-                        description: "Show a toggle in the logger so you can include it only when needed."
-                    )
-                    requirementGuideRow(
-                        title: "Required",
-                        description: "Ask for it on every set so logging stays consistent."
-                    )
-                }
-            }
-        }
-    }
-
-    private func requirementGuideRow(title: String, description: String) -> some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-            Text(title)
-                .font(MarbleTypography.smallLabel)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-            Text(description)
-                .font(MarbleTypography.caption)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func metricConfigurationCard(kind: ExerciseMetricKind, selection: Binding<MetricRequirement>) -> some View {
-        editorCard {
-            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                Text(kind.editorTitle)
-                    .font(MarbleTypography.rowTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                Text(kind.editorDescription)
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                Picker(kind.editorTitle, selection: selection) {
-                    Text("Off").tag(MetricRequirement.none)
-                    Text("Optional").tag(MetricRequirement.optional)
-                    Text("Required").tag(MetricRequirement.required)
-                }
-                .pickerStyle(.segmented)
-                .tint(Theme.dividerColor(for: colorScheme))
-
-                Text(kind.helperText(for: selection.wrappedValue))
-                    .font(MarbleTypography.caption)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                if kind == .weight, selection.wrappedValue != .none {
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                        Text("How you enter load")
-                            .font(MarbleTypography.smallLabel)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                        Picker("How you enter load", selection: $resistanceTrackingStyle) {
-                            ForEach(ResistanceTrackingStyle.allCases) { style in
-                                Text(style.title).tag(style)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .tint(Theme.dividerColor(for: colorScheme))
-                        .accessibilityIdentifier("ExerciseEditor.WeightTrackingStyle")
-
-                        Text(resistanceTrackingStyle.editorDescription)
-                            .font(MarbleTypography.caption)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-
-                if kind == .distance, selection.wrappedValue != .none {
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                        Text("Distance unit")
-                            .font(MarbleTypography.smallLabel)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                        Picker("Distance unit", selection: $preferredDistanceUnit) {
-                            ForEach(DistanceUnit.allCases) { unit in
-                                Text(unit.symbol.uppercased()).tag(unit)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .tint(Theme.dividerColor(for: colorScheme))
-                        .accessibilityIdentifier("ExerciseEditor.DistanceUnit")
-
-                        Text("Marble will default this exercise to \(preferredDistanceUnit.title.lowercased()) when you log each set.")
-                            .font(MarbleTypography.caption)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-        }
-    }
-
-    private func editorCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-            content()
-        }
-        .padding(MarbleSpacing.m)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                .fill(Theme.chipFillColor(for: colorScheme))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
-        )
-        .listRowInsets(MarbleLayout.rowInsets)
-        .listRowBackground(Theme.backgroundColor(for: colorScheme))
-    }
-
     private func load(from exercise: Exercise) {
         name = exercise.name
         category = exercise.category
@@ -716,6 +476,7 @@ struct ExerciseEditorView: View {
         durationRequirement = exercise.metrics.durationSeconds
         defaultRestSeconds = exercise.defaultRestSeconds
         isFavorite = exercise.isFavorite
+        showCustomMetrics = selectedTemplate == nil
     }
 
     private func save() {
@@ -783,15 +544,15 @@ fileprivate extension ExerciseEditorView {
         var id: String { rawValue }
 
         var title: String {
-        switch self {
+            switch self {
             case .strength:
-                return "Weight"
+                return "Weighted"
             case .dualDumbbell:
-                return "2 Dumbbells"
+                return "Dumbbell pair"
             case .bodyweight:
                 return "Bodyweight"
             case .weightedBodyweight:
-                return "Weighted BW"
+                return "Weighted bodyweight"
             case .sprint:
                 return "Sprint"
             case .plyometric:
@@ -804,15 +565,15 @@ fileprivate extension ExerciseEditorView {
         var subtitle: String {
             switch self {
             case .strength:
-                return "Single load + reps"
+                return "Single load and reps"
             case .dualDumbbell:
-                return "One dumbbell + reps"
+                return "One dumbbell weight and reps"
             case .bodyweight:
                 return "Reps only"
             case .weightedBodyweight:
-                return "Reps, optional load"
+                return "Reps with optional added load"
             case .sprint:
-                return "Distance + time"
+                return "Distance and time"
             case .plyometric:
                 return "Explosive reps"
             case .timed:
@@ -849,44 +610,7 @@ fileprivate extension ExerciseEditorView {
         }
 
         var distanceUnit: DistanceUnit {
-            switch self {
-            case .sprint:
-                return .meters
-            default:
-                return .meters
-            }
+            .meters
         }
-    }
-}
-
-private struct ExerciseTemplateCard: View {
-    let template: ExerciseEditorView.ExerciseLoggingTemplate
-    let isSelected: Bool
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
-            Text(template.title)
-                .font(MarbleTypography.sectionTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-            Text(template.subtitle)
-                .font(MarbleTypography.caption)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(MarbleSpacing.s)
-        .background(
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                .fill(Theme.backgroundColor(for: colorScheme))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                .stroke(
-                    isSelected ? Theme.primaryTextColor(for: colorScheme) : Theme.dividerColor(for: colorScheme),
-                    lineWidth: 1
-                )
-        )
     }
 }
