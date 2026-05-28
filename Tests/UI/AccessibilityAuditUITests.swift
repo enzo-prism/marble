@@ -49,6 +49,10 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         openSplit()
         try runAudit(name: "Split_Populated_\(appearance.envValue)_\(sizeLabel)")
 
+        navigateToTab(.empire)
+        waitForIdentifier("Empire.Scroll")
+        try runAudit(name: "Empire_Populated_\(appearance.envValue)_\(sizeLabel)")
+
         navigateToTab(.supplements)
         try runAudit(name: "Supplements_Populated_\(appearance.envValue)_\(sizeLabel)")
 
@@ -110,6 +114,10 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
 
         openSplit()
         try runAudit(name: "Split_Empty_\(appearance.envValue)_\(sizeLabel)")
+
+        navigateToTab(.empire)
+        waitForIdentifier("Empire.Scroll")
+        try runAudit(name: "Empire_Empty_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.supplements)
         waitForIdentifier("Supplements.EmptyState")
@@ -216,13 +224,14 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             "Calendar.DaySheet.List",
             "Supplements.List",
             "AddSet.List",
-            "Split.List"
+            "Split.List",
+            "Empire.Scroll"
         ]
         if element.frame == .zero || element.elementType == .any {
             return true
         }
         let listVisible = listIdentifiers.contains { identifier in
-            app.tables[identifier].exists || app.collectionViews[identifier].exists || app.otherElements[identifier].exists
+            app.tables[identifier].exists || app.collectionViews[identifier].exists || app.otherElements[identifier].exists || app.scrollViews[identifier].exists
         }
         guard listVisible else { return false }
         return element.elementType == .staticText
