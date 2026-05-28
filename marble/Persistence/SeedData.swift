@@ -33,6 +33,7 @@ enum SeedData {
         }
 
         ensureSplitPlan(in: context)
+        ensureEmpireState(in: context)
     }
 
     static func seedExercises(in context: ModelContext) {
@@ -61,6 +62,13 @@ enum SeedData {
         let planCount = (try? context.fetchCount(FetchDescriptor<SplitPlan>())) ?? 0
         if planCount == 0 {
             seedSplitPlan(in: context)
+        }
+    }
+
+    static func ensureEmpireState(in context: ModelContext) {
+        let stateCount = (try? context.fetchCount(FetchDescriptor<EmpireState>())) ?? 0
+        if stateCount == 0 {
+            context.insert(EmpireState(createdAt: AppEnvironment.now, updatedAt: AppEnvironment.now))
         }
     }
 
