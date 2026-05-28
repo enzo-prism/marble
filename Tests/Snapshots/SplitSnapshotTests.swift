@@ -1,4 +1,5 @@
 import SwiftData
+import SwiftUI
 import XCTest
 @testable import marble
 
@@ -8,7 +9,9 @@ final class SplitSnapshotTests: SnapshotTestCase {
         let context = ModelContext(container)
         SnapshotFixtures.seedBase(in: context)
 
-        let emptyView = SplitView()
+        let emptyView = NavigationStack {
+            SplitView()
+        }
             .modelContainer(container)
             .environmentObject(QuickLogCoordinator())
         assertSnapshot(emptyView, named: "Split_Empty", testName: "testSplitStates")
@@ -19,7 +22,9 @@ final class SplitSnapshotTests: SnapshotTestCase {
         let context = ModelContext(container)
         SnapshotFixtures.seedPopulated(in: context)
 
-        let populatedView = SplitView()
+        let populatedView = NavigationStack {
+            SplitView()
+        }
             .modelContainer(container)
             .environmentObject(QuickLogCoordinator())
         assertSnapshot(populatedView, named: "Split_Populated", testName: "testSplitStates")

@@ -46,8 +46,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         navigateToTab(.calendar)
         try runAudit(name: "Calendar_Month_\(appearance.envValue)_\(sizeLabel)")
 
-        navigateToTab(.split)
-        waitForIdentifier("Split.List")
+        openSplit()
         try runAudit(name: "Split_Populated_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.supplements)
@@ -109,8 +108,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         navigateToTab(.calendar)
         try runAudit(name: "Calendar_Month_Empty_\(appearance.envValue)_\(sizeLabel)")
 
-        navigateToTab(.split)
-        waitForIdentifier("Split.List")
+        openSplit()
         try runAudit(name: "Split_Empty_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.supplements)

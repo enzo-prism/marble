@@ -18,7 +18,6 @@ enum MarbleAppearance {
 enum MarbleTab: String, CaseIterable {
     case journal = "Journal"
     case calendar = "Calendar"
-    case split = "Split"
     case supplements = "Supplements"
     case trends = "Trends"
 
@@ -97,6 +96,16 @@ class MarbleUITestCase: XCTestCase {
             forceTap(identified)
             return
         }
+    }
+
+    /// Split is no longer a top-level tab; it is reached from the Calendar toolbar.
+    @discardableResult
+    func openSplit() -> XCUIElement {
+        navigateToTab(.calendar)
+        let splitButton = app.buttons["Calendar.Split"]
+        waitFor(splitButton)
+        forceTap(splitButton)
+        return waitForIdentifier("Split.List")
     }
 
     func forceTap(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {
