@@ -66,7 +66,15 @@ struct CalendarView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    NavigationLink {
+                        SplitView()
+                    } label: {
+                        Image(systemName: "list.bullet.clipboard")
+                    }
+                    .accessibilityLabel("Split")
+                    .accessibilityIdentifier("Calendar.Split")
+
                     AddSetToolbarButton()
                 }
             }

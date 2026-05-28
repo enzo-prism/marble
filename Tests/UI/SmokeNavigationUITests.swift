@@ -9,7 +9,6 @@ final class SmokeNavigationUITests: MarbleUITestCase {
         let tabAnchors: [MarbleTab: String] = [
             .journal: "Journal.List",
             .calendar: "Calendar.View",
-            .split: "Split.List",
             .supplements: "Supplements.List",
             .trends: "Trends.Scroll"
         ]
@@ -22,6 +21,11 @@ final class SmokeNavigationUITests: MarbleUITestCase {
                 }
                 takeScreenshot("Tab_\(tab.rawValue)")
             }
+        }
+
+        step("Open Split from Calendar") {
+            openSplit()
+            takeScreenshot("Split")
         }
     }
 }
