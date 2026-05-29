@@ -72,6 +72,23 @@ final class EmpireEconomyTests: MarbleTestCase {
         }
     }
 
+    // MARK: Palette coverage (Empire is the one tab allowed colour; each age must define one)
+
+    func testEveryAgeHasASkyGradientPalette() {
+        for age in EmpireAge.allCases {
+            XCTAssertGreaterThanOrEqual(
+                age.palette.sky.count, 2,
+                "\(age.title) needs at least a two-stop sky gradient"
+            )
+        }
+    }
+
+    func testAgesUseDistinctAccents() {
+        // Colour doubles as a progression signal, so each era should read as its own world.
+        let accents = EmpireAge.allCases.map { $0.palette.accent.description }
+        XCTAssertEqual(accents.count, Set(accents).count, "Two ages share an accent colour")
+    }
+
     func testCostsAscendWithinEachAge() {
         for age in EmpireAge.allCases {
             let costs = EmpireEconomy.structures(in: age).map(\.cost)

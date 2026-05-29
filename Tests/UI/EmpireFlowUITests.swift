@@ -18,4 +18,24 @@ final class EmpireFlowUITests: MarbleUITestCase {
         waitForIdentifier("Empire.Built.quarry")
         XCTAssertFalse(app.buttons["Empire.Build.quarry"].exists)
     }
+
+    func testClaimDailyTribute() {
+        // The populated fixture logs sets on the current day, so today's Tribute is claimable.
+        launchApp(fixtureMode: "populated")
+        navigateToTab(.empire)
+        waitForIdentifier("Empire.Scroll")
+
+        let claim = app.buttons["Empire.Tribute.Claim"]
+        XCTAssertTrue(claim.waitForExistence(timeout: 5))
+        forceTap(claim)
+
+        // The reveal appears; collect the reward.
+        let collect = app.buttons["Empire.Tribute.Collect"]
+        XCTAssertTrue(collect.waitForExistence(timeout: 5))
+        forceTap(collect)
+
+        // Today's Tribute is spent: the card stays but the Claim button is gone.
+        waitForIdentifier("Empire.Tribute")
+        XCTAssertFalse(app.buttons["Empire.Tribute.Claim"].exists)
+    }
 }

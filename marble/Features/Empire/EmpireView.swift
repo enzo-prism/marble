@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct EmpireView: View {
     @Environment(\.modelContext) private var modelContext
@@ -12,6 +13,9 @@ struct EmpireView: View {
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
 
+    @State private var celebration: EmpireCelebrationEvent?
+    @State private var tributeReveal: EmpireTributeOutcome?
+
     private let calendar = Calendar.current
     private let currencySymbol = "laurel.leading"
 
@@ -19,9 +23,11 @@ struct EmpireView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: MarbleSpacing.l) {
+                    tributeCard
+
                     balanceCard
 
-                    MarbleSkylineView(structures: builtStructures, ageTitle: currentAge.title)
+                    LivingSkylineView(structures: builtStructures, age: currentAge, relics: collectedRelics)
 
                     if builtCount == 0 && balance == 0 {
                         emptyPrompt
@@ -32,6 +38,8 @@ struct EmpireView: View {
                     ForEach(EmpireAge.allCases) { age in
                         ageSection(age)
                     }
+
+                    RelicGalleryView(collectedIDs: collectedRelicIDs)
                 }
                 .padding(.horizontal, MarbleLayout.pagePadding)
                 .padding(.top, MarbleSpacing.xs)
@@ -40,6 +48,22 @@ struct EmpireView: View {
             }
             .background(Theme.backgroundColor(for: colorScheme))
             .accessibilityIdentifier("Empire.Scroll")
+            .overlay {
+                if let celebration {
+                    EmpireCelebrationOverlay(event: celebration)
+                        .id(celebration.id)
+                }
+            }
+            .overlay {
+                if let tributeReveal {
+                    TributeRevealView(
+                        outcome: tributeReveal,
+                        palette: currentAge.palette,
+                        onDismiss: { self.tributeReveal = nil }
+                    )
+                    .id(tributeReveal.day)
+                }
+            }
             .navigationTitle("Empire")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
@@ -52,31 +76,86 @@ struct EmpireView: View {
             .onChange(of: entries.count) { _, _ in
                 refreshLifetime()
             }
+            .task(id: celebration?.id) {
+                guard celebration != nil else { return }
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                celebration = nil
+            }
         }
+    }
+
+    // MARK: Daily Tribute
+
+    private var tributeCard: some View {
+        TributeCard(
+            phase: tributePhase,
+            streak: tributeStreak,
+            freezes: tributeFreezes,
+            nextMilestone: EmpireTribute.nextMilestone(after: tributeStreak),
+            palette: currentAge.palette,
+            onClaim: claimTribute,
+            onLogSet: { quickLog.open() }
+        )
+    }
+
+    private var todayTributeDay: Date {
+        EmpireTribute.tributeDay(for: AppEnvironment.now, calendar: calendar)
+    }
+
+    private var trainedToday: Bool {
+        entries.contains { EmpireTribute.tributeDay(for: $0.performedAt, calendar: calendar) == todayTributeDay }
+    }
+
+    private var claimedTributeToday: Bool {
+        state?.hasClaimedTribute(on: todayTributeDay) ?? false
+    }
+
+    private var tributePhase: TributeCard.Phase {
+        if claimedTributeToday { return .claimed }
+        return trainedToday ? .ready : .earn
+    }
+
+    private var tributeStreak: Int { state?.tributeStreak ?? 0 }
+    private var tributeFreezes: Int { state?.streakFreezes ?? 0 }
+    private var collectedRelicIDs: Set<String> { state?.collectedRelicIDSet ?? [] }
+    private var collectedRelics: [EmpireRelic] {
+        EmpireRelic.catalog.filter { collectedRelicIDs.contains($0.id) }
+    }
+
+    private func claimTribute() {
+        let target = ensuredState()
+        target.updateLifetimeTalents(computedLifetime)
+        let day = todayTributeDay
+        guard trainedToday, !target.hasClaimedTribute(on: day) else { return }
+
+        let todayScore = EmpireEconomy.talentsEarned(on: AppEnvironment.now, from: entries, calendar: calendar)
+        let seed = EmpireTribute.seed(forDay: day, salt: target.id)
+        let outcome = EmpireTribute.claim(target.tributeSnapshot, day: day, todayScore: todayScore, seed: seed, calendar: calendar)
+
+        withAnimation(.snappy(duration: 0.4)) {
+            target.apply(outcome)
+        }
+        try? modelContext.save()
+
+        if !TestHooks.disableAnimations {
+            if outcome.tier.grantsRelic {
+                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+            } else {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+        }
+        tributeReveal = outcome
     }
 
     // MARK: Balance
 
     private var balanceCard: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-            HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.xs) {
-                Image(systemName: resolvedCurrencySymbol)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                    .accessibilityHidden(true)
-                Text(talentText(balance))
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                    .monospacedDigit()
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                Text("Talents")
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(talentText(balance)) Talents available")
-            .accessibilityIdentifier("Empire.Balance")
+            TalentBalanceHero(
+                balance: balance,
+                palette: currentAge.palette,
+                currencySymbol: resolvedCurrencySymbol
+            )
 
             Text("Earned from \(talentText(effectiveLifetime)) lb of lifetime volume.")
                 .font(MarbleTypography.rowMeta)
@@ -107,19 +186,20 @@ struct EmpireView: View {
     private func chip(text: String, systemImage: String) -> some View {
         HStack(spacing: MarbleSpacing.xxxs) {
             Image(systemName: systemImage)
+                .foregroundStyle(currentAge.palette.accent)
                 .accessibilityHidden(true)
             Text(text)
                 .lineLimit(1)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
         // Intrinsic width so the chips never get squeezed/clipped inside the HStack;
         // `ViewThatFits` falls back to the vertical stack when they no longer fit.
         .fixedSize()
         .font(MarbleTypography.smallLabel)
-        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         .padding(.horizontal, MarbleSpacing.s)
         .padding(.vertical, MarbleSpacing.xxs)
         .background(Capsule().fill(Theme.chipFillColor(for: colorScheme)))
-        .overlay(Capsule().stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1))
+        .overlay(Capsule().stroke(currentAge.palette.accent.opacity(0.35), lineWidth: 1))
         .accessibilityElement(children: .combine)
     }
 
@@ -154,11 +234,16 @@ struct EmpireView: View {
             VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
                 Text("NEXT MONUMENT")
                     .font(MarbleTypography.smallLabel)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .foregroundStyle(goal.age.palette.accent)
                     .textCase(.uppercase)
 
                 HStack(spacing: MarbleSpacing.s) {
-                    structureIcon(goal, size: MarbleLayout.rowIconSize)
+                    MonumentEmblem(
+                        goal: goal,
+                        balance: balance,
+                        animated: true,
+                        size: MarbleLayout.rowIconSize + 18
+                    )
                     VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
                         Text(goal.name)
                             .font(MarbleTypography.rowTitle)
@@ -171,9 +256,11 @@ struct EmpireView: View {
                     Spacer(minLength: MarbleSpacing.s)
                 }
 
-                ProgressView(value: min(balance / goal.cost, 1.0))
-                    .tint(Theme.primaryTextColor(for: colorScheme))
-                    .accessibilityHidden(true)
+                GoalProgressBar(
+                    progress: min(balance / goal.cost, 1.0),
+                    palette: goal.age.palette,
+                    ready: balance >= goal.cost
+                )
 
                 Text(goalProgressText(goal))
                     .font(MarbleTypography.rowMeta)
@@ -210,14 +297,19 @@ struct EmpireView: View {
         let builtInAge = structures.filter { builtIDs.contains($0.id) }.count
 
         return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.xs) {
+                Capsule()
+                    .fill(unlocked ? age.palette.accent : Theme.subtleDividerColor(for: colorScheme))
+                    .frame(width: 3, height: 14)
+                    .shadow(color: unlocked ? age.palette.glow.opacity(0.6) : .clear, radius: 3)
+                    .accessibilityHidden(true)
                 Text(age.title)
                     .font(MarbleTypography.sectionTitle)
                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 Spacer(minLength: MarbleSpacing.s)
                 Text(unlocked ? "\(builtInAge)/\(structures.count)" : "Locked")
                     .font(MarbleTypography.smallLabel)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .foregroundStyle(unlocked ? age.palette.accent : Theme.secondaryTextColor(for: colorScheme))
             }
 
             if unlocked {
@@ -250,10 +342,13 @@ struct EmpireView: View {
     private func structureRow(_ structure: EmpireStructure, unlocked: Bool) -> some View {
         let built = builtIDs.contains(structure.id)
         let affordable = balance >= structure.cost
+        let emblemState: MonumentEmblemState = built
+            ? .built
+            : (!unlocked ? .locked : (affordable ? .affordable : .idle))
 
         return HStack(spacing: MarbleSpacing.s) {
             HStack(spacing: MarbleSpacing.s) {
-                structureIcon(structure, size: MarbleLayout.rowIconSize)
+                MonumentEmblem(structure: structure, state: emblemState, size: 36)
 
                 VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
                     Text(structure.name)
@@ -308,14 +403,6 @@ struct EmpireView: View {
         }
     }
 
-    private func structureIcon(_ structure: EmpireStructure, size: CGFloat) -> some View {
-        Image(systemName: structure.resolvedSymbolName)
-            .font(.system(size: size * 0.7, weight: .regular))
-            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-            .frame(width: size, height: size)
-            .accessibilityHidden(true)
-    }
-
     // MARK: Derived state
 
     private var state: EmpireState? { states.first }
@@ -329,7 +416,9 @@ struct EmpireView: View {
     }
 
     private var balance: Double {
-        max(0, effectiveLifetime - (state?.spentTalents ?? 0))
+        // Volume floor + Tribute/milestone bonuses, minus spending. `effectiveLifetime` stays
+        // volume-only (it backs the "earned from X lb" copy); bonuses are additive on top.
+        max(0, effectiveLifetime + (state?.bonusTalents ?? 0) - (state?.spentTalents ?? 0))
     }
 
     private var builtIDs: Set<String> {
@@ -386,35 +475,10 @@ struct EmpireView: View {
         Formatters.compactNumberText(value)
     }
 
-    // MARK: Day streak (consecutive logged days ending today or yesterday)
+    // MARK: Streak label (the rest-aware Tribute streak)
 
     private var streakLabel: String {
-        let count = currentStreak
-        return "Streak \(count) \(count == 1 ? "day" : "days")"
-    }
-
-    private var currentStreak: Int {
-        let loggedDays = Set(entries.map { calendar.startOfDay(for: $0.performedAt) })
-        guard !loggedDays.isEmpty else { return 0 }
-        let today = calendar.startOfDay(for: AppEnvironment.now)
-        let start: Date?
-        if loggedDays.contains(today) {
-            start = today
-        } else if let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
-                  loggedDays.contains(yesterday) {
-            start = yesterday
-        } else {
-            start = nil
-        }
-        guard let streakStart = start else { return 0 }
-        var count = 0
-        var cursor = streakStart
-        while loggedDays.contains(cursor) {
-            count += 1
-            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
-            cursor = previous
-        }
-        return count
+        "Streak \(tributeStreak) \(tributeStreak == 1 ? "day" : "days")"
     }
 
     // MARK: Actions
@@ -432,8 +496,20 @@ struct EmpireView: View {
     private func build(_ structure: EmpireStructure) {
         let target = ensuredState()
         target.updateLifetimeTalents(computedLifetime)
-        guard target.purchase(structure) else { return }
+
+        // Mutate inside the animation transaction so the balance drop and the new skyline monument
+        // animate (the balance uses `.numericText()`); capture success to gate the payoff.
+        var didBuild = false
+        withAnimation(.snappy(duration: 0.45)) {
+            didBuild = target.purchase(structure)
+        }
+        guard didBuild else { return }
         try? modelContext.save()
+
+        if !TestHooks.disableAnimations {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
+        celebration = EmpireCelebrationEvent(age: structure.age, title: structure.name)
     }
 
     private func ensuredState() -> EmpireState {

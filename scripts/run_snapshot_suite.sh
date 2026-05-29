@@ -26,6 +26,7 @@ SNAPSHOT_GROUPS_FULL=(
   "MarbleSnapshotTests/ComponentGallerySnapshotTests/testComponentGallery"
   "MarbleSnapshotTests/EmpireSnapshotTests/testEmpireEmpty"
   "MarbleSnapshotTests/EmpireSnapshotTests/testEmpirePopulated"
+  "MarbleSnapshotTests/EmpireSnapshotTests/testEmpireTributeClaimed"
   "MarbleSnapshotTests/ExerciseProgressSnapshotTests/testExerciseProgressTooltip"
   "MarbleSnapshotTests/JournalSnapshotTests/testJournalEmpty"
   "MarbleSnapshotTests/JournalSnapshotTests/testJournalPopulated"
