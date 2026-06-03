@@ -3,7 +3,6 @@ import SwiftData
 
 struct ManageExercisesView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.colorScheme) private var colorScheme
 
     @Query(sort: \Exercise.name)
     private var exercises: [Exercise]
@@ -30,70 +29,38 @@ struct ManageExercisesView: View {
         List {
             if filteredExercises.isEmpty {
                 Section {
-                    VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                        Text("No exercises match that search.")
-                            .font(MarbleTypography.rowTitle)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                        Button {
-                            newExerciseSeedName = trimmedSearchText
-                            showingNewExercise = true
-                        } label: {
-                            Text(trimmedSearchText.isEmpty ? "Create New Exercise" : "Create \"\(trimmedSearchText)\"")
-                        }
-                        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
-                        .accessibilityIdentifier("ManageExercises.CreateFromSearch")
+                    Button {
+                        newExerciseSeedName = trimmedSearchText
+                        showingNewExercise = true
+                    } label: {
+                        Label(
+                            trimmedSearchText.isEmpty ? "Create New Exercise" : "Create \"\(trimmedSearchText)\"",
+                            systemImage: "plus.circle"
+                        )
                     }
-                    .padding(.vertical, MarbleSpacing.xs)
-                    .marbleRowInsets()
+                    .accessibilityIdentifier("ManageExercises.CreateFromSearch")
+                } footer: {
+                    Text("No exercises match that search.")
                 }
             } else {
-                ForEach(filteredExercises) { exercise in
-                    let sanitizedName = exercise.name.replacingOccurrences(of: " ", with: "")
-                    Button {
-                        editingExercise = exercise
-                    } label: {
-                        HStack(spacing: MarbleLayout.rowSpacing) {
-                            ExerciseIconView(exercise: exercise, fontSize: 18, frameSize: MarbleLayout.rowIconSize)
-
-                            VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
-                                HStack(spacing: MarbleSpacing.xs) {
-                                    Text(exercise.name)
-                                        .font(MarbleTypography.rowTitle)
-                                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                                    if exercise.isFavorite {
-                                        Image(systemName: "star.fill")
-                                            .font(MarbleTypography.rowMeta)
-                                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                            .accessibilityHidden(true)
-                                    }
-                                }
-
-                                Text(exercise.configurationSummaryText)
-                                    .font(MarbleTypography.rowMeta)
-                                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                            Image(systemName: "chevron.right")
-                                .font(MarbleTypography.rowMeta)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                .accessibilityHidden(true)
+                if !favorites.isEmpty {
+                    Section("Favorites") {
+                        ForEach(favorites) { exercise in
+                            exerciseRow(for: exercise)
                         }
                     }
-                    .buttonStyle(.plain)
-                    .marbleRowInsets()
-                    .accessibilityIdentifier("ManageExercises.Row.\(sanitizedName)")
                 }
-                .onDelete(perform: deleteExercises)
+
+                ForEach(categoriesWithExercises) { category in
+                    Section(category.displayName) {
+                        ForEach(categorizedExercises[category] ?? []) { exercise in
+                            exerciseRow(for: exercise)
+                        }
+                    }
+                }
             }
         }
-        .listStyle(.plain)
-        .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
-        .scrollContentBackground(.hidden)
-        .background(Theme.backgroundColor(for: colorScheme))
+        .listStyle(.insetGrouped)
         .accessibilityIdentifier("ManageExercises.List")
         .navigationTitle("Manage Exercises")
         .navigationBarTitleDisplayMode(.inline)
@@ -140,6 +107,60 @@ struct ManageExercisesView: View {
         }
     }
 
+    private func exerciseRow(for exercise: Exercise) -> some View {
+        let sanitizedName = exercise.name.replacingOccurrences(of: " ", with: "")
+        return Button {
+            editingExercise = exercise
+        } label: {
+            HStack(spacing: MarbleSpacing.s) {
+                ExerciseIconView(exercise: exercise, fontSize: 18, frameSize: MarbleLayout.rowIconSize)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: MarbleSpacing.xs) {
+                        Text(exercise.name)
+                            .foregroundStyle(.primary)
+                        if exercise.isFavorite {
+                            Image(systemName: "star.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    Text(rowSubtitle(for: exercise))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: "chevron.forward")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("ManageExercises.Row.\(sanitizedName)")
+        .accessibilityValue(rowSubtitle(for: exercise))
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                attemptDelete(exercise)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+            .accessibilityIdentifier("ManageExercises.Row.\(sanitizedName).Delete")
+        }
+    }
+
+    private func rowSubtitle(for exercise: Exercise) -> String {
+        let metrics = exercise.metrics.previewTitle
+        let rest = DateHelper.formattedDuration(seconds: exercise.defaultRestSeconds)
+        return "\(metrics) · rest \(rest)"
+    }
+
+    // MARK: - Derived state
+
     private var trimmedSearchText: String {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -151,18 +172,29 @@ struct ManageExercisesView: View {
         return exercises.filter { $0.name.localizedCaseInsensitiveContains(trimmedSearchText) }
     }
 
-    private func deleteExercises(at offsets: IndexSet) {
-        for index in offsets {
-            let exercise = filteredExercises[index]
-            let count = entries.filter { $0.exercise.id == exercise.id }.count
-            if count > 0 {
-                cannotDeleteName = exercise.name
-                showCannotDelete = true
-                continue
-            }
-            modelContext.delete(exercise)
+    private var favorites: [Exercise] {
+        filteredExercises.filter { $0.isFavorite }
+    }
+
+    private var categorizedExercises: [ExerciseCategory: [Exercise]] {
+        Dictionary(grouping: filteredExercises.filter { !$0.isFavorite }) { $0.category }
+    }
+
+    private var categoriesWithExercises: [ExerciseCategory] {
+        ExerciseCategory.allCases.filter { !(categorizedExercises[$0] ?? []).isEmpty }
+    }
+
+    // MARK: - Actions
+
+    private func attemptDelete(_ exercise: Exercise) {
+        let count = entries.filter { $0.exercise.id == exercise.id }.count
+        if count > 0 {
+            cannotDeleteName = exercise.name
+            showCannotDelete = true
+            return
         }
 
+        modelContext.delete(exercise)
         do {
             try modelContext.save()
         } catch {

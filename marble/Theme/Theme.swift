@@ -74,6 +74,12 @@ enum Theme {
             : Color(white: ThemePalette.lightDestructiveAction)
     }
 
+    /// On-state tint for switches. Marble's content stays monochrome, but a
+    /// switch is a system control where the platform-standard green is the
+    /// clearest, most familiar "on" signal. `Color.green` resolves to
+    /// systemGreen, which adapts and keeps sufficient contrast in light/dark.
+    static let toggleOnColor: Color = .green
+
     static func applyTabBarAppearance(for scheme: ColorScheme) {
         let resolved = resolvedScheme(scheme)
         let reduceTransparency = UIAccessibility.isReduceTransparencyEnabled || TestHooks.forceReduceTransparency

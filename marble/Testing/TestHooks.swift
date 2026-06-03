@@ -16,6 +16,15 @@ enum TestHooks {
 
     static let isUITesting: Bool = environmentFlag("MARBLE_UI_TESTING")
     static let disableAnimations: Bool = environmentFlag("MARBLE_DISABLE_ANIMATIONS") || isUITesting
+
+    /// Whether continuous, decorative motion (particle systems, shimmers)
+    /// should freeze to a single representative frame. True when animations are globally disabled
+    /// (UI tests) *or* when time is frozen via `overrideNow` (snapshot tests set this in `setUp`),
+    /// so `TimelineView`/`Canvas`-driven decoration renders deterministically and never makes a
+    /// snapshot flaky. Real users always get full motion (both conditions are false).
+    static var reduceDecorativeMotion: Bool {
+        disableAnimations || overrideNow != nil
+    }
     static let forcedColorScheme: ColorScheme? = TestHooks.parseColorScheme(environmentValue("MARBLE_FORCE_COLOR_SCHEME"))
     static let forcedDynamicType: ContentSizeCategory? = TestHooks.parseContentSize(environmentValue("MARBLE_FORCE_DYNAMIC_TYPE"))
     static let forceReduceTransparency: Bool = environmentFlag("MARBLE_FORCE_REDUCE_TRANSPARENCY")

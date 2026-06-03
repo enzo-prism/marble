@@ -288,7 +288,7 @@ private struct NotificationRowView: View {
 
             Toggle("", isOn: isOn)
                 .labelsHidden()
-                .tint(Theme.dividerColor(for: colorScheme))
+                .tint(Theme.toggleOnColor)
                 .accessibilityLabel(notification.isEnabled ? "Disable notification" : "Enable notification")
                 .accessibilityIdentifier("Notifications.Toggle.\(notification.id.uuidString)")
         }

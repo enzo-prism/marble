@@ -38,7 +38,7 @@ struct SetDetailView: View {
                 if entry.exercise.metrics.usesWeight {
                     if entry.exercise.metrics.weight == .optional {
                         Toggle(ExerciseMetricKind.weight.optionalToggleTitle, isOn: $addedLoad)
-                            .tint(Theme.dividerColor(for: colorScheme))
+                            .tint(Theme.toggleOnColor)
                             .onChange(of: addedLoad) { _, newValue in
                                 if !newValue {
                                     entry.weight = nil
@@ -77,7 +77,7 @@ struct SetDetailView: View {
                 if entry.exercise.metrics.usesReps {
                     if entry.exercise.metrics.reps == .optional {
                         Toggle(ExerciseMetricKind.reps.optionalToggleTitle, isOn: $logReps)
-                            .tint(Theme.dividerColor(for: colorScheme))
+                            .tint(Theme.toggleOnColor)
                             .onChange(of: logReps) { _, newValue in
                                 if newValue, entry.reps == nil {
                                     entry.reps = 10
@@ -97,7 +97,7 @@ struct SetDetailView: View {
                 if entry.exercise.metrics.usesDistance {
                     if entry.exercise.metrics.distance == .optional {
                         Toggle(ExerciseMetricKind.distance.optionalToggleTitle, isOn: $logDistance)
-                            .tint(Theme.dividerColor(for: colorScheme))
+                            .tint(Theme.toggleOnColor)
                             .onChange(of: logDistance) { _, newValue in
                                 if newValue, entry.distance == nil {
                                     entry.distance = 100
@@ -134,7 +134,7 @@ struct SetDetailView: View {
                 if entry.exercise.metrics.usesDuration {
                     if entry.exercise.metrics.durationSeconds == .optional {
                         Toggle(ExerciseMetricKind.duration.optionalToggleTitle, isOn: $logDuration)
-                            .tint(Theme.dividerColor(for: colorScheme))
+                            .tint(Theme.toggleOnColor)
                             .onChange(of: logDuration) { _, newValue in
                                 if newValue, (entry.durationSeconds ?? 0) == 0 {
                                     entry.durationSeconds = 60

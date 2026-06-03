@@ -31,12 +31,14 @@ struct ExerciseProgressView: View {
                         )
                         .accessibilityIdentifier("ExerciseProgress.EmptyState")
                     } else {
-                        if let liftBests {
-                            LiftBestsHighlightView(bests: liftBests)
-                        }
+                        ExerciseHeadlineView(points: points, metricInfo: metricInfo)
 
                         ExerciseProgressChart(points: points, isScrubbing: $isScrubbingChart) { date in
                             sheetDestination = .day(date)
+                        }
+
+                        if let liftBests {
+                            LiftBestsHighlightView(bests: liftBests)
                         }
                     }
                 }
@@ -77,6 +79,10 @@ struct ExerciseProgressView: View {
 
     private var liftBests: ExerciseLiftBests? {
         ExerciseProgressBuilder.buildLiftBests(entries: entries, exercise: exercise, range: range)
+    }
+
+    private var metricInfo: ProgressMetricInfo {
+        ExerciseProgressBuilder.metricInfo(for: exercise)
     }
 
     private var rangePicker: some View {

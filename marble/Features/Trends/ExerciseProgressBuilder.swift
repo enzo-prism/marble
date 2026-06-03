@@ -102,6 +102,23 @@ enum ExerciseProgressBuilder {
         return bests.hasAnyBest ? bests : nil
     }
 
+    /// Human-readable description of what the progress chart plots for a given exercise,
+    /// so the UI can label the trend instead of showing an unexplained "score".
+    static func metricInfo(for exercise: Exercise) -> ProgressMetricInfo {
+        switch progressMetric(for: exercise.metrics) {
+        case .weighted:
+            return ProgressMetricInfo(title: "Heaviest set", shortName: "heaviest set")
+        case .reps:
+            return ProgressMetricInfo(title: "Top reps", shortName: "reps")
+        case .distance:
+            return ProgressMetricInfo(title: "Longest distance", shortName: "distance")
+        case .duration:
+            return ProgressMetricInfo(title: "Longest hold", shortName: "duration")
+        case .speed:
+            return ProgressMetricInfo(title: "Fastest pace", shortName: "pace")
+        }
+    }
+
     private static func progressMetric(for profile: ExerciseMetricsProfile) -> ExerciseProgressMetric {
         if profile.usesDistance && profile.usesDuration && !profile.usesWeight && !profile.usesReps {
             return .speed
@@ -202,6 +219,13 @@ enum ExerciseProgressBuilder {
     }
 
     private static let timesSymbol = "\u{00D7}"
+}
+
+struct ProgressMetricInfo {
+    /// Title-cased label for headlines, e.g. "Heaviest set".
+    let title: String
+    /// Lowercase noun for inline sentences, e.g. "heaviest set".
+    let shortName: String
 }
 
 private enum ExerciseProgressMetric {
