@@ -23,32 +23,9 @@ struct ProgressMediaSection: View {
 
     var body: some View {
         Section {
-            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                Text(progressSummary)
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("Calendar.ProgressMedia.Summary")
-
-                PhotosPicker(
-                    selection: $selectedItems,
-                    maxSelectionCount: 8,
-                    matching: .any(of: [.images, .videos]),
-                    preferredItemEncoding: .automatic
-                ) {
-                    Label("Add Photo or Video", systemImage: "plus")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .standard))
-                .disabled(isImporting)
-                .accessibilityIdentifier("Calendar.ProgressMedia.Add")
-                .accessibilityLabel("Add progress photo or video")
-                .accessibilityHint("Choose photos or videos to attach to \(DateHelper.dayLabel(for: date)).")
-            }
-            .padding(.vertical, 4)
-            .listRowBackground(Theme.backgroundColor(for: colorScheme))
-            .marbleRowInsets()
+            progressMediaControls
+                .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                .marbleRowInsets()
 
             if isImporting {
                 HStack(spacing: MarbleSpacing.s) {
@@ -76,14 +53,7 @@ struct ProgressMediaSection: View {
                     .accessibilityIdentifier("Calendar.ProgressMedia.Error")
             }
 
-            if progressAttachments.isEmpty {
-                ProgressMediaEmptyRow()
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Theme.backgroundColor(for: colorScheme))
-                    .marbleRowInsets()
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("Calendar.ProgressMedia.EmptyState")
-            } else {
+            if !progressAttachments.isEmpty {
                 ProgressMediaStrip(attachments: progressAttachments)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Theme.backgroundColor(for: colorScheme))
@@ -107,6 +77,51 @@ struct ProgressMediaSection: View {
         }
     }
 
+    @ViewBuilder
+    private var progressMediaControls: some View {
+        if progressAttachments.isEmpty {
+            addMediaPicker(expandsHorizontally: true)
+        } else if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                progressSummaryText
+                addMediaPicker(expandsHorizontally: true)
+            }
+        } else {
+            HStack(alignment: .center, spacing: MarbleSpacing.s) {
+                progressSummaryText
+                Spacer(minLength: MarbleSpacing.s)
+                addMediaPicker(expandsHorizontally: false)
+            }
+        }
+    }
+
+    private var progressSummaryText: some View {
+        Text(progressSummary)
+            .font(MarbleTypography.rowSubtitle)
+            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("Calendar.ProgressMedia.Summary")
+    }
+
+    private func addMediaPicker(expandsHorizontally: Bool) -> some View {
+        PhotosPicker(
+            selection: $selectedItems,
+            maxSelectionCount: 8,
+            matching: .any(of: [.images, .videos]),
+            preferredItemEncoding: .automatic
+        ) {
+            Image(systemName: "plus")
+                .frame(maxWidth: expandsHorizontally ? .infinity : nil)
+                .accessibilityHidden(true)
+        }
+        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: expandsHorizontally, prominence: .standard))
+        .disabled(isImporting)
+        .accessibilityIdentifier("Calendar.ProgressMedia.Add")
+        .accessibilityLabel("Add progress photo or video")
+        .accessibilityHint("Choose photos or videos to attach to \(DateHelper.dayLabel(for: date)).")
+    }
+
     private var progressAttachments: [ProgressMediaAttachment] {
         attachments
             .filter { calendar.isDate($0.attachedToDate, inSameDayAs: date) }
@@ -119,7 +134,7 @@ struct ProgressMediaSection: View {
         }
         let count = progressAttachments.count
         let itemLabel = count == 1 ? "item" : "items"
-        return "\(count) progress \(itemLabel) attached to this date."
+        return "\(count) progress \(itemLabel)"
     }
 
     @MainActor
@@ -199,8 +214,6 @@ struct ProgressMediaSection: View {
 private struct ProgressMediaStrip: View {
     let attachments: [ProgressMediaAttachment]
 
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: MarbleSpacing.s) {
@@ -232,33 +245,28 @@ private struct ProgressMediaTile: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
-            ZStack(alignment: .bottomTrailing) {
-                ProgressMediaThumbnail(attachment: attachment)
-                    .frame(width: 124, height: 124)
-                    .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
+        ZStack(alignment: .bottomTrailing) {
+            ProgressMediaThumbnail(attachment: attachment)
+                .frame(width: tileSize, height: tileSize)
+                .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
 
-                if attachment.kind == .video {
-                    Image(systemName: "play.fill")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(Theme.backgroundColor(for: colorScheme))
-                        .padding(8)
-                        .background(
-                            Circle()
-                                .fill(Theme.primaryTextColor(for: colorScheme).opacity(0.88))
-                        )
-                        .padding(MarbleSpacing.xs)
-                        .accessibilityHidden(true)
-                }
+            if attachment.kind == .video {
+                Image(systemName: "play.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.backgroundColor(for: colorScheme))
+                    .padding(7)
+                    .background(
+                        Circle()
+                            .fill(Theme.primaryTextColor(for: colorScheme).opacity(0.88))
+                    )
+                    .padding(MarbleSpacing.xs)
+                    .accessibilityHidden(true)
             }
-
-            Label(attachment.kind.displayName, systemImage: attachment.kind.systemImage)
-                .font(MarbleTypography.smallLabel)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .lineLimit(1)
         }
-        .frame(width: 124, alignment: .leading)
+        .frame(width: tileSize, height: tileSize)
     }
+
+    private let tileSize: CGFloat = 104
 }
 
 private struct ProgressMediaThumbnail: View {
@@ -285,32 +293,6 @@ private struct ProgressMediaThumbnail: View {
             RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
                 .stroke(Theme.subtleDividerColor(for: colorScheme), lineWidth: 0.75)
         )
-    }
-}
-
-private struct ProgressMediaEmptyRow: View {
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        HStack(alignment: .top, spacing: MarbleSpacing.s) {
-            Image(systemName: "photo.on.rectangle")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-                Text("No progress media")
-                    .font(MarbleTypography.rowTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                Text("Add photos or videos when this date represents a physique check-in.")
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .frame(minHeight: 44, alignment: .leading)
     }
 }
 

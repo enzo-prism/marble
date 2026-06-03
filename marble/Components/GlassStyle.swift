@@ -155,21 +155,12 @@ private struct NavigationBarGlassBackgroundModifier: ViewModifier {
 }
 
 private struct TabBarGlassBackgroundModifier: ViewModifier {
-    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
-    @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
     @Environment(\.colorScheme) private var colorScheme
 
-    private var reduceTransparency: Bool {
-        reduceTransparencyOverride ?? systemReduceTransparency
-    }
-
     func body(content: Content) -> some View {
-        let base = content.toolbarBackground(.visible, for: .tabBar)
-        if reduceTransparency {
-            base.toolbarBackground(Theme.backgroundColor(for: colorScheme), for: .tabBar)
-        } else {
-            base.toolbarBackground(.ultraThinMaterial, for: .tabBar)
-        }
+        content
+            .toolbarBackground(.visible, for: .tabBar)
+            .toolbarBackground(Theme.backgroundColor(for: colorScheme), for: .tabBar)
     }
 }
 

@@ -253,7 +253,6 @@ struct TrendsView: View {
                 insightCaption(consistencyCaptionText, identifier: "Trends.ConsistencyCaption")
             }
         }
-        .accessibilityIdentifier("Trends.ConsistencySection")
     }
 
     private var progressSection: some View {
@@ -290,7 +289,6 @@ struct TrendsView: View {
                 insightCaption(volumeCaptionText, identifier: "Trends.VolumeCaption")
             }
         }
-        .accessibilityIdentifier("Trends.VolumeSection")
     }
 
     private var secondaryHighlightsSection: some View {
@@ -301,6 +299,7 @@ struct TrendsView: View {
                     Text("Momentum")
                         .font(MarbleTypography.sectionTitle)
                         .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                        .accessibilityHidden(true)
                     MomentumStripView(summary: momentumSummary)
                 }
                 .accessibilityIdentifier("Trends.MomentumSection")

@@ -82,19 +82,12 @@ enum Theme {
 
     static func applyTabBarAppearance(for scheme: ColorScheme) {
         let resolved = resolvedScheme(scheme)
-        let reduceTransparency = UIAccessibility.isReduceTransparencyEnabled || TestHooks.forceReduceTransparency
         let selected = UIColor(primaryTextColor(for: resolved))
         let unselected = UIColor(secondaryTextColor(for: resolved))
         let appearance = UITabBarAppearance()
 
-        if reduceTransparency {
-            appearance.configureWithOpaqueBackground()
-            appearance.backgroundColor = UIColor(backgroundColor(for: resolved))
-        } else {
-            appearance.configureWithTransparentBackground()
-            appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
-            appearance.backgroundColor = UIColor(backgroundColor(for: resolved)).withAlphaComponent(resolved == .dark ? 0.74 : 0.82)
-        }
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(backgroundColor(for: resolved))
         appearance.shadowColor = UIColor(subtleDividerColor(for: resolved))
 
         let stacked = appearance.stackedLayoutAppearance

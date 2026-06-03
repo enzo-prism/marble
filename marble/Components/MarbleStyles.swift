@@ -116,7 +116,7 @@ struct MarbleActionButtonStyle: ButtonStyle {
         configuration.label
             .font(MarbleTypography.button)
             .foregroundStyle(textColor(isEnabled: isEnabled))
-            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+            .lineLimit(2)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, MarbleSpacing.s)
