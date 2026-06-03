@@ -70,7 +70,7 @@ struct AddSetView: View {
                         if exercise.metrics.usesWeight {
                             if exercise.metrics.weight == .optional {
                                 Toggle(ExerciseMetricKind.weight.optionalToggleTitle, isOn: $addedLoad)
-                                    .tint(Theme.dividerColor(for: colorScheme))
+                                    .tint(Theme.toggleOnColor)
                                     .padding(.vertical, MarbleSpacing.s)
                                     .accessibilityIdentifier("AddSet.AddedLoad")
                             }
@@ -106,7 +106,7 @@ struct AddSetView: View {
                         if exercise.metrics.usesReps {
                             if exercise.metrics.reps == .optional {
                                 Toggle(ExerciseMetricKind.reps.optionalToggleTitle, isOn: $logReps)
-                                    .tint(Theme.dividerColor(for: colorScheme))
+                                    .tint(Theme.toggleOnColor)
                                     .padding(.vertical, MarbleSpacing.s)
                                     .accessibilityIdentifier("AddSet.LogReps")
                             }
@@ -137,7 +137,7 @@ struct AddSetView: View {
                         if exercise.metrics.usesDistance {
                             if exercise.metrics.distance == .optional {
                                 Toggle(ExerciseMetricKind.distance.optionalToggleTitle, isOn: $logDistance)
-                                    .tint(Theme.dividerColor(for: colorScheme))
+                                    .tint(Theme.toggleOnColor)
                                     .padding(.vertical, MarbleSpacing.s)
                                     .accessibilityIdentifier("AddSet.LogDistance")
                             }
@@ -173,7 +173,7 @@ struct AddSetView: View {
                         if exercise.metrics.usesDuration {
                             if exercise.metrics.durationSeconds == .optional {
                                 Toggle(ExerciseMetricKind.duration.optionalToggleTitle, isOn: $logDuration)
-                                    .tint(Theme.dividerColor(for: colorScheme))
+                                    .tint(Theme.toggleOnColor)
                                     .padding(.vertical, MarbleSpacing.s)
                                     .accessibilityIdentifier("AddSet.LogDuration")
                             }

@@ -18,7 +18,6 @@ enum MarbleAppearance {
 enum MarbleTab: String, CaseIterable {
     case journal = "Journal"
     case calendar = "Calendar"
-    case empire = "Empire"
     case supplements = "Supplements"
     case trends = "Trends"
 

@@ -24,13 +24,6 @@ struct ContentView: View {
                 }
                 .tag(AppTab.calendar)
 
-            EmpireView()
-                .tabItem {
-                    Label("Empire", systemImage: "building.columns")
-                        .accessibilityIdentifier("Tab.Empire")
-                }
-                .tag(AppTab.empire)
-
             SupplementsView()
                 .tabItem {
                     Label("Supplements", systemImage: "pills")

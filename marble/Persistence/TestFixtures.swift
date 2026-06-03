@@ -195,9 +195,7 @@ enum TestFixtures {
         let splitDays = (try? context.fetch(FetchDescriptor<SplitDay>())) ?? []
         let plannedSets = (try? context.fetch(FetchDescriptor<PlannedSet>())) ?? []
         let customNotifications = (try? context.fetch(FetchDescriptor<CustomNotification>())) ?? []
-        let empireStates = (try? context.fetch(FetchDescriptor<EmpireState>())) ?? []
 
-        empireStates.forEach { context.delete($0) }
         sets.forEach { context.delete($0) }
         supplements.forEach { context.delete($0) }
         exercises.forEach { context.delete($0) }

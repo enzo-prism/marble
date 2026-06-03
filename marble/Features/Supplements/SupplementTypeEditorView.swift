@@ -27,7 +27,7 @@ struct SupplementTypeEditorView: View {
                 }
                 .accessibilityIdentifier("SupplementTypeEditor.Unit")
                 Toggle("Favorite", isOn: $isFavorite)
-                    .tint(Theme.dividerColor(for: colorScheme))
+                    .tint(Theme.toggleOnColor)
                     .accessibilityIdentifier("SupplementTypeEditor.Favorite")
             }
         }

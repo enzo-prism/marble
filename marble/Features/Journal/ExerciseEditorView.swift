@@ -264,6 +264,7 @@ struct ExerciseEditorView: View {
                 .accessibilityIdentifier("ExerciseEditor.DefaultRest")
 
             Toggle("Favorite", isOn: $isFavorite)
+                .tint(Theme.toggleOnColor)
                 .accessibilityIdentifier("ExerciseEditor.Favorite")
         } header: {
             Text("Defaults")

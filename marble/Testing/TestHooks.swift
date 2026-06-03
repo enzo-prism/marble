@@ -17,7 +17,7 @@ enum TestHooks {
     static let isUITesting: Bool = environmentFlag("MARBLE_UI_TESTING")
     static let disableAnimations: Bool = environmentFlag("MARBLE_DISABLE_ANIMATIONS") || isUITesting
 
-    /// Whether continuous, decorative motion (the Empire skyline scene, particle systems, shimmers)
+    /// Whether continuous, decorative motion (particle systems, shimmers)
     /// should freeze to a single representative frame. True when animations are globally disabled
     /// (UI tests) *or* when time is frozen via `overrideNow` (snapshot tests set this in `setUp`),
     /// so `TimelineView`/`Canvas`-driven decoration renders deterministically and never makes a

@@ -49,10 +49,6 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         openSplit()
         try runAudit(name: "Split_Populated_\(appearance.envValue)_\(sizeLabel)")
 
-        navigateToTab(.empire)
-        waitForIdentifier("Empire.Scroll")
-        try runAudit(name: "Empire_Populated_\(appearance.envValue)_\(sizeLabel)")
-
         navigateToTab(.supplements)
         try runAudit(name: "Supplements_Populated_\(appearance.envValue)_\(sizeLabel)")
 
@@ -114,10 +110,6 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
 
         openSplit()
         try runAudit(name: "Split_Empty_\(appearance.envValue)_\(sizeLabel)")
-
-        navigateToTab(.empire)
-        waitForIdentifier("Empire.Scroll")
-        try runAudit(name: "Empire_Empty_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.supplements)
         waitForIdentifier("Supplements.EmptyState")
@@ -224,8 +216,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             "Calendar.DaySheet.List",
             "Supplements.List",
             "AddSet.List",
-            "Split.List",
-            "Empire.Scroll"
+            "Split.List"
         ]
         if element.frame == .zero || element.elementType == .any {
             return true

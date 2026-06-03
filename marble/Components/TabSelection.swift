@@ -4,7 +4,6 @@ import Foundation
 enum AppTab: Hashable {
     case journal
     case calendar
-    case empire
     case supplements
     case trends
 }

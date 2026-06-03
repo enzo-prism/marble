@@ -33,7 +33,7 @@ struct NotificationEditorView: View {
                     .accessibilityIdentifier("NotificationEditor.Message")
 
                 Toggle("Enabled", isOn: $isEnabled)
-                    .tint(Theme.dividerColor(for: colorScheme))
+                    .tint(Theme.toggleOnColor)
                     .accessibilityIdentifier("NotificationEditor.Enabled")
             }
 

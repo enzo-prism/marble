@@ -52,11 +52,8 @@ struct TrendsView: View {
                     let hasSupplementData = !filteredSupplementEntries.isEmpty
 
                     rangePicker
-                    if let selectedLiftBests {
-                        LiftBestsHighlightView(bests: selectedLiftBests)
-                    }
                     if hasSetData || hasSupplementData {
-                        trendSummaryStrip
+                        periodInsightHeader
                     }
 
                     if !hasSetData && !hasSupplementData {
@@ -68,40 +65,22 @@ struct TrendsView: View {
                             .accessibilityIdentifier("Trends.EmptyState")
                     } else {
                         if hasSetData {
-                            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                Text("Consistency")
-                                    .font(MarbleTypography.sectionTitle)
-                                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-                                consistencyChart
-                            }
+                            consistencySection
 
                             if selectedExercise != nil {
-                                VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                    Text("Progress")
-                                        .font(MarbleTypography.sectionTitle)
-                                        .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-                                    if progressPoints.isEmpty {
-                                        Text("No progress yet")
-                                            .font(MarbleTypography.rowMeta)
-                                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                    } else {
-                                        ExerciseProgressChart(points: progressPoints, isScrubbing: $isScrubbingChart) { date in
-                                            sheetDestination = .day(date)
-                                        }
-                                    }
-                                }
+                                progressSection
                             }
 
-                            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                Text("Weekly Volume")
-                                    .font(MarbleTypography.sectionTitle)
-                                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-                                volumeChart
-                            }
+                            weeklyVolumeSection
                         } else {
                             Text("No workout data for this range.")
                                 .font(MarbleTypography.rowMeta)
                                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        }
+
+                        if hasSecondaryHighlights {
+                            secondaryHighlightsSection
+                                .padding(.top, MarbleSpacing.l)
                         }
 
                         supplementsSection
@@ -239,6 +218,115 @@ struct TrendsView: View {
         .accessibilityIdentifier("Trends.Range")
     }
 
+    private var periodInsightHeader: some View {
+        let insight = periodInsight
+        return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+            Text("This period")
+                .font(MarbleTypography.smallLabel)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .textCase(.uppercase)
+
+            Text(insight.title)
+                .font(MarbleTypography.rowTitle)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let detail = insight.detail, !dynamicTypeSize.isAccessibilitySize {
+                Text(detail)
+                    .font(MarbleTypography.rowMeta)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("Trends.PeriodInsight")
+    }
+
+    private var consistencySection: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            Text("Consistency")
+                .font(MarbleTypography.sectionTitle)
+                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+            consistencyChart
+            if let consistencyCaptionText {
+                insightCaption(consistencyCaptionText, identifier: "Trends.ConsistencyCaption")
+            }
+        }
+        .accessibilityIdentifier("Trends.ConsistencySection")
+    }
+
+    private var progressSection: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            Text("Progress")
+                .font(MarbleTypography.sectionTitle)
+                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+            if progressPoints.isEmpty {
+                Text("No progress yet")
+                    .font(MarbleTypography.rowMeta)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            } else {
+                if let selectedExercise {
+                    ExerciseHeadlineView(
+                        points: progressPoints,
+                        metricInfo: ExerciseProgressBuilder.metricInfo(for: selectedExercise)
+                    )
+                }
+                ExerciseProgressChart(points: progressPoints, isScrubbing: $isScrubbingChart) { date in
+                    sheetDestination = .day(date)
+                }
+            }
+        }
+        .accessibilityIdentifier("Trends.ProgressSection")
+    }
+
+    private var weeklyVolumeSection: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            Text("Weekly Volume")
+                .font(MarbleTypography.sectionTitle)
+                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+            volumeChart
+            if let volumeCaptionText {
+                insightCaption(volumeCaptionText, identifier: "Trends.VolumeCaption")
+            }
+        }
+        .accessibilityIdentifier("Trends.VolumeSection")
+    }
+
+    private var secondaryHighlightsSection: some View {
+        let momentumSummary = momentum
+        return VStack(alignment: .leading, spacing: MarbleSpacing.l) {
+            if momentumSummary.hasContent {
+                VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                    Text("Momentum")
+                        .font(MarbleTypography.sectionTitle)
+                        .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                    MomentumStripView(summary: momentumSummary)
+                }
+                .accessibilityIdentifier("Trends.MomentumSection")
+            }
+
+            if let selectedLiftBests {
+                LiftBestsHighlightView(bests: selectedLiftBests)
+            }
+
+            if !trendSummaryItems.isEmpty {
+                VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                    Text("Summary")
+                        .font(MarbleTypography.sectionTitle)
+                        .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                    trendSummaryStrip
+                }
+                .accessibilityIdentifier("Trends.SummarySection")
+            }
+        }
+        .accessibilityIdentifier("Trends.Highlights")
+    }
+
+    private var hasSecondaryHighlights: Bool {
+        momentum.hasContent || selectedLiftBests != nil || !trendSummaryItems.isEmpty
+    }
+
     private var exerciseSearchButton: some View {
         Button {
             isPresentingExerciseSearch = true
@@ -269,6 +357,34 @@ struct TrendsView: View {
         .accessibilityValue(selectedSupplementType?.name ?? "All Supplements")
     }
 
+    private var periodInsight: TrendPeriodInsight {
+        let setCount = filteredEntries.count
+        let activeDays = Set(filteredEntries.map { Calendar.current.startOfDay(for: $0.performedAt) }).count
+        let supplementLogs = filteredSupplementEntries.count
+        let title: String
+        var details: [String] = []
+
+        if setCount > 0 {
+            let dayWord = activeDays == 1 ? "day" : "days"
+            title = "\(setsLabel(for: setCount)) across \(activeDays) active \(dayWord)"
+            if let selectedExercise {
+                details.append(selectedExercise.name)
+            }
+            if let bestWeek = bestWeekSummary {
+                details.append("Best week \(TrendsDateHelper.weekLabel(start: bestWeek.weekStart, end: bestWeek.weekEnd)) · \(setsLabel(for: bestWeek.setCount))")
+            }
+            if supplementLogs > 0 {
+                details.append(supplementLogs == 1 ? "1 supplement log" : "\(supplementLogs) supplement logs")
+            }
+        } else {
+            title = supplementLogs == 1 ? "1 supplement log" : "\(supplementLogs) supplement logs"
+            details.append(selectedSupplementType?.name ?? "All supplements")
+        }
+
+        let detail = details.isEmpty ? nil : details.prefix(2).joined(separator: " · ")
+        return TrendPeriodInsight(title: title, detail: detail)
+    }
+
     private var trendSummaryStrip: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: MarbleSpacing.xs) {
@@ -289,16 +405,21 @@ struct TrendsView: View {
 
     private var trendSummaryItems: [TrendSummaryItem] {
         let activeDays = Set(filteredEntries.map { Calendar.current.startOfDay(for: $0.performedAt) }).count
-        let bestWeek = weeklySummaries.max { $0.setCount < $1.setCount }
         let supplementLogs = filteredSupplementEntries.count
-        var items: [TrendSummaryItem] = [
-            TrendSummaryItem(title: "Sets", value: "\(filteredEntries.count)", detail: "\(activeDays) active days"),
-            TrendSummaryItem(title: "Best Week", value: bestWeek.map { "\($0.setCount)" } ?? "-", detail: bestWeek.map { TrendsDateHelper.weekLabel(start: $0.weekStart, end: $0.weekEnd) } ?? "No week yet")
-        ]
+        var items: [TrendSummaryItem] = []
+        if !filteredEntries.isEmpty {
+            let dayWord = activeDays == 1 ? "day" : "days"
+            items.append(TrendSummaryItem(title: "Sets", value: "\(filteredEntries.count)", detail: "\(activeDays) active \(dayWord)"))
+            items.append(TrendSummaryItem(title: "Best Week", value: bestWeekSummary.map { "\($0.setCount)" } ?? "-", detail: bestWeekSummary.map { TrendsDateHelper.weekLabel(start: $0.weekStart, end: $0.weekEnd) } ?? "No week yet"))
+        }
         if supplementLogs > 0 {
             items.append(TrendSummaryItem(title: "Supplements", value: "\(supplementLogs)", detail: selectedSupplementType?.name ?? "All types"))
         }
         return items
+    }
+
+    private var bestWeekSummary: TrendWeeklySummary? {
+        weeklySummaries.max { $0.setCount < $1.setCount }
     }
 
     private var consistencyChart: some View {
@@ -1047,6 +1168,48 @@ struct TrendsView: View {
         return ExerciseProgressBuilder.buildLiftBests(entries: entries, exercise: selectedExercise, range: range)
     }
 
+    /// Entries scoped to the selected exercise (if any) but not filtered by range, so momentum
+    /// can compare the current window to the previous one and detect all-time records.
+    private var exerciseScopedEntries: [SetEntry] {
+        guard let selectedExerciseID else { return entries }
+        return entries.filter { $0.exercise.id == selectedExerciseID }
+    }
+
+    private var momentum: MomentumSummary {
+        MomentumBuilder.build(entries: exerciseScopedEntries, range: range, exercise: selectedExercise)
+    }
+
+    private var consistencyCaptionText: String? {
+        let summaries = dailySummaries
+        let activeDays = summaries.filter { $0.count > 0 }.count
+        guard activeDays > 0 else { return nil }
+        let totalSets = summaries.reduce(0) { $0 + $1.count }
+        let dayWord = activeDays == 1 ? "day" : "days"
+        if let prSummary = dailyPRSummary, dailyPRCount > 0 {
+            return "Most active \(DateHelper.dayLabel(for: prSummary.date)) · \(setsLabel(for: prSummary.count)). \(totalSets) sets across \(activeDays) active \(dayWord)."
+        }
+        return "\(totalSets) sets across \(activeDays) active \(dayWord)."
+    }
+
+    private var volumeCaptionText: String? {
+        guard let best = weeklySummaries.max(by: { $0.totalVolumeScore < $1.totalVolumeScore }),
+              best.totalVolumeScore > 0 else {
+            return nil
+        }
+        let label = TrendsDateHelper.weekLabel(start: best.weekStart, end: best.weekEnd)
+        return "Best week \(label) · \(best.valueText)."
+    }
+
+    @ViewBuilder
+    private func insightCaption(_ text: String, identifier: String) -> some View {
+        Text(text)
+            .font(MarbleTypography.rowMeta)
+            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier(identifier)
+    }
+
     private func setsLabel(for count: Int) -> String {
         count == 1 ? "1 set" : "\(count) sets"
     }
@@ -1160,6 +1323,11 @@ private struct TrendSummaryItem: Identifiable {
     let detail: String
 
     var id: String { title }
+}
+
+private struct TrendPeriodInsight {
+    let title: String
+    let detail: String?
 }
 
 private struct PRCardMetric {
@@ -1538,14 +1706,16 @@ enum VolumeSeries: String, CaseIterable {
     }
 
     func color(for scheme: ColorScheme) -> Color {
-        let base = Theme.secondaryTextColor(for: scheme)
+        // A wide dark→light ramp off the primary ink keeps the three series distinguishable
+        // (the previous near-identical greys were hard to tell apart) while staying monochrome.
+        let base = Theme.primaryTextColor(for: scheme)
         switch self {
         case .weighted:
-            return base.opacity(scheme == .dark ? 0.9 : 0.7)
+            return base.opacity(0.85)
         case .reps:
-            return base.opacity(scheme == .dark ? 0.75 : 0.55)
+            return base.opacity(0.55)
         case .duration:
-            return base.opacity(scheme == .dark ? 0.6 : 0.45)
+            return base.opacity(0.28)
         }
     }
 }
@@ -1571,6 +1741,22 @@ enum TrendRange: String, CaseIterable, Identifiable {
             return "1Y"
         case .all:
             return "All"
+        }
+    }
+
+    /// Length of the range in days, or `nil` for `.all` (which has no fixed window).
+    var dayCount: Int? {
+        switch self {
+        case .sevenDays:
+            return 7
+        case .thirtyDays:
+            return 30
+        case .ninetyDays:
+            return 90
+        case .oneYear:
+            return 365
+        case .all:
+            return nil
         }
     }
 
