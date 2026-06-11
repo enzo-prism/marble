@@ -791,16 +791,18 @@ struct TrendsView: View {
             .max { (lhs, rhs) in
                 (lhs.weight ?? 0) < (rhs.weight ?? 0)
             }
+        // Compare in meters so a 6 mi run beats a 200 m sprint regardless of
+        // the unit each entry was logged in.
         let bestDistanceEntry = filteredEntries
             .filter { $0.distance != nil }
             .max { (lhs, rhs) in
-                (lhs.distance ?? 0) < (rhs.distance ?? 0)
+                lhs.distanceUnit.meters(from: lhs.distance ?? 0) < rhs.distanceUnit.meters(from: rhs.distance ?? 0)
             }
         let fastestSpeedEntry = filteredEntries
             .filter { ($0.distance ?? 0) > 0 && ($0.durationSeconds ?? 0) > 0 }
             .max { lhs, rhs in
-                let lhsSpeed = (lhs.distance ?? 0) / Double(max(lhs.durationSeconds ?? 1, 1))
-                let rhsSpeed = (rhs.distance ?? 0) / Double(max(rhs.durationSeconds ?? 1, 1))
+                let lhsSpeed = lhs.distanceUnit.meters(from: lhs.distance ?? 0) / Double(max(lhs.durationSeconds ?? 1, 1))
+                let rhsSpeed = rhs.distanceUnit.meters(from: rhs.distance ?? 0) / Double(max(rhs.durationSeconds ?? 1, 1))
                 return lhsSpeed < rhsSpeed
             }
         let bestReps = filteredEntries.compactMap { $0.reps }.max()
@@ -817,10 +819,12 @@ struct TrendsView: View {
         let secondCard = PRCardMetric(
             title: showsDistancePRs ? "Fastest Pace" : "Best Reps",
             value: showsDistancePRs
-                ? fastestSpeedEntry.map { fastestEntry in
-                    let speed = (fastestEntry.distance ?? 0) / Double(max(fastestEntry.durationSeconds ?? 1, 1))
-                    let formatted = Formatters.distance.string(from: NSNumber(value: speed)) ?? "\(speed)"
-                    return "\(formatted) \(fastestEntry.distanceUnit.symbol)/s"
+                ? fastestSpeedEntry.flatMap { fastestEntry in
+                    Formatters.paceText(
+                        distance: fastestEntry.distance ?? 0,
+                        unit: fastestEntry.distanceUnit,
+                        durationSeconds: fastestEntry.durationSeconds ?? 0
+                    )
                 } ?? "-"
                 : bestReps.map { "\($0) reps" } ?? "-"
         )
@@ -1056,10 +1060,9 @@ struct TrendsView: View {
         if let entry = fastestSpeedEntry,
            let distance = entry.distance,
            let durationSeconds = entry.durationSeconds,
-           durationSeconds > 0 {
-            let speed = distance / Double(durationSeconds)
-            let formatted = Formatters.distance.string(from: NSNumber(value: speed)) ?? "\(speed)"
-            speedText = "Fastest pace \(formatted) \(entry.distanceUnit.symbol) per second"
+           durationSeconds > 0,
+           let pace = Formatters.paceText(distance: distance, unit: entry.distanceUnit, durationSeconds: durationSeconds) {
+            speedText = "Fastest pace \(pace)"
         } else {
             speedText = "Fastest pace none"
         }

@@ -53,6 +53,20 @@ enum Formatters {
         return formatter
     }()
 
+    /// Pace as runners read it: "4:32 /km" or "7:18 /mi", derived from the
+    /// entry's own distance unit. Returns nil when pace is undefined.
+    static func paceText(distance: Double, unit: DistanceUnit, durationSeconds: Int) -> String? {
+        guard distance > 0, durationSeconds > 0 else { return nil }
+        let referenceUnit = unit.paceReferenceUnit
+        let referenceDistance = unit.meters(from: distance) / referenceUnit.metersPerUnit
+        guard referenceDistance > 0 else { return nil }
+        let secondsPerReference = Double(durationSeconds) / referenceDistance
+        let rounded = Int(secondsPerReference.rounded())
+        let minutes = rounded / 60
+        let seconds = rounded % 60
+        return String(format: "%d:%02d /%@", minutes, seconds, referenceUnit.symbol)
+    }
+
     static func compactNumberText(_ value: Double) -> String {
         let absoluteValue = abs(value)
         let sign = value < 0 ? "-" : ""
@@ -98,8 +112,20 @@ enum DateHelper {
     }
 
     static func formattedDuration(seconds: Int) -> String {
-        let minutes = seconds / 60
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
         let remaining = seconds % 60
+
+        if hours > 0 {
+            var parts = ["\(hours)h"]
+            if minutes > 0 {
+                parts.append("\(minutes)m")
+            }
+            if remaining > 0 {
+                parts.append("\(remaining)s")
+            }
+            return parts.joined(separator: " ")
+        }
         if minutes == 0 {
             return "\(remaining)s"
         }
@@ -110,8 +136,12 @@ enum DateHelper {
     }
 
     static func formattedClockDuration(seconds: Int) -> String {
-        let minutes = seconds / 60
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
         let remaining = seconds % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, remaining)
+        }
         return String(format: "%d:%02d", minutes, remaining)
     }
 

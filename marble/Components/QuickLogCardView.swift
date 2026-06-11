@@ -162,6 +162,10 @@ struct QuickLogCardView: View {
             parts.append("\(reps) reps")
         }
 
+        if let distance = entry.distance {
+            parts.append(entry.exercise.formattedDistanceSummary(distance, unit: entry.distanceUnit))
+        }
+
         if let duration = entry.durationSeconds {
             parts.append(DateHelper.formattedDuration(seconds: duration))
         }

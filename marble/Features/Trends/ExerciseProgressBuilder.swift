@@ -166,11 +166,12 @@ enum ExerciseProgressBuilder {
 
     private static func distanceBestSet(for entry: SetEntry) -> BestSet? {
         guard let distance = entry.distance else { return nil }
+        let meters = entry.distanceUnit.meters(from: distance)
         let summary = entry.exercise.formattedDistanceSummary(distance, unit: entry.distanceUnit)
         if let seconds = entry.durationSeconds, seconds > 0 {
-            return BestSet(entry: entry, score: distance, bestSetSummary: "\(summary) in \(DateHelper.formattedClockDuration(seconds: seconds))", scoreSummary: nil)
+            return BestSet(entry: entry, score: meters, bestSetSummary: "\(summary) in \(DateHelper.formattedClockDuration(seconds: seconds))", scoreSummary: nil)
         }
-        return BestSet(entry: entry, score: distance, bestSetSummary: summary, scoreSummary: nil)
+        return BestSet(entry: entry, score: meters, bestSetSummary: summary, scoreSummary: nil)
     }
 
     private static func durationBestSet(for entry: SetEntry) -> BestSet? {
@@ -186,14 +187,13 @@ enum ExerciseProgressBuilder {
             return nil
         }
 
-        let speed = distance / Double(seconds)
-        let speedText = formattedNumber(speed)
+        let metersPerSecond = entry.distanceUnit.meters(from: distance) / Double(seconds)
         let distanceSummary = entry.exercise.formattedDistanceSummary(distance, unit: entry.distanceUnit)
         return BestSet(
             entry: entry,
-            score: speed,
+            score: metersPerSecond,
             bestSetSummary: "\(distanceSummary) in \(DateHelper.formattedClockDuration(seconds: seconds))",
-            scoreSummary: "\(speedText) \(entry.distanceUnit.symbol)/s"
+            scoreSummary: Formatters.paceText(distance: distance, unit: entry.distanceUnit, durationSeconds: seconds)
         )
     }
 

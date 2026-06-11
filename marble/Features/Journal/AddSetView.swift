@@ -161,6 +161,8 @@ struct AddSetView: View {
                                         .accessibilityIdentifier("AddSet.DistanceUnit")
                                     }
 
+                                    distancePresetChips
+
                                     Text("Track each effort in \(distanceUnit.title.lowercased()).")
                                         .font(MarbleTypography.caption)
                                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
@@ -502,6 +504,69 @@ struct AddSetView: View {
         .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true, prominence: .primary))
         .allowsHitTesting(effectiveCanSave)
         .accessibilityIdentifier("AddSet.BottomSave")
+    }
+
+    /// Common race and interval distances per unit so a 200 m sprint or a
+    /// 10 K is one tap instead of keyboard entry.
+    private static func distancePresets(for unit: DistanceUnit) -> [Double] {
+        switch unit {
+        case .meters:
+            return [100, 200, 400, 800, 1500]
+        case .kilometers:
+            return [1, 3, 5, 10, 21.1, 42.2]
+        case .miles:
+            return [1, 2, 3, 6, 13.1, 26.2]
+        case .yards:
+            return [50, 100, 200, 400]
+        case .feet:
+            return [50, 100, 150, 300]
+        }
+    }
+
+    private var distancePresetChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: MarbleSpacing.xs) {
+                ForEach(Self.distancePresets(for: distanceUnit), id: \.self) { preset in
+                    distancePresetChip(for: preset)
+                }
+            }
+            .padding(.vertical, 1)
+        }
+        .accessibilityIdentifier("AddSet.DistancePresets")
+    }
+
+    private func distancePresetChip(for preset: Double) -> some View {
+        let isSelected = distance == preset
+        let valueText = Formatters.distance.string(from: NSNumber(value: preset)) ?? "\(preset)"
+        let shape = Capsule(style: .continuous)
+        return Button {
+            distance = preset
+        } label: {
+            Text("\(valueText) \(distanceUnit.symbol)")
+                .font(MarbleTypography.chip)
+                .monospacedDigit()
+                .foregroundStyle(
+                    isSelected
+                        ? Theme.backgroundColor(for: colorScheme)
+                        : Theme.primaryTextColor(for: colorScheme)
+                )
+                .padding(.horizontal, MarbleSpacing.s)
+                .frame(minHeight: MarbleLayout.chipMinHeight)
+                .background(
+                    shape.fill(
+                        isSelected
+                            ? Theme.primaryTextColor(for: colorScheme)
+                            : Theme.chipFillColor(for: colorScheme)
+                    )
+                )
+                .overlay(
+                    shape.stroke(Theme.dividerColor(for: colorScheme), lineWidth: isSelected ? 0 : 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(valueText) \(distanceUnit.title)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("AddSet.DistancePreset.\(valueText)")
     }
 
     private var exercisePickerRow: some View {

@@ -115,6 +115,9 @@ enum SeedData {
             SeedExercise(name: "Sprint", category: .power, preferredDistanceUnit: .meters, metrics: .distanceAndDurationRequired, defaultRestSeconds: 60),
             SeedExercise(name: "Pogo Hops", category: .power, metrics: .repsOnlyRequired, defaultRestSeconds: 75),
 
+            // Run
+            SeedExercise(name: "Run", category: .run, preferredDistanceUnit: .kilometers, metrics: .distanceAndDurationRequired, defaultRestSeconds: 0),
+
             // Back
             SeedExercise(name: "Deadlift", category: .back, metrics: .weightAndRepsRequired, defaultRestSeconds: 180),
             SeedExercise(name: "Bent Over DB Row", category: .back, resistanceTrackingStyle: .singleDumbbellPair, metrics: .weightAndRepsRequired, defaultRestSeconds: 120),

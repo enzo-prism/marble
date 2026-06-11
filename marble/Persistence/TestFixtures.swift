@@ -287,6 +287,27 @@ enum TestFixtures {
             }
         }
 
+        // Most recent entry is a run so the quick-log card and set logger
+        // showcase distance + time logging.
+        if let run = exerciseByName["Run"] {
+            let performedAt = at(daysAgo: 0, hour: 10, minute: 5)
+            context.insert(SetEntry(
+                exercise: run,
+                performedAt: performedAt,
+                weight: nil,
+                weightUnit: .lb,
+                reps: nil,
+                distance: 5,
+                distanceUnit: .kilometers,
+                durationSeconds: 1530,
+                difficulty: 6,
+                restAfterSeconds: 0,
+                notes: "Easy 5K",
+                createdAt: performedAt,
+                updatedAt: performedAt
+            ))
+        }
+
         let supplements = (try? context.fetch(FetchDescriptor<SupplementType>())) ?? []
         let supplementsByName = Dictionary(uniqueKeysWithValues: supplements.map { ($0.name, $0) })
 

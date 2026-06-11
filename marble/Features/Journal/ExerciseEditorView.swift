@@ -476,7 +476,7 @@ struct ExerciseEditorView: View {
         }
 
         if metricsProfile == .distanceAndDurationRequired {
-            return .sprint
+            return category == .run ? .run : .sprint
         }
 
         if metricsProfile == .weightAndRepsRequired {
@@ -535,6 +535,9 @@ struct ExerciseEditorView: View {
         durationRequirement = template.profile.durationSeconds
         resistanceTrackingStyle = template.resistanceTrackingStyle
         preferredDistanceUnit = template.distanceUnit
+        if let impliedCategory = template.impliedCategory {
+            category = impliedCategory
+        }
     }
 
     private func applyTemplateSelection(_ template: ExerciseLoggingTemplate) {
@@ -777,6 +780,7 @@ fileprivate extension ExerciseEditorView {
         case dualDumbbell
         case bodyweight
         case weightedBodyweight
+        case run
         case sprint
         case plyometric
         case timed
@@ -793,6 +797,8 @@ fileprivate extension ExerciseEditorView {
                 return "Bodyweight"
             case .weightedBodyweight:
                 return "Weighted BW"
+            case .run:
+                return "Run"
             case .sprint:
                 return "Sprint"
             case .plyometric:
@@ -812,6 +818,8 @@ fileprivate extension ExerciseEditorView {
                 return "Reps only"
             case .weightedBodyweight:
                 return "Reps, optional load"
+            case .run:
+                return "Distance + time in km or miles"
             case .sprint:
                 return "Distance + time"
             case .plyometric:
@@ -831,7 +839,7 @@ fileprivate extension ExerciseEditorView {
                 return .repsOnlyRequired
             case .weightedBodyweight:
                 return ExerciseMetricsProfile(weight: .optional, reps: .required, distance: .none, durationSeconds: .none)
-            case .sprint:
+            case .run, .sprint:
                 return .distanceAndDurationRequired
             case .plyometric:
                 return .repsOnlyRequired
@@ -851,10 +859,21 @@ fileprivate extension ExerciseEditorView {
 
         var distanceUnit: DistanceUnit {
             switch self {
-            case .sprint:
-                return .meters
+            case .run:
+                return .kilometers
             default:
                 return .meters
+            }
+        }
+
+        /// Templates that imply a category apply it so grouping and the icon
+        /// follow automatically; the user can still change it afterward.
+        var impliedCategory: ExerciseCategory? {
+            switch self {
+            case .run:
+                return .run
+            default:
+                return nil
             }
         }
     }

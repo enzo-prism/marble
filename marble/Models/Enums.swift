@@ -12,6 +12,7 @@ enum ExerciseCategory: String, Codable, CaseIterable, Identifiable {
     case hamstrings
     case calves
     case legs
+    case run
     case power
     case bar
     case recover
@@ -41,6 +42,8 @@ enum ExerciseCategory: String, Codable, CaseIterable, Identifiable {
             return "Calves"
         case .legs:
             return "Legs"
+        case .run:
+            return "Run"
         case .power:
             return "Power"
         case .bar:
@@ -74,13 +77,15 @@ enum ExerciseCategory: String, Codable, CaseIterable, Identifiable {
         case .core:
             return "circle.grid.cross"
         case .quads:
-            return "figure.run"
+            return "figure.step.training"
         case .hamstrings:
             return "figure.walk.motion"
         case .calves:
             return "figure.stairs"
         case .legs:
             return "figure.walk"
+        case .run:
+            return "figure.run"
         case .power:
             return "bolt.fill"
         case .bar:
@@ -97,6 +102,8 @@ enum ExerciseCategory: String, Codable, CaseIterable, Identifiable {
 
     private var fallbackSymbolName: String {
         switch self {
+        case .quads:
+            return "figure.run"
         case .recover:
             return "flame.fill"
         default:
@@ -126,6 +133,8 @@ enum ExerciseCategory: String, Codable, CaseIterable, Identifiable {
             return ["🦵", "⚡️", "🔥", "🏃", "🧗", "🎯"]
         case .legs:
             return ["🦵", "🏃", "🔥", "⚡️", "🧗", "🏋️"]
+        case .run:
+            return ["🏃", "👟", "🛣️", "⛰️", "⏱️", "💨"]
         case .power:
             return ["⚡️", "🚀", "🔥", "🏋️", "💥", "🦍"]
         case .bar:
@@ -283,6 +292,36 @@ enum DistanceUnit: String, Codable, CaseIterable, Identifiable {
     case miles
 
     var id: String { rawValue }
+
+    var metersPerUnit: Double {
+        switch self {
+        case .meters:
+            return 1
+        case .yards:
+            return 0.9144
+        case .feet:
+            return 0.3048
+        case .kilometers:
+            return 1000
+        case .miles:
+            return 1609.344
+        }
+    }
+
+    func meters(from value: Double) -> Double {
+        value * metersPerUnit
+    }
+
+    /// The unit runners think in for pace: per-mile for imperial distance
+    /// units, per-kilometer otherwise.
+    var paceReferenceUnit: DistanceUnit {
+        switch self {
+        case .miles, .yards, .feet:
+            return .miles
+        case .meters, .kilometers:
+            return .kilometers
+        }
+    }
 
     var symbol: String {
         switch self {
