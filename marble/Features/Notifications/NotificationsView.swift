@@ -98,10 +98,8 @@ struct NotificationsView: View {
     private var permissionSection: some View {
         Section {
             HStack(alignment: .center, spacing: MarbleSpacing.s) {
-                Image(systemName: permissionIconName)
-                    .font(.system(size: 18, weight: .semibold))
+                ScaledSymbol(systemName: permissionIconName, size: 18, weight: .semibold, frameSize: MarbleLayout.rowIconSize)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
@@ -202,7 +200,7 @@ struct NotificationsView: View {
             set: { isEnabled in
                 notification.isEnabled = isEnabled
                 notification.updatedAt = AppEnvironment.now
-                try? modelContext.save()
+                modelContext.saveOrRollback()
                 Task {
                     _ = await scheduler.sync(notification)
                     authorizationStatus = await scheduler.authorizationStatus()
@@ -217,7 +215,7 @@ struct NotificationsView: View {
             scheduler.remove(notification)
             modelContext.delete(notification)
         }
-        try? modelContext.save()
+        modelContext.saveOrRollback()
     }
 
     private func requestPermission() {

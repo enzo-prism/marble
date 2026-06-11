@@ -34,6 +34,8 @@ struct QuickLogCardView: View {
                         .font(MarbleTypography.smallLabel)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .textCase(.uppercase)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     Text(entry.exercise.name)
                         .font(MarbleTypography.rowTitle)
@@ -89,6 +91,8 @@ struct QuickLogCardView: View {
                         .font(MarbleTypography.smallLabel)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .textCase(.uppercase)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     Text("Log your first set")
                         .font(MarbleTypography.rowTitle)
@@ -102,8 +106,7 @@ struct QuickLogCardView: View {
 
                 Spacer(minLength: MarbleSpacing.xs)
 
-                Image(systemName: "plus.circle")
-                    .font(.system(size: 24, weight: .semibold))
+                ScaledSymbol(systemName: "plus.circle", size: 24, weight: .semibold)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .accessibilityHidden(true)
             }

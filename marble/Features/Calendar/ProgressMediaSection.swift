@@ -459,7 +459,7 @@ struct ProgressMediaDetailView: View {
     private func deleteAttachment() {
         ProgressMediaStore.deleteFiles(for: attachment)
         modelContext.delete(attachment)
-        try? modelContext.save()
+        modelContext.saveOrRollback()
         dismiss()
     }
 }

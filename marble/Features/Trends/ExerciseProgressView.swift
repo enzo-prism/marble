@@ -53,9 +53,7 @@ struct ExerciseProgressView: View {
                 switch destination {
                 case .day(let date):
                     DayDetailsSheet(date: date, entries: entriesForDay(date))
-                case .week:
-                    EmptyView()
-                case .supplementDay:
+                case .week, .supplementDay, .supplementWeek:
                     EmptyView()
                 }
             }

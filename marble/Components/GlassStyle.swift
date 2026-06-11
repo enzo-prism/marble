@@ -19,13 +19,10 @@ struct GlassContainer<Content: View>: View {
         if reduceTransparency {
             content
                 .background(Theme.backgroundColor(for: colorScheme))
-        } else if #available(iOS 26.0, *) {
+        } else {
             GlassEffectContainer {
                 content
             }
-        } else {
-            content
-                .background(.ultraThinMaterial)
         }
     }
 }
@@ -50,17 +47,10 @@ struct GlassPillBackground: View {
                     shape
                         .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
                 )
-        } else if #available(iOS 26.0, *) {
+        } else {
             shape
                 .fill(.clear)
                 .glassEffect(isInteractive ? .regular.interactive() : .regular, in: shape)
-        } else {
-            shape
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    shape
-                        .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 0.5)
-                )
         }
     }
 }
@@ -85,17 +75,10 @@ struct GlassTileBackground: View {
                     shape
                         .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
                 )
-        } else if #available(iOS 26.0, *) {
+        } else {
             shape
                 .fill(.clear)
                 .glassEffect(isInteractive ? .regular.interactive() : .regular, in: shape)
-        } else {
-            shape
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    shape
-                        .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 0.5)
-                )
         }
     }
 }
@@ -120,20 +103,17 @@ struct GlassCircleBackground: View {
                     shape
                         .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
                 )
-        } else if #available(iOS 26.0, *) {
+        } else {
             shape
                 .fill(.clear)
                 .glassEffect(isInteractive ? .regular.interactive() : .regular, in: shape)
-        } else {
-            shape
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    shape
-                        .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 0.5)
-                )
         }
     }
 }
+
+// Navigation surfaces only override the system Liquid Glass treatment when
+// Reduce Transparency asks for solid backgrounds; otherwise the system bars
+// keep their native glass and scroll edge effects.
 
 private struct NavigationBarGlassBackgroundModifier: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
@@ -145,11 +125,12 @@ private struct NavigationBarGlassBackgroundModifier: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        let base = content.toolbarBackground(.visible, for: .navigationBar)
         if reduceTransparency {
-            base.toolbarBackground(Theme.backgroundColor(for: colorScheme), for: .navigationBar)
+            content
+                .toolbarBackground(.visible, for: .navigationBar)
+                .toolbarBackground(Theme.backgroundColor(for: colorScheme), for: .navigationBar)
         } else {
-            base.toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+            content
         }
     }
 }
@@ -164,11 +145,12 @@ private struct TabBarGlassBackgroundModifier: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        let base = content.toolbarBackground(.visible, for: .tabBar)
         if reduceTransparency {
-            base.toolbarBackground(Theme.backgroundColor(for: colorScheme), for: .tabBar)
+            content
+                .toolbarBackground(.visible, for: .tabBar)
+                .toolbarBackground(Theme.backgroundColor(for: colorScheme), for: .tabBar)
         } else {
-            base.toolbarBackground(.ultraThinMaterial, for: .tabBar)
+            content
         }
     }
 }
@@ -186,21 +168,14 @@ private struct SheetGlassBackgroundModifier: ViewModifier {
         if reduceTransparency {
             content.presentationBackground(Theme.backgroundColor(for: colorScheme))
         } else {
-            content.presentationBackground(.ultraThinMaterial)
+            content
         }
     }
 }
 
 extension View {
-    @ViewBuilder
     func navigationGlassBackground() -> some View {
-        if #available(iOS 26.0, *) {
-            self
-                .glassEffect()
-        } else {
-            self
-                .background(.ultraThinMaterial)
-        }
+        glassEffect()
     }
 
     func navigationBarGlassBackground() -> some View {
@@ -215,12 +190,18 @@ extension View {
         modifier(SheetGlassBackgroundModifier())
     }
 
-    @ViewBuilder
     func applyGlassButtonStyle() -> some View {
-        if #available(iOS 26.0, *) {
-            self.buttonStyle(.glass)
+        buttonStyle(.glass)
+    }
+
+    /// Minimizes the tab bar while scrolling content. Disabled under UI
+    /// testing so element hit targets stay deterministic.
+    @ViewBuilder
+    func marbleTabBarMinimizeBehavior() -> some View {
+        if TestHooks.isUITesting {
+            self
         } else {
-            self.buttonStyle(.bordered)
+            self.tabBarMinimizeBehavior(.onScrollDown)
         }
     }
 }

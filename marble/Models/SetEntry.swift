@@ -3,6 +3,8 @@ import SwiftData
 
 @Model
 final class SetEntry {
+    #Index<SetEntry>([\.performedAt])
+
     @Attribute(.unique) var id: UUID
     var exercise: Exercise
     var performedAt: Date
@@ -56,5 +58,23 @@ extension SetEntry {
     var distanceUnit: DistanceUnit {
         get { DistanceUnit(rawValue: distanceUnitRaw ?? "") ?? .meters }
         set { distanceUnitRaw = newValue == .meters ? nil : newValue.rawValue }
+    }
+
+    func duplicated(at date: Date) -> SetEntry {
+        SetEntry(
+            exercise: exercise,
+            performedAt: date,
+            weight: weight,
+            weightUnit: weightUnit,
+            reps: reps,
+            distance: distance,
+            distanceUnit: distanceUnit,
+            durationSeconds: durationSeconds,
+            difficulty: difficulty,
+            restAfterSeconds: restAfterSeconds,
+            notes: notes,
+            createdAt: date,
+            updatedAt: date
+        )
     }
 }

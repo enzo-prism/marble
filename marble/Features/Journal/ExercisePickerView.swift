@@ -196,9 +196,7 @@ struct ExercisePickerView: View {
 
     private var createExerciseRow: some View {
         HStack(alignment: .top, spacing: MarbleLayout.rowSpacing) {
-            Image(systemName: "plus.circle")
-                .font(.system(size: 18, weight: .semibold))
-                .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
+            ScaledSymbol(systemName: "plus.circle", size: 18, weight: .semibold, frameSize: MarbleLayout.rowIconSize)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
             VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {

@@ -4,6 +4,7 @@ import SwiftData
 struct JournalView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.marbleActiveDay) private var activeDay
     @EnvironmentObject private var quickLog: QuickLogCoordinator
 
     @Query(sort: \SetEntry.performedAt, order: .reverse)
@@ -43,22 +44,20 @@ struct JournalView: View {
                     .marbleRowInsets()
                     .accessibilityIdentifier("Journal.EmptyState")
                 }
-                ForEach(sectionedDays, id: \.self) { day in
-                    if let dayEntries = groupedEntries[day] {
-                        Section {
-                            ForEach(dayEntries) { entry in
-                                JournalRow(
-                                    entry: entry,
-                                    onDuplicate: { duplicate(entry) },
-                                    onDelete: { delete(entry) }
-                                )
-                            }
-                        } header: {
-                            SectionHeaderView(title: DateHelper.dayLabel(for: day))
+                ForEach(daySections) { section in
+                    Section {
+                        ForEach(section.entries) { entry in
+                            JournalRow(
+                                entry: entry,
+                                onDuplicate: { duplicate(entry) },
+                                onDelete: { delete(entry) }
+                            )
                         }
-                        .textCase(nil)
-                        .listRowSeparator(.visible)
+                    } header: {
+                        SectionHeaderView(title: DateHelper.dayLabel(for: section.day, now: activeDay))
                     }
+                    .textCase(nil)
+                    .listRowSeparator(.visible)
                 }
             }
             .listStyle(.plain)
@@ -119,22 +118,25 @@ struct JournalView: View {
         }
     }
 
-    private var groupedEntries: [Date: [SetEntry]] {
-        Dictionary(grouping: entries) { entry in
+    private var daySections: [JournalDaySection] {
+        // entries arrive sorted newest-first from the query, so grouping
+        // preserves the in-day order without a per-day re-sort.
+        let grouped = Dictionary(grouping: entries) { entry in
             DateHelper.startOfDay(for: entry.performedAt)
-        }.mapValues { dayEntries in
-            dayEntries.sorted { $0.performedAt > $1.performedAt }
         }
-    }
-
-    private var sectionedDays: [Date] {
-        groupedEntries.keys.sorted(by: >)
+        return grouped.keys.sorted(by: >).map { day in
+            JournalDaySection(day: day, entries: grouped[day] ?? [])
+        }
     }
 
     private func delete(_ entry: SetEntry) {
         let snapshot = SetEntrySnapshot(entry: entry)
         modelContext.delete(entry)
-        try? modelContext.save()
+        guard modelContext.saveOrRollback() else {
+            toast = ToastData(message: "Couldn't delete set", actionTitle: nil, onAction: nil)
+            return
+        }
+        MarbleHaptics.warning()
         pendingUndo = snapshot
         quickLogUndoID = nil
         toast = ToastData(message: "Set deleted", actionTitle: "Undo") {
@@ -145,34 +147,24 @@ struct JournalView: View {
     private func undoDelete() {
         guard let snapshot = pendingUndo else { return }
         snapshot.restore(in: modelContext)
-        try? modelContext.save()
+        guard modelContext.saveOrRollback() else {
+            toast = ToastData(message: "Couldn't restore set", actionTitle: nil, onAction: nil)
+            return
+        }
+        MarbleHaptics.lightImpact()
         pendingUndo = nil
         toast = nil
     }
 
     private func quickLogAgain() {
         guard let latest = entries.first else { return }
-        let now = AppEnvironment.now
-        let duplicate = SetEntry(
-            exercise: latest.exercise,
-            performedAt: now,
-            weight: latest.weight,
-            weightUnit: latest.weightUnit,
-            reps: latest.reps,
-            durationSeconds: latest.durationSeconds,
-            difficulty: latest.difficulty,
-            restAfterSeconds: latest.restAfterSeconds,
-            notes: latest.notes,
-            createdAt: now,
-            updatedAt: now
-        )
+        let duplicate = latest.duplicated(at: AppEnvironment.now)
         modelContext.insert(duplicate)
-        do {
-            try modelContext.save()
-        } catch {
-            modelContext.rollback()
+        guard modelContext.saveOrRollback() else {
+            toast = ToastData(message: "Couldn't log set", actionTitle: nil, onAction: nil)
             return
         }
+        MarbleHaptics.success()
         pendingUndo = nil
         quickLogUndoID = duplicate.id
         toast = ToastData(message: "Set logged again", actionTitle: "Undo") {
@@ -185,7 +177,9 @@ struct JournalView: View {
         let descriptor = FetchDescriptor<SetEntry>(predicate: #Predicate { $0.id == id })
         if let entry = (try? modelContext.fetch(descriptor))?.first {
             modelContext.delete(entry)
-            try? modelContext.save()
+            if modelContext.saveOrRollback() {
+                MarbleHaptics.lightImpact()
+            }
         }
         quickLogUndoID = nil
         toast = nil
@@ -200,23 +194,21 @@ struct JournalView: View {
     }
 
     private func duplicate(_ entry: SetEntry) {
-        let now = AppEnvironment.now
-        let duplicate = SetEntry(
-            exercise: entry.exercise,
-            performedAt: now,
-            weight: entry.weight,
-            weightUnit: entry.weightUnit,
-            reps: entry.reps,
-            durationSeconds: entry.durationSeconds,
-            difficulty: entry.difficulty,
-            restAfterSeconds: entry.restAfterSeconds,
-            notes: entry.notes,
-            createdAt: now,
-            updatedAt: now
-        )
+        let duplicate = entry.duplicated(at: AppEnvironment.now)
         modelContext.insert(duplicate)
-        try? modelContext.save()
+        if modelContext.saveOrRollback() {
+            MarbleHaptics.success()
+        } else {
+            toast = ToastData(message: "Couldn't duplicate set", actionTitle: nil, onAction: nil)
+        }
     }
+}
+
+private struct JournalDaySection: Identifiable {
+    let day: Date
+    let entries: [SetEntry]
+
+    var id: Date { day }
 }
 
 private struct JournalRow: View {
@@ -270,6 +262,8 @@ private struct SetEntrySnapshot {
     let weight: Double?
     let weightUnit: WeightUnit
     let reps: Int?
+    let distance: Double?
+    let distanceUnit: DistanceUnit
     let durationSeconds: Int?
     let difficulty: Int
     let restAfterSeconds: Int
@@ -284,6 +278,8 @@ private struct SetEntrySnapshot {
         weight = entry.weight
         weightUnit = entry.weightUnit
         reps = entry.reps
+        distance = entry.distance
+        distanceUnit = entry.distanceUnit
         durationSeconds = entry.durationSeconds
         difficulty = entry.difficulty
         restAfterSeconds = entry.restAfterSeconds
@@ -300,6 +296,8 @@ private struct SetEntrySnapshot {
             weight: weight,
             weightUnit: weightUnit,
             reps: reps,
+            distance: distance,
+            distanceUnit: distanceUnit,
             durationSeconds: durationSeconds,
             difficulty: difficulty,
             restAfterSeconds: restAfterSeconds,

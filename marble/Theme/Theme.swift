@@ -79,39 +79,31 @@ enum Theme {
         let reduceTransparency = UIAccessibility.isReduceTransparencyEnabled || TestHooks.forceReduceTransparency
         let selected = UIColor(primaryTextColor(for: resolved))
         let unselected = UIColor(secondaryTextColor(for: resolved))
-        let appearance = UITabBarAppearance()
+        let tabBar = UITabBar.appearance()
 
+        // Only Reduce Transparency replaces the bar background; otherwise the
+        // system Liquid Glass appearance owns it and only item tints are set.
         if reduceTransparency {
+            let appearance = UITabBarAppearance()
             appearance.configureWithOpaqueBackground()
             appearance.backgroundColor = UIColor(backgroundColor(for: resolved))
-        } else {
-            appearance.configureWithTransparentBackground()
-            appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
-            appearance.backgroundColor = UIColor(backgroundColor(for: resolved)).withAlphaComponent(resolved == .dark ? 0.74 : 0.82)
+            appearance.shadowColor = UIColor(subtleDividerColor(for: resolved))
+
+            for itemAppearance in [
+                appearance.stackedLayoutAppearance,
+                appearance.inlineLayoutAppearance,
+                appearance.compactInlineLayoutAppearance
+            ] {
+                itemAppearance.normal.iconColor = unselected
+                itemAppearance.normal.titleTextAttributes = [.foregroundColor: unselected]
+                itemAppearance.selected.iconColor = selected
+                itemAppearance.selected.titleTextAttributes = [.foregroundColor: selected]
+            }
+
+            tabBar.standardAppearance = appearance
+            tabBar.scrollEdgeAppearance = appearance
         }
-        appearance.shadowColor = UIColor(subtleDividerColor(for: resolved))
 
-        let stacked = appearance.stackedLayoutAppearance
-        stacked.normal.iconColor = unselected
-        stacked.normal.titleTextAttributes = [.foregroundColor: unselected]
-        stacked.selected.iconColor = selected
-        stacked.selected.titleTextAttributes = [.foregroundColor: selected]
-
-        let inline = appearance.inlineLayoutAppearance
-        inline.normal.iconColor = unselected
-        inline.normal.titleTextAttributes = [.foregroundColor: unselected]
-        inline.selected.iconColor = selected
-        inline.selected.titleTextAttributes = [.foregroundColor: selected]
-
-        let compact = appearance.compactInlineLayoutAppearance
-        compact.normal.iconColor = unselected
-        compact.normal.titleTextAttributes = [.foregroundColor: unselected]
-        compact.selected.iconColor = selected
-        compact.selected.titleTextAttributes = [.foregroundColor: selected]
-
-        let tabBar = UITabBar.appearance()
-        tabBar.standardAppearance = appearance
-        tabBar.scrollEdgeAppearance = appearance
         tabBar.unselectedItemTintColor = unselected
         tabBar.tintColor = selected
     }

@@ -6,6 +6,7 @@ struct CalendarView: View {
     @EnvironmentObject private var quickLog: QuickLogCoordinator
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.marbleActiveDay) private var activeDay
 
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
@@ -24,17 +25,18 @@ struct CalendarView: View {
         NavigationStack {
             GeometryReader { geometry in
                 ScrollView {
+                    let derived = deriveCalendarData()
                     VStack(alignment: .leading, spacing: MarbleSpacing.m) {
                         if TestHooks.isUITesting && !TestHooks.isAccessibilityAudit {
                             testControlsRow
                         }
 
-                        calendarHeader
+                        calendarHeader(streak: derived.streak)
 
-                        calendarActionRow
+                        calendarActionRow(metrics: derived.daySummary)
 
                         CalendarRepresentable(
-                            activeDays: activeDays,
+                            activeDays: derived.activeDays,
                             visibleMonth: visibleMonth,
                             onSelect: { components in
                                 guard let components, let date = calendar.date(from: components) else {
@@ -80,20 +82,42 @@ struct CalendarView: View {
         }
     }
 
-    private var activeWorkoutDays: Set<CalendarDayKey> {
-        Set(entries.map { entry in
-            CalendarDayKey(date: entry.performedAt, calendar: calendar)
-        })
+    private struct CalendarDerivedData {
+        let activeDays: Set<CalendarDayKey>
+        let streak: Int
+        let daySummary: CalendarSummaryMetrics
     }
 
-    private var activeProgressMediaDays: Set<CalendarDayKey> {
-        Set(progressMediaAttachments.map { attachment in
-            CalendarDayKey(date: attachment.attachedToDate, calendar: calendar)
-        })
-    }
+    /// One pass over the queried models per render: day markers, streak,
+    /// and the selected-day summary all come out of the same walk.
+    private func deriveCalendarData() -> CalendarDerivedData {
+        let targetDay = calendar.startOfDay(for: headerDate)
+        var activeDays = Set<CalendarDayKey>(minimumCapacity: entries.count)
+        var loggedDays = Set<Date>(minimumCapacity: entries.count)
+        var dayEntries: [SetEntry] = []
 
-    private var activeDays: Set<CalendarDayKey> {
-        activeWorkoutDays.union(activeProgressMediaDays)
+        for entry in entries {
+            let dayStart = calendar.startOfDay(for: entry.performedAt)
+            loggedDays.insert(dayStart)
+            activeDays.insert(CalendarDayKey(date: entry.performedAt, calendar: calendar))
+            if dayStart == targetDay {
+                dayEntries.append(entry)
+            }
+        }
+
+        for attachment in progressMediaAttachments {
+            activeDays.insert(CalendarDayKey(date: attachment.attachedToDate, calendar: calendar))
+        }
+
+        return CalendarDerivedData(
+            activeDays: activeDays,
+            streak: currentStreak(loggedDays: loggedDays),
+            daySummary: CalendarSummaryMetrics(
+                sets: dayEntries.count,
+                exercises: Set(dayEntries.map { $0.exercise.id }).count,
+                averageRPE: averageRPE(for: dayEntries)
+            )
+        )
     }
 
     private func entriesForDay(_ date: Date) -> [SetEntry] {
@@ -167,16 +191,16 @@ struct CalendarView: View {
         .padding(.horizontal, 4)
     }
 
-    private var calendarActionRow: some View {
+    private func calendarActionRow(metrics: CalendarSummaryMetrics) -> some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-            selectedDaySummaryCard
+            selectedDaySummaryCard(metrics: metrics)
             if !dynamicTypeSize.isAccessibilitySize {
                 logSetButton
             }
         }
     }
 
-    private var selectedDaySummaryCard: some View {
+    private func selectedDaySummaryCard(metrics: CalendarSummaryMetrics) -> some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
             Text("Selected day")
                 .font(MarbleTypography.smallLabel)
@@ -184,9 +208,9 @@ struct CalendarView: View {
                 .textCase(.uppercase)
 
             summaryMetricsView(
-                setCount: daySummaryMetrics.sets,
-                exerciseCount: daySummaryMetrics.exercises,
-                averageRPE: daySummaryMetrics.averageRPE,
+                setCount: metrics.sets,
+                exerciseCount: metrics.exercises,
+                averageRPE: metrics.averageRPE,
                 emphasis: .primary
             )
         }
@@ -213,23 +237,23 @@ struct CalendarView: View {
         quickLog.open(prefillDate: targetDate)
     }
 
-    private var calendarHeader: some View {
+    private func calendarHeader(streak: Int) -> some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
                     headerTitle
-                    streakBadge
+                    streakBadge(streak: streak)
                 }
             } else {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
                         headerTitle
                         Spacer(minLength: MarbleSpacing.s)
-                        streakBadge
+                        streakBadge(streak: streak)
                     }
                     VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
                         headerTitle
-                        streakBadge
+                        streakBadge(streak: streak)
                     }
                 }
             }
@@ -255,7 +279,8 @@ struct CalendarView: View {
     }
 
     @ViewBuilder
-    private var streakBadge: some View {
+    private func streakBadge(streak: Int) -> some View {
+        let streakLabel = streakLabel(for: streak)
         HStack(spacing: MarbleSpacing.xxxs) {
             Image(systemName: "flame.fill")
                 .accessibilityHidden(true)
@@ -285,7 +310,7 @@ struct CalendarView: View {
     }
 
     private var headerDate: Date {
-        selectedDate ?? AppEnvironment.now
+        selectedDate ?? activeDay
     }
 
     private var monthContextLine: String {
@@ -296,23 +321,12 @@ struct CalendarView: View {
         dynamicTypeSize.isAccessibilitySize ? 160 : MarbleSpacing.xxl + MarbleSpacing.l
     }
 
-    private var daySummaryMetrics: CalendarSummaryMetrics {
-        let dayEntries = entriesForDay(headerDate)
-        return CalendarSummaryMetrics(
-            sets: dayEntries.count,
-            exercises: Set(dayEntries.map { $0.exercise.id }).count,
-            averageRPE: averageRPE(for: dayEntries)
-        )
-    }
-
-    private var streakLabel: String {
-        let count = currentStreak
+    private func streakLabel(for count: Int) -> String {
         let dayLabel = pluralize(count: count, singular: "day", plural: "days")
         return "Streak \(count) \(dayLabel)"
     }
 
-    private var currentStreak: Int {
-        let loggedDays = Set(entries.map { calendar.startOfDay(for: $0.performedAt) })
+    private func currentStreak(loggedDays: Set<Date>) -> Int {
         guard !loggedDays.isEmpty else { return 0 }
         let today = calendar.startOfDay(for: AppEnvironment.now)
         let streakEnd: Date?

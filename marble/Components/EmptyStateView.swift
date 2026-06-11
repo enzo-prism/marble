@@ -10,8 +10,7 @@ struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: MarbleSpacing.s) {
             if let systemImage {
-                Image(systemName: systemImage)
-                    .font(.system(size: 24, weight: .semibold))
+                ScaledSymbol(systemName: systemImage, size: 24, weight: .semibold)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .accessibilityHidden(true)
             }

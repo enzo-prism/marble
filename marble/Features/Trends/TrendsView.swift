@@ -5,6 +5,9 @@ import Charts
 struct TrendsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    // Declared (not read) so the environment change invalidates this view:
+    // range buckets anchored to "today" must re-derive on a new day.
+    @Environment(\.marbleActiveDay) private var activeDay
 
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
@@ -47,16 +50,17 @@ struct TrendsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
+                let derived = makeDerivedData()
                 VStack(alignment: .leading, spacing: MarbleSpacing.l) {
-                    let hasSetData = !filteredEntries.isEmpty
-                    let hasSupplementData = !filteredSupplementEntries.isEmpty
+                    let hasSetData = !derived.filteredEntries.isEmpty
+                    let hasSupplementData = !derived.filteredSupplementEntries.isEmpty
 
                     rangePicker
-                    if let selectedLiftBests {
-                        LiftBestsHighlightView(bests: selectedLiftBests)
+                    if let liftBests = derived.liftBests {
+                        LiftBestsHighlightView(bests: liftBests)
                     }
                     if hasSetData || hasSupplementData {
-                        trendSummaryStrip
+                        trendSummaryStrip(derived: derived)
                     }
 
                     if !hasSetData && !hasSupplementData {
@@ -72,7 +76,7 @@ struct TrendsView: View {
                                 Text("Consistency")
                                     .font(MarbleTypography.sectionTitle)
                                     .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-                                consistencyChart
+                                consistencyChart(derived: derived)
                             }
 
                             if selectedExercise != nil {
@@ -80,12 +84,12 @@ struct TrendsView: View {
                                     Text("Progress")
                                         .font(MarbleTypography.sectionTitle)
                                         .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-                                    if progressPoints.isEmpty {
+                                    if derived.progressPoints.isEmpty {
                                         Text("No progress yet")
                                             .font(MarbleTypography.rowMeta)
                                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                                     } else {
-                                        ExerciseProgressChart(points: progressPoints, isScrubbing: $isScrubbingChart) { date in
+                                        ExerciseProgressChart(points: derived.progressPoints, isScrubbing: $isScrubbingChart) { date in
                                             sheetDestination = .day(date)
                                         }
                                     }
@@ -96,7 +100,7 @@ struct TrendsView: View {
                                 Text("Weekly Volume")
                                     .font(MarbleTypography.sectionTitle)
                                     .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-                                volumeChart
+                                volumeChart(derived: derived)
                             }
                         } else {
                             Text("No workout data for this range.")
@@ -104,7 +108,7 @@ struct TrendsView: View {
                                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         }
 
-                        supplementsSection
+                        supplementsSection(derived: derived)
                             .padding(.top, MarbleSpacing.xxl)
 
                         if hasSetData {
@@ -113,7 +117,7 @@ struct TrendsView: View {
                                     .font(MarbleTypography.sectionTitle)
                                     .foregroundColor(Theme.primaryTextColor(for: colorScheme))
                                     .accessibilityHidden(true)
-                                prCards
+                                prCards(derived: derived)
                             }
                         }
                     }
@@ -149,6 +153,12 @@ struct TrendsView: View {
                     WeekDetailsSheet(weekStart: weekStart, weekEnd: weekEnd, entries: entriesForWeek(weekStart: weekStart))
                 case .supplementDay(let date):
                     SupplementDayDetailsSheet(date: date, entries: supplementEntriesForDay(date))
+                case .supplementWeek(let weekStart):
+                    SupplementDayDetailsSheet(
+                        date: weekStart,
+                        endDate: TrendsDateHelper.endOfWeek(for: weekStart),
+                        entries: supplementEntriesForWeek(weekStart: weekStart)
+                    )
                 }
             }
             .presentationDetents([.medium, .large])
@@ -179,7 +189,7 @@ struct TrendsView: View {
         .onChange(of: selectedDay) { _, newValue in
             guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
             if let day = newValue {
-                sheetDestination = .day(day)
+                openConsistencyDrilldown(for: day)
             }
         }
         .onChange(of: selectedWeekStart) { _, newValue in
@@ -191,31 +201,39 @@ struct TrendsView: View {
         .onChange(of: selectedSupplementDay) { _, newValue in
             guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
             if let day = newValue {
-                sheetDestination = .supplementDay(day)
+                openSupplementDrilldown(for: day)
             }
         }
     }
 
-    private var filteredEntries: [SetEntry] {
-        var filtered = entries
-        if let selectedExerciseID {
-            filtered = filtered.filter { $0.exercise.id == selectedExerciseID }
-        }
-        if let startDate = range.startDate {
-            filtered = filtered.filter { $0.performedAt >= startDate }
-        }
-        return filtered
+    private func makeDerivedData() -> TrendsDerivedData {
+        TrendsDerivedData.build(
+            entries: entries,
+            supplementEntries: supplementEntries,
+            selectedExercise: selectedExercise,
+            selectedSupplementType: selectedSupplementType,
+            range: range
+        )
     }
 
-    private var filteredSupplementEntries: [SupplementEntry] {
-        var filtered = supplementEntries
-        if let selectedSupplementTypeID {
-            filtered = filtered.filter { $0.type.id == selectedSupplementTypeID }
-        }
-        if let startDate = range.startDate {
-            filtered = filtered.filter { $0.takenAt >= startDate }
-        }
-        return filtered
+    /// Long ranges aggregate the consistency and supplement charts to weekly
+    /// buckets so mark counts stay proportional to what the chart can show.
+    private var consistencyUsesWeeks: Bool {
+        range == .oneYear || range == .all
+    }
+
+    private func openConsistencyDrilldown(for bucketStart: Date) {
+        sheetDestination = consistencyUsesWeeks ? .week(bucketStart) : .day(bucketStart)
+    }
+
+    private func openSupplementDrilldown(for bucketStart: Date) {
+        sheetDestination = consistencyUsesWeeks ? .supplementWeek(bucketStart) : .supplementDay(bucketStart)
+    }
+
+    private func consistencyBucketTitle(for bucketStart: Date) -> String {
+        consistencyUsesWeeks
+            ? TrendsDateHelper.weekLabel(start: bucketStart, end: TrendsDateHelper.endOfWeek(for: bucketStart))
+            : DateHelper.dayLabel(for: bucketStart)
     }
 
     private var selectedExercise: Exercise? {
@@ -243,8 +261,11 @@ struct TrendsView: View {
         Button {
             isPresentingExerciseSearch = true
         } label: {
-            Image(systemName: selectedExercise == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-                .font(.system(size: 17, weight: .semibold))
+            ScaledSymbol(
+                systemName: selectedExercise == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill",
+                size: 17,
+                weight: .semibold
+            )
         }
         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
         .accessibilityIdentifier("Trends.ExerciseSearchButton")
@@ -269,16 +290,17 @@ struct TrendsView: View {
         .accessibilityValue(selectedSupplementType?.name ?? "All Supplements")
     }
 
-    private var trendSummaryStrip: some View {
-        ViewThatFits(in: .horizontal) {
+    private func trendSummaryStrip(derived: TrendsDerivedData) -> some View {
+        let items = trendSummaryItems(derived: derived)
+        return ViewThatFits(in: .horizontal) {
             HStack(spacing: MarbleSpacing.xs) {
-                ForEach(trendSummaryItems) { item in
+                ForEach(items) { item in
                     TrendSummaryItemView(item: item)
                 }
             }
 
             VStack(spacing: MarbleSpacing.xs) {
-                ForEach(trendSummaryItems) { item in
+                ForEach(items) { item in
                     TrendSummaryItemView(item: item)
                 }
             }
@@ -287,12 +309,11 @@ struct TrendsView: View {
         .accessibilityIdentifier("Trends.Summary")
     }
 
-    private var trendSummaryItems: [TrendSummaryItem] {
-        let activeDays = Set(filteredEntries.map { Calendar.current.startOfDay(for: $0.performedAt) }).count
-        let bestWeek = weeklySummaries.max { $0.setCount < $1.setCount }
-        let supplementLogs = filteredSupplementEntries.count
+    private func trendSummaryItems(derived: TrendsDerivedData) -> [TrendSummaryItem] {
+        let bestWeek = derived.weeklySummaries.max { $0.setCount < $1.setCount }
+        let supplementLogs = derived.filteredSupplementEntries.count
         var items: [TrendSummaryItem] = [
-            TrendSummaryItem(title: "Sets", value: "\(filteredEntries.count)", detail: "\(activeDays) active days"),
+            TrendSummaryItem(title: "Sets", value: "\(derived.filteredEntries.count)", detail: "\(derived.activeDayCount) active days"),
             TrendSummaryItem(title: "Best Week", value: bestWeek.map { "\($0.setCount)" } ?? "-", detail: bestWeek.map { TrendsDateHelper.weekLabel(start: $0.weekStart, end: $0.weekEnd) } ?? "No week yet")
         ]
         if supplementLogs > 0 {
@@ -301,12 +322,12 @@ struct TrendsView: View {
         return items
     }
 
-    private var consistencyChart: some View {
-        let summaries = dailySummaries
-        let selectedSummary = selectedDailySummary
+    private func consistencyChart(derived: TrendsDerivedData) -> some View {
+        let summaries = derived.consistencySummaries
+        let selectedSummary = selectedConsistencySummary(in: derived)
         let tooltipSummary = selectedSummary
-        let prSummary = dailyPRSummary
-        let yDomain = paddedNumericDomain(maxValue: Double(max(dailyPRCount, 1)))
+        let prSummary = derived.consistencyPRSummary
+        let yDomain = paddedNumericDomain(maxValue: Double(max(derived.consistencyPRCount, 1)))
         let dataRange: ClosedRange<Date>? = {
             guard let start = summaries.first?.date,
                   let end = summaries.last?.date else {
@@ -314,7 +335,7 @@ struct TrendsView: View {
             }
             return start ... end
         }()
-        let chartDomain = paddedDateDomain(dataRange, component: .day, value: 1)
+        let chartDomain = paddedDateDomain(dataRange, component: .day, value: consistencyUsesWeeks ? 4 : 1)
 
         return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Chart {
@@ -408,15 +429,15 @@ struct TrendsView: View {
 
             if let tooltipSummary {
                 TrendTooltipView(
-                    title: DateHelper.dayLabel(for: tooltipSummary.date),
+                    title: consistencyBucketTitle(for: tooltipSummary.date),
                     valueText: setsLabel(for: tooltipSummary.count),
                     summaryText: tooltipSummary.summaryText,
-                    showsPR: tooltipSummary.count == dailyPRCount && dailyPRCount > 0,
+                    showsPR: tooltipSummary.count == derived.consistencyPRCount && derived.consistencyPRCount > 0,
                     viewSetsLabel: "View sets",
-                    viewSetsAccessibilityLabel: "View sets for \(DateHelper.dayLabel(for: tooltipSummary.date))",
+                    viewSetsAccessibilityLabel: "View sets for \(consistencyBucketTitle(for: tooltipSummary.date))",
                     viewSetsIdentifier: "Trends.ConsistencyTooltip.ViewSets",
                     onViewSets: {
-                        sheetDestination = .day(tooltipSummary.date)
+                        openConsistencyDrilldown(for: tooltipSummary.date)
                     },
                     onClear: {
                         selectedDay = nil
@@ -427,12 +448,12 @@ struct TrendsView: View {
         }
     }
 
-    private var volumeChart: some View {
-        let data = volumeData
-        let summaries = weeklySummaries
-        let selectedSummary = selectedWeeklySummary
+    private func volumeChart(derived: TrendsDerivedData) -> some View {
+        let data = derived.volumeData
+        let summaries = derived.weeklySummaries
+        let selectedSummary = selectedWeeklySummary(in: derived)
         let tooltipSummary = selectedSummary
-        let prSummary = weeklyPRSummary
+        let prSummary = derived.weeklyPRSummary
         let dataRange: ClosedRange<Date>? = {
             guard let start = summaries.first?.weekStart,
                   let end = summaries.last?.weekStart else {
@@ -542,7 +563,7 @@ struct TrendsView: View {
                     title: label,
                     valueText: tooltipSummary.valueText,
                     summaryText: tooltipSummary.summaryText,
-                    showsPR: tooltipSummary.totalVolumeScore == weeklyPRTotal && weeklyPRTotal > 0,
+                    showsPR: tooltipSummary.totalVolumeScore == derived.weeklyPRTotal && derived.weeklyPRTotal > 0,
                     viewSetsLabel: "View sets",
                     viewSetsAccessibilityLabel: "View sets for week of \(label)",
                     viewSetsIdentifier: "Trends.VolumeTooltip.ViewSets",
@@ -558,7 +579,7 @@ struct TrendsView: View {
         }
     }
 
-    private var supplementsSection: some View {
+    private func supplementsSection(derived: TrendsDerivedData) -> some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Supplements")
@@ -571,20 +592,20 @@ struct TrendsView: View {
                 supplementPicker
             }
 
-            if filteredSupplementEntries.isEmpty {
+            if derived.filteredSupplementEntries.isEmpty {
                 Text("No supplement data yet")
                     .font(MarbleTypography.rowMeta)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .accessibilityIdentifier("Trends.SupplementsEmpty")
             } else {
-                supplementsChart
+                supplementsChart(derived: derived)
             }
         }
     }
 
-    private var supplementsChart: some View {
-        let summaries = supplementDailySummaries
-        let selectedSummary = selectedSupplementSummary
+    private func supplementsChart(derived: TrendsDerivedData) -> some View {
+        let summaries = derived.supplementSummaries
+        let selectedSummary = selectedSupplementSummary(in: derived)
         let yDomain = paddedNumericDomain(maxValue: summaries.map(\.chartValue).max() ?? 1)
         let dataRange: ClosedRange<Date>? = {
             guard let start = summaries.first?.date,
@@ -660,10 +681,10 @@ struct TrendsView: View {
                             dataRange: dataRange,
                             accessibilityIdentifier: "Trends.SupplementsChart",
                             accessibilityLabel: "Supplements chart",
-                            accessibilityValue: supplementAccessibilityValue(for: summaries),
+                            accessibilityValue: supplementAccessibilityValue(for: summaries, mode: derived.supplementDisplayMode),
                             isScrubbing: $isScrubbingChart
                         ) { date in
-                            selectSupplementDay(date)
+                            selectSupplementDay(date, derived: derived)
                         }
                         .position(x: plotFrame.midX, y: plotFrame.midY)
                     }
@@ -671,7 +692,7 @@ struct TrendsView: View {
             }
 
             if let selectedSummary {
-                let label = DateHelper.dayLabel(for: selectedSummary.date)
+                let label = consistencyBucketTitle(for: selectedSummary.date)
                 TrendTooltipView(
                     title: label,
                     valueText: selectedSummary.valueText,
@@ -681,7 +702,7 @@ struct TrendsView: View {
                     viewSetsAccessibilityLabel: "View supplement logs for \(label)",
                     viewSetsIdentifier: "Trends.SupplementsTooltip.ViewLogs",
                     onViewSets: {
-                        sheetDestination = .supplementDay(selectedSummary.date)
+                        openSupplementDrilldown(for: selectedSummary.date)
                     },
                     onClear: {
                         selectedSupplementDay = nil
@@ -692,7 +713,8 @@ struct TrendsView: View {
         }
     }
 
-    private var prCards: some View {
+    private func prCards(derived: TrendsDerivedData) -> some View {
+        let filteredEntries = derived.filteredEntries
         let bestWeightEntry = filteredEntries
             .filter { $0.weight != nil }
             .max { (lhs, rhs) in
@@ -712,7 +734,7 @@ struct TrendsView: View {
             }
         let bestReps = filteredEntries.compactMap { $0.reps }.max()
         let bestDuration = filteredEntries.compactMap { $0.durationSeconds }.max()
-        let sessionCount = Set(filteredEntries.map { DateHelper.startOfDay(for: $0.performedAt) }).count
+        let sessionCount = derived.activeDayCount
         let showsDistancePRs = bestDistanceEntry != nil
 
         let firstCard = PRCardMetric(
@@ -771,194 +793,22 @@ struct TrendsView: View {
         dynamicTypeSize.isAccessibilitySize ? 220 : 180
     }
 
-    private var dailySummaries: [TrendDailySummary] {
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: filteredEntries) { entry in
-            calendar.startOfDay(for: entry.performedAt)
-        }
-
-        if range == .all {
-            return grouped.keys.sorted().map { day in
-                TrendDailySummary(date: day, entries: grouped[day] ?? [])
-            }
-        }
-
-        guard let startDate = range.startDate else { return [] }
-        let endDate = calendar.startOfDay(for: AppEnvironment.now)
-        var dates: [Date] = []
-        var current = startDate
-        while current <= endDate {
-            dates.append(current)
-            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
-            current = next
-        }
-
-        return dates.map { day in
-            TrendDailySummary(date: day, entries: grouped[day] ?? [])
-        }
-    }
-
-    private var dailySummaryLookup: [Date: TrendDailySummary] {
-        Dictionary(uniqueKeysWithValues: dailySummaries.map { ($0.date, $0) })
-    }
-
-    private var selectedDailySummary: TrendDailySummary? {
+    private func selectedConsistencySummary(in derived: TrendsDerivedData) -> TrendDailySummary? {
         guard let selectedDay else { return nil }
-        guard let nearest = nearestDay(to: selectedDay, in: dailySummaries) else { return nil }
-        return dailySummaryLookup[nearest]
+        guard let nearest = nearestDay(to: selectedDay, in: derived.consistencySummaries) else { return nil }
+        return derived.consistencySummaries.first { $0.date == nearest }
     }
 
-    private var dailyPRCount: Int {
-        dailySummaries.map(\.count).max() ?? 0
-    }
-
-    private var dailyPRSummary: TrendDailySummary? {
-        guard dailyPRCount > 0 else { return nil }
-        return dailySummaries.filter { $0.count == dailyPRCount }.max(by: { $0.date < $1.date })
-    }
-
-    private var weeklySummaries: [TrendWeeklySummary] {
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: filteredEntries) { entry in
-            TrendsDateHelper.startOfWeek(for: entry.performedAt, calendar: calendar)
-        }
-
-        var summaries: [TrendWeeklySummary] = []
-        for (weekStart, items) in grouped {
-            var weightedVolume: Double = 0
-            var repsVolume: Int = 0
-            var durationSeconds: Int = 0
-
-            for item in items {
-                if let weight = item.weight, let reps = item.reps {
-                    weightedVolume += weight * Double(reps)
-                } else if let reps = item.reps {
-                    repsVolume += reps
-                }
-                if let duration = item.durationSeconds {
-                    durationSeconds += duration
-                }
-            }
-
-            let durationMinutes = Double(durationSeconds) / 60.0
-            let maxSeriesValue = max(weightedVolume, Double(repsVolume), durationMinutes)
-            let weekEnd = TrendsDateHelper.endOfWeek(for: weekStart, calendar: calendar)
-            summaries.append(TrendWeeklySummary(
-                weekStart: weekStart,
-                weekEnd: weekEnd,
-                entries: items,
-                weightedVolume: weightedVolume,
-                repsVolume: repsVolume,
-                durationMinutes: durationMinutes,
-                maxSeriesValue: maxSeriesValue
-            ))
-        }
-
-        return summaries.sorted { $0.weekStart < $1.weekStart }
-    }
-
-    private var weeklySummaryLookup: [Date: TrendWeeklySummary] {
-        Dictionary(uniqueKeysWithValues: weeklySummaries.map { ($0.weekStart, $0) })
-    }
-
-    private var selectedWeeklySummary: TrendWeeklySummary? {
+    private func selectedWeeklySummary(in derived: TrendsDerivedData) -> TrendWeeklySummary? {
         guard let selectedWeekStart else { return nil }
-        guard let nearest = nearestWeekStart(to: selectedWeekStart, in: weeklySummaries) else { return nil }
-        return weeklySummaryLookup[nearest]
+        guard let nearest = nearestWeekStart(to: selectedWeekStart, in: derived.weeklySummaries) else { return nil }
+        return derived.weeklySummaries.first { $0.weekStart == nearest }
     }
 
-    private var weeklyPRTotal: Double {
-        weeklySummaries.map(\.totalVolumeScore).max() ?? 0
-    }
-
-    private var weeklyPRSummary: TrendWeeklySummary? {
-        guard weeklyPRTotal > 0 else { return nil }
-        return weeklySummaries
-            .filter { $0.totalVolumeScore == weeklyPRTotal }
-            .max(by: { $0.weekStart < $1.weekStart })
-    }
-
-    private var supplementDisplayMode: SupplementTrendDisplayMode {
-        guard let selectedType = selectedSupplementType else {
-            return .count(reason: .allSupplements)
-        }
-
-        let entries = filteredSupplementEntries
-        let unitsWithDose = Set(entries.compactMap { entry in
-            entry.dose == nil ? nil : entry.unit
-        })
-        if unitsWithDose.count > 1 {
-            return .count(reason: .mixedUnits)
-        }
-        if unitsWithDose.isEmpty {
-            return .count(reason: .noDoseData)
-        }
-        return .dose(unit: unitsWithDose.first ?? selectedType.unit)
-    }
-
-    private var supplementDailySummaries: [SupplementDailySummary] {
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: filteredSupplementEntries) { entry in
-            calendar.startOfDay(for: entry.takenAt)
-        }
-
-        if range == .all {
-            return grouped.keys.sorted().map { day in
-                SupplementDailySummary(
-                    date: day,
-                    entries: grouped[day] ?? [],
-                    mode: supplementDisplayMode
-                )
-            }
-        }
-
-        guard let startDate = range.startDate else { return [] }
-        let endDate = calendar.startOfDay(for: AppEnvironment.now)
-        var dates: [Date] = []
-        var current = startDate
-        while current <= endDate {
-            dates.append(current)
-            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
-            current = next
-        }
-
-        return dates.map { day in
-            SupplementDailySummary(
-                date: day,
-                entries: grouped[day] ?? [],
-                mode: supplementDisplayMode
-            )
-        }
-    }
-
-    private var supplementDailySummaryLookup: [Date: SupplementDailySummary] {
-        Dictionary(uniqueKeysWithValues: supplementDailySummaries.map { ($0.date, $0) })
-    }
-
-    private var selectedSupplementSummary: SupplementDailySummary? {
+    private func selectedSupplementSummary(in derived: TrendsDerivedData) -> SupplementDailySummary? {
         guard let selectedSupplementDay else { return nil }
-        guard let nearest = nearestSupplementDay(to: selectedSupplementDay, in: supplementDailySummaries) else { return nil }
-        return supplementDailySummaryLookup[nearest]
-    }
-
-    private var supplementSummariesWithLogs: [SupplementDailySummary] {
-        supplementDailySummaries.filter { $0.count > 0 }
-    }
-
-    private var volumeData: [VolumeDatum] {
-        var data: [VolumeDatum] = []
-        for summary in weeklySummaries {
-            if summary.weightedVolume > 0 {
-                data.append(VolumeDatum(weekStart: summary.weekStart, series: .weighted, value: summary.weightedVolume))
-            }
-            if summary.repsVolume > 0 {
-                data.append(VolumeDatum(weekStart: summary.weekStart, series: .reps, value: Double(summary.repsVolume)))
-            }
-            if summary.durationMinutes > 0 {
-                data.append(VolumeDatum(weekStart: summary.weekStart, series: .duration, value: summary.durationMinutes))
-            }
-        }
-        return data.sorted { $0.weekStart < $1.weekStart }
+        guard let nearest = nearestSupplementDay(to: selectedSupplementDay, in: derived.supplementSummaries) else { return nil }
+        return derived.supplementSummaries.first { $0.date == nearest }
     }
 
     private func nearestDay(to date: Date, in data: [TrendDailySummary]) -> Date? {
@@ -982,8 +832,9 @@ struct TrendsView: View {
     private func consistencyAccessibilityValue(for data: [TrendDailySummary]) -> String {
         guard !data.isEmpty else { return "No data" }
         let totalSets = data.reduce(0) { $0 + $1.count }
-        let activeDays = data.filter { $0.count > 0 }.count
-        return "\(totalSets) sets over \(activeDays) active days"
+        let activeBuckets = data.filter { $0.count > 0 }.count
+        let bucketLabel = consistencyUsesWeeks ? "active weeks" : "active days"
+        return "\(totalSets) sets over \(activeBuckets) \(bucketLabel)"
     }
 
     private func volumeAccessibilityValue(for data: [VolumeDatum]) -> String {
@@ -1004,47 +855,56 @@ struct TrendsView: View {
         return "\(summary) across \(weekCount) weeks"
     }
 
-    private func supplementAccessibilityValue(for data: [SupplementDailySummary]) -> String {
+    private func supplementAccessibilityValue(for data: [SupplementDailySummary], mode: SupplementTrendDisplayMode) -> String {
         guard !data.isEmpty else { return "No data" }
-        switch supplementDisplayMode {
+        let bucketLabel = consistencyUsesWeeks ? "weeks" : "days"
+        switch mode {
         case .dose(let unit):
             let total = data.reduce(0.0) { $0 + $1.totalDose }
             let formatted = Formatters.dose.string(from: NSNumber(value: total)) ?? "\(total)"
-            let activeDays = data.filter { $0.count > 0 }.count
-            return "Total \(formatted) \(unit.displayName) over \(activeDays) days"
+            let activeBuckets = data.filter { $0.count > 0 }.count
+            return "Total \(formatted) \(unit.displayName) over \(activeBuckets) \(bucketLabel)"
         case .count:
             let total = data.reduce(0) { $0 + $1.count }
-            let activeDays = data.filter { $0.count > 0 }.count
-            return "\(total) logs over \(activeDays) days"
+            let activeBuckets = data.filter { $0.count > 0 }.count
+            return "\(total) logs over \(activeBuckets) \(bucketLabel)"
         }
     }
 
+    // Sheet data providers run once at presentation, so they filter the raw
+    // queries directly instead of keeping a filtered copy alive per render.
     private func entriesForDay(_ date: Date) -> [SetEntry] {
-        let target = Calendar.current.startOfDay(for: date)
-        return filteredEntries.filter { Calendar.current.isDate($0.performedAt, inSameDayAs: target) }
+        let calendar = Calendar.current
+        return entries.filter { entry in
+            guard selectedExerciseID == nil || entry.exercise.id == selectedExerciseID else { return false }
+            return calendar.isDate(entry.performedAt, inSameDayAs: date)
+        }
     }
 
     private func entriesForWeek(weekStart: Date) -> [SetEntry] {
         let calendar = Calendar.current
         let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
-        return filteredEntries.filter { entry in
-            entry.performedAt >= weekStart && entry.performedAt < weekEnd
+        return entries.filter { entry in
+            guard selectedExerciseID == nil || entry.exercise.id == selectedExerciseID else { return false }
+            return entry.performedAt >= weekStart && entry.performedAt < weekEnd
         }
     }
 
     private func supplementEntriesForDay(_ date: Date) -> [SupplementEntry] {
-        let target = Calendar.current.startOfDay(for: date)
-        return filteredSupplementEntries.filter { Calendar.current.isDate($0.takenAt, inSameDayAs: target) }
+        let calendar = Calendar.current
+        return supplementEntries.filter { entry in
+            guard selectedSupplementTypeID == nil || entry.type.id == selectedSupplementTypeID else { return false }
+            return calendar.isDate(entry.takenAt, inSameDayAs: date)
+        }
     }
 
-    private var progressPoints: [ExerciseProgressPoint] {
-        guard let selectedExercise else { return [] }
-        return ExerciseProgressBuilder.buildPoints(entries: entries, exercise: selectedExercise, range: range)
-    }
-
-    private var selectedLiftBests: ExerciseLiftBests? {
-        guard let selectedExercise else { return nil }
-        return ExerciseProgressBuilder.buildLiftBests(entries: entries, exercise: selectedExercise, range: range)
+    private func supplementEntriesForWeek(weekStart: Date) -> [SupplementEntry] {
+        let calendar = Calendar.current
+        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
+        return supplementEntries.filter { entry in
+            guard selectedSupplementTypeID == nil || entry.type.id == selectedSupplementTypeID else { return false }
+            return entry.takenAt >= weekStart && entry.takenAt < weekEnd
+        }
     }
 
     private func setsLabel(for count: Int) -> String {
@@ -1081,13 +941,13 @@ struct TrendsView: View {
         selectedWeekStart = date
     }
 
-    private func selectSupplementDay(_ date: Date) {
-        let selectedDate = nearestSupplementDay(to: date, in: supplementSummariesWithLogs) ?? date
+    private func selectSupplementDay(_ date: Date, derived: TrendsDerivedData) {
+        let selectedDate = nearestSupplementDay(to: date, in: derived.supplementSummariesWithLogs) ?? date
         selectedDay = nil
         selectedWeekStart = nil
         selectedSupplementDay = selectedDate
         if TestHooks.isUITesting, !TestHooks.isAccessibilityAudit {
-            sheetDestination = .supplementDay(selectedDate)
+            openSupplementDrilldown(for: selectedDate)
         }
     }
 
@@ -1251,9 +1111,7 @@ struct TrendsExerciseSearchView: View {
             dismiss()
         } label: {
             HStack(spacing: MarbleLayout.rowSpacing) {
-                Image(systemName: "line.3.horizontal.decrease.circle")
-                    .font(.system(size: 18, weight: .semibold))
-                    .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
+                ScaledSymbol(systemName: "line.3.horizontal.decrease.circle", size: 18, weight: .semibold, frameSize: MarbleLayout.rowIconSize)
                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                     .accessibilityHidden(true)
 

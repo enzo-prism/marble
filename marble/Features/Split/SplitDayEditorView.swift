@@ -156,7 +156,7 @@ struct SplitDayEditorView: View {
         let now = AppEnvironment.now
         day.updatedAt = now
         day.plan?.updatedAt = now
-        try? modelContext.save()
+        modelContext.saveOrRollback()
         dismiss()
     }
 
@@ -171,7 +171,7 @@ struct SplitDayEditorView: View {
         let now = AppEnvironment.now
         day.updatedAt = now
         day.plan?.updatedAt = now
-        try? modelContext.save()
+        modelContext.saveOrRollback()
     }
 
     private var orderedPlannedSets: [PlannedSet] {
@@ -191,7 +191,7 @@ struct SplitDayEditorView: View {
         day.updatedAt = now
         day.plan?.updatedAt = now
         modelContext.insert(plannedSet)
-        try? modelContext.save()
+        modelContext.saveOrRollback()
     }
 
     private func delete(_ plannedSet: PlannedSet) {
@@ -202,7 +202,7 @@ struct SplitDayEditorView: View {
         let now = AppEnvironment.now
         day.updatedAt = now
         day.plan?.updatedAt = now
-        try? modelContext.save()
+        modelContext.saveOrRollback()
     }
 
     private func openLog(for plannedSet: PlannedSet) {
@@ -228,8 +228,7 @@ private struct PlannedSetsHeaderView: View {
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
             Spacer()
             Button(action: onAdd) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .semibold))
+                ScaledSymbol(systemName: "plus", size: 14, weight: .semibold)
             }
             .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
             .accessibilityIdentifier("SplitDayEditor.AddPlannedSetHeader")

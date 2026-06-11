@@ -8,8 +8,7 @@ struct AddSetToolbarButton: View {
         Button {
             quickLog.open()
         } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 17, weight: .semibold))
+            ScaledSymbol(systemName: "plus", size: 17, weight: .semibold)
         }
         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
         .accessibilityIdentifier("QuickLog.Button")

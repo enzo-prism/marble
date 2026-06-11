@@ -39,6 +39,5 @@ enum MarbleTypography {
     static let emptyMessage = Font.subheadline
     static let chip = Font.subheadline.weight(.medium)
     static let button = Font.subheadline.weight(.semibold)
-    static let timer = Font.system(size: 48, weight: .bold, design: .rounded)
     static let smallLabel = Font.caption2.weight(.medium)
 }

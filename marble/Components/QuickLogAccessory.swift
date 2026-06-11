@@ -10,8 +10,7 @@ struct QuickLogTile: View {
         Button(action: action) {
             ZStack {
                 GlassCircleBackground(isInteractive: true)
-                Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .semibold))
+                ScaledSymbol(systemName: "plus", size: 22, weight: .semibold)
             }
             .frame(width: MarbleLayout.quickLogCircleSize, height: MarbleLayout.quickLogCircleSize)
         }
@@ -45,12 +44,8 @@ struct QuickLogAccessoryModifier: ViewModifier {
                 .padding(.bottom, MarbleSpacing.xs)
             }
 
-        if #available(iOS 26.0, *) {
-            inset
-                .tabBarMinimizeBehavior(.onScrollDown)
-        } else {
-            inset
-        }
+        inset
+            .marbleTabBarMinimizeBehavior()
     }
 }
 

@@ -194,7 +194,9 @@ struct SetDetailView: View {
 
                 Button("Delete", role: .destructive) {
                     modelContext.delete(entry)
-                    try? modelContext.save()
+                    if modelContext.saveOrRollback() {
+                        MarbleHaptics.warning()
+                    }
                     dismiss()
                 }
                 .accessibilityIdentifier("SetDetail.Delete")
@@ -216,7 +218,7 @@ struct SetDetailView: View {
         }
         .onDisappear {
             entry.updatedAt = AppEnvironment.now
-            try? modelContext.save()
+            modelContext.saveOrRollback()
         }
     }
 
@@ -307,7 +309,9 @@ struct SetDetailView: View {
             updatedAt: now
         )
         modelContext.insert(duplicate)
-        try? modelContext.save()
+        if modelContext.saveOrRollback() {
+            MarbleHaptics.success()
+        }
     }
 
     private func syncOptionalMetricState(for exercise: Exercise? = nil) {

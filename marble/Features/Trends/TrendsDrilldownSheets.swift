@@ -4,6 +4,7 @@ enum TrendsSheetDestination: Identifiable {
     case day(Date)
     case week(Date)
     case supplementDay(Date)
+    case supplementWeek(Date)
 
     var id: String {
         switch self {
@@ -13,6 +14,8 @@ enum TrendsSheetDestination: Identifiable {
             return "week-\(date.timeIntervalSince1970)"
         case .supplementDay(let date):
             return "supplement-day-\(date.timeIntervalSince1970)"
+        case .supplementWeek(let date):
+            return "supplement-week-\(date.timeIntervalSince1970)"
         }
     }
 }
@@ -179,16 +182,24 @@ struct WeekDetailsSheet: View {
 
 struct SupplementDayDetailsSheet: View {
     let date: Date
+    var endDate: Date? = nil
     let entries: [SupplementEntry]
 
     @Environment(\.colorScheme) private var colorScheme
+
+    private var titleText: String {
+        if let endDate {
+            return TrendsDateHelper.weekLabel(start: date, end: endDate)
+        }
+        return DateHelper.dayLabel(for: date)
+    }
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                        Text(DateHelper.dayLabel(for: date))
+                        Text(titleText)
                             .font(MarbleTypography.screenTitle)
                             .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 

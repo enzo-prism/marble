@@ -1,12 +1,16 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.undoManager) private var undoManager
 
     @StateObject private var quickLog = QuickLogCoordinator()
     @StateObject private var tabSelection = TabSelection()
+    @State private var activeDay = DateHelper.startOfDay(for: AppEnvironment.now)
 
     var body: some View {
         TabView(selection: $tabSelection.selected) {
@@ -47,13 +51,26 @@ struct ContentView: View {
         }
         .environmentObject(tabSelection)
         .environmentObject(quickLog)
+        .environment(\.marbleActiveDay, activeDay)
         .tabBarGlassBackground()
+        .marbleTabBarMinimizeBehavior()
         .tint(Theme.primaryTextColor(for: colorScheme))
         .onAppear {
             Theme.applyTabBarAppearance(for: colorScheme)
         }
         .onChange(of: colorScheme) { _, newScheme in
             Theme.applyTabBarAppearance(for: newScheme)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                refreshActiveDay()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+            refreshActiveDay()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .marbleOpenQuickLog)) { _ in
+            quickLog.open()
         }
         .sheet(isPresented: $quickLog.isPresentingAddSet, onDismiss: {
             quickLog.prefillExerciseID = nil
@@ -72,9 +89,22 @@ struct ContentView: View {
         .background(Theme.backgroundColor(for: colorScheme))
         .applyTestOverrides()
         .task {
+            // Routes the system undo gestures (shake, three-finger swipe)
+            // through SwiftData's change tracking.
+            modelContext.undoManager = undoManager
             if TestHooks.isUITesting, TestHooks.calendarTestDay != nil {
                 tabSelection.selected = .calendar
             }
+        }
+        .onChange(of: undoManager) { _, newValue in
+            modelContext.undoManager = newValue
+        }
+    }
+
+    private func refreshActiveDay() {
+        let day = DateHelper.startOfDay(for: AppEnvironment.now)
+        if day != activeDay {
+            activeDay = day
         }
     }
 

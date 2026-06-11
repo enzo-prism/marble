@@ -690,6 +690,7 @@ struct AddSetView: View {
             return
         }
 
+        MarbleHaptics.success()
         closeSheet()
     }
 

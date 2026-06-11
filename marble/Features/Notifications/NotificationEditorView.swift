@@ -176,7 +176,7 @@ struct NotificationEditorView: View {
         if notification == nil {
             modelContext.insert(target)
         }
-        try? modelContext.save()
+        modelContext.saveOrRollback()
 
         Task {
             _ = await scheduler.sync(target)
@@ -188,7 +188,7 @@ struct NotificationEditorView: View {
         guard let notification else { return }
         scheduler.remove(notification)
         modelContext.delete(notification)
-        try? modelContext.save()
+        modelContext.saveOrRollback()
         dismiss()
     }
 

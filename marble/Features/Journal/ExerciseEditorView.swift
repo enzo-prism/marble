@@ -18,6 +18,7 @@ struct ExerciseEditorView: View {
     let dismissAfterSave: Bool
 
     @FocusState private var focusedField: Field?
+    @ScaledMetric(relativeTo: .body) private var emojiSuggestionSize: CGFloat = 24
 
     @State private var name: String = ""
     @State private var category: ExerciseCategory = .other
@@ -128,7 +129,7 @@ struct ExerciseEditorView: View {
                                             selectSuggestedEmoji(emoji)
                                         } label: {
                                             Text(emoji)
-                                                .font(.system(size: 24))
+                                                .font(.system(size: emojiSuggestionSize))
                                                 .frame(minWidth: 44, minHeight: 44)
                                                 .background(
                                                     RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
