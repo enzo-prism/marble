@@ -130,15 +130,28 @@ struct ExerciseProgressChart: View {
         let dateDomain = paddedDateDomain(dataRange)
         let yDomain = paddedScoreDomain
 
+        let accent = TrendsPalette.progress.color(for: colorScheme)
+
         return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Chart {
+                ForEach(points) { point in
+                    AreaMark(
+                        x: .value("Day", point.date),
+                        y: .value("Score", point.score)
+                    )
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(TrendsPalette.areaGradient(accent))
+                    .accessibilityHidden(true)
+                }
+
                 ForEach(points) { point in
                     LineMark(
                         x: .value("Day", point.date),
                         y: .value("Score", point.score)
                     )
-                    .foregroundStyle(Theme.dividerColor(for: colorScheme))
-                    .lineStyle(StrokeStyle(lineWidth: 2))
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(accent)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
                     .accessibilityHidden(true)
                 }
 
@@ -147,22 +160,23 @@ struct ExerciseProgressChart: View {
                         x: .value("Day", point.date),
                         y: .value("Score", point.score)
                     )
-                    .symbolSize(32)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .symbolSize(26)
+                    .foregroundStyle(accent)
                     .accessibilityHidden(true)
                 }
 
                 if let selectedPoint {
                     RuleMark(x: .value("Selected Day", selectedPoint.date))
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+                        .foregroundStyle(accent.opacity(0.35))
+                        .lineStyle(StrokeStyle(lineWidth: 1.5))
 
                     PointMark(
                         x: .value("Selected Day", selectedPoint.date),
                         y: .value("Score", selectedPoint.score)
                     )
-                    .symbolSize(70)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .symbol {
+                        TrendsSelectionDot(accent: accent)
+                    }
                     .accessibilityHidden(true)
                 }
             }

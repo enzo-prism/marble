@@ -313,11 +313,26 @@ struct TrendsView: View {
         let bestWeek = derived.weeklySummaries.max { $0.setCount < $1.setCount }
         let supplementLogs = derived.filteredSupplementEntries.count
         var items: [TrendSummaryItem] = [
-            TrendSummaryItem(title: "Sets", value: "\(derived.filteredEntries.count)", detail: "\(derived.activeDayCount) active days"),
-            TrendSummaryItem(title: "Best Week", value: bestWeek.map { "\($0.setCount)" } ?? "-", detail: bestWeek.map { TrendsDateHelper.weekLabel(start: $0.weekStart, end: $0.weekEnd) } ?? "No week yet")
+            TrendSummaryItem(
+                title: "Sets",
+                value: "\(derived.filteredEntries.count)",
+                detail: "\(derived.activeDayCount) active days",
+                accent: TrendsPalette.consistency.color(for: colorScheme)
+            ),
+            TrendSummaryItem(
+                title: "Best Week",
+                value: bestWeek.map { "\($0.setCount)" } ?? "-",
+                detail: bestWeek.map { TrendsDateHelper.weekLabel(start: $0.weekStart, end: $0.weekEnd) } ?? "No week yet",
+                accent: TrendsPalette.volumeWeighted.color(for: colorScheme)
+            )
         ]
         if supplementLogs > 0 {
-            items.append(TrendSummaryItem(title: "Supplements", value: "\(supplementLogs)", detail: selectedSupplementType?.name ?? "All types"))
+            items.append(TrendSummaryItem(
+                title: "Supplements",
+                value: "\(supplementLogs)",
+                detail: selectedSupplementType?.name ?? "All types",
+                accent: TrendsPalette.supplements.color(for: colorScheme)
+            ))
         }
         return items
     }
@@ -336,17 +351,40 @@ struct TrendsView: View {
             return start ... end
         }()
         let chartDomain = paddedDateDomain(dataRange, component: .day, value: consistencyUsesWeeks ? 4 : 1)
+        let accent = TrendsPalette.consistency.color(for: colorScheme)
+        let activeBuckets = summaries.filter { $0.count > 0 }
+        let averageSets: Double = activeBuckets.isEmpty
+            ? 0
+            : Double(activeBuckets.reduce(0) { $0 + $1.count }) / Double(activeBuckets.count)
 
         return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Chart {
+                ForEach(summaries) { item in
+                    AreaMark(
+                        x: .value("Day", item.date),
+                        y: .value("Sets", item.count)
+                    )
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(TrendsPalette.areaGradient(accent))
+                    .accessibilityHidden(true)
+                }
+
                 ForEach(summaries) { item in
                     LineMark(
                         x: .value("Day", item.date),
                         y: .value("Sets", item.count)
                     )
-                    .foregroundStyle(Theme.dividerColor(for: colorScheme))
-                    .lineStyle(StrokeStyle(lineWidth: 2))
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(accent)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
                     .accessibilityHidden(true)
+                }
+
+                if averageSets > 0, summaries.count > 1 {
+                    RuleMark(y: .value("Average", averageSets))
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.4))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                        .accessibilityHidden(true)
                 }
 
                 if let prSummary, prSummary.count > 0 {
@@ -355,26 +393,23 @@ struct TrendsView: View {
                         y: .value("Sets", prSummary.count)
                     )
                     .symbol {
-                        Circle()
-                            .stroke(Theme.secondaryTextColor(for: colorScheme), lineWidth: 1.5)
-                            .frame(width: 8, height: 8)
+                        TrendsPRDot()
                     }
-                    .symbolSize(28)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .accessibilityHidden(true)
                 }
 
                 if let selectedSummary {
                     RuleMark(x: .value("Selected Day", selectedSummary.date))
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+                        .foregroundStyle(accent.opacity(0.35))
+                        .lineStyle(StrokeStyle(lineWidth: 1.5))
 
                     PointMark(
                         x: .value("Selected Day", selectedSummary.date),
                         y: .value("Sets", selectedSummary.count)
                     )
-                    .symbolSize(70)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .symbol {
+                        TrendsSelectionDot(accent: accent)
+                    }
                     .accessibilityHidden(true)
                 }
             }
@@ -463,6 +498,11 @@ struct TrendsView: View {
         }()
         let chartDomain = paddedDateDomain(dataRange, component: .day, value: 4)
 
+        let volumeAccent = TrendsPalette.volumeWeighted.color(for: colorScheme)
+        let presentSeries = VolumeSeries.allCases.filter { series in
+            data.contains { $0.series == series }
+        }
+
         return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Chart {
                 ForEach(data) { item in
@@ -470,8 +510,9 @@ struct TrendsView: View {
                         x: .value("Week", item.weekStart),
                         y: .value("Value", item.value)
                     )
-                    .foregroundStyle(item.series.color(for: colorScheme))
+                    .foregroundStyle(TrendsPalette.barGradient(item.series.color(for: colorScheme)))
                     .position(by: .value("Series", item.series.label))
+                    .cornerRadius(3)
                     .accessibilityHidden(true)
                 }
 
@@ -481,32 +522,29 @@ struct TrendsView: View {
                         y: .value("Value", prSummary.maxSeriesValue)
                     )
                     .symbol {
-                        Circle()
-                            .stroke(Theme.secondaryTextColor(for: colorScheme), lineWidth: 1.5)
-                            .frame(width: 8, height: 8)
+                        TrendsPRDot()
                     }
-                    .symbolSize(28)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .accessibilityHidden(true)
                 }
 
                 if let selectedSummary {
                     RuleMark(x: .value("Selected Week", selectedSummary.weekStart))
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+                        .foregroundStyle(volumeAccent.opacity(0.35))
+                        .lineStyle(StrokeStyle(lineWidth: 1.5))
 
                     PointMark(
                         x: .value("Selected Week", selectedSummary.weekStart),
                         y: .value("Value", selectedSummary.maxSeriesValue)
                     )
-                    .symbolSize(70)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .symbol {
+                        TrendsSelectionDot(accent: volumeAccent)
+                    }
                     .accessibilityHidden(true)
                 }
             }
             .frame(height: chartHeight)
             .chartDateDomain(chartDomain)
-            .chartLegend(position: .bottom, alignment: .leading)
+            .chartLegend(.hidden)
             .chartXAxis {
                 AxisMarks(values: .automatic(desiredCount: 3)) { _ in
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
@@ -555,6 +593,15 @@ struct TrendsView: View {
                         .position(x: plotFrame.midX, y: plotFrame.midY)
                     }
                 }
+            }
+
+            if !presentSeries.isEmpty {
+                HStack(spacing: MarbleSpacing.s) {
+                    ForEach(presentSeries, id: \.self) { series in
+                        TrendsLegendChip(label: series.label, color: series.color(for: colorScheme))
+                    }
+                }
+                .padding(.top, MarbleSpacing.xxxs)
             }
 
             if let tooltipSummary {
@@ -616,29 +663,53 @@ struct TrendsView: View {
         }()
         let chartDomain = paddedDateDomain(dataRange, component: .day, value: 1)
 
+        let accent = TrendsPalette.supplements.color(for: colorScheme)
+
         return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Chart {
+                ForEach(summaries) { item in
+                    AreaMark(
+                        x: .value("Day", item.date),
+                        y: .value("Value", item.chartValue)
+                    )
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(TrendsPalette.areaGradient(accent))
+                    .accessibilityHidden(true)
+                }
+
                 ForEach(summaries) { item in
                     LineMark(
                         x: .value("Day", item.date),
                         y: .value("Value", item.chartValue)
                     )
-                    .foregroundStyle(Theme.dividerColor(for: colorScheme))
-                    .lineStyle(StrokeStyle(lineWidth: 2))
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(accent)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                    .accessibilityHidden(true)
+                }
+
+                ForEach(summaries.filter { $0.count > 0 }) { item in
+                    PointMark(
+                        x: .value("Day", item.date),
+                        y: .value("Value", item.chartValue)
+                    )
+                    .symbolSize(24)
+                    .foregroundStyle(accent)
                     .accessibilityHidden(true)
                 }
 
                 if let selectedSummary {
                     RuleMark(x: .value("Selected Day", selectedSummary.date))
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+                        .foregroundStyle(accent.opacity(0.35))
+                        .lineStyle(StrokeStyle(lineWidth: 1.5))
 
                     PointMark(
                         x: .value("Selected Day", selectedSummary.date),
                         y: .value("Value", selectedSummary.chartValue)
                     )
-                    .symbolSize(70)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .symbol {
+                        TrendsSelectionDot(accent: accent)
+                    }
                     .accessibilityHidden(true)
                 }
             }
@@ -1018,6 +1089,7 @@ private struct TrendSummaryItem: Identifiable {
     let title: String
     let value: String
     let detail: String
+    var accent: Color? = nil
 
     var id: String { title }
 }
@@ -1345,10 +1417,18 @@ private struct TrendSummaryItemView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-            Text(item.title)
-                .font(MarbleTypography.smallLabel)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .textCase(.uppercase)
+            HStack(spacing: MarbleSpacing.xxs) {
+                if let accent = item.accent {
+                    Circle()
+                        .fill(accent)
+                        .frame(width: 6, height: 6)
+                        .accessibilityHidden(true)
+                }
+                Text(item.title)
+                    .font(MarbleTypography.smallLabel)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .textCase(.uppercase)
+            }
 
             Text(item.value)
                 .font(MarbleTypography.rowTitle)
@@ -1396,14 +1476,13 @@ enum VolumeSeries: String, CaseIterable {
     }
 
     func color(for scheme: ColorScheme) -> Color {
-        let base = Theme.secondaryTextColor(for: scheme)
         switch self {
         case .weighted:
-            return base.opacity(scheme == .dark ? 0.9 : 0.7)
+            return TrendsPalette.volumeWeighted.color(for: scheme)
         case .reps:
-            return base.opacity(scheme == .dark ? 0.75 : 0.55)
+            return TrendsPalette.volumeReps.color(for: scheme)
         case .duration:
-            return base.opacity(scheme == .dark ? 0.6 : 0.45)
+            return TrendsPalette.volumeDuration.color(for: scheme)
         }
     }
 }

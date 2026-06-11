@@ -34,7 +34,7 @@ struct TrendTooltipView: View {
                     if showsPR {
                         Image(systemName: "trophy.fill")
                             .font(.caption2)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                            .foregroundStyle(TrendsPalette.personalRecord.color(for: colorScheme))
                             .accessibilityHidden(true)
                     }
                 }
