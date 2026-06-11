@@ -92,12 +92,36 @@ struct ContentView: View {
             // Routes the system undo gestures (shake, three-finger swipe)
             // through SwiftData's change tracking.
             modelContext.undoManager = undoManager
-            if TestHooks.isUITesting, TestHooks.calendarTestDay != nil {
-                tabSelection.selected = .calendar
+            if TestHooks.isUITesting {
+                if let tab = Self.tab(for: TestHooks.initialTab) {
+                    tabSelection.selected = tab
+                } else if TestHooks.calendarTestDay != nil {
+                    tabSelection.selected = .calendar
+                }
+                if TestHooks.openQuickLogAtLaunch {
+                    quickLog.open()
+                }
             }
         }
         .onChange(of: undoManager) { _, newValue in
             modelContext.undoManager = newValue
+        }
+    }
+
+    private static func tab(for identifier: String?) -> AppTab? {
+        switch identifier {
+        case "journal":
+            return .journal
+        case "calendar":
+            return .calendar
+        case "split":
+            return .split
+        case "supplements":
+            return .supplements
+        case "trends":
+            return .trends
+        default:
+            return nil
         }
     }
 

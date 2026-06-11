@@ -11,6 +11,8 @@ enum SeedData {
                 TestFixtures.seedEmpty(in: context, now: AppEnvironment.now)
             case .populated:
                 TestFixtures.seed(in: context, now: AppEnvironment.now)
+            case .screenshots:
+                TestFixtures.seedScreenshots(in: context, now: AppEnvironment.now)
             }
             return
         }

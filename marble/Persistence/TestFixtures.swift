@@ -186,6 +186,140 @@ enum TestFixtures {
         }
     }
 
+    /// Realistic five-week training history used for App Store screenshots:
+    /// a weekly push/pull/legs split with steady progression, Sunday recovery,
+    /// and daily supplements so every tab presents well-populated, plausible data.
+    static func seedScreenshots(in context: ModelContext, now: Date) {
+        clear(context)
+        SeedData.seedExercises(in: context)
+        SeedData.seedSupplements(in: context)
+        seedSplit(in: context, now: now, populated: true)
+
+        let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
+        let exerciseByName = Dictionary(uniqueKeysWithValues: exercises.map { ($0.name, $0) })
+        let calendar = Calendar.current
+
+        func at(daysAgo: Int, hour: Int, minute: Int) -> Date {
+            let start = calendar.startOfDay(for: now)
+            let day = calendar.date(byAdding: .day, value: -daysAgo, to: start) ?? start
+            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+        }
+
+        struct ScreenshotSet {
+            let exercise: String
+            var weight: Double? = nil
+            var reps: Int? = nil
+            var distance: Double? = nil
+            var durationSeconds: Int? = nil
+            var difficulty: Int = 8
+            var rest: Int = 90
+            var notes: String? = nil
+        }
+
+        var minuteCursor = 0
+        func insert(_ set: ScreenshotSet, daysAgo: Int) {
+            guard let exercise = exerciseByName[set.exercise] else { return }
+            let performedAt = at(daysAgo: daysAgo, hour: 7 + minuteCursor / 60, minute: 30 + minuteCursor % 60)
+            minuteCursor += 4
+            context.insert(SetEntry(
+                exercise: exercise,
+                performedAt: performedAt,
+                weight: set.weight,
+                weightUnit: .lb,
+                reps: set.reps,
+                distance: set.distance,
+                distanceUnit: .meters,
+                durationSeconds: set.durationSeconds,
+                difficulty: set.difficulty,
+                restAfterSeconds: set.rest,
+                notes: set.notes,
+                createdAt: performedAt,
+                updatedAt: performedAt
+            ))
+        }
+
+        for daysAgo in 0...34 {
+            let day = at(daysAgo: daysAgo, hour: 12, minute: 0)
+            let weekday = calendar.component(.weekday, from: day)
+            // Older weeks lift slightly less so Trends shows real progression.
+            let progress = Double((34 - daysAgo) / 7) * 5
+
+            minuteCursor = 0
+            let sets: [ScreenshotSet]
+            switch weekday {
+            case 2, 5: // Monday, Thursday: push
+                sets = [
+                    ScreenshotSet(exercise: "Bench Press", weight: 185 + progress, reps: 5, difficulty: 8, rest: 120, notes: daysAgo == 0 ? "Felt strong" : nil),
+                    ScreenshotSet(exercise: "Bench Press", weight: 185 + progress, reps: 5, difficulty: 8, rest: 120),
+                    ScreenshotSet(exercise: "Bench Press", weight: 190 + progress, reps: 4, difficulty: 9, rest: 120),
+                    ScreenshotSet(exercise: "Shoulder Press", weight: 95 + progress / 2, reps: 8, difficulty: 7, rest: 90),
+                    ScreenshotSet(exercise: "Shoulder Press", weight: 95 + progress / 2, reps: 8, difficulty: 8, rest: 90),
+                    ScreenshotSet(exercise: "Dips", weight: 25, reps: 10, difficulty: 7, rest: 90),
+                    ScreenshotSet(exercise: "Dips", weight: 25, reps: 9, difficulty: 8, rest: 90)
+                ]
+            case 3, 6: // Tuesday, Friday: pull
+                sets = [
+                    ScreenshotSet(exercise: "Deadlift", weight: 275 + progress, reps: 5, difficulty: 8, rest: 180),
+                    ScreenshotSet(exercise: "Deadlift", weight: 285 + progress, reps: 3, difficulty: 9, rest: 180),
+                    ScreenshotSet(exercise: "Pull Ups", reps: 12, difficulty: 7, rest: 90),
+                    ScreenshotSet(exercise: "Pull Ups", reps: 10, difficulty: 8, rest: 90),
+                    ScreenshotSet(exercise: "Cable Row", weight: 150, reps: 10, difficulty: 7, rest: 120),
+                    ScreenshotSet(exercise: "Cable Row", weight: 150, reps: 10, difficulty: 7, rest: 120)
+                ]
+            case 4, 7: // Wednesday, Saturday: legs + core
+                sets = [
+                    ScreenshotSet(exercise: "Squat", weight: 225 + progress, reps: 5, difficulty: 8, rest: 150),
+                    ScreenshotSet(exercise: "Squat", weight: 225 + progress, reps: 5, difficulty: 8, rest: 150),
+                    ScreenshotSet(exercise: "Squat", weight: 235 + progress, reps: 3, difficulty: 9, rest: 150, notes: daysAgo < 7 ? "New top set" : nil),
+                    ScreenshotSet(exercise: "Calf Raises", weight: 90, reps: 12, difficulty: 6, rest: 60),
+                    ScreenshotSet(exercise: "Calf Raises", weight: 90, reps: 12, difficulty: 6, rest: 60),
+                    ScreenshotSet(exercise: "Plank", durationSeconds: 75, difficulty: 7, rest: 45),
+                    ScreenshotSet(exercise: "Plank", durationSeconds: 70, difficulty: 8, rest: 45)
+                ]
+            default: // Sunday: recovery
+                sets = [
+                    ScreenshotSet(exercise: "Sauna", durationSeconds: 1200, difficulty: 1, rest: 0, notes: "Recovery")
+                ]
+            }
+
+            for set in sets {
+                insert(set, daysAgo: daysAgo)
+            }
+        }
+
+        let supplements = (try? context.fetch(FetchDescriptor<SupplementType>())) ?? []
+        let supplementsByName = Dictionary(uniqueKeysWithValues: supplements.map { ($0.name, $0) })
+
+        for daysAgo in 0...34 {
+            if let creatine = supplementsByName["Creatine"] {
+                let takenAt = at(daysAgo: daysAgo, hour: 7, minute: 15)
+                context.insert(SupplementEntry(
+                    type: creatine,
+                    takenAt: takenAt,
+                    dose: 5,
+                    unit: .g,
+                    notes: nil,
+                    createdAt: takenAt,
+                    updatedAt: takenAt
+                ))
+            }
+
+            let weekday = calendar.component(.weekday, from: at(daysAgo: daysAgo, hour: 12, minute: 0))
+            if weekday != 1, let protein = supplementsByName["Protein Powder"] {
+                let takenAt = at(daysAgo: daysAgo, hour: 9, minute: 30)
+                context.insert(SupplementEntry(
+                    type: protein,
+                    takenAt: takenAt,
+                    dose: 1,
+                    unit: .scoop,
+                    notes: daysAgo == 0 ? "Post workout" : nil,
+                    createdAt: takenAt,
+                    updatedAt: takenAt
+                ))
+            }
+        }
+    }
+
     private static func clear(_ context: ModelContext) {
         let sets = (try? context.fetch(FetchDescriptor<SetEntry>())) ?? []
         let supplements = (try? context.fetch(FetchDescriptor<SupplementEntry>())) ?? []

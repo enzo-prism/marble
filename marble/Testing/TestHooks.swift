@@ -10,6 +10,7 @@ enum TestHooks {
     enum FixtureMode: String {
         case populated
         case empty
+        case screenshots
     }
 
     static var overrideNow: Date?
@@ -23,6 +24,8 @@ enum TestHooks {
     static let fixtureMode: FixtureMode = FixtureMode(rawValue: (environmentValue("MARBLE_FIXTURE_MODE") ?? "populated").lowercased()) ?? .populated
     static let calendarTestDay: String? = environmentValue("MARBLE_TEST_CALENDAR_DAY")?.lowercased()
     static let notificationAuthorizationStatus: String? = environmentValue("MARBLE_NOTIFICATION_AUTHORIZATION")
+    static let initialTab: String? = environmentValue("MARBLE_INITIAL_TAB")?.lowercased()
+    static let openQuickLogAtLaunch: Bool = environmentFlag("MARBLE_OPEN_QUICK_LOG")
 
     static var now: Date {
         if let overrideNow { return overrideNow }
