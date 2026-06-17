@@ -30,8 +30,18 @@ final class ProgressMediaUITests: MarbleUITestCase {
 
         forceTap(photoItem)
         waitForIdentifier("Calendar.ProgressMedia.Detail", timeout: 8)
-        let deleteButton = app.buttons["Calendar.ProgressMedia.Delete"]
         let detailList = app.tables.firstMatch.exists ? app.tables.firstMatch : app.collectionViews.firstMatch
+
+        let editCropButton = app.buttons["Calendar.ProgressMedia.EditCrop"]
+        scrollToElement(editCropButton, in: detailList)
+        forceTap(editCropButton)
+
+        let cropEditor = waitForIdentifier("Calendar.ProgressMedia.Crop.Editor", timeout: 8)
+        forceTap(app.buttons["Calendar.ProgressMedia.Crop.Reset"])
+        forceTap(app.buttons["Calendar.ProgressMedia.Crop.Save"])
+        waitForDisappearance(cropEditor, timeout: 8)
+
+        let deleteButton = app.buttons["Calendar.ProgressMedia.Delete"]
         scrollToElement(deleteButton, in: detailList)
         waitFor(deleteButton, timeout: 8)
 
