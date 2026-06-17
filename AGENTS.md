@@ -68,6 +68,15 @@ Rules:
 - Required: Xcode 15+ (recommended latest).
 - Build: iOS Simulator.
 
+## Agent startup + source of truth
+- Read `RELEASE_HANDOFF.md` before release-sensitive work. It records the latest cleanup branches, App Store state snapshot, and release rules.
+- Treat `origin/main` as the canonical release baseline unless fresh git/ASC checks prove otherwise.
+- Start release-sensitive sessions with `git fetch --all --prune`, `git status --short --branch`, `git branch -vv`, `make asc-version`, `make asc-status`, `make asc-builds`, and `make asc-next-build`.
+- Do not delete or rewrite `backup/*` or `feature/*` cleanup branches unless the user explicitly asks; they preserve extracted work from the branch cleanup.
+- Do not cancel App Store review, bump builds, upload binaries, or submit review without explicit user approval and a clean release branch.
+- If replacing the current review build, create a release branch from clean `origin/main`, use the next ASC build number, and regenerate `.asc` artifacts from scratch.
+- Keep release cleanup narrow. Avoid public API or SwiftData model changes unless the approved fix requires them.
+
 ## How to run
 Use these commands (preferred):
 

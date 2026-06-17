@@ -19,6 +19,11 @@ Preferred Makefile targets:
 - `make audit` (accessibility audits)
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
+Simulator prerequisite:
+- The Make targets use `scripts/sim_destination.sh` to find an iPhone simulator.
+- If it reports no available iPhone simulator, install the required iOS platform
+  in Xcode before debugging test failures.
+
 Snapshot selection overrides:
 - `SNAPSHOT_SUITE=quick|full` (default `full`)
 - `SNAPSHOT_GROUPS_OVERRIDE` (comma-separated list of snapshot test identifiers)

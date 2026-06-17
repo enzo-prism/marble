@@ -29,6 +29,19 @@ project-local notes.
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
 
+## Release Safety
+
+- Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
+  release branches.
+- Current release examples use version `1.8`; always run `make asc-version`
+  before acting because the CLI can report a blank generated marketing version.
+- Do not cancel an in-flight review, upload a replacement build, or submit to
+  review without explicit user approval.
+- Build numbers must move forward from App Store Connect state. Use
+  `make asc-next-build`, not local guesses.
+- Regenerate `.asc/artifacts/marble.xcarchive` and `.asc/artifacts/marble.ipa`
+  from a clean branch for every release. Do not reuse stale artifacts.
+
 ## Apple Rules That Matter Here
 
 - App Store Connect API access requires API keys from App Store Connect, and
@@ -157,10 +170,10 @@ Direct equivalents:
 
 ```bash
 asc status --app "6757725234" --output table
-asc review status --app "6757725234" --version "1.6" --platform IOS --output table
-asc review doctor --app "6757725234" --version "1.6" --platform IOS --output table
-asc validate --app "6757725234" --version "1.6" --platform IOS --output table
-asc builds next-build-number --app "6757725234" --version "1.6" --platform IOS --output table
+asc review status --app "6757725234" --version "1.8" --platform IOS --output table
+asc review doctor --app "6757725234" --version "1.8" --platform IOS --output table
+asc validate --app "6757725234" --version "1.8" --platform IOS --output table
+asc builds next-build-number --app "6757725234" --version "1.8" --platform IOS --output table
 ```
 
 `asc validate` is the canonical App Store submission readiness report in the
@@ -249,7 +262,7 @@ asc publish appstore \
   --ipa-path .asc/artifacts/marble.ipa \
   --archive-xcodebuild-flag=-destination \
   --archive-xcodebuild-flag=generic/platform=iOS \
-  --version "1.6" \
+  --version "1.8" \
   --dry-run --output json --pretty
 ```
 
@@ -290,7 +303,7 @@ asc validate --help
 Useful direct commands:
 
 ```bash
-asc builds list --app "6757725234" --version "1.6"
+asc builds list --app "6757725234" --version "1.8"
 asc testflight groups list --app "6757725234"
 asc status --app "6757725234"
 ```
