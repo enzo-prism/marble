@@ -60,6 +60,10 @@ final class ProgressMediaAttachment {
     var kindRaw: String
     var originalFilename: String
     var thumbnailFilename: String?
+    var photoCropX: Double?
+    var photoCropY: Double?
+    var photoCropWidth: Double?
+    var photoCropHeight: Double?
     var fileSizeBytes: Int64?
     var createdAt: Date
     var updatedAt: Date
@@ -70,6 +74,7 @@ final class ProgressMediaAttachment {
         kind: ProgressMediaKind,
         originalFilename: String,
         thumbnailFilename: String? = nil,
+        photoCrop: ProgressPhotoCrop? = nil,
         fileSizeBytes: Int64? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
@@ -79,6 +84,10 @@ final class ProgressMediaAttachment {
         self.kindRaw = kind.rawValue
         self.originalFilename = originalFilename
         self.thumbnailFilename = thumbnailFilename
+        self.photoCropX = photoCrop?.x
+        self.photoCropY = photoCrop?.y
+        self.photoCropWidth = photoCrop?.width
+        self.photoCropHeight = photoCrop?.height
         self.fileSizeBytes = fileSizeBytes
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -89,5 +98,30 @@ extension ProgressMediaAttachment {
     var kind: ProgressMediaKind {
         get { ProgressMediaKind(rawValue: kindRaw) ?? .photo }
         set { kindRaw = newValue.rawValue }
+    }
+
+    var photoCrop: ProgressPhotoCrop? {
+        get {
+            guard
+                let photoCropX,
+                let photoCropY,
+                let photoCropWidth,
+                let photoCropHeight
+            else {
+                return nil
+            }
+            return ProgressPhotoCrop(
+                x: photoCropX,
+                y: photoCropY,
+                width: photoCropWidth,
+                height: photoCropHeight
+            )
+        }
+        set {
+            photoCropX = newValue?.x
+            photoCropY = newValue?.y
+            photoCropWidth = newValue?.width
+            photoCropHeight = newValue?.height
+        }
     }
 }
