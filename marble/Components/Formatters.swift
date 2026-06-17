@@ -42,7 +42,15 @@ enum Formatters {
 
     static let day: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "EEE, MMM d"
+        // Localized template rather than a fixed format string, so the weekday/month/day
+        // ordering and separators follow the user's locale ("Wed, Jun 10" in en-US).
+        formatter.setLocalizedDateFormatFromTemplate("EEEMMMd")
+        return formatter
+    }()
+
+    static let relativeTime: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
         return formatter
     }()
 
@@ -116,9 +124,7 @@ enum DateHelper {
     }
 
     static func relativeTime(from date: Date, to reference: Date = AppEnvironment.now) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        return formatter.localizedString(for: date, relativeTo: reference)
+        Formatters.relativeTime.localizedString(for: date, relativeTo: reference)
     }
 
     static func nextDate(for weekday: Weekday, from date: Date = AppEnvironment.now, calendar: Calendar = .current) -> Date {

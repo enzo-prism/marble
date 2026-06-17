@@ -20,6 +20,11 @@ enum SnapshotFixtures {
         try? context.save()
     }
 
+    static func seedShowcase(in context: ModelContext) {
+        TestFixtures.seedShowcase(in: context, now: now)
+        try? context.save()
+    }
+
     static func exercise(named name: String, in context: ModelContext) -> Exercise {
         let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
         if let match = exercises.first(where: { $0.name == name }) {

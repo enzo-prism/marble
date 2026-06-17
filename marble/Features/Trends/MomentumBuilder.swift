@@ -61,20 +61,19 @@ struct RecentPR {
 
 struct MomentumSummary {
     let deltas: [MomentumDelta]
-    let streakWeeks: Int
+    /// Consecutive days (ending today/yesterday) with at least one logged set. See ``StreakBuilder``.
+    let streakDays: Int
     let recentPR: RecentPR?
 
     var hasContent: Bool {
-        deltas.contains(where: { $0.changeText != nil }) || streakWeeks >= 2 || recentPR != nil
+        deltas.contains(where: { $0.changeText != nil }) || streakDays >= StreakBuilder.minimumStreakDays || recentPR != nil
     }
 
-    static let empty = MomentumSummary(deltas: [], streakWeeks: 0, recentPR: nil)
+    static let empty = MomentumSummary(deltas: [], streakDays: 0, recentPR: nil)
 }
 
 enum MomentumBuilder {
     static let recentPRWindowDays = 7
-    /// A streak only reads as meaningful once it spans at least this many weeks.
-    static let minimumStreakWeeks = 2
 
     /// - Parameter entries: set entries already scoped to the selected exercise (if any) but
     ///   **not** filtered by range — the builder needs the previous window and all-time data.
@@ -87,7 +86,7 @@ enum MomentumBuilder {
     ) -> MomentumSummary {
         MomentumSummary(
             deltas: buildDeltas(entries: entries, range: range, now: now, calendar: calendar),
-            streakWeeks: streakWeeks(entries: entries, now: now, calendar: calendar),
+            streakDays: StreakBuilder.currentStreak(entries: entries, now: now, calendar: calendar),
             recentPR: recentPR(entries: entries, now: now, calendar: calendar)
         )
     }
@@ -163,34 +162,6 @@ enum MomentumBuilder {
             }
         }
         return weighted + Double(reps) + Double(durationSeconds) / 60.0
-    }
-
-    // MARK: - Streak
-
-    /// Consecutive weeks (ending at the current week) that contain at least one logged session.
-    /// An in-progress week with no sessions yet does not break an existing streak.
-    static func streakWeeks(entries: [SetEntry], now: Date, calendar: Calendar) -> Int {
-        guard !entries.isEmpty else { return 0 }
-        let activeWeeks = Set(entries.map { TrendsDateHelper.startOfWeek(for: $0.performedAt, calendar: calendar) })
-        var cursor = TrendsDateHelper.startOfWeek(for: now, calendar: calendar)
-
-        if !activeWeeks.contains(cursor) {
-            guard let priorWeek = previousWeek(before: cursor, calendar: calendar) else { return 0 }
-            cursor = priorWeek
-        }
-
-        var streak = 0
-        while activeWeeks.contains(cursor) {
-            streak += 1
-            guard let priorWeek = previousWeek(before: cursor, calendar: calendar) else { break }
-            cursor = priorWeek
-        }
-        return streak
-    }
-
-    private static func previousWeek(before weekStart: Date, calendar: Calendar) -> Date? {
-        guard let shifted = calendar.date(byAdding: .day, value: -7, to: weekStart) else { return nil }
-        return TrendsDateHelper.startOfWeek(for: shifted, calendar: calendar)
     }
 
     // MARK: - Recent PR

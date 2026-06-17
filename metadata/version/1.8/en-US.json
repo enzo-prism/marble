@@ -1,0 +1,8 @@
+{
+  "description": "Marble is a fast, offline workout journal for lifters who want a clear record of every set.\n\nLog weights, reps, rest, RPE, notes, and supplements without accounts, ads, or tracking. Marble keeps the interface quiet so you can record training quickly, review what happened, and spot useful patterns over time.\n\nFEATURES\n- Fast set logging with repeat-last-set support\n- Clean Journal and Calendar views for reviewing training history\n- Streak summaries that make consistency easy to scan\n- Supplement tracking for creatine, protein, and other habits\n- Trends for volume, consistency, personal records, and progress\n- Light and dark mode with a focused high-contrast design\n- Fully offline local storage\n\nMarble is built for people who train consistently and care about details.\n\nNo accounts. No ads. No tracking.\nJust your training, clearly recorded.",
+  "keywords": "strength,workout,fitness,gym,training,lifting,journal,tracker,sets,supplements",
+  "marketingUrl": "https://github.com/enzo-prism/marble",
+  "promotionalText": "New in 1.8: cleaner quick-log feedback, refreshed calendar streaks, supplement icons, and updated progress views.",
+  "supportUrl": "https://github.com/enzo-prism/marble/issues",
+  "whatsNew": "Version 1.8 makes everyday logging cleaner and easier to read.\n\n- Quick-log confirmation banners now clear automatically, so they no longer stay pinned while you scroll.\n- Calendar now includes a clearer streak summary and better spacing around the month view.\n- Supplement types can use custom icons or emoji for easier scanning.\n- Trends and progress views have been polished for more reliable visual context.\n\nThanks for using Marble."
+}

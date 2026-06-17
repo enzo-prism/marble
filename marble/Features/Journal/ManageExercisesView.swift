@@ -70,7 +70,7 @@ struct ManageExercisesView: View {
             placement: .navigationBarDrawer(displayMode: .always),
             prompt: "Search exercises"
         )
-        .searchToolbarBehavior(.minimize)
+        .minimizeSearchToolbarWhenAvailable()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {

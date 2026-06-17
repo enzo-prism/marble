@@ -1,0 +1,13 @@
+{
+  "name": "marble-ad",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes hyperframes@0.6.70 preview",
+    "check": "npx --yes hyperframes@0.6.70 lint && npx --yes hyperframes@0.6.70 validate && npx --yes hyperframes@0.6.70 inspect",
+    "render": "npx --yes hyperframes@0.6.70 render",
+    "build": "npx --yes hyperframes@0.6.70 render --output out/_silent.mp4 && ffmpeg -y -i out/_silent.mp4 -i assets/sfx/soundtrack.wav -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest out/marble-ad.mp4 && rm -f out/_silent.mp4",
+    "sfx": "bash assets/sfx/build_sfx.sh",
+    "publish": "npx --yes hyperframes@0.6.70 publish"
+  }
+}

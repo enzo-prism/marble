@@ -12,6 +12,7 @@ struct SupplementsView: View {
     private var types: [SupplementType]
 
     @State private var toast: ToastData?
+    @State private var logFeedbackTrigger = 0
 
     var body: some View {
         NavigationStack {
@@ -84,15 +85,17 @@ struct SupplementsView: View {
             .overlay(alignment: .bottom) {
                 if let toast {
                     ToastView(
+                        id: toast.id,
                         message: toast.message,
                         actionTitle: toast.actionTitle,
                         onAction: toast.onAction,
-                        onDismiss: { self.toast = nil }
+                        onDismiss: { dismissToast(id: toast.id) }
                     )
                     .padding(.bottom, 12)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+            .sensoryFeedback(.success, trigger: logFeedbackTrigger)
         }
     }
 
@@ -146,6 +149,7 @@ struct SupplementsView: View {
             updatedAt: now
         )
         modelContext.insert(entry)
+        logFeedbackTrigger += 1
         toast = ToastData(message: "Logged \(type.name)", actionTitle: "Undo") {
             undoQuickAdd(entry)
         }
@@ -168,9 +172,17 @@ struct SupplementsView: View {
         modelContext.delete(entry)
         toast = nil
     }
+
+    private func dismissToast(id: UUID? = nil) {
+        if let id, toast?.id != id {
+            return
+        }
+        toast = nil
+    }
 }
 
-private struct ToastData {
+private struct ToastData: Identifiable {
+    let id = UUID()
     let message: String
     let actionTitle: String?
     let onAction: (() -> Void)?

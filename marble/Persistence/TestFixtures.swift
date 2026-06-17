@@ -186,6 +186,125 @@ enum TestFixtures {
         }
     }
 
+    // MARK: - Showcase (marketing / ad) data
+
+    /// A rich, realistic ~6-week training history for marketing captures (App Store
+    /// screenshots, screen recordings, ads). Seeded only via the snapshot render path or
+    /// the `MARBLE_SHOWCASE` launch flag — never in production. Unlike `seed(...)` (which
+    /// deliberately includes extreme/stress values), every number here is attractive and
+    /// plausible: progressive overload, sane volumes, a clean supplement streak.
+    static func seedShowcase(in context: ModelContext, now: Date) {
+        clear(context)
+        SeedData.seedExercises(in: context)
+        SeedData.seedSupplements(in: context)
+        seedSplit(in: context, now: now, populated: true)
+
+        let calendar = Calendar.current
+        let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
+        let byName = Dictionary(uniqueKeysWithValues: exercises.map { ($0.name, $0) })
+
+        func date(daysAgo: Int, hour: Int, minute: Int) -> Date {
+            let start = calendar.startOfDay(for: now)
+            let day = calendar.date(byAdding: .day, value: -daysAgo, to: start) ?? start
+            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+        }
+
+        for name in ["Bench Press", "Squat", "Deadlift", "Pull Ups"] {
+            byName[name]?.isFavorite = true
+        }
+
+        struct Lift { let name: String; let weight: Double?; let reps: Int?; let rpe: Int; let rest: Int }
+
+        // The main compound is LAST so it carries the latest timestamp — making it the
+        // Journal "Ready to log" hero and the top row of the day.
+        func push(_ w: Int) -> [Lift] {
+            [Lift(name: "Cable Pec Fly", weight: Double(40 + w * 2), reps: 12, rpe: 7, rest: 75),
+             Lift(name: "Shoulder Press", weight: Double(75 + w * 5), reps: 8, rpe: 7, rest: 120),
+             Lift(name: "Dips", weight: Double(20 + w * 5), reps: 8, rpe: 8, rest: 90),
+             Lift(name: "Bench Press", weight: Double(135 + w * 10), reps: 5, rpe: 8, rest: 120)]
+        }
+        func pull(_ w: Int) -> [Lift] {
+            [Lift(name: "Lat Pulldown", weight: Double(110 + w * 5), reps: 10, rpe: 7, rest: 90),
+             Lift(name: "Cable Row", weight: Double(120 + w * 5), reps: 10, rpe: 7, rest: 120),
+             Lift(name: "Pull Ups", weight: nil, reps: 8 + w, rpe: 8, rest: 90),
+             Lift(name: "Deadlift", weight: Double(225 + w * 15), reps: 3, rpe: 9, rest: 180)]
+        }
+        func legs(_ w: Int) -> [Lift] {
+            [Lift(name: "Calf Raises", weight: Double(180 + w * 5), reps: 12, rpe: 6, rest: 60),
+             Lift(name: "Glute Bridge", weight: nil, reps: 15, rpe: 6, rest: 75),
+             Lift(name: "Good Morning", weight: Double(95 + w * 5), reps: 8, rpe: 7, rest: 120),
+             Lift(name: "Squat", weight: Double(185 + w * 12), reps: 5, rpe: 8, rest: 150)]
+        }
+
+        // Weekday → workout, so the cadence reads like a real split (~4 days/week).
+        // 2 = Mon, 4 = Wed, 6 = Fri, 1 = Sun.
+        func workout(weekday: Int, week: Int) -> [Lift]? {
+            switch weekday {
+            case 2, 1: return push(week)
+            case 4: return pull(week)
+            case 6: return legs(week)
+            default: return nil
+            }
+        }
+
+        var proteinDays: [Int] = []
+        for daysAgo in stride(from: 41, through: 0, by: -1) {
+            let noon = date(daysAgo: daysAgo, hour: 12, minute: 0)
+            let weekday = calendar.component(.weekday, from: noon)
+            let week = max(0, 5 - daysAgo / 7) // most recent week strongest
+            let lifts = workout(weekday: weekday, week: week) ?? (daysAgo == 0 ? push(week) : nil)
+            guard let lifts else { continue }
+            for (index, lift) in lifts.enumerated() {
+                guard let exercise = byName[lift.name] else { continue }
+                context.insert(SetEntry(
+                    exercise: exercise,
+                    performedAt: date(daysAgo: daysAgo, hour: 17, minute: index * 13),
+                    weight: lift.weight,
+                    weightUnit: .lb,
+                    reps: lift.reps,
+                    durationSeconds: nil,
+                    difficulty: lift.rpe,
+                    restAfterSeconds: lift.rest,
+                    notes: daysAgo == 0 && index == lifts.count - 1 ? "Felt strong" : nil,
+                    createdAt: now,
+                    updatedAt: now
+                ))
+            }
+            proteinDays.append(daysAgo)
+        }
+
+        let supplementTypes = (try? context.fetch(FetchDescriptor<SupplementType>())) ?? []
+        let supplementByName = Dictionary(uniqueKeysWithValues: supplementTypes.map { ($0.name, $0) })
+
+        if let creatine = supplementByName["Creatine"] {
+            for daysAgo in stride(from: 29, through: 0, by: -1) {
+                context.insert(SupplementEntry(
+                    type: creatine,
+                    takenAt: date(daysAgo: daysAgo, hour: 8, minute: 0),
+                    dose: 5,
+                    unit: .g,
+                    notes: nil,
+                    createdAt: now,
+                    updatedAt: now
+                ))
+            }
+        }
+
+        if let protein = supplementByName["Protein Powder"] {
+            for daysAgo in proteinDays where daysAgo <= 29 {
+                context.insert(SupplementEntry(
+                    type: protein,
+                    takenAt: date(daysAgo: daysAgo, hour: 18, minute: 50),
+                    dose: 1,
+                    unit: .scoop,
+                    notes: nil,
+                    createdAt: now,
+                    updatedAt: now
+                ))
+            }
+        }
+    }
+
     private static func clear(_ context: ModelContext) {
         let sets = (try? context.fetch(FetchDescriptor<SetEntry>())) ?? []
         let supplements = (try? context.fetch(FetchDescriptor<SupplementEntry>())) ?? []

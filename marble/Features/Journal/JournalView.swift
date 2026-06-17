@@ -95,10 +95,11 @@ struct JournalView: View {
             .overlay(alignment: .bottom) {
                 if let toast {
                     ToastView(
+                        id: toast.id,
                         message: toast.message,
                         actionTitle: toast.actionTitle,
                         onAction: toast.onAction,
-                        onDismiss: { self.toast = nil }
+                        onDismiss: { dismissToast(id: toast.id) }
                     )
                     .padding(.bottom, 12)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -147,6 +148,15 @@ struct JournalView: View {
         snapshot.restore(in: modelContext)
         try? modelContext.save()
         pendingUndo = nil
+        toast = nil
+    }
+
+    private func dismissToast(id: UUID? = nil) {
+        if let id, toast?.id != id {
+            return
+        }
+        pendingUndo = nil
+        quickLogUndoID = nil
         toast = nil
     }
 
@@ -257,7 +267,8 @@ private struct JournalRow: View {
     }
 }
 
-private struct ToastData {
+private struct ToastData: Identifiable {
+    let id = UUID()
     let message: String
     let actionTitle: String?
     let onAction: (() -> Void)?

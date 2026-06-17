@@ -214,4 +214,22 @@ extension View {
             self.buttonStyle(.bordered)
         }
     }
+
+    @ViewBuilder
+    func minimizeSearchToolbarWhenAvailable() -> some View {
+        if #available(iOS 26.0, *) {
+            self.searchToolbarBehavior(.minimize)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func navigationSubtitleWhenAvailable(_ subtitle: String) -> some View {
+        if #available(iOS 26.0, *) {
+            self.navigationSubtitle(subtitle)
+        } else {
+            self
+        }
+    }
 }

@@ -15,6 +15,10 @@ enum TestHooks {
     static var overrideNow: Date?
 
     static let isUITesting: Bool = environmentFlag("MARBLE_UI_TESTING")
+    /// Marketing capture mode: seeds the rich `seedShowcase` dataset into an in-memory
+    /// store, but (unlike `isUITesting`) keeps all test-only chrome hidden so the app
+    /// looks exactly as a user would see it. Used for screenshots / screen recordings.
+    static let isShowcase: Bool = environmentFlag("MARBLE_SHOWCASE")
     static let disableAnimations: Bool = environmentFlag("MARBLE_DISABLE_ANIMATIONS") || isUITesting
 
     /// Whether continuous, decorative motion (particle systems, shimmers)
@@ -42,7 +46,7 @@ enum TestHooks {
     }
 
     static var resetDatabase: Bool {
-        guard isUITesting || environmentFlag("MARBLE_RESET_DB") else { return false }
+        guard isUITesting || isShowcase || environmentFlag("MARBLE_RESET_DB") else { return false }
         #if DEBUG
         return true
         #else
@@ -51,7 +55,7 @@ enum TestHooks {
     }
 
     static var useInMemoryStore: Bool {
-        isUITesting
+        isUITesting || isShowcase
     }
 
     static func applyGlobalSettings() {
@@ -141,30 +145,22 @@ private struct TestOverridesModifier: ViewModifier {
     let disableAnimations: Bool
     let reduceTransparency: Bool
 
-    @ViewBuilder
+    // A single, branch-free view structure: every override degrades to a no-op when
+    // unset, so no AnyView erasure or conditional branches are needed (which would
+    // defeat SwiftUI's structural identity and force full re-renders).
     func body(content: Content) -> some View {
-        let base = content.preferredColorScheme(colorScheme)
-        let transparencyAdjusted = reduceTransparency
-            ? AnyView(base.environment(\.marbleReduceTransparencyOverride, true))
-            : AnyView(base)
-        if let sizeCategory {
-            if disableAnimations {
-                transparencyAdjusted
-                    .environment(\.sizeCategory, sizeCategory)
-                    .transaction { transaction in
-                        transaction.disablesAnimations = true
-                    }
-            } else {
-                transparencyAdjusted.environment(\.sizeCategory, sizeCategory)
+        content
+            .preferredColorScheme(colorScheme)
+            .environment(\.marbleReduceTransparencyOverride, reduceTransparency ? true : nil)
+            .transformEnvironment(\.sizeCategory) { category in
+                if let sizeCategory {
+                    category = sizeCategory
+                }
             }
-        } else {
-            if disableAnimations {
-                transparencyAdjusted.transaction { transaction in
+            .transaction { transaction in
+                if disableAnimations {
                     transaction.disablesAnimations = true
                 }
-            } else {
-                transparencyAdjusted
             }
-        }
     }
 }

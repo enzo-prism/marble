@@ -21,8 +21,11 @@ struct SupplementTypeManagerView: View {
                 NavigationLink {
                     SupplementTypeEditorView(type: type)
                 } label: {
-                    Text(type.name)
-                        .font(MarbleTypography.rowTitle)
+                    HStack(spacing: MarbleLayout.rowSpacing) {
+                        SupplementIconView(icon: type.displayIcon)
+                        Text(type.name)
+                            .font(MarbleTypography.rowTitle)
+                    }
                 }
                 .marbleRowInsets()
                 .accessibilityIdentifier("SupplementType.Row.\(type.id.uuidString)")

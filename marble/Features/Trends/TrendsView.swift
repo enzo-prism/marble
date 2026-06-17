@@ -45,134 +45,171 @@ struct TrendsView: View {
     }
 
     var body: some View {
+        trendsRoot
+            .sheet(item: $sheetDestination) { destination in
+                detailsSheet(for: destination)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                    .sheetGlassBackground()
+            }
+            .sheet(isPresented: $isPresentingExerciseSearch) {
+                NavigationStack {
+                    TrendsExerciseSearchView(
+                        exercises: exercises,
+                        entries: entries,
+                        selectedExerciseID: $selectedExerciseID
+                    )
+                }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .sheetGlassBackground()
+            }
+            .onChange(of: range) { _, _ in
+                clearSelections()
+            }
+            .onChange(of: selectedExerciseID) { _, _ in
+                clearSelections()
+            }
+            .onChange(of: selectedSupplementTypeID) { _, _ in
+                clearSelections()
+            }
+            .onChange(of: selectedDay) { _, newValue in
+                guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
+                if let day = newValue {
+                    sheetDestination = .day(day)
+                }
+            }
+            .onChange(of: selectedWeekStart) { _, newValue in
+                guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
+                if let weekStart = newValue {
+                    sheetDestination = .week(weekStart)
+                }
+            }
+            .onChange(of: selectedSupplementDay) { _, newValue in
+                guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
+                if let day = newValue {
+                    sheetDestination = .supplementDay(day)
+                }
+            }
+    }
+
+    private var trendsRoot: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: MarbleSpacing.l) {
-                    let hasSetData = !filteredEntries.isEmpty
-                    let hasSupplementData = !filteredSupplementEntries.isEmpty
+            trendsScroll
+        }
+    }
 
-                    rangePicker
-                    if hasSetData || hasSupplementData {
-                        periodInsightHeader
-                    }
-
-                    if !hasSetData && !hasSupplementData {
-                        EmptyStateView(
-                            title: "No trend data yet",
-                            message: "Log sets or supplements to see trends.",
-                            systemImage: "chart.line.uptrend.xyaxis"
-                        )
-                            .accessibilityIdentifier("Trends.EmptyState")
-                    } else {
-                        if hasSetData {
-                            consistencySection
-
-                            if selectedExercise != nil {
-                                progressSection
-                            }
-
-                            weeklyVolumeSection
-                        } else {
-                            Text("No workout data for this range.")
-                                .font(MarbleTypography.rowMeta)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        }
-
-                        if hasSecondaryHighlights {
-                            secondaryHighlightsSection
-                                .padding(.top, MarbleSpacing.l)
-                        }
-
-                        supplementsSection
-                            .padding(.top, MarbleSpacing.xxl)
-
-                        if hasSetData {
-                            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                Text("PRs")
-                                    .font(MarbleTypography.sectionTitle)
-                                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
-                                    .accessibilityHidden(true)
-                                prCards
-                            }
-                        }
-                    }
-                }
-                .padding(MarbleLayout.pagePadding)
-            }
-            .safeAreaInset(edge: .bottom) {
-                Color.clear
-                    .frame(height: MarbleSpacing.xxl)
-                    .accessibilityHidden(true)
-            }
-            .scrollDisabled(isScrubbingChart)
-            .accessibilityIdentifier("Trends.Scroll")
-            .background(Theme.backgroundColor(for: colorScheme))
-            .navigationTitle("Trends")
-            .navigationSubtitle(selectedExerciseName)
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarGlassBackground()
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    exerciseSearchButton
-                    AddSetToolbarButton()
-                }
+    private var trendsScroll: some View {
+        ScrollView {
+            trendsContent
+        }
+        .safeAreaInset(edge: .bottom) {
+            Color.clear
+                .frame(height: MarbleSpacing.xxl)
+                .accessibilityHidden(true)
+        }
+        .scrollDisabled(isScrubbingChart)
+        .accessibilityIdentifier("Trends.Scroll")
+        .background(Theme.backgroundColor(for: colorScheme))
+        .navigationTitle("Trends")
+        .navigationSubtitleWhenAvailable(selectedExerciseName)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarGlassBackground()
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                exerciseSearchButton
+                AddSetToolbarButton()
             }
         }
-        .sheet(item: $sheetDestination) { destination in
-            Group {
-                switch destination {
-                case .day(let date):
-                    DayDetailsSheet(date: date, entries: entriesForDay(date))
-                case .week(let weekStart):
-                    let weekEnd = TrendsDateHelper.endOfWeek(for: weekStart)
-                    WeekDetailsSheet(weekStart: weekStart, weekEnd: weekEnd, entries: entriesForWeek(weekStart: weekStart))
-                case .supplementDay(let date):
-                    SupplementDayDetailsSheet(date: date, entries: supplementEntriesForDay(date))
-                }
+    }
+
+    private var trendsContent: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.l) {
+            rangePicker
+            if hasAnyTrendData {
+                periodInsightHeader
             }
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-            .sheetGlassBackground()
-        }
-        .sheet(isPresented: $isPresentingExerciseSearch) {
-            NavigationStack {
-                TrendsExerciseSearchView(
-                    exercises: exercises,
-                    entries: entries,
-                    selectedExerciseID: $selectedExerciseID
+
+            if !hasAnyTrendData {
+                EmptyStateView(
+                    title: "No trend data yet",
+                    message: "Log sets or supplements to see trends.",
+                    systemImage: "chart.line.uptrend.xyaxis"
                 )
-            }
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
-            .sheetGlassBackground()
-        }
-        .onChange(of: range) { _, _ in
-            clearSelections()
-        }
-        .onChange(of: selectedExerciseID) { _, _ in
-            clearSelections()
-        }
-        .onChange(of: selectedSupplementTypeID) { _, _ in
-            clearSelections()
-        }
-        .onChange(of: selectedDay) { _, newValue in
-            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
-            if let day = newValue {
-                sheetDestination = .day(day)
+                .accessibilityIdentifier("Trends.EmptyState")
+            } else {
+                workoutTrendSections
+                secondaryAndSupplementSections
+                prSection
             }
         }
-        .onChange(of: selectedWeekStart) { _, newValue in
-            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
-            if let weekStart = newValue {
-                sheetDestination = .week(weekStart)
+        .padding(MarbleLayout.pagePadding)
+    }
+
+    @ViewBuilder
+    private var workoutTrendSections: some View {
+        if hasFilteredSetData {
+            consistencySection
+
+            if selectedExercise != nil {
+                progressSection
+            }
+
+            weeklyVolumeSection
+        } else {
+            Text("No workout data for this range.")
+                .font(MarbleTypography.rowMeta)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+        }
+    }
+
+    @ViewBuilder
+    private var secondaryAndSupplementSections: some View {
+        if hasSecondaryHighlights {
+            secondaryHighlightsSection
+                .padding(.top, MarbleSpacing.l)
+        }
+
+        supplementsSection
+            .padding(.top, MarbleSpacing.xxl)
+    }
+
+    @ViewBuilder
+    private var prSection: some View {
+        if hasFilteredSetData {
+            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                Text("PRs")
+                    .font(MarbleTypography.sectionTitle)
+                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityHidden(true)
+                prCards
             }
         }
-        .onChange(of: selectedSupplementDay) { _, newValue in
-            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
-            if let day = newValue {
-                sheetDestination = .supplementDay(day)
-            }
+    }
+
+    @ViewBuilder
+    private func detailsSheet(for destination: TrendsSheetDestination) -> some View {
+        switch destination {
+        case .day(let date):
+            DayDetailsSheet(date: date, entries: entriesForDay(date))
+        case .week(let weekStart):
+            let weekEnd = TrendsDateHelper.endOfWeek(for: weekStart)
+            WeekDetailsSheet(weekStart: weekStart, weekEnd: weekEnd, entries: entriesForWeek(weekStart: weekStart))
+        case .supplementDay(let date):
+            SupplementDayDetailsSheet(date: date, entries: supplementEntriesForDay(date))
         }
+    }
+
+    private var hasFilteredSetData: Bool {
+        !filteredEntries.isEmpty
+    }
+
+    private var hasFilteredSupplementData: Bool {
+        !filteredSupplementEntries.isEmpty
+    }
+
+    private var hasAnyTrendData: Bool {
+        hasFilteredSetData || hasFilteredSupplementData
     }
 
     private var filteredEntries: [SetEntry] {
@@ -1401,7 +1438,7 @@ struct TrendsExerciseSearchView: View {
             placement: .navigationBarDrawer(displayMode: .always),
             prompt: "Search exercises"
         )
-        .searchToolbarBehavior(.minimize)
+        .minimizeSearchToolbarWhenAvailable()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Done") {

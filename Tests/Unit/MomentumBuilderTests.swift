@@ -72,39 +72,18 @@ final class MomentumBuilderTests: MarbleTestCase {
         XCTAssertTrue(summary.deltas.isEmpty)
     }
 
-    func testStreakCountsConsecutiveActiveWeeks() {
+    func testBuildSurfacesDailyStreak() {
         let exercise = makeExercise()
+        // Three consecutive logged days ending today → a 3-day streak in the summary.
         let entries = [
-            entry(exercise, daysFromNow: 0, weight: 100, reps: 5),   // this week
-            entry(exercise, daysFromNow: -7, weight: 100, reps: 5),  // last week
-            entry(exercise, daysFromNow: -14, weight: 100, reps: 5)  // two weeks ago
+            entry(exercise, daysFromNow: 0, weight: 100, reps: 5),
+            entry(exercise, daysFromNow: -1, weight: 100, reps: 5),
+            entry(exercise, daysFromNow: -2, weight: 100, reps: 5)
         ]
 
-        let streak = MomentumBuilder.streakWeeks(entries: entries, now: now, calendar: calendar)
-        XCTAssertEqual(streak, 3)
-    }
-
-    func testStreakSurvivesEmptyInProgressWeek() {
-        let exercise = makeExercise()
-        // Nothing logged in the current week yet, but the two prior weeks were active.
-        let entries = [
-            entry(exercise, daysFromNow: -7, weight: 100, reps: 5),
-            entry(exercise, daysFromNow: -14, weight: 100, reps: 5)
-        ]
-
-        let streak = MomentumBuilder.streakWeeks(entries: entries, now: now, calendar: calendar)
-        XCTAssertEqual(streak, 2)
-    }
-
-    func testStreakBreaksOnGap() {
-        let exercise = makeExercise()
-        let entries = [
-            entry(exercise, daysFromNow: 0, weight: 100, reps: 5),    // this week
-            entry(exercise, daysFromNow: -21, weight: 100, reps: 5)   // three weeks ago (gap between)
-        ]
-
-        let streak = MomentumBuilder.streakWeeks(entries: entries, now: now, calendar: calendar)
-        XCTAssertEqual(streak, 1)
+        let summary = MomentumBuilder.build(entries: entries, range: .sevenDays, exercise: exercise, now: now, calendar: calendar)
+        XCTAssertEqual(summary.streakDays, 3)
+        XCTAssertTrue(summary.hasContent)
     }
 
     func testRecentPRDetectsHeaviestWithinWindow() {

@@ -40,6 +40,7 @@ struct ContentView: View {
         }
         .environmentObject(tabSelection)
         .environmentObject(quickLog)
+        .sensoryFeedback(.success, trigger: quickLog.setLoggedFeedbackTrigger)
         .tabBarGlassBackground()
         .tint(Theme.primaryTextColor(for: colorScheme))
         .onAppear {

@@ -40,11 +40,11 @@ struct MomentumStripView: View {
             }
         }
 
-        if summary.streakWeeks >= MomentumBuilder.minimumStreakWeeks {
+        if summary.streakDays >= StreakBuilder.minimumStreakDays {
             MomentumChip(
                 icon: "flame.fill",
                 title: "Streak",
-                value: "\(summary.streakWeeks) wk",
+                value: summary.streakDays == 1 ? "1 day" : "\(summary.streakDays) days",
                 trailing: nil,
                 accent: .neutral
             )
@@ -83,8 +83,9 @@ struct MomentumStripView: View {
 
     private var accessibilityLabel: String {
         var parts: [String] = summary.deltas.filter { $0.changeText != nil }.map(\.accessibilityText)
-        if summary.streakWeeks >= MomentumBuilder.minimumStreakWeeks {
-            parts.append("\(summary.streakWeeks) week training streak")
+        if summary.streakDays >= StreakBuilder.minimumStreakDays {
+            let dayWord = summary.streakDays == 1 ? "day" : "days"
+            parts.append("\(summary.streakDays) \(dayWord) training streak")
         }
         if let recentPR = summary.recentPR {
             parts.append(recentPR.accessibilityText)

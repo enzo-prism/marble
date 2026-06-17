@@ -690,6 +690,7 @@ struct AddSetView: View {
             return
         }
 
+        quickLog.notifySetLogged()
         closeSheet()
     }
 

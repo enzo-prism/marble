@@ -5,6 +5,10 @@ enum SeedData {
     private static let didSeedKey = "didSeedMarbleData"
 
     static func seedIfNeeded(in context: ModelContext) {
+        if TestHooks.isShowcase {
+            TestFixtures.seedShowcase(in: context, now: AppEnvironment.now)
+            return
+        }
         if TestHooks.isUITesting {
             switch TestHooks.fixtureMode {
             case .empty:

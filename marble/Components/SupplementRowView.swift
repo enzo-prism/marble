@@ -19,10 +19,7 @@ struct SupplementRowView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: MarbleLayout.rowSpacing) {
-            Image(systemName: "pills")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .frame(width: MarbleLayout.rowIconSize, height: MarbleLayout.rowIconSize)
+            SupplementIconView(icon: entry.type.displayIcon)
 
             VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
                 Text(entry.type.name)

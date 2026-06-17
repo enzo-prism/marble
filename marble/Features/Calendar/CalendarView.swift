@@ -20,31 +20,32 @@ struct CalendarView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: MarbleSpacing.s) {
-                if TestHooks.isUITesting && !TestHooks.isAccessibilityAudit {
-                    testControlsRow
-                }
+            ScrollView {
+                VStack(spacing: MarbleSpacing.s) {
+                    topAccessories
 
-                CalendarRepresentable(
-                    activeDays: activeDays,
-                    visibleMonth: visibleMonth,
-                    onSelect: { components in
-                        guard let components, let date = calendar.date(from: components) else {
-                            selectedDay = nil
-                            return
+                    CalendarRepresentable(
+                        activeDays: activeDays,
+                        visibleMonth: visibleMonth,
+                        onSelect: { components in
+                            guard let components, let date = calendar.date(from: components) else {
+                                selectedDay = nil
+                                return
+                            }
+                            presentDaySheet(for: date)
+                        },
+                        onVisibleMonthChange: { components in
+                            visibleMonth = components
                         }
-                        presentDaySheet(for: date)
-                    },
-                    onVisibleMonthChange: { components in
-                        visibleMonth = components
-                    }
-                )
+                    )
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("Calendar.View")
+                }
+                .padding(.horizontal, MarbleLayout.pagePadding)
+                .padding(.vertical, MarbleSpacing.s)
                 .frame(maxWidth: .infinity)
-                .frame(height: 360)
-                .accessibilityIdentifier("Calendar.View")
             }
-            .padding(.horizontal, MarbleLayout.pagePadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .scrollBounceBehavior(.basedOnSize)
             .background(Theme.backgroundColor(for: colorScheme).ignoresSafeArea())
             .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.inline)
@@ -90,6 +91,11 @@ struct CalendarView: View {
         activeWorkoutDays.union(activeProgressMediaDays)
     }
 
+    /// Daily training streak driven solely by logged sets (progress media never counts).
+    private var streakSummary: StreakSummary {
+        StreakBuilder.build(entries: entries, calendar: calendar)
+    }
+
     private func entriesForDay(_ date: Date) -> [SetEntry] {
         let start = calendar.startOfDay(for: date)
         return entries.filter { calendar.isDate($0.performedAt, inSameDayAs: start) }
@@ -132,6 +138,19 @@ struct CalendarView: View {
         Task { @MainActor in
             await Task.yield()
             selectedDay = selection
+        }
+    }
+
+    /// Content shown above the calendar grid: the daily streak summary plus the
+    /// UI-test-only day shortcuts.
+    @ViewBuilder
+    private var topAccessories: some View {
+        let showTestControls = TestHooks.isUITesting && !TestHooks.isAccessibilityAudit
+        if showTestControls {
+            testControlsRow
+        }
+        if streakSummary.hasHistory {
+            StreakSummaryView(summary: streakSummary)
         }
     }
 
@@ -342,9 +361,24 @@ struct CalendarRepresentable: UIViewRepresentable {
         view.delegate = context.coordinator
         view.visibleDateComponents = visibleMonth
         view.accessibilityIdentifier = "Calendar.View"
+        view.setContentHuggingPriority(.required, for: .vertical)
         let selection = UICalendarSelectionSingleDate(delegate: context.coordinator)
         view.selectionBehavior = selection
         return view
+    }
+
+    /// Report the calendar's *intrinsic* height for the proposed width so the surrounding
+    /// layout reserves exactly the space it draws into. UICalendarView's content is taller
+    /// than a naive fixed height (especially at large Dynamic Type sizes); without this it
+    /// overflows its frame and collides with sibling views stacked above it.
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UICalendarView, context: Context) -> CGSize? {
+        let width = proposal.width ?? uiView.intrinsicContentSize.width
+        let fitted = uiView.systemLayoutSizeFitting(
+            CGSize(width: width, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        )
+        return CGSize(width: width, height: fitted.height)
     }
 
     func updateUIView(_ uiView: UICalendarView, context: Context) {

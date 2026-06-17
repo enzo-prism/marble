@@ -169,12 +169,11 @@ class MarbleUITestCase: XCTestCase {
     }
 
     func waitForDisappearance(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {
-        let start = Date()
-        while element.exists && element.isHittable && Date().timeIntervalSince(start) < timeout {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        if element.exists && element.isHittable {
-            XCTFail("Element still hittable after \(timeout)s", file: file, line: line)
+        let predicate = NSPredicate(format: "exists == false")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+        if result != .completed {
+            XCTFail("Element still exists after \(timeout)s", file: file, line: line)
         }
     }
 

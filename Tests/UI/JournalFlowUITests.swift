@@ -120,6 +120,22 @@ final class JournalFlowUITests: MarbleUITestCase {
         }
     }
 
+    func testQuickLogAgainToastAutoDismisses() {
+        step("Launch and open Journal tab") {
+            launchApp(fixtureMode: "populated")
+            navigateToTab(.journal)
+        }
+
+        step("Log again and wait for the toast to clear") {
+            let logAgainButton = waitForIdentifier("Journal.QuickLog.LogAgain")
+            forceTap(logAgainButton)
+
+            let toast = waitForIdentifier("Toast", timeout: 3)
+            XCTAssertTrue(toast.label.contains("Set logged again"))
+            waitForDisappearance(toast, timeout: 6)
+        }
+    }
+
     func testAddDurationSetDoesNotCrash() {
         step("Launch and open Journal tab") {
             launchApp(fixtureMode: "empty")

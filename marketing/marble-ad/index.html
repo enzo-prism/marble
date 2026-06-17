@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --bg: #070709;
+        --ink: #f4f2ec;
+        --muted: rgba(244, 242, 236, 0.56);
+        --stone: #c8ccd2;
+        --font: -apple-system, "SF Pro Display", system-ui, "Helvetica Neue", Arial, sans-serif;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 1080px; height: 1920px; overflow: hidden;
+        background: var(--bg); color: var(--ink); font-family: var(--font);
+      }
+      #root { position: relative; width: 1080px; height: 1920px; }
+
+      /* persistent background */
+      #bg { background: var(--bg); }
+      .glow { position: absolute; inset: 0;
+        background: radial-gradient(44% 30% at 50% 36%, rgba(200, 204, 210, 0.12), transparent 64%); }
+      .grain { position: absolute; inset: 0; opacity: 0.5; mix-blend-mode: overlay;
+        background-image:
+          radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1.2px),
+          radial-gradient(rgba(0, 0, 0, 0.20) 1px, transparent 1.2px);
+        background-size: 3px 3px, 5px 5px; }
+      .vignette { position: absolute; inset: 0; box-shadow: inset 0 0 420px 90px rgba(0, 0, 0, 0.82); }
+      #bar { position: absolute; bottom: 0; left: 0; height: 6px; width: 0;
+        background: linear-gradient(90deg, rgba(244, 242, 236, 0.22), var(--ink)); }
+
+      /* scenes */
+      .scene { position: absolute; inset: 0; }
+      .scene-content { position: absolute; inset: 0; }
+      .copy { position: absolute; top: 158px; left: 92px; right: 92px; text-align: center; }
+      .h { font-size: 80px; font-weight: 800; letter-spacing: -2.2px; line-height: 1.03; }
+      .sub { margin-top: 24px; font-size: 34px; font-weight: 300; letter-spacing: 0.2px;
+        color: var(--muted); line-height: 1.3; }
+
+      /* phone — screen is aspect-locked to the screenshot (1179x2556) so nothing is cropped */
+      .phone {
+        position: absolute; left: 240px; top: 524px; width: 600px; height: 1270px;
+        border-radius: 64px; background: #0c0c0e; border: 1px solid rgba(255, 255, 255, 0.09);
+        box-shadow: 0 54px 130px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+      }
+      .screen { position: absolute; left: 13px; top: 13px; width: 574px; height: 1244px;
+        border-radius: 51px; overflow: hidden; background: #000; }
+      .shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+      .sheen { position: absolute; inset: 0; pointer-events: none;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 34%); }
+
+      /* brand / logo scenes */
+      .brand { position: absolute; inset: 0; display: flex; flex-direction: column;
+        justify-content: center; align-items: center; }
+      .appicon { position: relative; width: 348px; height: 348px; border-radius: 80px; overflow: hidden;
+        background: #fff;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 110px rgba(255, 255, 255, 0.10); }
+      .appicon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .icon-sheen { position: absolute; top: -10%; bottom: -10%; left: -60%; width: 42%;
+        transform: skewX(-12deg);
+        background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.55), transparent); }
+      .word { font-size: 116px; font-weight: 800; letter-spacing: 15px; padding-left: 15px; }
+      .tag { font-size: 38px; font-weight: 300; color: var(--muted); letter-spacing: 1px; }
+      .cta-btn { display: inline-flex; align-items: center; gap: 18px;
+        padding: 30px 56px; border-radius: 52px; color: #0b0b0d;
+        font-size: 39px; font-weight: 700; letter-spacing: 0.3px;
+        background: linear-gradient(180deg, #ffffff, #e6e4dd);
+        box-shadow: 0 0 64px rgba(255, 255, 255, 0.18); }
+      .cta-btn .apple { width: 38px; height: 38px; flex: none; transform: translateY(-2px); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="30"
+         data-width="1080" data-height="1920">
+
+      <!-- persistent background -->
+      <div id="bg" class="clip" data-start="0" data-duration="30" data-track-index="0">
+        <div class="glow" id="glow"></div>
+        <div class="grain"></div>
+        <div class="vignette"></div>
+      </div>
+
+      <!-- S1 — intro -->
+      <div id="s1" class="scene clip" data-start="0" data-duration="4" data-track-index="1" style="visibility:hidden">
+        <div class="scene-content">
+          <div class="brand">
+            <div class="appicon" id="s1icon"><img src="assets/logo.png" alt="Marble" /><div class="icon-sheen" id="s1sheen"></div></div>
+            <div class="word" id="s1word" style="margin-top:46px">MARBLE</div>
+            <div class="tag" id="s1tag" style="margin-top:20px">Your training, set in stone.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- S2 — log -->
+      <div id="s2" class="scene clip" data-start="4" data-duration="5" data-track-index="1" style="visibility:hidden">
+        <div class="scene-content">
+          <div class="copy"><div class="h">Log every set<br/>in seconds.</div><div class="sub">Weight, reps, rest — one tap.</div></div>
+          <div class="phone"><div class="screen"><img class="shot" src="assets/addset.png" alt="" /></div><div class="sheen"></div></div>
+        </div>
+      </div>
+
+      <!-- S3 — calendar -->
+      <div id="s3" class="scene clip" data-start="9" data-duration="5" data-track-index="1" style="visibility:hidden">
+        <div class="scene-content">
+          <div class="copy"><div class="h">Show up.<br/>Build the streak.</div><div class="sub">Every session, marked.</div></div>
+          <div class="phone"><div class="screen"><img class="shot" src="assets/calendar.png" alt="" /></div><div class="sheen"></div></div>
+        </div>
+      </div>
+
+      <!-- S4 — trends -->
+      <div id="s4" class="scene clip" data-start="14" data-duration="6" data-track-index="1" style="visibility:hidden">
+        <div class="scene-content">
+          <div class="copy"><div class="h">Watch your strength compound.</div><div class="sub">Volume, PRs, consistency.</div></div>
+          <div class="phone"><div class="screen"><img class="shot" src="assets/trends.png" alt="" /></div><div class="sheen"></div></div>
+        </div>
+      </div>
+
+      <!-- S5 — routine -->
+      <div id="s5" class="scene clip" data-start="20" data-duration="5" data-track-index="1" style="visibility:hidden">
+        <div class="scene-content">
+          <div class="copy"><div class="h">Your whole routine.</div><div class="sub">Lifts and supplements, together.<br/>Private, on-device.</div></div>
+          <div class="phone"><div class="screen"><img class="shot" src="assets/supplements.png" alt="" /></div><div class="sheen"></div></div>
+        </div>
+      </div>
+
+      <!-- S6 — CTA -->
+      <div id="s6" class="scene clip" data-start="25" data-duration="5" data-track-index="1" style="visibility:hidden">
+        <div class="scene-content">
+          <div class="brand">
+            <div class="appicon" id="s6icon"><img src="assets/logo.png" alt="Marble" /><div class="icon-sheen" id="s6sheen"></div></div>
+            <div class="word" id="s6word" style="margin-top:40px;font-size:100px">MARBLE</div>
+            <div class="tag" id="s6tag" style="margin-top:16px">#1 fitness tracking app in the universe</div>
+            <div class="cta-btn" id="s6btn" style="margin-top:48px"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.94 4.45z"/></svg><span>Download on the App Store</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- progress bar (top track) -->
+      <div id="bar" class="clip" data-start="0" data-duration="30" data-track-index="9"></div>
+
+      <!-- Sound design lives in assets/sfx/soundtrack.wav (ambient bed + transition whooshes,
+           logo impacts, a "one tap" tick, the CTA chime). The current HyperFrames renderer
+           truncates long in-engine <audio> at ~20s, so the soundtrack is muxed onto the render
+           with FFmpeg — run `npm run build` (render → mux) to produce the final out/marble-ad.mp4. -->
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      // persistent background
+      tl.fromTo("#glow", { xPercent: -6, yPercent: -3 }, { xPercent: 6, yPercent: 4, duration: 30, ease: "none" }, 0);
+      tl.fromTo("#bar", { width: 0 }, { width: 1080, duration: 30, ease: "none" }, 0);
+
+      // phone scenes — zoom the whole device (never the screen content) so nothing is cropped
+      function phoneScene(id, start, dur) {
+        tl.set(id, { autoAlpha: 1 }, start);
+        tl.from(id + " .h", { y: 46, autoAlpha: 0, duration: 0.7, ease: "power3.out" }, start + 0.15);
+        tl.from(id + " .sub", { y: 24, autoAlpha: 0, duration: 0.7, ease: "power2.out" }, start + 0.42);
+        tl.from(id + " .phone", { y: 84, autoAlpha: 0, duration: 0.9, ease: "power3.out" }, start + 0.1);
+        tl.fromTo(id + " .phone", { scale: 1.0 }, { scale: 1.035, duration: dur, ease: "none" }, start);
+        tl.to(id + " .phone", { y: -12, duration: 2.1, yoyo: true, repeat: 1, ease: "sine.inOut" }, start + 1.05);
+        tl.set(id, { autoAlpha: 0 }, start + dur);
+      }
+
+      // brand scene (intro / CTA) with the David app-icon
+      function brandIn(id, start, iconSel, sheenSel, wordSel, tagSel) {
+        tl.set(id, { autoAlpha: 1 }, start);
+        tl.from(iconSel, { scale: 0.72, autoAlpha: 0, duration: 0.9, ease: "power3.out" }, start + 0.15);
+        tl.fromTo(sheenSel, { x: 0 }, { x: 900, duration: 1.0, ease: "power2.inOut" }, start + 0.7);
+        tl.from(wordSel, { y: 40, autoAlpha: 0, duration: 0.7, ease: "power3.out" }, start + 0.65);
+        tl.from(tagSel, { y: 20, autoAlpha: 0, duration: 0.7, ease: "power2.out" }, start + 1.0);
+        tl.to(iconSel, { y: -10, duration: 1.7, yoyo: true, repeat: 1, ease: "sine.inOut" }, start + 1.5);
+      }
+
+      // S1 — intro
+      brandIn("#s1", 0, "#s1icon", "#s1sheen", "#s1word", "#s1tag");
+      tl.set("#s1", { autoAlpha: 0 }, 4);
+
+      // S2–S5 — phone scenes
+      phoneScene("#s2", 4, 5);
+      phoneScene("#s3", 9, 5);
+      phoneScene("#s4", 14, 6);
+      phoneScene("#s5", 20, 5);
+
+      // S6 — CTA
+      brandIn("#s6", 25, "#s6icon", "#s6sheen", "#s6word", "#s6tag");
+      tl.from("#s6btn", { y: 30, scale: 0.86, autoAlpha: 0, duration: 0.7, ease: "back.out(1.6)" }, 26.3);
+      tl.to("#s6btn", { scale: 1.03, duration: 1.1, yoyo: true, repeat: 1, ease: "sine.inOut" }, 27.4);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
