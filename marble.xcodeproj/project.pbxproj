@@ -579,6 +579,8 @@
 				);
 				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble;
+				CODE_SIGN_ENTITLEMENTS = marble.entitlements;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Marble reads workouts from Apple Health to add them to your journal.";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -614,6 +616,8 @@
 				);
 				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble;
+				CODE_SIGN_ENTITLEMENTS = marble.entitlements;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Marble reads workouts from Apple Health to add them to your journal.";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

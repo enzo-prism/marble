@@ -14,6 +14,7 @@ struct JournalView: View {
     @State private var pendingUndo: SetEntrySnapshot?
     @State private var quickLogUndoID: UUID?
     @State private var navPath: [UUID] = []
+    @State private var showingImport = false
 
     var body: some View {
         NavigationStack(path: $navPath) {
@@ -71,6 +72,14 @@ struct JournalView: View {
             .navigationBarGlassBackground()
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        showingImport = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                    .accessibilityLabel("Import Workouts")
+                    .accessibilityIdentifier("Journal.ImportWorkouts")
+
                     NavigationLink {
                         NotificationsView(scheduler: CustomNotificationScheduler.live())
                     } label: {
@@ -81,6 +90,11 @@ struct JournalView: View {
 
                     AddSetToolbarButton()
                 }
+            }
+            .sheet(isPresented: $showingImport) {
+                ImportView.default()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
             }
             .navigationDestination(for: UUID.self) { entryID in
                 if let entry = entries.first(where: { $0.id == entryID }) {

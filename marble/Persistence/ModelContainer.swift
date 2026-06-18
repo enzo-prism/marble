@@ -12,7 +12,8 @@ enum PersistenceController {
             SplitDay.self,
             PlannedSet.self,
             ProgressMediaAttachment.self,
-            CustomNotification.self
+            CustomNotification.self,
+            ImportedWorkout.self
         ])
 
         let configuration: ModelConfiguration
