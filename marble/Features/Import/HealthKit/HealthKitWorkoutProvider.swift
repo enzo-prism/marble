@@ -41,13 +41,18 @@ struct HealthKitWorkoutProvider: WorkoutImportProvider {
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthKitImportError.unavailable
         }
-        let readTypes: Set<HKObjectType> = [
-            HKObjectType.workoutType(),
-            HKQuantityType.quantityType(for: .distanceWalkingRunning),
-            HKQuantityType.quantityType(for: .distanceCycling),
-            HKQuantityType.quantityType(for: .distanceSwimming),
-            HKQuantityType.quantityType(for: .activeEnergyBurned)
+        var readTypes: Set<HKObjectType> = [HKObjectType.workoutType()]
+        let quantityIdentifiers: [HKQuantityTypeIdentifier] = [
+            .distanceWalkingRunning,
+            .distanceCycling,
+            .distanceSwimming,
+            .activeEnergyBurned
         ]
+        for identifier in quantityIdentifiers {
+            if let type = HKQuantityType.quantityType(forIdentifier: identifier) {
+                readTypes.insert(type)
+            }
+        }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             healthStore.requestAuthorization(toShare: [], read: readTypes) { success, error in
                 if let error {

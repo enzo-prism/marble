@@ -1,10 +1,11 @@
+import Combine
 import Foundation
 import SwiftUI
 import SwiftData
 
 @MainActor
 final class ImportViewModel: ObservableObject {
-    struct SourceState: Equatable {
+    struct SourceState {
         var status: ImportAuthorizationStatus = .notDetermined
         var records: [WorkoutImportRecord] = []
         var alreadyImported: Set<String> = []
@@ -17,6 +18,7 @@ final class ImportViewModel: ObservableObject {
     @Published private(set) var isImporting = false
     @Published var lastSummary: WorkoutImporter.Summary?
     @Published var lastSummarySource: ImportSource?
+    @Published var importErrorMessage: String?
 
     private let providers: [ImportSource: WorkoutImportProvider]
 
@@ -109,6 +111,7 @@ final class ImportViewModel: ObservableObject {
         let records = selectedRecords()
         guard !records.isEmpty else { return }
         isImporting = true
+        importErrorMessage = nil
         do {
             let summary = try WorkoutImporter.importRecords(records, in: context)
             lastSummary = summary
@@ -120,6 +123,7 @@ final class ImportViewModel: ObservableObject {
             }
             selection.removeAll()
         } catch {
+            importErrorMessage = "Couldn’t save the imported workouts. Please try again."
             MarbleHaptics.warning()
         }
         isImporting = false

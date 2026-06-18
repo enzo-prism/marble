@@ -29,6 +29,11 @@ enum ImportSource: String, Codable, CaseIterable, Identifiable {
 @Model
 final class ImportedWorkout {
     @Attribute(.unique) var id: UUID
+    /// `"<source>:<externalID>"`. A database-level unique constraint so a race between
+    /// two concurrent imports can't create duplicate ledger rows: SwiftData upserts on a
+    /// `.unique` collision instead of inserting a second row. Always derive it via
+    /// `Self.deduplicationKey(source:externalID:)` so the format stays consistent.
+    @Attribute(.unique) var deduplicationKey: String
     var sourceRaw: String
     var externalID: String
     var title: String
@@ -46,12 +51,17 @@ final class ImportedWorkout {
         importedAt: Date = Date()
     ) {
         self.id = id
+        self.deduplicationKey = Self.deduplicationKey(source: source, externalID: externalID)
         self.sourceRaw = source.rawValue
         self.externalID = externalID
         self.title = title
         self.workoutDate = workoutDate
         self.setsImported = setsImported
         self.importedAt = importedAt
+    }
+
+    static func deduplicationKey(source: ImportSource, externalID: String) -> String {
+        "\(source.rawValue):\(externalID)"
     }
 }
 

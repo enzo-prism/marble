@@ -18,6 +18,25 @@ struct GarminConnectConfiguration: Sendable {
         apiBaseURL: URL(string: "https://connectapi.garmin.com")!,
         authBaseURL: URL(string: "https://sso.garmin.com")!
     )
+
+    /// Credentials resolved from the app's Info.plist (`GarminClientID`,
+    /// `GarminClientSecret`, `GarminRedirectURI`), falling back to the empty
+    /// placeholder. This lets Garmin be enabled purely via build settings — no source
+    /// change — and keeps secrets out of the repository. When unconfigured, the import
+    /// UI hides Garmin entirely (see `ImportView.default()`).
+    static var resolved: GarminConnectConfiguration {
+        func value(_ key: String) -> String {
+            (Bundle.main.object(forInfoDictionaryKey: key) as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
+        return GarminConnectConfiguration(
+            clientID: value("GarminClientID"),
+            clientSecret: value("GarminClientSecret"),
+            redirectURI: value("GarminRedirectURI"),
+            apiBaseURL: URL(string: "https://connectapi.garmin.com")!,
+            authBaseURL: URL(string: "https://sso.garmin.com")!
+        )
+    }
 }
 
 enum GarminConnectError: LocalizedError {

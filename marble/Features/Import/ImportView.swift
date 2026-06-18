@@ -18,6 +18,17 @@ struct ImportView: View {
                     sourceSection(for: source)
                 }
 
+                if let message = viewModel.importErrorMessage {
+                    Section {
+                        Text(message)
+                            .font(MarbleTypography.rowMeta)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                            .marbleRowInsets()
+                            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                            .accessibilityIdentifier("Import.Error")
+                    }
+                }
+
                 if let summary = viewModel.lastSummary {
                     Section {
                         summaryRow(summary)
@@ -94,7 +105,7 @@ struct ImportView: View {
     }
 
     @ViewBuilder
-    private func statusLabel(for status: ImportAuthorizationStatus) {
+    private func statusLabel(for status: ImportAuthorizationStatus) -> some View {
         switch status {
         case .authorized:
             Text("Connected").font(MarbleTypography.rowMeta)
@@ -112,7 +123,7 @@ struct ImportView: View {
     }
 
     @ViewBuilder
-    private func actionButton(source: ImportSource, state: ImportViewModel.SourceState) {
+    private func actionButton(source: ImportSource, state: ImportViewModel.SourceState) -> some View {
         switch state.status {
         case .authorized:
             HStack(spacing: MarbleSpacing.xs) {
@@ -235,10 +246,18 @@ struct ImportView: View {
 
 extension ImportView {
     static func `default`() -> ImportView {
-        let providers: [WorkoutImportProvider] = [
-            HealthKitWorkoutProvider(),
-            GarminConnectProvider(client: GarminConnectClient(configuration: .placeholder))
-        ]
+        var providers: [WorkoutImportProvider] = [HealthKitWorkoutProvider()]
+
+        // Only surface Garmin when real credentials are configured. Shipping a visible
+        // "Garmin Connect" row that can never connect is poor UX and a likely App Review
+        // rejection; the implementation stays ready for the moment credentials are added.
+        let garminConfiguration = GarminConnectConfiguration.resolved
+        if garminConfiguration.isConfigured {
+            providers.append(
+                GarminConnectProvider(client: GarminConnectClient(configuration: garminConfiguration))
+            )
+        }
+
         return ImportView(viewModel: ImportViewModel(providers: providers))
     }
 }

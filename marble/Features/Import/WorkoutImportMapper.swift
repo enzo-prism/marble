@@ -16,6 +16,12 @@ enum WorkoutImportMapper {
     static func inferredCategory(for name: String) -> ExerciseCategory {
         let n = name.lowercased()
         if n.contains("bench") || n.contains("chest") || n.contains("dip") { return .chest }
+        // Core is checked before legs so "Hanging Leg Raise" lands in core
+        // instead of matching the generic "leg" keyword below.
+        if n.contains("plank") || n.contains("crunch") || n.contains("sit") || n.contains("core") || n.contains("hanging") { return .core }
+        // Specific leg movements before the broad "leg" keyword below: a leg curl trains
+        // hamstrings, not quads.
+        if n.contains("leg curl") || n.contains("hamstring curl") || n.contains("lying curl") { return .hamstrings }
         if n.contains("squat") || n.contains("leg") || n.contains("lunge") || n.contains("quad") || n.contains("leg press") { return .quads }
         if n.contains("deadlift") || n.contains("rdl") || n.contains("hamstring") || n.contains("good morning") { return .hamstrings }
         if n.contains("calf") { return .calves }
@@ -23,7 +29,6 @@ enum WorkoutImportMapper {
         if n.contains("curl") || n.contains("bicep") { return .biceps }
         if n.contains("triceps") || n.contains("pushdown") || n.contains("skull") || n.contains("extension") && n.contains("tri") { return .triceps }
         if n.contains("press") || n.contains("shoulder") || n.contains("lateral") || n.contains("raise") || n.contains("overhead") { return .shoulders }
-        if n.contains("plank") || n.contains("crunch") || n.contains("sit") || n.contains("core") || n.contains("hanging") { return .core }
         if n.contains("run") || n.contains("jog") { return .run }
         return .other
     }
@@ -35,7 +40,8 @@ enum WorkoutImportMapper {
         defaultRestSeconds: Int,
         in context: ModelContext
     ) throws -> Exercise {
-        try Resolver(in: context).resolve(
+        var resolver = Resolver(in: context)
+        return try resolver.resolve(
             name: name,
             category: category,
             metrics: metrics,

@@ -1,0 +1,49 @@
+name: CI
+
+# Runs the deterministic unit suite (MarbleTests) on every PR and on pushes to the
+# release lines, so broken logic can't land unnoticed the way the import feature's
+# compile errors did. Snapshot and UI suites are intentionally excluded: snapshot
+# comparisons are sub-pixel sensitive to the rendering host and belong to the local
+# `make snapshot` / `make ui` workflows, not a portable gate.
+
+on:
+  push:
+    branches: [main, "release/**"]
+  pull_request:
+    branches: [main, "release/**"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    # The app targets the iOS 26 SDK, so this needs a runner image with Xcode 26.x and
+    # the matching iOS 26 simulator runtime. Switch to a self-hosted runner if the
+    # GitHub-hosted macOS 26 image is not yet available to this org.
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest installed Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          xcodebuild -version
+
+      - name: List available simulator runtimes
+        run: xcrun simctl list runtimes
+
+      - name: Install xcbeautify (prettier logs)
+        run: brew install xcbeautify || true
+
+      - name: Run unit tests
+        run: make unit
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: TestResults/Marble.xcresult
+          if-no-files-found: ignore

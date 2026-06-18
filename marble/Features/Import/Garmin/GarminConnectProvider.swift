@@ -52,17 +52,22 @@ final class GarminConnectProvider: WorkoutImportProvider {
 
     func fetchWorkouts(in range: ClosedRange<Date>?) async throws -> [WorkoutImportRecord] {
         let activities = try await client.fetchActivities(start: range?.lowerBound, end: range?.upperBound)
-        return activities.map { Self.record(from: $0) }
+        return activities.compactMap { Self.record(from: $0) }
     }
 
     func disconnect() {
         client.disconnect()
     }
 
-    static func record(from activity: GarminActivity) -> WorkoutImportRecord {
+    /// Returns `nil` for activities we can't import safely. Without a stable `activityId`
+    /// we can't deduplicate (the old code coerced missing ids to `"0"`, collapsing every
+    /// id-less activity into one), and without a parseable timestamp the entry would be
+    /// silently backdated to "now", corrupting the history.
+    static func record(from activity: GarminActivity) -> WorkoutImportRecord? {
+        guard let activityId = activity.activityId else { return nil }
+        guard let date = parseDate(activity.startTimeGMT) else { return nil }
         let typeKey = activity.activityType?.typeKey ?? ""
         let kind = activityKind(for: typeKey, hasDistance: (activity.distance ?? 0) > 0)
-        let date = parseDate(activity.startTimeGMT) ?? Date()
         let title: String = {
             let trimmed = activity.activityName?.trimmingCharacters(in: .whitespacesAndNewlines)
             if let trimmed, !trimmed.isEmpty { return trimmed }
@@ -71,7 +76,7 @@ final class GarminConnectProvider: WorkoutImportProvider {
 
         return WorkoutImportRecord(
             source: .garminConnect,
-            externalID: String(activity.activityId ?? 0),
+            externalID: String(activityId),
             date: date,
             title: title,
             kind: kind,

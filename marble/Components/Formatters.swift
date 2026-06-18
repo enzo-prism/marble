@@ -111,7 +111,9 @@ enum DateHelper {
         return calendar.date(from: merged) ?? day
     }
 
-    static func formattedDuration(seconds: Int) -> String {
+    // `nonisolated`: pure integer→string formatting, called from the nonisolated
+    // `ExerciseMetricsProfile` summary helpers as well as main-actor UI.
+    nonisolated static func formattedDuration(seconds: Int) -> String {
         let hours = seconds / 3600
         let minutes = (seconds % 3600) / 60
         let remaining = seconds % 60

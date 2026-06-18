@@ -1,7 +1,11 @@
 import Foundation
 import Security
 
-final class KeychainTokenStore: @unchecked Sendable {
+// `nonisolated` so this stateless Keychain wrapper can be constructed and used from any
+// context (it's already `@unchecked Sendable`). Without it the project's default
+// main-actor isolation makes `init` main-actor-only, which warns when it's used as a
+// default argument in the nonisolated `GarminConnectClient.init`.
+nonisolated final class KeychainTokenStore: @unchecked Sendable {
     private let service: String
     private let account: String
 

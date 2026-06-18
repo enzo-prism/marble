@@ -306,8 +306,7 @@ enum ProgressMediaStore {
     }
 
     private static var directoryURL: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return base
+        URL.applicationSupportDirectory
             .appendingPathComponent("Marble", isDirectory: true)
             .appendingPathComponent("ProgressMedia", isDirectory: true)
     }

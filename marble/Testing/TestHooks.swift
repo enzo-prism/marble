@@ -22,6 +22,13 @@ enum TestHooks {
     static let forceReduceTransparency: Bool = environmentFlag("MARBLE_FORCE_REDUCE_TRANSPARENCY")
     static let isAccessibilityAudit: Bool = environmentFlag("MARBLE_A11Y_AUDIT")
     static let fixtureMode: FixtureMode = FixtureMode(rawValue: (environmentValue("MARBLE_FIXTURE_MODE") ?? "populated").lowercased()) ?? .populated
+
+    /// Bridges the system Reduce Motion accessibility setting with a test hook.
+    /// Read live (not at launch) so accessibility audits see the production
+    /// value and tests can force a static variant via `MARBLE_REDUCE_MOTION=1`.
+    static var reduceDecorativeMotion: Bool {
+        environmentFlag("MARBLE_REDUCE_MOTION") || UIAccessibility.isReduceMotionEnabled
+    }
     static let calendarTestDay: String? = environmentValue("MARBLE_TEST_CALENDAR_DAY")?.lowercased()
     static let notificationAuthorizationStatus: String? = environmentValue("MARBLE_NOTIFICATION_AUTHORIZATION")
     static let initialTab: String? = environmentValue("MARBLE_INITIAL_TAB")?.lowercased()

@@ -213,7 +213,11 @@ enum Weekday: Int, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum MetricRequirement: String, Codable, CaseIterable, Identifiable {
+// `nonisolated` because SwiftData serializes this value off the main actor when it
+// persists `ExerciseMetricsProfile`. Under the project's default main-actor isolation
+// (SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor) the synthesized Codable conformance would
+// otherwise be main-actor-isolated, which is a hard error in the Swift 6 language mode.
+nonisolated enum MetricRequirement: String, Codable, CaseIterable, Identifiable {
     case none
     case optional
     case required
@@ -284,7 +288,9 @@ enum ResistanceTrackingStyle: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum DistanceUnit: String, Codable, CaseIterable, Identifiable {
+// `nonisolated`: a pure value type used by the nonisolated `ExerciseMetricsProfile`
+// helpers and serialized by SwiftData off the main actor.
+nonisolated enum DistanceUnit: String, Codable, CaseIterable, Identifiable {
     case meters
     case yards
     case feet
@@ -354,7 +360,9 @@ enum DistanceUnit: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum ExerciseMetricKind: String, CaseIterable, Identifiable {
+// `nonisolated`: pure display/value helper referenced by the nonisolated
+// `ExerciseMetricsProfile` summary helpers.
+nonisolated enum ExerciseMetricKind: String, CaseIterable, Identifiable {
     case weight
     case reps
     case distance
@@ -457,7 +465,9 @@ enum ExerciseMetricKind: String, CaseIterable, Identifiable {
     }
 }
 
-struct ExerciseMetricsProfile: Codable, Hashable {
+// `nonisolated` so the SwiftData-generated persistence accessors can encode/decode this
+// off the main actor; see the note on `MetricRequirement` above.
+nonisolated struct ExerciseMetricsProfile: Codable, Hashable {
     var weight: MetricRequirement
     var reps: MetricRequirement
     var distance: MetricRequirement

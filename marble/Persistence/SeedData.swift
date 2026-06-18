@@ -3,6 +3,7 @@ import SwiftData
 
 enum SeedData {
     private static let didSeedKey = "didSeedMarbleData"
+    private static let didEnsureSplitPlanKey = "didEnsureMarbleSplitPlan"
 
     static func seedIfNeeded(in context: ModelContext) {
         if TestHooks.isUITesting {
@@ -34,7 +35,14 @@ enum SeedData {
             defaults.set(true, forKey: didSeedKey)
         }
 
-        ensureSplitPlan(in: context)
+        // Create the default split plan at most once, ever. Running this on every launch
+        // (as it used to) resurrected the plan the moment a user deleted it. Gating it
+        // behind its own flag still backfills the plan once for existing upgraders that
+        // never had it, then leaves deletion permanent.
+        if !defaults.bool(forKey: didEnsureSplitPlanKey) {
+            ensureSplitPlan(in: context)
+            defaults.set(true, forKey: didEnsureSplitPlanKey)
+        }
     }
 
     static func seedExercises(in context: ModelContext) {

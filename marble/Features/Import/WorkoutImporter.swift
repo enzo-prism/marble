@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-enum ImportOutcome: Sendable, Equatable {
+nonisolated enum ImportOutcome: Sendable, Equatable {
     case imported(setCount: Int)
     case alreadyImported
 }
@@ -14,11 +14,11 @@ enum WorkoutImporter {
     }
 
     static func alreadyImported(_ record: WorkoutImportRecord, in context: ModelContext) throws -> Bool {
-        let sourceRaw = record.source.rawValue
-        let externalID = record.externalID
-        let descriptor = FetchDescriptor<ImportedWorkout>(
-            predicate: #Predicate<ImportedWorkout> { $0.sourceRaw == sourceRaw && $0.externalID == externalID }
+        let key = ImportedWorkout.deduplicationKey(source: record.source, externalID: record.externalID)
+        var descriptor = FetchDescriptor<ImportedWorkout>(
+            predicate: #Predicate<ImportedWorkout> { $0.deduplicationKey == key }
         )
+        descriptor.fetchLimit = 1
         return !(try context.fetch(descriptor)).isEmpty
     }
 

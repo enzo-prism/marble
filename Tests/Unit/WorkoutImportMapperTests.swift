@@ -142,4 +142,18 @@ final class WorkoutImportMapperTests: MarbleTestCase {
         XCTAssertEqual(entries.first?.exercise.name, "Cycling")
         XCTAssertEqual(entries.first?.exercise.category, .run)
     }
+
+    func testInferredCategoryDistinguishesLegCurlFromOtherLegWork() {
+        XCTAssertEqual(WorkoutImportMapper.inferredCategory(for: "Seated Leg Curl"), .hamstrings)
+        XCTAssertEqual(WorkoutImportMapper.inferredCategory(for: "Leg Press"), .quads)
+        XCTAssertEqual(WorkoutImportMapper.inferredCategory(for: "Leg Extension"), .quads)
+    }
+
+    func testDeduplicationKeyIsStableAndSourceScoped() {
+        XCTAssertEqual(ImportedWorkout.deduplicationKey(source: .garminConnect, externalID: "42"), "garminConnect:42")
+        XCTAssertNotEqual(
+            ImportedWorkout.deduplicationKey(source: .appleHealth, externalID: "42"),
+            ImportedWorkout.deduplicationKey(source: .garminConnect, externalID: "42")
+        )
+    }
 }
