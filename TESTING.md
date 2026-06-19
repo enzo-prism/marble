@@ -6,6 +6,14 @@
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
+## Continuous integration
+- `.github/workflows/ci.yml` runs `make unit` (the `MarbleTests` suite) on every PR and on
+  pushes to `main`/`release/**`.
+- Snapshot and UI suites are intentionally **not** in CI — snapshot comparisons are
+  sub-pixel sensitive to the rendering host, so run `make snapshot` / `make ui` locally.
+- The workflow needs a macOS runner with Xcode 26.x + the iOS 26 simulator runtime
+  (`runs-on: macos-26`); switch to a self-hosted runner if that image isn't available.
+
 ## Run
 Preferred Makefile targets:
 - `make quick` (unit + quick snapshots)

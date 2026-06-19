@@ -123,17 +123,25 @@ Use these commands (preferred):
 - UI tests must NOT rely on real time or prior simulator state.
 
 ## Repo structure
-- Models/
-- Persistence/
-- Theme/
-- Features/Journal
-- Features/Calendar
-- Features/Supplements
-- Features/Trends
-- Tests/
-  - Unit/
-  - Snapshots/
-  - UI/
+- `marble/Models/` — SwiftData `@Model` types + enums.
+- `marble/Persistence/` — `ModelContainer`, `MarbleSchema` (VersionedSchema + migration
+  plan), `SeedData`, `ProgressMediaStore`, `Queries/`.
+- `marble/Theme/` — theme + design tokens.
+- `marble/Components/` — shared UI components and formatters.
+- `marble/Features/` — `Journal`, `Calendar`, `Supplements`, `Trends`, `Split`,
+  `Notifications`, `Import` (`HealthKit/`, `Garmin/`).
+- `marble/Intents/`, `marble/Testing/` (`TestHooks`), `marble/PrivacyInfo.xcprivacy`.
+- `Tests/` — `Unit/`, `Snapshots/`, `UI/`, `TestSupport/`.
+- `.github/workflows/ci.yml` — runs `make unit` on PRs and `main`/`release/**` pushes.
+
+## Current state + gotchas (read first)
+- **`RELEASE_HANDOFF.md` is the dated source of truth for release/version/signing state.**
+  Read it before any release work; it is kept current (last verified date at the top).
+- SwiftData schema is versioned in `Persistence/MarbleSchema.swift`. For a breaking model
+  change, add a `MarbleSchemaV2` + a `MigrationStage` — do not just edit models.
+- The target sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so any Codable value type
+  SwiftData serializes (e.g. `ExerciseMetricsProfile`) must be marked `nonisolated` or it
+  warns (a hard error under the Swift 6 language mode).
 
 ## asc cli reference
 

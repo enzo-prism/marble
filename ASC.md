@@ -6,7 +6,7 @@ instead of re-discovering the release setup.
 
 ## Current Baseline
 
-- Installed CLI checked on 2026-05-05: `asc 1.3.0`
+- Installed CLI checked on 2026-06-18: `asc 1.4.1`
 - Install source: Homebrew `homebrew/core/asc`
 - Public CLI docs: https://docs.asccli.sh/
 - CLI project: https://github.com/rorkai/App-Store-Connect-CLI
@@ -33,8 +33,10 @@ project-local notes.
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches.
-- Current release examples use version `1.8`; always run `make asc-version`
-  before acting because the CLI can report a blank generated marketing version.
+- The project version is now `1.9 (build 20)`; some command examples below still show
+  `--version "1.8"` (the in-review App Store version) for illustration. Always run
+  `make asc-version` before acting — the CLI can report a blank generated marketing
+  version, so the Makefile prints a reliable fallback.
 - Do not cancel an in-flight review, upload a replacement build, or submit to
   review without explicit user approval.
 - Build numbers must move forward from App Store Connect state. Use
