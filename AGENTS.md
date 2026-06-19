@@ -129,7 +129,9 @@ Use these commands (preferred):
 - `marble/Theme/` — theme + design tokens.
 - `marble/Components/` — shared UI components and formatters.
 - `marble/Features/` — `Journal`, `Calendar`, `Supplements`, `Trends`, `Split`,
-  `Notifications`, `Import` (`HealthKit/`, `Garmin/`).
+  `Notifications`, `Import` (`HealthKit/`, `Strava/`, `OAuth/`). The import feature is a
+  `WorkoutImportProvider` abstraction over Apple Health, Garmin (via Health), and Strava
+  (official OAuth). **See `INTEGRATIONS.md` for the full design and rationale.**
 - `marble/Intents/`, `marble/Testing/` (`TestHooks`), `marble/PrivacyInfo.xcprivacy`.
 - `Tests/` — `Unit/`, `Snapshots/`, `UI/`, `TestSupport/`.
 - `.github/workflows/ci.yml` — runs `make unit` on PRs and `main`/`release/**` pushes.
@@ -142,6 +144,10 @@ Use these commands (preferred):
 - The target sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so any Codable value type
   SwiftData serializes (e.g. `ExerciseMetricsProfile`) must be marked `nonisolated` or it
   warns (a hard error under the Swift 6 language mode).
+- **Workout import is ToS-aligned and backend-free** (`INTEGRATIONS.md`): Apple Health is
+  the universal bridge, Garmin comes in *through* Apple Health (no direct Garmin login —
+  that would violate Garmin's ToS), and Strava is a direct official OAuth connector that
+  stays hidden until its Info.plist keys are set. Do not add reverse-engineered logins.
 
 ## asc cli reference
 

@@ -46,7 +46,7 @@ Use this when:
 ### MapKit-GeoToolbox-PlaceDescriptors.md
 Place descriptors, representations, and geocoding workflows using MapKit and GeoToolbox.
 Use this when:
-- Adding map-based surf spot selection or geocoding features.
+- Adding map-based location or geocoding features (e.g. tagging where a workout happened).
 
 ### StoreKit-Updates.md
 StoreKit updates, subscription offer UI, transaction updates, and testing flows.

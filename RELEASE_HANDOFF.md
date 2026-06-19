@@ -8,12 +8,14 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ## TL;DR — what "up-to-date" means today (2026-06-18)
 
-- **Code baseline:** `main` == `release/1.9` == commit `8e4e8d1`
-  ("Bump version to 1.9 (build 20) for TestFlight"). Both branches are pushed to `origin`.
+- **Code baseline:** `main` == `release/1.9`, both pushed to `origin`. The latest commits
+  add the **workout import hub** (Apple Health bridge + Strava OAuth + Garmin via Health);
+  see "What 1.9 contains" and `INTEGRATIONS.md`.
 - **Project version:** **1.9 (build 20)** — `MARKETING_VERSION = 1.9`,
-  `CURRENT_PROJECT_VERSION = 20` in `marble.xcodeproj/project.pbxproj`.
-- **Build/test health:** app builds clean on Xcode 26.5 / iOS 26.5 simulator; `make unit`
-  is green (89 unit tests, 0 failures) at this commit.
+  `CURRENT_PROJECT_VERSION = 20` in `marble.xcodeproj/project.pbxproj`. (Build 20 is the
+  intended source build; bump it deliberately only when prepping the next upload.)
+- **Build/test health:** app builds clean on Xcode 26.5 / iOS 26.2 simulator; `make unit`
+  is green (94 unit tests, 0 failures) at this commit.
 - **Live App Store:** version **1.8 is WAITING_FOR_REVIEW** (build `17` submitted; builds
   `12`–`19` uploaded, all version 1.8). **No 1.9 build has been uploaded.**
 - **1.9 has NOT reached TestFlight or the App Store** — the upload is blocked on a pending
@@ -24,9 +26,12 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 ## What 1.9 contains (vs shipped 1.8)
 
 Features:
-- HealthKit + Garmin Connect workout import (`marble/Features/Import/`). Garmin is hidden
-  until real credentials are present (`GarminConnectConfiguration.resolved`); Apple Health
-  is live.
+- Workout import hub (`marble/Features/Import/`) — Marble as a UI layer over fragmented
+  workout sources. **Apple Health** is the universal bridge (Apple Watch, Garmin, and any
+  app that syncs to HealthKit), with each workout labeled by its true origin. **Strava** is
+  a direct official OAuth 2.0 connector (appears once Strava API keys are set in Info.plist).
+  **Garmin** flows in through Apple Health (Garmin Connect → Apple Health), surfaced with a
+  "Garmin" badge and an in-app explainer. See "Workout import" below before shipping.
 - Progress media crop-editing polish.
 
 Hardening added on top (commit `3612df5`):
@@ -40,6 +45,42 @@ Hardening added on top (commit `3612df5`):
 - `PrivacyInfo.xcprivacy` added (no tracking/collection; UserDefaults + file-timestamp reasons).
 - GitHub Actions CI runs the unit suite on PRs/release pushes (`.github/workflows/ci.yml`).
 - New import unit tests (`ImportProviderMappingTests`, `ImportViewModelTests`).
+- Workout import hub: Strava OAuth connector (`Strava/StravaClient`, `Strava/StravaProvider`,
+  `OAuth/`), Apple Health origin detection (`HealthKitWorkoutProvider.originName`), and a
+  Garmin-via-Health explainer. Unit tests in `ImportProviderMappingTests`.
+
+---
+
+## Workout import — read before shipping
+
+Marble is positioned as a UI layer over fragmented workout sources. All paths are
+**ToS-aligned and need no backend**:
+
+- **Apple Health (live, always on):** the universal bridge. One HealthKit query surfaces
+  Apple Watch, Garmin, Strava, Wahoo, etc.; `HealthKitWorkoutProvider.originName(...)` reads
+  the HK source/device metadata and labels each workout by brand.
+- **Garmin (via Apple Health):** the sanctioned route. The user enables Garmin Connect →
+  Apple Health (one-time, in Garmin's app); Garmin workouts then appear in the Apple Health
+  list with a "Garmin" badge. The Import screen has an explainer + "Open Garmin Connect"
+  button. We deliberately **do not** touch Garmin's servers (no reverse-engineered login).
+- **Strava (direct, official OAuth 2.0):** `ASWebAuthenticationSession` → code → token
+  exchange → bearer, Keychain-stored with auto-refresh; pulls `athlete/activities`
+  summaries. Hidden until a developer sets `StravaClientID` / `StravaClientSecret` /
+  `StravaRedirectURI` in Info.plist (and an Authorization Callback Domain matching the
+  redirect URI's host in the Strava API app). The redirect scheme needs **no**
+  `CFBundleURLTypes` entry — `ASWebAuthenticationSession` claims it transiently.
+  - Caveat: Strava's token exchange uses `client_secret`. Shipping it in-app is the common
+    indie compromise; for production consider a tiny token-exchange proxy and point
+    `StravaRedirectURI` / exchange at it.
+
+What's verified: app + 94 unit tests build green on Xcode 26.5 / iOS 26.2; Strava mapping,
+sport-type classification, date parsing, and HealthKit origin detection are unit-tested.
+What needs a live pass: the Strava OAuth round-trip + real `athlete/activities` JSON (needs
+real Strava API keys + account), and Garmin→Health labeling against a real Garmin source.
+
+Note: Apple Health carries workout **summaries** (type, distance, duration, calories, HR),
+not per-set strength detail (weight×reps). Lift-level data would require Garmin's official
+Activity API (FIT files) + a backend — out of scope for this no-backend build.
 
 ---
 

@@ -1,7 +1,8 @@
 # Marble Testing
 
 ## Suites
-- Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast).
+- Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
+  mapping). Runs in CI; green at 94 tests.
 - Snapshot tests: `MarbleSnapshotTests` (SwiftUI rendering with SnapshotTesting).
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
