@@ -57,12 +57,18 @@ final class ImportViewModel: ObservableObject {
     }
 
     func disconnect(_ source: ImportSource) async {
-        if let garmin = providers[source] as? GarminConnectProvider {
-            garmin.disconnect()
+        if let strava = providers[source] as? StravaProvider {
+            strava.disconnect()
         }
         states[source]?.records = []
         states[source]?.status = .notDetermined
         await refreshStatus()
+    }
+
+    /// Count of fetched Apple Health workouts recorded by a given brand (e.g. "Garmin"),
+    /// used to reassure users that their bridged data showed up.
+    func appleHealthOriginCount(_ originName: String) -> Int {
+        (states[.appleHealth]?.records ?? []).filter { $0.originName == originName }.count
     }
 
     func fetch(_ source: ImportSource, into context: ModelContext, lookbackDays: Int = 30) async {

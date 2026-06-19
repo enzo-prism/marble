@@ -4,24 +4,29 @@ import SwiftData
 enum ImportSource: String, Codable, CaseIterable, Identifiable {
     case appleHealth
     case garminConnect
+    case strava
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
         case .appleHealth:
-            return "Apple Watch"
+            return "Apple Health"
         case .garminConnect:
             return "Garmin Connect"
+        case .strava:
+            return "Strava"
         }
     }
 
     var systemImage: String {
         switch self {
         case .appleHealth:
-            return "applewatch"
+            return "heart.fill"
         case .garminConnect:
             return "antenna.radiowaves.left.and.right"
+        case .strava:
+            return "flame.fill"
         }
     }
 }

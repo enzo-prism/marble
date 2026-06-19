@@ -5,60 +5,68 @@ import XCTest
 @MainActor
 final class ImportProviderMappingTests: MarbleTestCase {
 
-    // MARK: - Garmin record mapping
+    // MARK: - Strava record mapping
 
-    private func activity(
-        id: Int? = 12345,
+    private func stravaActivity(
+        id: Int64? = 9876543210,
         name: String? = "Morning Run",
-        start: String? = "2025-01-15T08:30:00Z",
-        duration: Double? = 1800,
         distance: Double? = 5000,
-        typeKey: String? = "running"
-    ) -> GarminActivity {
-        GarminActivity(
-            activityId: id,
-            activityName: name,
-            startTimeGMT: start,
-            duration: duration,
+        movingTime: Int? = 1700,
+        elapsedTime: Int? = 1800,
+        type: String? = "Run",
+        sportType: String? = "Run",
+        startDate: String? = "2025-01-15T08:30:00Z",
+        averageHeartrate: Double? = 150
+    ) -> StravaActivity {
+        StravaActivity(
+            id: id,
+            name: name,
             distance: distance,
-            averageHR: 150,
-            maxHR: 170,
-            calories: 320,
-            activityType: GarminActivityType(typeKey: typeKey)
+            movingTime: movingTime,
+            elapsedTime: elapsedTime,
+            type: type,
+            sportType: sportType,
+            startDate: startDate,
+            averageHeartrate: averageHeartrate
         )
     }
 
-    func testGarminRecordMapsCoreFields() throws {
-        let record = try XCTUnwrap(GarminConnectProvider.record(from: activity()))
-        XCTAssertEqual(record.source, .garminConnect)
-        XCTAssertEqual(record.externalID, "12345")
+    func testStravaRecordMapsCoreFields() throws {
+        let record = try XCTUnwrap(StravaProvider.record(from: stravaActivity()))
+        XCTAssertEqual(record.source, .strava)
+        XCTAssertEqual(record.externalID, "9876543210")
         XCTAssertEqual(record.title, "Morning Run")
         XCTAssertEqual(record.kind, .running)
         XCTAssertEqual(record.distanceMeters, 5000)
-        XCTAssertEqual(record.durationSeconds, 1800)
+        XCTAssertEqual(record.durationSeconds, 1700) // prefers moving time
+        XCTAssertEqual(record.averageHeartRate, 150)
     }
 
-    func testGarminRecordSkippedWhenActivityIdMissing() {
-        // No stable id means we can't deduplicate; the old code coerced this to "0",
-        // collapsing every id-less activity into a single record.
-        XCTAssertNil(GarminConnectProvider.record(from: activity(id: nil)))
+    func testStravaRecordSkippedWhenIdMissing() {
+        XCTAssertNil(StravaProvider.record(from: stravaActivity(id: nil)))
     }
 
-    func testGarminRecordSkippedWhenDateUnparseable() {
-        XCTAssertNil(GarminConnectProvider.record(from: activity(start: nil)))
-        XCTAssertNil(GarminConnectProvider.record(from: activity(start: "not-a-date")))
+    func testStravaRecordSkippedWhenDateUnparseable() {
+        XCTAssertNil(StravaProvider.record(from: stravaActivity(startDate: nil)))
+        XCTAssertNil(StravaProvider.record(from: stravaActivity(startDate: "not-a-date")))
     }
 
-    func testGarminTitleFallsBackToActivityKind() throws {
-        let record = try XCTUnwrap(GarminConnectProvider.record(from: activity(name: "   ", typeKey: "lap_swimming")))
+    func testStravaTitleFallsBackToActivityKind() throws {
+        let record = try XCTUnwrap(StravaProvider.record(from: stravaActivity(name: "   ", sportType: "Swim")))
         XCTAssertEqual(record.title, ImportedActivityKind.swimming.displayName)
         XCTAssertEqual(record.kind, .swimming)
     }
 
-    func testGarminActivityKindFallsBackByDistance() {
-        XCTAssertEqual(GarminConnectProvider.activityKind(for: "unknown_type", hasDistance: true), .otherCardio)
-        XCTAssertEqual(GarminConnectProvider.activityKind(for: "unknown_type", hasDistance: false), .other)
-        XCTAssertEqual(GarminConnectProvider.activityKind(for: "indoor_cycling", hasDistance: false), .cycling)
+    func testStravaSportTypeMapping() {
+        XCTAssertEqual(StravaProvider.activityKind(for: "Ride", hasDistance: true), .cycling)
+        XCTAssertEqual(StravaProvider.activityKind(for: "VirtualRide", hasDistance: false), .cycling)
+        XCTAssertEqual(StravaProvider.activityKind(for: "WeightTraining", hasDistance: false), .strength)
+        XCTAssertEqual(StravaProvider.activityKind(for: "Yoga", hasDistance: false), .other)
+        XCTAssertEqual(StravaProvider.activityKind(for: "Yoga", hasDistance: true), .otherCardio)
+    }
+
+    func testStravaPlaceholderConfigurationIsNotConfigured() {
+        XCTAssertFalse(StravaConfiguration.placeholder.isConfigured)
     }
 
     // MARK: - HealthKit activity kind mapping
@@ -70,9 +78,39 @@ final class ImportProviderMappingTests: MarbleTestCase {
         XCTAssertEqual(HealthKitWorkoutProvider.activityKind(for: .yoga, hasDistance: true), .otherCardio)
     }
 
-    // MARK: - Garmin configuration gating
+    // MARK: - HealthKit origin detection (the import-hub labeling)
 
-    func testPlaceholderGarminConfigurationIsNotConfigured() {
-        XCTAssertFalse(GarminConnectConfiguration.placeholder.isConfigured)
+    func testOriginDetectsGarminFromSourceName() {
+        XCTAssertEqual(
+            HealthKitWorkoutProvider.originName(sourceName: "Garmin Connect", bundleIdentifier: "com.garmin.connect.mobile", deviceManufacturer: "Garmin", deviceName: nil),
+            "Garmin"
+        )
+    }
+
+    func testOriginDetectsStravaFromBundleID() {
+        XCTAssertEqual(
+            HealthKitWorkoutProvider.originName(sourceName: "Strava", bundleIdentifier: "com.strava.stravaride", deviceManufacturer: nil, deviceName: nil),
+            "Strava"
+        )
+    }
+
+    func testOriginDetectsAppleWatchFromDevice() {
+        XCTAssertEqual(
+            HealthKitWorkoutProvider.originName(sourceName: "Workout", bundleIdentifier: "com.apple.health", deviceManufacturer: "Apple Inc.", deviceName: "Apple Watch"),
+            "Apple Watch"
+        )
+    }
+
+    func testOriginFallsBackToSourceName() {
+        XCTAssertEqual(
+            HealthKitWorkoutProvider.originName(sourceName: "Gentler Streak", bundleIdentifier: "com.example.gs", deviceManufacturer: nil, deviceName: nil),
+            "Gentler Streak"
+        )
+    }
+
+    func testOriginIsNilWhenNothingIdentifiable() {
+        XCTAssertNil(
+            HealthKitWorkoutProvider.originName(sourceName: nil, bundleIdentifier: nil, deviceManufacturer: nil, deviceName: nil)
+        )
     }
 }

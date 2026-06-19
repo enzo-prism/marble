@@ -6,6 +6,7 @@ struct ImportView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.openURL) private var openURL
 
     init(viewModel: ImportViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -17,6 +18,8 @@ struct ImportView: View {
                 ForEach(viewModel.sources, id: \.self) { source in
                     sourceSection(for: source)
                 }
+
+                garminBridgeSection
 
                 if let message = viewModel.importErrorMessage {
                     Section {
@@ -135,7 +138,7 @@ struct ImportView: View {
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("Import.\(source.rawValue).Fetch")
 
-                if source == .garminConnect {
+                if source == .strava {
                     Button("Disconnect") {
                         Task { await viewModel.disconnect(source) }
                     }
@@ -172,9 +175,14 @@ struct ImportView: View {
                     .frame(width: 28)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(record.title)
-                        .font(MarbleTypography.rowTitle)
-                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    HStack(spacing: MarbleSpacing.xs) {
+                        Text(record.title)
+                            .font(MarbleTypography.rowTitle)
+                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        if let origin = record.originName, source == .appleHealth {
+                            originBadge(origin)
+                        }
+                    }
                     Text(detailLine(for: record))
                         .font(MarbleTypography.rowMeta)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
@@ -202,6 +210,68 @@ struct ImportView: View {
                 : Theme.backgroundColor(for: colorScheme)
         )
         .accessibilityIdentifier("Import.\(source.rawValue).Row.\(record.externalID)")
+    }
+
+    @ViewBuilder
+    private func originBadge(_ origin: String) -> some View {
+        Text(origin)
+            .font(MarbleTypography.caption)
+            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            .padding(.horizontal, MarbleSpacing.xs)
+            .padding(.vertical, 2)
+            .background(
+                Capsule().fill(Theme.chipFillColor(for: colorScheme))
+            )
+            .accessibilityLabel("from \(origin)")
+    }
+
+    /// Garmin's ToS-aligned path into Marble is Apple Health, so we guide users there
+    /// rather than handling Garmin credentials directly.
+    @ViewBuilder
+    private var garminBridgeSection: some View {
+        let garminCount = viewModel.appleHealthOriginCount("Garmin")
+        Section {
+            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                HStack(spacing: MarbleSpacing.s) {
+                    Image(systemName: ImportSource.garminConnect.systemImage)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    Text("Garmin Connect")
+                        .font(MarbleTypography.rowTitle)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                }
+
+                Text("Garmin workouts come into Marble through Apple Health. In the Garmin Connect app, turn on Settings → Apple Health, then load your Apple Health workouts above — Garmin activities show a “Garmin” badge.")
+                    .font(MarbleTypography.rowMeta)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+
+                if garminCount > 0 {
+                    Label("Found \(garminCount) Garmin workout\(garminCount == 1 ? "" : "s") in Apple Health", systemImage: "checkmark.circle.fill")
+                        .font(MarbleTypography.caption)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .accessibilityIdentifier("Import.GarminBridge.Found")
+                }
+
+                Button("Open Garmin Connect") {
+                    openGarminConnect()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("Import.GarminBridge.Open")
+            }
+            .marbleRowInsets()
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+            .accessibilityIdentifier("Import.GarminBridge")
+        }
+    }
+
+    private func openGarminConnect() {
+        // The Garmin Connect app's URL scheme, falling back to its App Store page so the
+        // button always does something useful.
+        let appURL = URL(string: "garminconnect://")!
+        let storeURL = URL(string: "https://apps.apple.com/app/garmin-connect/id583446403")!
+        openURL(appURL) { accepted in
+            if !accepted { openURL(storeURL) }
+        }
     }
 
     private func detailLine(for record: WorkoutImportRecord) -> String {
@@ -246,15 +316,17 @@ struct ImportView: View {
 
 extension ImportView {
     static func `default`() -> ImportView {
+        // Apple Health is always available and is the sanctioned bridge for Apple Watch,
+        // Garmin, and other devices that sync to HealthKit.
         var providers: [WorkoutImportProvider] = [HealthKitWorkoutProvider()]
 
-        // Only surface Garmin when real credentials are configured. Shipping a visible
-        // "Garmin Connect" row that can never connect is poor UX and a likely App Review
-        // rejection; the implementation stays ready for the moment credentials are added.
-        let garminConfiguration = GarminConnectConfiguration.resolved
-        if garminConfiguration.isConfigured {
+        // Strava is a direct, official OAuth connector. It appears only once a developer
+        // has wired up their own Strava API credentials in the Info.plist; otherwise we
+        // hide a row that could never connect.
+        let stravaConfiguration = StravaConfiguration.resolved
+        if stravaConfiguration.isConfigured {
             providers.append(
-                GarminConnectProvider(client: GarminConnectClient(configuration: garminConfiguration))
+                StravaProvider(client: StravaClient(configuration: stravaConfiguration))
             )
         }
 

@@ -4,7 +4,7 @@ import Security
 // `nonisolated` so this stateless Keychain wrapper can be constructed and used from any
 // context (it's already `@unchecked Sendable`). Without it the project's default
 // main-actor isolation makes `init` main-actor-only, which warns when it's used as a
-// default argument in the nonisolated `GarminConnectClient.init`.
+// default argument in a nonisolated initializer. Used to persist OAuth tokens (Strava).
 nonisolated final class KeychainTokenStore: @unchecked Sendable {
     private let service: String
     private let account: String
@@ -15,11 +15,18 @@ nonisolated final class KeychainTokenStore: @unchecked Sendable {
     }
 
     func setToken(_ token: String?) {
-        guard let token else {
+        setData(token.map { Data($0.utf8) })
+    }
+
+    func token() -> String? {
+        data().flatMap { String(data: $0, encoding: .utf8) }
+    }
+
+    func setData(_ data: Data?) {
+        guard let data else {
             clear()
             return
         }
-        let data = Data(token.utf8)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -35,7 +42,7 @@ nonisolated final class KeychainTokenStore: @unchecked Sendable {
         }
     }
 
-    func token() -> String? {
+    func data() -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -48,7 +55,20 @@ nonisolated final class KeychainTokenStore: @unchecked Sendable {
               let data = result as? Data else {
             return nil
         }
-        return String(data: data, encoding: .utf8)
+        return data
+    }
+
+    func setSession<T: Encodable>(_ value: T?) {
+        guard let value else {
+            clear()
+            return
+        }
+        setData(try? JSONEncoder().encode(value))
+    }
+
+    func session<T: Decodable>(_ type: T.Type) -> T? {
+        guard let data = data() else { return nil }
+        return try? JSONDecoder().decode(T.self, from: data)
     }
 
     func clear() {

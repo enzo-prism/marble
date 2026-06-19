@@ -3,7 +3,7 @@ import SwiftData
 
 enum WorkoutImportMapper {
     static func importNote(for record: WorkoutImportRecord) -> String {
-        var parts = ["Imported from \(record.source.displayName)"]
+        var parts = ["Imported from \(record.displayOrigin)"]
         if let calories = record.calories, calories > 0 {
             parts.append("\(Int(calories)) kcal")
         }

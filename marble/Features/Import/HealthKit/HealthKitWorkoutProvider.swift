@@ -108,6 +108,13 @@ extension HealthKitWorkoutProvider {
             }
         }
 
+        let origin = originName(
+            sourceName: workout.sourceRevision.source.name,
+            bundleIdentifier: workout.sourceRevision.source.bundleIdentifier,
+            deviceManufacturer: workout.device?.manufacturer,
+            deviceName: workout.device?.name
+        )
+
         return WorkoutImportRecord(
             source: .appleHealth,
             externalID: workout.uuid.uuidString,
@@ -118,8 +125,39 @@ extension HealthKitWorkoutProvider {
             durationSeconds: Int(workout.duration.rounded()),
             calories: calories,
             averageHeartRate: nil,
-            strengthSets: []
+            strengthSets: [],
+            originName: origin
         )
+    }
+
+    /// Identifies which app/device actually recorded a HealthKit workout so the import hub
+    /// can label it. Apple Health aggregates many sources (Apple Watch, Garmin, Strava,
+    /// Wahoo, …); we surface the recognizable brand, falling back to the source app's own
+    /// name. Pure and case-insensitive so it's unit-testable without an `HKWorkout`.
+    static func originName(
+        sourceName: String?,
+        bundleIdentifier: String?,
+        deviceManufacturer: String?,
+        deviceName: String?
+    ) -> String? {
+        let haystacks = [sourceName, bundleIdentifier, deviceManufacturer, deviceName]
+            .compactMap { $0?.lowercased() }
+        func mentions(_ needle: String) -> Bool { haystacks.contains { $0.contains(needle) } }
+
+        if mentions("garmin") { return "Garmin" }
+        if mentions("strava") { return "Strava" }
+        if mentions("wahoo") { return "Wahoo" }
+        if mentions("polar") { return "Polar" }
+        if mentions("whoop") { return "Whoop" }
+        if mentions("coros") { return "COROS" }
+        if mentions("fitbit") { return "Fitbit" }
+        if mentions("zwift") { return "Zwift" }
+        if mentions("peloton") { return "Peloton" }
+        if (deviceName?.lowercased().contains("watch") ?? false) || mentions("apple") {
+            return "Apple Watch"
+        }
+        if let sourceName, !sourceName.isEmpty { return sourceName }
+        return nil
     }
 
     static func activityKind(for type: HKWorkoutActivityType, hasDistance: Bool) -> ImportedActivityKind {

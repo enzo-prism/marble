@@ -53,9 +53,19 @@ struct WorkoutImportRecord: Sendable, Identifiable {
     let calories: Double?
     let averageHeartRate: Double?
     let strengthSets: [ImportedStrengthSet]
+    /// Where the workout actually came from, when it differs from `source`. Apple Health is
+    /// a hub: a single HealthKit query surfaces workouts recorded by an Apple Watch, a
+    /// Garmin device, Strava, etc. We capture the true origin (e.g. "Garmin") so the UI can
+    /// label each row and the imported note reads correctly. `nil` for direct connectors
+    /// (Strava) where `source` already names the origin.
+    let originName: String?
 
     var isCardio: Bool { kind.isCardio }
     var isStrength: Bool { kind == .strength }
+
+    /// Human-readable origin for labels and notes: the explicit origin if known, else the
+    /// source's own name.
+    var displayOrigin: String { originName ?? source.displayName }
 
     init(
         source: ImportSource,
@@ -67,7 +77,8 @@ struct WorkoutImportRecord: Sendable, Identifiable {
         durationSeconds: Int? = nil,
         calories: Double? = nil,
         averageHeartRate: Double? = nil,
-        strengthSets: [ImportedStrengthSet] = []
+        strengthSets: [ImportedStrengthSet] = [],
+        originName: String? = nil
     ) {
         self.source = source
         self.externalID = externalID
@@ -79,5 +90,6 @@ struct WorkoutImportRecord: Sendable, Identifiable {
         self.calories = calories
         self.averageHeartRate = averageHeartRate
         self.strengthSets = strengthSets
+        self.originName = originName
     }
 }
