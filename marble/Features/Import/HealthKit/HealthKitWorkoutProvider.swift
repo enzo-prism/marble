@@ -46,7 +46,9 @@ struct HealthKitWorkoutProvider: WorkoutImportProvider {
             .distanceWalkingRunning,
             .distanceCycling,
             .distanceSwimming,
-            .activeEnergyBurned
+            .activeEnergyBurned,
+            // Average heart rate enriches the imported note for Apple Watch / Garmin / etc.
+            .heartRate
         ]
         for identifier in quantityIdentifiers {
             if let type = HKQuantityType.quantityType(forIdentifier: identifier) {
@@ -89,12 +91,49 @@ struct HealthKitWorkoutProvider: WorkoutImportProvider {
             }
             healthStore.execute(query)
         }
-        return workouts.map { Self.record(from: $0) }
+
+        // Apple Health stores heart-rate as standalone samples, not as a field on the
+        // workout, so enrich each workout with its in-window average. Looked up per workout
+        // and tolerant of missing data (older imports, sources that don't record HR).
+        var heartRates: [UUID: Double] = [:]
+        for workout in workouts {
+            if let bpm = await Self.averageHeartRate(
+                start: workout.startDate,
+                end: workout.endDate,
+                in: healthStore
+            ), bpm > 0 {
+                heartRates[workout.uuid] = bpm
+            }
+        }
+
+        return workouts.map { Self.record(from: $0, averageHeartRate: heartRates[$0.uuid]) }
     }
 }
 
 extension HealthKitWorkoutProvider {
-    private static func record(from workout: HKWorkout) -> WorkoutImportRecord {
+    /// Average heart rate (bpm) recorded during a workout's time window, or `nil` when no
+    /// samples exist or access wasn't granted. A discrete-average statistics query over the
+    /// window catches HR regardless of which source associated it with the workout, so it
+    /// works for Apple Watch and bridged sources (Garmin, Wahoo, …) alike.
+    private static func averageHeartRate(start: Date, end: Date, in store: HKHealthStore) async -> Double? {
+        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else {
+            return nil
+        }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Double?, Never>) in
+            let query = HKStatisticsQuery(
+                quantityType: heartRateType,
+                quantitySamplePredicate: predicate,
+                options: .discreteAverage
+            ) { _, statistics, _ in
+                let beatsPerMinute = HKUnit.count().unitDivided(by: .minute())
+                continuation.resume(returning: statistics?.averageQuantity()?.doubleValue(for: beatsPerMinute))
+            }
+            store.execute(query)
+        }
+    }
+
+    private static func record(from workout: HKWorkout, averageHeartRate: Double? = nil) -> WorkoutImportRecord {
         let kind = activityKind(for: workout.workoutActivityType, hasDistance: workout.totalDistance != nil)
         let distance = workout.totalDistance?.doubleValue(for: .meter())
         let calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
@@ -124,7 +163,7 @@ extension HealthKitWorkoutProvider {
             distanceMeters: distance,
             durationSeconds: Int(workout.duration.rounded()),
             calories: calories,
-            averageHeartRate: nil,
+            averageHeartRate: averageHeartRate,
             strengthSets: [],
             originName: origin
         )

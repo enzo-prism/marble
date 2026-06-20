@@ -53,6 +53,10 @@ Apple Health is the keystone. Garmin, Strava, Wahoo, Peloton, Zwift, and most fi
 can write workouts into HealthKit, so a **single** Health connection surfaces all of them.
 
 - Read-only access to `HKWorkout` samples (`NSHealthShareUsageDescription`; we never write).
+- Distance and active energy come straight off the workout; **average heart rate** is read
+  separately via a discrete-average `HKStatisticsQuery` over each workout's time window (HR
+  is stored as standalone samples, not a workout field), so Apple Watch and bridged sources
+  alike get a `· NNN bpm avg` note.
 - Each workout is labeled with its **true origin**: `originName(...)` inspects the HealthKit
   source name, bundle id, and device manufacturer and returns a recognizable brand
   ("Garmin", "Strava", "Apple Watch", …), falling back to the recording app's own name.
@@ -91,14 +95,23 @@ directly using Strava's official OAuth:
   needs **no** `CFBundleURLTypes` entry in the app.
 
 **Enabling Strava (developer setup).** Strava stays hidden until its credentials are
-present, so a build without keys never shows a dead "Connect" row. To turn it on:
+present, so a build without keys never shows a dead "Connect" row. `StravaConfiguration.resolve`
+reads keys from two sources, **environment first, then Info.plist**:
 
 1. Create a free Strava API application at <https://www.strava.com/settings/api>.
-2. Add to the app target's Info.plist (via build settings):
-   - `StravaClientID`, `StravaClientSecret`, `StravaRedirectURI` (e.g. `marblefit://strava-auth`)
-   - optional `StravaScope` (defaults to `activity:read_all`)
+2. Provide the keys one of two ways:
+   - **Local development (no secrets in git):** set scheme environment variables
+     `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REDIRECT_URI`, optional
+     `STRAVA_SCOPE` (Xcode ▸ Edit Scheme ▸ Run ▸ Arguments ▸ Environment Variables). These
+     are read from `ProcessInfo` and never reach a TestFlight/App Store build.
+   - **Release builds:** set the Info.plist keys `StravaClientID`, `StravaClientSecret`,
+     `StravaRedirectURI` (e.g. `marblefit://strava-auth`), optional `StravaScope` — fed by an
+     ignored `xcconfig` / `INFOPLIST_KEY_*` build setting so the keys stay out of source.
 3. In the Strava API app, set **Authorization Callback Domain** to the redirect URI's host
    (e.g. `marblefit`).
+
+Either path satisfies `isConfigured` (all three of client id / secret / redirect URI must be
+non-empty); a blank or whitespace-only env var falls through to the Info.plist value.
 
 > Caveat: Strava's token exchange requires `client_secret`. Shipping it in-app is the common
 > indie compromise; for a hardened production build, run a tiny token-exchange proxy and

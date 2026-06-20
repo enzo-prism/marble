@@ -24,15 +24,34 @@ struct StravaConfiguration: Sendable {
     static let placeholder = StravaConfiguration(clientID: "", clientSecret: "", redirectURI: "", scope: "activity:read")
 
     static var resolved: StravaConfiguration {
-        func value(_ key: String) -> String {
-            (Bundle.main.object(forInfoDictionaryKey: key) as? String)?
+        resolve(
+            infoDictionary: Bundle.main.infoDictionary ?? [:],
+            environment: ProcessInfo.processInfo.environment
+        )
+    }
+
+    /// Resolves credentials from two sources, in priority order:
+    /// 1. **Environment variables** (`STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` /
+    ///    `STRAVA_REDIRECT_URI` / `STRAVA_SCOPE`) — set them in the Xcode scheme to enable
+    ///    Strava for local development without committing secrets to source.
+    /// 2. **Info.plist keys** (`StravaClientID`, …) — the path for release builds, fed by an
+    ///    (ignored) `xcconfig` / `INFOPLIST_KEY_*` build setting so keys stay out of git.
+    ///
+    /// Pure and dependency-injected so the resolution rules are unit-testable without
+    /// touching the real bundle or process environment.
+    static func resolve(infoDictionary: [String: Any], environment: [String: String]) -> StravaConfiguration {
+        func value(infoKey: String, envKey: String) -> String {
+            if let env = environment[envKey]?.trimmingCharacters(in: .whitespacesAndNewlines), !env.isEmpty {
+                return env
+            }
+            return (infoDictionary[infoKey] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         }
-        let scope = value("StravaScope")
+        let scope = value(infoKey: "StravaScope", envKey: "STRAVA_SCOPE")
         return StravaConfiguration(
-            clientID: value("StravaClientID"),
-            clientSecret: value("StravaClientSecret"),
-            redirectURI: value("StravaRedirectURI"),
+            clientID: value(infoKey: "StravaClientID", envKey: "STRAVA_CLIENT_ID"),
+            clientSecret: value(infoKey: "StravaClientSecret", envKey: "STRAVA_CLIENT_SECRET"),
+            redirectURI: value(infoKey: "StravaRedirectURI", envKey: "STRAVA_REDIRECT_URI"),
             // `read_all` is needed to see activities the athlete marked "Only Me"; the user
             // still explicitly grants it on Strava's consent screen.
             scope: scope.isEmpty ? "activity:read_all" : scope

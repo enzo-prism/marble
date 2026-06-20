@@ -69,6 +69,66 @@ final class ImportProviderMappingTests: MarbleTestCase {
         XCTAssertFalse(StravaConfiguration.placeholder.isConfigured)
     }
 
+    // MARK: - Strava credential resolution ("if keys are configured")
+
+    func testResolvePrefersEnvironmentOverInfoPlist() {
+        let config = StravaConfiguration.resolve(
+            infoDictionary: [
+                "StravaClientID": "info-id",
+                "StravaClientSecret": "info-secret",
+                "StravaRedirectURI": "info://callback"
+            ],
+            environment: [
+                "STRAVA_CLIENT_ID": "env-id",
+                "STRAVA_CLIENT_SECRET": "env-secret",
+                "STRAVA_REDIRECT_URI": "env://callback"
+            ]
+        )
+        XCTAssertEqual(config.clientID, "env-id")
+        XCTAssertEqual(config.clientSecret, "env-secret")
+        XCTAssertEqual(config.redirectURI, "env://callback")
+        XCTAssertTrue(config.isConfigured)
+    }
+
+    func testResolveFallsBackToInfoPlistWhenEnvironmentMissing() {
+        let config = StravaConfiguration.resolve(
+            infoDictionary: [
+                "StravaClientID": "info-id",
+                "StravaClientSecret": "info-secret",
+                "StravaRedirectURI": "info://callback",
+                "StravaScope": "activity:read"
+            ],
+            environment: [:]
+        )
+        XCTAssertEqual(config.clientID, "info-id")
+        XCTAssertEqual(config.redirectURI, "info://callback")
+        XCTAssertEqual(config.scope, "activity:read")
+        XCTAssertTrue(config.isConfigured)
+    }
+
+    func testResolveDefaultsScopeAndStaysUnconfiguredWhenEmpty() {
+        let config = StravaConfiguration.resolve(infoDictionary: [:], environment: [:])
+        XCTAssertFalse(config.isConfigured)
+        XCTAssertEqual(config.scope, "activity:read_all")
+    }
+
+    func testResolveIsNotConfiguredWithPartialKeys() {
+        let config = StravaConfiguration.resolve(
+            infoDictionary: [:],
+            environment: ["STRAVA_CLIENT_ID": "env-id"] // missing secret + redirect
+        )
+        XCTAssertFalse(config.isConfigured)
+        XCTAssertEqual(config.clientID, "env-id")
+    }
+
+    func testResolveBlankEnvironmentDoesNotShadowInfoPlist() {
+        let config = StravaConfiguration.resolve(
+            infoDictionary: ["StravaClientID": "info-id"],
+            environment: ["STRAVA_CLIENT_ID": "   "] // whitespace-only must not win
+        )
+        XCTAssertEqual(config.clientID, "info-id")
+    }
+
     // MARK: - HealthKit activity kind mapping
 
     func testHealthKitActivityKindMapping() {
