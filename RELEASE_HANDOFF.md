@@ -142,6 +142,13 @@ Notes:
 
 ## Open release decisions
 - Ship 1.9 to TestFlight as build 20 once signing is unblocked (planned).
+- **Strava posture for 1.9 (recommended): ship with Strava _unconfigured_.** Leave
+  `StravaClientID` / `StravaClientSecret` / `StravaRedirectURI` out of the build so only the
+  fully-verified **Apple Health + Garmin-via-Health** paths go out. Strava stays hidden
+  unless keys are set, so this is the default — **no code change required**. Promote Strava
+  in **1.10** after (a) a live OAuth round-trip with real keys and (b) a decision on the
+  in-binary `client_secret` (see "Workout import"). Rationale: Strava is the only import path
+  that is network-facing, ships a secret, and is unverified end-to-end.
 - Leave the live 1.8 review to complete (default per rules below: do not cancel).
 - 1.9 App Store submission would need a 1.9 version record created in ASC (not required for
   TestFlight).
