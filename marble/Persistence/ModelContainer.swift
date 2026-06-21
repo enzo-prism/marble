@@ -11,19 +11,25 @@ enum PersistenceController {
             removeStoreFiles()
         }
 
+        return makeRecoveringContainer(at: storeURL)
+    }
+
+    /// Opens the on-disk store at `url`, recovering instead of crash-looping when it can't
+    /// be read (most often an incompatible/failed migration): the unreadable store is moved
+    /// aside to `*.corrupt` (so a future build could recover the user's data), a fresh store
+    /// is created, and if even that fails it falls back to an in-memory store so the app
+    /// still launches. Internal so tests can drive the recovery path against a throwaway
+    /// store URL rather than the real Application Support store.
+    static func makeRecoveringContainer(at url: URL) -> ModelContainer {
         do {
-            return try makePersistentContainer()
+            return try makePersistentContainer(at: url)
         } catch {
-            // Opening the store failed — most likely an incompatible/failed migration.
-            // Rather than crash-loop on launch with the user's data permanently
-            // inaccessible, preserve the existing store as a backup (so a future build
-            // could recover it) and recreate a fresh store so the app still launches.
             #if DEBUG
             print("ModelContainer open failed, attempting recovery: \(error)")
             #endif
-            backupCorruptStore()
+            backupCorruptStore(at: url)
             do {
-                return try makePersistentContainer()
+                return try makePersistentContainer(at: url)
             } catch {
                 #if DEBUG
                 print("ModelContainer recovery failed, falling back to in-memory store: \(error)")
@@ -39,8 +45,8 @@ enum PersistenceController {
         Schema(versionedSchema: MarbleSchemaV1.self)
     }
 
-    private static func makePersistentContainer() throws -> ModelContainer {
-        let configuration = ModelConfiguration(schema: schema, url: storeURL)
+    private static func makePersistentContainer(at url: URL) throws -> ModelContainer {
+        let configuration = ModelConfiguration(schema: schema, url: url)
         return try ModelContainer(
             for: schema,
             migrationPlan: MarbleMigrationPlan.self,
@@ -76,26 +82,27 @@ enum PersistenceController {
     }
 
     /// SwiftData keeps the store as a SQLite file plus `-wal`/`-shm` sidecars.
-    private static var allStoreFileURLs: [URL] {
-        let base = storeURL
+    private static func sidecarURLs(for base: URL) -> [URL] {
+        let directory = base.deletingLastPathComponent()
+        let name = base.lastPathComponent
         return [
             base,
-            base.deletingLastPathComponent().appendingPathComponent("Marble.store-wal"),
-            base.deletingLastPathComponent().appendingPathComponent("Marble.store-shm")
+            directory.appendingPathComponent("\(name)-wal"),
+            directory.appendingPathComponent("\(name)-shm")
         ]
     }
 
     private static func removeStoreFiles() {
-        for url in allStoreFileURLs {
+        for url in sidecarURLs(for: storeURL) {
             try? FileManager.default.removeItem(at: url)
         }
     }
 
-    /// Moves the existing store aside to `*.corrupt` so a failed migration doesn't
-    /// destroy data outright; a later build could offer to recover from it.
-    private static func backupCorruptStore() {
+    /// Moves the store at `base` (and its sidecars) aside to `*.corrupt` so a failed
+    /// migration doesn't destroy data outright; a later build could offer to recover from it.
+    private static func backupCorruptStore(at base: URL) {
         let manager = FileManager.default
-        for url in allStoreFileURLs where manager.fileExists(atPath: url.path) {
+        for url in sidecarURLs(for: base) where manager.fileExists(atPath: url.path) {
             let backup = url.appendingPathExtension("corrupt")
             try? manager.removeItem(at: backup)
             try? manager.moveItem(at: url, to: backup)
