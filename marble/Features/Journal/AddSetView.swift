@@ -756,6 +756,7 @@ struct AddSetView: View {
         }
 
         MarbleHaptics.success()
+        RestActivityController.shared.startRest(for: entry)
         closeSheet()
     }
 

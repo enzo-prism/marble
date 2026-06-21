@@ -311,6 +311,7 @@ struct SetDetailView: View {
         modelContext.insert(duplicate)
         if modelContext.saveOrRollback() {
             MarbleHaptics.success()
+            RestActivityController.shared.startRest(for: duplicate)
         }
     }
 

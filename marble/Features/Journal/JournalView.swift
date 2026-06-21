@@ -179,6 +179,7 @@ struct JournalView: View {
             return
         }
         MarbleHaptics.success()
+        RestActivityController.shared.startRest(for: duplicate)
         pendingUndo = nil
         quickLogUndoID = duplicate.id
         toast = ToastData(message: "Set logged again", actionTitle: "Undo") {
@@ -212,6 +213,7 @@ struct JournalView: View {
         modelContext.insert(duplicate)
         if modelContext.saveOrRollback() {
             MarbleHaptics.success()
+            RestActivityController.shared.startRest(for: duplicate)
         } else {
             toast = ToastData(message: "Couldn't duplicate set", actionTitle: nil, onAction: nil)
         }
