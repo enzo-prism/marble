@@ -2,7 +2,7 @@
 
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
-  mapping). Runs in CI; green at 94 tests.
+  mapping + Strava credential resolution). Runs in CI; green at 99 tests.
 - Snapshot tests: `MarbleSnapshotTests` (SwiftUI rendering with SnapshotTesting).
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).

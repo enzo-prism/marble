@@ -1,6 +1,6 @@
 # Marble Release Handoff
 
-**Last verified: 2026-06-18.** This file is the single source of truth for "where the
+**Last verified: 2026-06-20.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
@@ -8,14 +8,18 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ## TL;DR — what "up-to-date" means today (2026-06-18)
 
-- **Code baseline:** `main` == `release/1.9`, both pushed to `origin`. The latest commits
-  add the **workout import hub** (Apple Health bridge + Strava OAuth + Garmin via Health);
-  see "What 1.9 contains" and `INTEGRATIONS.md`.
+- **Code baseline:** `origin/main` == `origin/release/1.9` == **1.9 (build 20)**. The
+  pushed branches add the **workout import hub** (Apple Health bridge + Strava OAuth +
+  Garmin via Health); see "What 1.9 contains" and `INTEGRATIONS.md`.
+- **Unpushed local work (2026-06-20):** local `release/1.9` is **ahead of `origin`** with
+  import polish (commit `07c546f`) — HealthKit average-HR enrichment, env-configurable
+  Strava credentials (`STRAVA_CLIENT_ID`/…→ Info.plist), and import-hub test coverage —
+  plus this doc refresh. No version/build bump; not yet pushed.
 - **Project version:** **1.9 (build 20)** — `MARKETING_VERSION = 1.9`,
   `CURRENT_PROJECT_VERSION = 20` in `marble.xcodeproj/project.pbxproj`. (Build 20 is the
   intended source build; bump it deliberately only when prepping the next upload.)
 - **Build/test health:** app builds clean on Xcode 26.5 / iOS 26.2 simulator; `make unit`
-  is green (94 unit tests, 0 failures) at this commit.
+  is green (99 unit tests, 0 failures) at the tip of local `release/1.9`.
 - **Live App Store:** version **1.8 is WAITING_FOR_REVIEW** (build `17` submitted; builds
   `12`–`19` uploaded, all version 1.8). **No 1.9 build has been uploaded.**
 - **1.9 has NOT reached TestFlight or the App Store** — the upload is blocked on a pending
@@ -73,14 +77,18 @@ Marble is positioned as a UI layer over fragmented workout sources. All paths ar
     indie compromise; for production consider a tiny token-exchange proxy and point
     `StravaRedirectURI` / exchange at it.
 
-What's verified: app + 94 unit tests build green on Xcode 26.5 / iOS 26.2; Strava mapping,
-sport-type classification, date parsing, and HealthKit origin detection are unit-tested.
+What's verified: app + 99 unit tests build green on Xcode 26.5 / iOS 26.2; Strava mapping,
+sport-type classification, date parsing, HealthKit origin detection, and Strava credential
+resolution (env vars → Info.plist) are unit-tested; `ImportFlowUITests` opens the import hub
+from the Journal and checks Apple Health + the Garmin bridge render and dismiss.
 What needs a live pass: the Strava OAuth round-trip + real `athlete/activities` JSON (needs
-real Strava API keys + account), and Garmin→Health labeling against a real Garmin source.
+real Strava API keys + account), Garmin→Health labeling against a real Garmin source, and
+on-device HealthKit average-HR enrichment.
 
-Note: Apple Health carries workout **summaries** (type, distance, duration, calories, HR),
-not per-set strength detail (weight×reps). Lift-level data would require Garmin's official
-Activity API (FIT files) + a backend — out of scope for this no-backend build.
+Note: Apple Health carries workout **summaries** (type, distance, duration, calories, HR —
+Marble now reads average HR per workout and adds it to the imported note), not per-set
+strength detail (weight×reps). Lift-level data would require Garmin's official Activity API
+(FIT files) + a backend — out of scope for this no-backend build.
 
 ---
 
