@@ -1,29 +1,48 @@
 # Marble Release Handoff
 
-**Last verified: 2026-06-20.** This file is the single source of truth for "where the
+**Last verified: 2026-06-22.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
-## TL;DR — what "up-to-date" means today (2026-06-18)
+## TL;DR — what "up-to-date" means today (2026-06-22)
 
 - **Code baseline:** `origin/main` == `origin/release/1.9` == **1.9 (build 20)**. The
   pushed branches add the **workout import hub** (Apple Health bridge + Strava OAuth +
   Garmin via Health); see "What 1.9 contains" and `INTEGRATIONS.md`.
-- **Unpushed local work (2026-06-20):** local `release/1.9` is **ahead of `origin`** with
-  import polish (commit `07c546f`) — HealthKit average-HR enrichment, env-configurable
-  Strava credentials (`STRAVA_CLIENT_ID`/…→ Info.plist), and import-hub test coverage —
-  plus this doc refresh. No version/build bump; not yet pushed.
-- **Project version:** **1.9 (build 20)** — `MARKETING_VERSION = 1.9`,
-  `CURRENT_PROJECT_VERSION = 20` in `marble.xcodeproj/project.pbxproj`. (Build 20 is the
-  intended source build; bump it deliberately only when prepping the next upload.)
-- **Build/test health:** app builds clean on Xcode 26.5 / iOS 26.2 simulator; `make unit`
-  is green (99 unit tests, 0 failures) at the tip of local `release/1.9`.
+- **Latest TestFlight build:** **1.9 (build 24)** was uploaded on 2026-06-22 from
+  `feature/1.10-resilience-and-live-activity` after bumping `CURRENT_PROJECT_VERSION`
+  to 24. App Store Connect reports processing `VALID`, and `test group A` has access
+  to all builds.
+- **Current feature work:** `feature/1.10-resilience-and-live-activity` carries the import
+  polish, Live Activity widget wiring, and resilience/UX pass now uploaded as build 24.
+- **Current working project version:** **1.9 (build 24)** on
+  `feature/1.10-resilience-and-live-activity`; `MARKETING_VERSION = 1.9`,
+  `CURRENT_PROJECT_VERSION = 24` in `marble.xcodeproj/project.pbxproj`.
+- **Build/test health:** Xcode 26.5 / iOS 26.5 simulator is installed locally; the
+  `MarbleTests` suite is green (**109 unit tests, 0 failures**) and the full
+  `MarbleUITests` suite is green (**27 tests, 1 expected accessibility-text skip,
+  0 failures**) at the current `feature/1.10-resilience-and-live-activity`
+  working tree.
+- **Live Activity wiring:** `MarbleWidgets` is now a real app-extension target embedded in
+  the app, `NSSupportsLiveActivities = YES` is set on the app target, and
+  `RestTimerAttributes.swift` is shared into the widget target.
 - **Live App Store:** version **1.8 is WAITING_FOR_REVIEW** (build `17` submitted; builds
-  `12`–`19` uploaded, all version 1.8). **No 1.9 build has been uploaded.**
-- **1.9 has NOT reached TestFlight or the App Store** — the upload is blocked on a pending
-  Apple agreement + HealthKit signing. See the **BLOCKER** section.
+  `12`–`19` uploaded, all version 1.8). Uploading/distributing 1.9 build 24 did **not**
+  change the in-flight App Store review.
+- **App Store 1.9 gate:** `asc release stage --confirm` for 1.9 still fails while 1.8 is in review with
+  Apple's hard error: "You cannot create a new version of the App in the current state."
+  A 1.9 App Store version cannot be created while 1.8 remains in review.
+- **Known 1.9 build ID:** `ea951140-8063-4d60-9fbd-d524b110ba80` (version 1.9,
+  build 24, `VALID`, uploaded 2026-06-22 13:50 PDT).
+- **TestFlight:** **1.9 build 24 is valid and available to the internal all-builds group**.
+  `buildBetaDetail` reports `internalBuildState = IN_BETA_TESTING`; internal group
+  `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds and
+  includes the installed Enzo tester record. External TestFlight remains not submitted.
+- **Latest build 24 improvements:** import re-entry guards and duplicate
+  batch skipping, Journal start checklist, Add Set "Save + Next", split-plan logging
+  context, calendar spacing, and hardened UI selectors/snapshots are now on TestFlight.
 
 ---
 
@@ -53,6 +72,16 @@ Hardening added on top (commit `3612df5`):
   `OAuth/`), Apple Health origin detection (`HealthKitWorkoutProvider.originName`), and a
   Garmin-via-Health explainer. Unit tests in `ImportProviderMappingTests`.
 
+Build 24 hardening:
+- Import reliability: source fetch/import re-entry guards, injected import handlers for
+  failure tests, batch-level duplicate skipping, and HealthKit sample fetches with no
+  artificial 50-workout cap.
+- First-run and logging UX: empty Journal start checklist, Add Set "Save + Next",
+  split-plan session context, and safer keyboard-visible save controls.
+- Visual/test stability: calendar top spacing, refreshed Journal empty + Calendar month
+  snapshot baselines, `ExerciseEditor.List` accessibility targeting, max-notification
+  footer scrolling, and widget `Info.plist` verification in Makefile test targets.
+
 ---
 
 ## Workout import — read before shipping
@@ -77,10 +106,11 @@ Marble is positioned as a UI layer over fragmented workout sources. All paths ar
     indie compromise; for production consider a tiny token-exchange proxy and point
     `StravaRedirectURI` / exchange at it.
 
-What's verified: app + 99 unit tests build green on Xcode 26.5 / iOS 26.2; Strava mapping,
-sport-type classification, date parsing, HealthKit origin detection, and Strava credential
-resolution (env vars → Info.plist) are unit-tested; `ImportFlowUITests` opens the import hub
-from the Journal and checks Apple Health + the Garmin bridge render and dismiss.
+What's verified: app + 109 unit tests build green on Xcode 26.5 / iOS 26.5; Strava mapping,
+sport-type classification, date parsing, HealthKit origin detection, Strava credential
+resolution (env vars → Info.plist), import re-entry, failure handling, and duplicate-batch
+skipping are unit-tested; `ImportFlowUITests` opens the import hub from the Journal and
+checks Apple Health + the Garmin bridge render and dismiss.
 What needs a live pass: the Strava OAuth round-trip + real `athlete/activities` JSON (needs
 real Strava API keys + account), Garmin→Health labeling against a real Garmin source, and
 on-device HealthKit average-HR enrichment.
@@ -92,9 +122,9 @@ strength detail (weight×reps). Lift-level data would require Garmin's official 
 
 ---
 
-## ⚠️ BLOCKER: 1.9 (20) cannot be uploaded to TestFlight yet
+## Signing history: HealthKit upload blocker resolved
 
-The Release archive fails at **code signing**. Two issues, in order:
+The earlier Release archive failed at **code signing**. The blocker path was:
 
 1. **Pending Apple Developer Program License Agreement (PLA).** All provisioning operations
    — Xcode automatic signing AND the `asc` / App Store Connect API — are blocked
@@ -113,19 +143,47 @@ The Release archive fails at **code signing**. Two issues, in order:
    Mac's Xcode has no Apple ID account configured for automatic signing. The
    "Apple Distribution: Lorenzo Quaid Sison (L49MKXGVM4)" certificate *is* in the keychain.
 
-**Resolution once the PLA is accepted** (all doable via `asc`, no Xcode login needed):
+**Resolution used for build 22**:
 
 ```bash
-# Confirm the block has cleared (this currently errors with the PLA message):
-asc bundle-ids list --output table
+make asc-publish-testflight \
+  ASC_EXPORT_OPTIONS=/absolute/path/to/.asc/ExportOptions.plist \
+  ASC_TESTFLIGHT_GROUP="test group A" \
+  ASC_TESTFLIGHT_FLAGS="--archive-xcodebuild-flag=CODE_SIGN_STYLE=Manual --archive-xcodebuild-flag=DEVELOPMENT_TEAM=L49MKXGVM4 --archive-xcodebuild-flag=CODE_SIGN_IDENTITY=Apple\\ Distribution --archive-xcodebuild-flag=PROVISIONING_PROFILE_SPECIFIER=Prism\\ marble\\ App\\ Store\\ HealthKit\\ 2026-06-18-2015 --notify"
+```
 
-# 1. Enable HealthKit on the Prism.marble App ID
-asc bundle-ids capabilities ...        # add HEALTHKIT
-# 2. Generate a new App Store distribution profile (now includes HealthKit)
-asc profiles create ...
-# 3. Install it and point .asc/ExportOptions.plist at the new profile name
-asc profiles download ...
-# 4. Archive with manual signing + upload as 1.9 build 20:
+The first automatic-signing attempt still tried the stale wildcard profile and failed:
+
+```text
+Provisioning profile "iOS Team Provisioning Profile: *" doesn't include the HealthKit capability.
+```
+
+Manual archive signing selected:
+
+```text
+Signing Identity: Apple Distribution: Lorenzo Quaid Sison (L49MKXGVM4)
+Provisioning Profile: Prism marble App Store HealthKit 2026-06-18-2015
+```
+
+For the next TestFlight upload, either keep passing the manual signing flags above or pin
+Release signing in `marble.xcodeproj/project.pbxproj` before archiving.
+
+Because the Live Activity widget is now embedded, export signing also needs a provisioning
+profile for `Prism.marble.MarbleWidgets`.
+
+**Resolution used for build 23**:
+- ASC Bundle ID `Prism.marble.MarbleWidgets` exists (`4L93LB6CMY`).
+- ASC App Store profile `Prism marble MarbleWidgets App Store 2026-06-22 build 23`
+  exists (`S668TD2D5G`) and is installed locally.
+- `.asc/ExportOptions.plist` maps both `Prism.marble` and `Prism.marble.MarbleWidgets`.
+- Release signing is pinned per target in `marble.xcodeproj/project.pbxproj`.
+
+For the next upload after build 24, `make asc-next-build` currently reports `25`; re-run it
+and bump `CURRENT_PROJECT_VERSION` again before archiving.
+
+Historical planned command, kept for context:
+
+```bash
 make asc-publish-testflight \
   ASC_EXPORT_OPTIONS=/absolute/path/to/.asc/ExportOptions.plist \
   ASC_TESTFLIGHT_GROUP="test group A" \
@@ -133,15 +191,19 @@ make asc-publish-testflight \
 ```
 
 Notes:
-- 1.9 has **no** uploaded builds, so `asc` would otherwise auto-number it `1`.
-  `--initial-build-number 20` keeps build numbers monotonic with the 1.8 train (…19 → 20).
+- Before the 2026-06-21 upload, 1.9 had no uploaded builds, so the planned command used
+  `--initial-build-number 20` to keep build numbers monotonic with the 1.8 train.
 - "test group A" is the **internal** TestFlight group (no Beta App Review needed).
-- Uploading a 1.9 build does **not** affect the in-flight 1.8 review.
+- Uploading 1.9 build 24 did **not** affect the in-flight 1.8 review.
+- Build 24 TestFlight notes should use the phone checklist: launch,
+  rest timer Live Activity/widget, Apple Health import, Garmin-via-Health labeling,
+  journal/split logging, and Strava hidden unless configured.
 
 ---
 
 ## Open release decisions
-- Ship 1.9 to TestFlight as build 20 once signing is unblocked (planned).
+- Decide whether/when to submit 1.9 for App Store review. TestFlight build 24 is ready,
+  but the App Store version is still 1.8 and still waiting for review.
 - **Strava posture for 1.9 (recommended): ship with Strava _unconfigured_.** Leave
   `StravaClientID` / `StravaClientSecret` / `StravaRedirectURI` out of the build so only the
   fully-verified **Apple Health + Garmin-via-Health** paths go out. Strava stays hidden
@@ -149,9 +211,42 @@ Notes:
   in **1.10** after (a) a live OAuth round-trip with real keys and (b) a decision on the
   in-binary `client_secret` (see "Workout import"). Rationale: Strava is the only import path
   that is network-facing, ships a secret, and is unverified end-to-end.
-- Leave the live 1.8 review to complete (default per rules below: do not cancel).
-- 1.9 App Store submission would need a 1.9 version record created in ASC (not required for
-  TestFlight).
+- Leave the live 1.8 review to complete (default per rules below: do not cancel), or
+  explicitly approve canceling submission `9be18cb3-defb-40f2-91eb-8148b2c09dfe` if 1.9
+  must replace it immediately.
+- 1.9 App Store submission still needs a 1.9 version record created in ASC. Apple blocks
+  creating that record until the current 1.8 review leaves `WAITING_FOR_REVIEW` or is
+  canceled.
+
+### If explicitly approved to replace 1.8 with 1.9 now
+
+This cancels the active 1.8 App Review submission, then creates/stages 1.9 with build 24.
+Do not run the cancel command without explicit approval for submission
+`9be18cb3-defb-40f2-91eb-8148b2c09dfe`.
+
+```bash
+asc submit cancel \
+  --id "9be18cb3-defb-40f2-91eb-8148b2c09dfe" \
+  --confirm \
+  --output json --pretty
+
+asc release stage \
+  --app "6757725234" \
+  --version "1.9" \
+  --build "ea951140-8063-4d60-9fbd-d524b110ba80" \
+  --copy-metadata-from "1.8" \
+  --confirm \
+  --output json --pretty
+
+asc validate \
+  --app "6757725234" \
+  --version "1.9" \
+  --platform IOS \
+  --output table
+```
+
+After validation is clean, use the CLI's current submit path for the prepared 1.9
+version. Re-check `asc review submit --help` first because the installed CLI can drift.
 
 ---
 
@@ -171,7 +266,8 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 ## Release rules
 - Do not cancel the current App Store review by default.
 - `origin/main` is the canonical code baseline. As of 2026-06-18 it has been advanced to
-  **1.9 (build 20)** — which is **unreleased**. The *live* App Store version is still 1.8.
+  **1.9 (build 20)**. The latest internal TestFlight build is 1.9 (24), but the *live*
+  App Store version is still 1.8.
 - Do not bump builds, upload binaries, or submit for review without explicit user approval.
 - Never reuse stale `.asc` archives/IPAs — `make asc-publish-*` regenerates them.
 - Keep signing/export files and generated artifacts under ignored `.asc/`.

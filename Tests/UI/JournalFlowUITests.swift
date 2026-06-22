@@ -1,6 +1,45 @@
 import XCTest
 
 final class JournalFlowUITests: MarbleUITestCase {
+    func testEmptyJournalShowsStartChecklistActions() {
+        launchApp(fixtureMode: "empty")
+        navigateToTab(.journal)
+
+        let checklist = waitForIdentifier("Journal.StartChecklist", timeout: 8)
+        XCTAssertTrue(checklist.exists)
+        _ = waitForIdentifier("Journal.StartChecklist.LogSet")
+        _ = waitForIdentifier("Journal.StartChecklist.Import")
+        _ = waitForIdentifier("Journal.StartChecklist.CreateSplit")
+    }
+
+    func testSaveAndNextKeepsLoggerOpen() {
+        launchApp(fixtureMode: "empty")
+        navigateToTab(.journal)
+
+        openAddSet()
+        selectExercise(identifier: "BenchPress")
+
+        let weightField = textInput("AddSet.Weight")
+        waitFor(weightField)
+        clearAndType(weightField, text: "135")
+        dismissKeyboardIfPresent()
+
+        setSliderValue("AddSet.Reps", value: 5, range: 1...20)
+
+        let saveAndNext = app.buttons["AddSet.SaveAndNext"]
+        if !saveAndNext.waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
+        forceTap(saveAndNext, timeout: 6)
+
+        waitFor(app.navigationBars["Log Set"], timeout: 6)
+        XCTAssertTrue(app.buttons["AddSet.SaveAndNext"].exists)
+
+        dismissSheet()
+        let list = waitForIdentifier("Journal.List", timeout: 8)
+        XCTAssertGreaterThan(setRows(in: list).count, 0)
+    }
+
     func testAddEditDuplicateDeleteSet() {
         step("Launch and open Journal tab") {
             launchApp(fixtureMode: "empty")
@@ -170,10 +209,7 @@ final class JournalFlowUITests: MarbleUITestCase {
             nameField.tap()
             nameField.typeText("Temp Move")
 
-            let bodyweightTemplate = app.buttons["ExerciseEditor.Template.bodyweight"]
-            scrollToElement(bodyweightTemplate, in: app.tables.firstMatch)
-            waitFor(bodyweightTemplate)
-            forceTap(bodyweightTemplate)
+            selectExerciseTemplate("ExerciseEditor.Template.bodyweight")
 
             let saveExercise = app.buttons["ExerciseEditor.Save"]
             waitFor(saveExercise)
@@ -359,10 +395,7 @@ final class JournalFlowUITests: MarbleUITestCase {
             waitFor(createButton)
             forceTap(createButton)
 
-            let dualDumbbellTemplate = app.buttons["ExerciseEditor.Template.dualDumbbell"]
-            scrollToElement(dualDumbbellTemplate, in: app.tables.firstMatch)
-            waitFor(dualDumbbellTemplate)
-            forceTap(dualDumbbellTemplate)
+            selectExerciseTemplate("ExerciseEditor.Template.dualDumbbell")
 
             let saveExercise = app.buttons["ExerciseEditor.Save"]
             waitFor(saveExercise)
@@ -422,10 +455,7 @@ final class JournalFlowUITests: MarbleUITestCase {
             waitFor(createButton)
             forceTap(createButton)
 
-            let sprintTemplate = app.buttons["ExerciseEditor.Template.sprint"]
-            scrollToElement(sprintTemplate, in: app.tables.firstMatch)
-            waitFor(sprintTemplate)
-            forceTap(sprintTemplate)
+            selectExerciseTemplate("ExerciseEditor.Template.sprint")
 
             let saveExercise = app.buttons["ExerciseEditor.Save"]
             waitFor(saveExercise)
@@ -465,4 +495,14 @@ final class JournalFlowUITests: MarbleUITestCase {
         }
     }
 
+    private func selectExerciseTemplate(_ identifier: String, file: StaticString = #file, line: UInt = #line) {
+        let template = app.buttons[identifier]
+        if !template.waitForExistence(timeout: 2) {
+            dismissKeyboardIfPresent()
+            let editorList = app.descendants(matching: .any).matching(identifier: "ExerciseEditor.List").firstMatch
+            let container = editorList.exists ? editorList : (app.collectionViews.firstMatch.exists ? app.collectionViews.firstMatch : app.tables.firstMatch)
+            scrollToElement(template, in: container, maxSwipes: 10)
+        }
+        forceTap(template, timeout: 6, file: file, line: line)
+    }
 }

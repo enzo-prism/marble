@@ -27,7 +27,11 @@ final class RestActivityController {
     }
 
     /// Starts (or replaces) a rest-timer Live Activity counting down `restSeconds`.
-    func startRest(exerciseName: String, restSeconds: Int, now: Date = AppEnvironment.now) {
+    func startRest(exerciseName: String, restSeconds: Int) {
+        startRest(exerciseName: exerciseName, restSeconds: restSeconds, now: AppEnvironment.now)
+    }
+
+    func startRest(exerciseName: String, restSeconds: Int, now: Date) {
         guard Self.shouldStart(restSeconds: restSeconds), !TestHooks.isUITesting else { return }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 

@@ -103,7 +103,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             accessibilityAudit: true
         )
         navigateToTab(.journal)
-        waitForIdentifier("Journal.EmptyState")
+        waitForIdentifier("Journal.StartChecklist")
         try runAudit(name: "Journal_Empty_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.calendar)

@@ -6,6 +6,17 @@ nonisolated enum ImportOutcome: Sendable, Equatable {
     case alreadyImported
 }
 
+nonisolated enum WorkoutImporterError: LocalizedError, Equatable {
+    case saveFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .saveFailed:
+            return "Imported workouts could not be saved."
+        }
+    }
+}
+
 enum WorkoutImporter {
     struct Summary: Sendable, Equatable {
         var importedWorkouts: Int = 0
@@ -38,9 +49,19 @@ enum WorkoutImporter {
         return .imported(setCount: entries.count)
     }
 
-    static func importRecords(_ records: [WorkoutImportRecord], in context: ModelContext) throws -> Summary {
+    static func importRecords(
+        _ records: [WorkoutImportRecord],
+        in context: ModelContext,
+        save: (ModelContext) throws -> Void = { try $0.save() }
+    ) throws -> Summary {
         var summary = Summary()
+        var seenKeys = Set<String>(minimumCapacity: records.count)
         for record in records {
+            let key = ImportedWorkout.deduplicationKey(source: record.source, externalID: record.externalID)
+            guard seenKeys.insert(key).inserted else {
+                summary.skipped += 1
+                continue
+            }
             switch try importWorkout(record, in: context) {
             case .imported(let count):
                 summary.importedWorkouts += 1
@@ -49,7 +70,12 @@ enum WorkoutImporter {
                 summary.skipped += 1
             }
         }
-        context.saveOrRollback()
+        do {
+            try save(context)
+        } catch {
+            context.rollback()
+            throw WorkoutImporterError.saveFailed
+        }
         return summary
     }
 }

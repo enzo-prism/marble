@@ -2,10 +2,18 @@
 
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
-  mapping + Strava credential resolution). Runs in CI; green at 99 tests.
+  mapping + Strava credential resolution). Runs in CI. Last verified locally on
+  2026-06-22 with XcodeBuildMCP / iOS 26.5 simulator: **109 passed, 0 failed**.
 - Snapshot tests: `MarbleSnapshotTests` (SwiftUI rendering with SnapshotTesting).
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
+
+## Latest local verification (2026-06-22)
+- `MarbleTests`: 109 passed, 0 failed.
+- `MarbleUITests`: 27 executed, 1 expected accessibility-text skip, 0 failed.
+- Snapshot subset refreshed and passed for `JournalSnapshotTests/testJournalEmpty` and
+  `CalendarSnapshotTests/testCalendarMonthWithMarkers`.
+- `make verify-widget-plist` confirms `MarbleWidgets/Info.plist` exists before unit/test runs.
 
 ## Continuous integration
 - `.github/workflows/ci.yml` runs `make unit` (the `MarbleTests` suite) on every PR and on
@@ -28,10 +36,23 @@ Preferred Makefile targets:
 - `make audit` (accessibility audits)
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
+## Phone TestFlight pass
+- Current phone-test build: **1.9 (24)**, build ID
+  `ea951140-8063-4d60-9fbd-d524b110ba80`.
+- ASC state checked on 2026-06-22: build processing is `VALID`,
+  `internalBuildState = IN_BETA_TESTING`, and internal group `test group A` has access to
+  all builds.
+- Tester state checked on 2026-06-22: the internal Enzo tester record is `INSTALLED` and is
+  in `test group A`, so the build should appear in the TestFlight app on the signed-in phone.
+- What to test on device: install/launch stability, the rest timer Live Activity/widget,
+  Apple Health workout import, Garmin-via-Health labeling, journal/split logging, and the
+  Strava-hidden-unless-configured posture.
+
 Simulator prerequisite:
 - The Make targets use `scripts/sim_destination.sh` to find an iPhone simulator.
-- If it reports no available iPhone simulator, install the required iOS platform
-  in Xcode before debugging test failures.
+- If it reports no available iPhone simulator, install the required iOS platform in Xcode
+  before debugging test failures. CLI equivalent on Xcode 26:
+  `xcodebuild -downloadPlatform iOS`.
 
 Snapshot selection overrides:
 - `SNAPSHOT_SUITE=quick|full` (default `full`)

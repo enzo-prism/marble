@@ -5,6 +5,8 @@ import SwiftData
 
 @MainActor
 final class ImportViewModel: ObservableObject {
+    typealias ImportHandler = ([WorkoutImportRecord], ModelContext) async throws -> WorkoutImporter.Summary
+
     struct SourceState {
         var status: ImportAuthorizationStatus = .notDetermined
         var records: [WorkoutImportRecord] = []
@@ -21,8 +23,14 @@ final class ImportViewModel: ObservableObject {
     @Published var importErrorMessage: String?
 
     private let providers: [ImportSource: WorkoutImportProvider]
+    private let importHandler: ImportHandler
 
-    init(providers: [WorkoutImportProvider]) {
+    init(
+        providers: [WorkoutImportProvider],
+        importHandler: @escaping ImportHandler = { records, context in
+            try WorkoutImporter.importRecords(records, in: context)
+        }
+    ) {
         var map: [ImportSource: WorkoutImportProvider] = [:]
         var initialStates: [ImportSource: SourceState] = [:]
         for provider in providers {
@@ -31,6 +39,7 @@ final class ImportViewModel: ObservableObject {
         }
         self.providers = map
         self.states = initialStates
+        self.importHandler = importHandler
     }
 
     var sources: [ImportSource] { providers.keys.sorted { $0.rawValue < $1.rawValue } }
@@ -73,8 +82,13 @@ final class ImportViewModel: ObservableObject {
 
     func fetch(_ source: ImportSource, into context: ModelContext, lookbackDays: Int = 30) async {
         guard let provider = providers[source] else { return }
+        guard states[source]?.isFetching != true else { return }
         states[source]?.isFetching = true
         states[source]?.errorMessage = nil
+        defer {
+            states[source]?.isFetching = false
+            pruneSelection()
+        }
         let range: ClosedRange<Date>? = lookbackDays > 0
             ? (Date().addingTimeInterval(-Double(lookbackDays) * 86_400)...Date())
             : nil
@@ -91,8 +105,6 @@ final class ImportViewModel: ObservableObject {
             states[source]?.alreadyImported = []
             states[source]?.errorMessage = error.localizedDescription
         }
-        states[source]?.isFetching = false
-        pruneSelection()
     }
 
     func toggle(_ record: WorkoutImportRecord) {
@@ -114,12 +126,14 @@ final class ImportViewModel: ObservableObject {
     }
 
     func importSelected(into context: ModelContext) async {
+        guard !isImporting else { return }
         let records = selectedRecords()
         guard !records.isEmpty else { return }
         isImporting = true
+        defer { isImporting = false }
         importErrorMessage = nil
         do {
-            let summary = try WorkoutImporter.importRecords(records, in: context)
+            let summary = try await importHandler(records, context)
             lastSummary = summary
             lastSummarySource = records.first?.source
             if summary.importedSets > 0 {
@@ -127,12 +141,18 @@ final class ImportViewModel: ObservableObject {
             } else {
                 MarbleHaptics.lightImpact()
             }
+            markImported(records)
             selection.removeAll()
         } catch {
             importErrorMessage = "Couldn’t save the imported workouts. Please try again."
             MarbleHaptics.warning()
         }
-        isImporting = false
+    }
+
+    private func markImported(_ records: [WorkoutImportRecord]) {
+        for record in records {
+            states[record.source]?.alreadyImported.insert(record.externalID)
+        }
     }
 
     private func pruneSelection() {

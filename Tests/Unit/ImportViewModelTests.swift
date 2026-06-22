@@ -4,15 +4,45 @@ import XCTest
 
 private enum MockImportError: Error { case fetchFailed }
 
+private actor FetchCounter {
+    private(set) var count = 0
+
+    func increment() {
+        count += 1
+    }
+
+    func value() -> Int {
+        count
+    }
+}
+
+private actor ImportCounter {
+    private(set) var count = 0
+
+    func increment() {
+        count += 1
+    }
+
+    func value() -> Int {
+        count
+    }
+}
+
 private struct MockWorkoutImportProvider: WorkoutImportProvider {
     let source: ImportSource
     var status: ImportAuthorizationStatus = .authorized
     var records: [WorkoutImportRecord] = []
     var shouldThrowOnFetch = false
+    var fetchDelayNanoseconds: UInt64 = 0
+    var fetchCounter: FetchCounter?
 
     func authorizationStatus() async -> ImportAuthorizationStatus { status }
     func authorize() async throws {}
     func fetchWorkouts(in range: ClosedRange<Date>?) async throws -> [WorkoutImportRecord] {
+        await fetchCounter?.increment()
+        if fetchDelayNanoseconds > 0 {
+            try? await Task.sleep(nanoseconds: fetchDelayNanoseconds)
+        }
         if shouldThrowOnFetch { throw MockImportError.fetchFailed }
         return records
     }
@@ -52,6 +82,29 @@ final class ImportViewModelTests: MarbleTestCase {
         XCTAssertEqual(viewModel.states[.appleHealth]?.records.count, 2)
         XCTAssertEqual(viewModel.states[.appleHealth]?.isFetching, false)
         XCTAssertNil(viewModel.states[.appleHealth]?.errorMessage)
+    }
+
+    func testFetchIgnoresReentryWhileFetchIsActive() async {
+        let context = makeInMemoryContext()
+        let counter = FetchCounter()
+        let provider = MockWorkoutImportProvider(
+            source: .appleHealth,
+            records: [record(externalID: "a")],
+            fetchDelayNanoseconds: 80_000_000,
+            fetchCounter: counter
+        )
+        let viewModel = ImportViewModel(providers: [provider])
+
+        let first = Task { await viewModel.fetch(.appleHealth, into: context) }
+        await Task.yield()
+        let second = Task { await viewModel.fetch(.appleHealth, into: context) }
+        await first.value
+        await second.value
+
+        let fetchCount = await counter.value()
+        XCTAssertEqual(fetchCount, 1)
+        XCTAssertEqual(viewModel.states[.appleHealth]?.records.count, 1)
+        XCTAssertEqual(viewModel.states[.appleHealth]?.isFetching, false)
     }
 
     func testFetchFlagsAlreadyImportedRecords() async throws {
@@ -106,6 +159,51 @@ final class ImportViewModelTests: MarbleTestCase {
 
         let logs = try context.fetch(FetchDescriptor<ImportedWorkout>())
         XCTAssertEqual(logs.count, 2)
+        XCTAssertEqual(viewModel.states[.appleHealth]?.alreadyImported, Set(["a", "b"]))
+    }
+
+    func testImportSelectedIgnoresReentryWhileImportIsActive() async throws {
+        let context = makeInMemoryContext()
+        let counter = ImportCounter()
+        let only = record(externalID: "a")
+        let provider = MockWorkoutImportProvider(source: .appleHealth, records: [only])
+        let viewModel = ImportViewModel(providers: [provider]) { records, context in
+            await counter.increment()
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            return try WorkoutImporter.importRecords(records, in: context)
+        }
+
+        await viewModel.fetch(.appleHealth, into: context)
+        viewModel.toggle(only)
+
+        let first = Task { await viewModel.importSelected(into: context) }
+        await Task.yield()
+        let second = Task { await viewModel.importSelected(into: context) }
+        await first.value
+        await second.value
+
+        let importCount = await counter.value()
+        XCTAssertEqual(importCount, 1)
+        let logs = try context.fetch(FetchDescriptor<ImportedWorkout>())
+        XCTAssertEqual(logs.count, 1)
+        XCTAssertEqual(viewModel.isImporting, false)
+    }
+
+    func testImportSelectedDoesNotMarkRecordsImportedWhenImportFails() async {
+        let context = makeInMemoryContext()
+        let only = record(externalID: "a")
+        let provider = MockWorkoutImportProvider(source: .appleHealth, records: [only])
+        let viewModel = ImportViewModel(providers: [provider]) { _, _ in
+            throw MockImportError.fetchFailed
+        }
+
+        await viewModel.fetch(.appleHealth, into: context)
+        viewModel.toggle(only)
+        await viewModel.importSelected(into: context)
+
+        XCTAssertEqual(viewModel.states[.appleHealth]?.alreadyImported, Set<String>())
+        XCTAssertNotNil(viewModel.importErrorMessage)
+        XCTAssertEqual(viewModel.isImporting, false)
     }
 
     func testAlreadyImportedRecordsAreSkippedOnImport() async throws {

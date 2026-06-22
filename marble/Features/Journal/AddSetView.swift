@@ -32,12 +32,19 @@ struct AddSetView: View {
     @State private var showSaveError = false
     @State private var showMissingExercise = false
     @State private var lastEntry: SetEntry?
+    private let context: QuickLogContext?
     private let repsRange: ClosedRange<Int> = 1...20
     private let defaultRepsValue: Int = 10
 
-    init(initialPerformedAt: Date = AppEnvironment.now, initialExercise: Exercise? = nil, isPresented: Binding<Bool> = .constant(true)) {
+    init(
+        initialPerformedAt: Date = AppEnvironment.now,
+        initialExercise: Exercise? = nil,
+        context: QuickLogContext? = nil,
+        isPresented: Binding<Bool> = .constant(true)
+    ) {
         _performedAt = State(initialValue: initialPerformedAt)
         _selectedExerciseID = State(initialValue: initialExercise?.id)
+        self.context = context
         _isPresented = isPresented
     }
 
@@ -53,6 +60,10 @@ struct AddSetView: View {
                         }
                         .accessibilityIdentifier("AddSet.ExercisePicker")
                         .accessibilityValue(selectedExerciseSnapshot?.name ?? "Select")
+
+                        if let context {
+                            sessionContextRow(context)
+                        }
                     }
 
                 if let exercise = selectedExerciseSnapshot {
@@ -360,7 +371,7 @@ struct AddSetView: View {
                 title: "Save",
                 accessibilityIdentifier: "Keyboard.Save",
                 isEnabled: effectiveCanSave,
-                handler: save
+                handler: { save() }
             )
         )
     }
@@ -418,7 +429,7 @@ struct AddSetView: View {
     }
 
     private var showsInlineSave: Bool {
-        false
+        isKeyboardVisible
     }
 
     private var lastTimeContent: LastTimeContent {
@@ -475,6 +486,7 @@ struct AddSetView: View {
 
     private var saveButtons: some View {
         VStack(spacing: MarbleSpacing.s) {
+            saveAndNextButtonContent
             saveButtonContent
         }
         .padding(.horizontal, MarbleLayout.pagePadding)
@@ -488,10 +500,25 @@ struct AddSetView: View {
     }
 
     private var saveButtonRow: some View {
-        saveButtonContent
+        VStack(spacing: MarbleSpacing.s) {
+            saveAndNextButtonContent
+            saveButtonContent
+        }
             .listRowBackground(Theme.backgroundColor(for: colorScheme))
             .padding(.vertical, MarbleSpacing.s)
             .marbleRowInsets()
+    }
+
+    private var saveAndNextButtonContent: some View {
+        Button {
+            save(shouldContinue: true)
+        } label: {
+            Label("Save + Next", systemImage: "arrow.forward.circle")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true, prominence: .primary))
+        .allowsHitTesting(effectiveCanSave)
+        .accessibilityIdentifier("AddSet.SaveAndNext")
     }
 
     private var saveButtonContent: some View {
@@ -613,6 +640,30 @@ struct AddSetView: View {
         return "Exercise, select an exercise"
     }
 
+    private func sessionContextRow(_ context: QuickLogContext) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
+            Image(systemName: "list.bullet.clipboard")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                Text(context.title)
+                    .font(MarbleTypography.rowMeta.weight(.semibold))
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityIdentifier("AddSet.SessionContext.Title")
+                Text(context.source)
+                    .font(MarbleTypography.caption)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("AddSet.SessionContext.Source")
+            }
+        }
+        .padding(.vertical, MarbleSpacing.xs)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("AddSet.SessionContext")
+    }
+
     private func loadInitialExercise() {
         if let recent = fetchMostRecentEntry() {
             selectExercise(recent.exercise, lastEntry: recent)
@@ -687,7 +738,7 @@ struct AddSetView: View {
         restAfterSeconds = exercise.defaultRestSeconds
     }
 
-    private func save() {
+    private func save(shouldContinue: Bool = false) {
         dismissKeyboard()
         guard let selectedExerciseID else {
             showMissingExercise = selectedExerciseSnapshot != nil
@@ -757,7 +808,17 @@ struct AddSetView: View {
 
         MarbleHaptics.success()
         RestActivityController.shared.startRest(for: entry)
-        closeSheet()
+        if shouldContinue {
+            continueAfterSaving(entry, exercise: exercise)
+        } else {
+            closeSheet()
+        }
+    }
+
+    private func continueAfterSaving(_ entry: SetEntry, exercise: Exercise) {
+        selectExercise(exercise, lastEntry: entry)
+        performedAt = DateHelper.merge(day: performedAt, time: AppEnvironment.now)
+        notes = ""
     }
 
     private func closeSheet() {

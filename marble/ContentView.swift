@@ -73,11 +73,12 @@ struct ContentView: View {
             quickLog.open()
         }
         .sheet(isPresented: $quickLog.isPresentingAddSet, onDismiss: {
-            quickLog.prefillExerciseID = nil
+            quickLog.clearPresentationContext()
         }) {
             AddSetView(
                 initialPerformedAt: quickLog.prefillDate,
                 initialExercise: fetchExercise(id: quickLog.prefillExerciseID),
+                context: quickLog.context,
                 isPresented: $quickLog.isPresentingAddSet
             )
                 .modelContext(modelContext)

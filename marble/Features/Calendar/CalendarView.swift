@@ -61,6 +61,7 @@ struct CalendarView: View {
                     .frame(width: geometry.size.width, alignment: .leading)
                 }
                 .background(Theme.backgroundColor(for: colorScheme))
+                .contentMargins(.top, calendarContentTopMargin, for: .scrollContent)
             }
             .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.inline)
@@ -218,6 +219,7 @@ struct CalendarView: View {
         .padding(.vertical, MarbleSpacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
         .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+        .accessibilityIdentifier("Calendar.SelectedDaySummary")
     }
 
     @ViewBuilder
@@ -317,8 +319,12 @@ struct CalendarView: View {
         "Sets and progress media by day."
     }
 
+    private var calendarContentTopMargin: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? MarbleSpacing.xl : MarbleSpacing.l
+    }
+
     private var calendarTopPadding: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 160 : MarbleSpacing.xxl + MarbleSpacing.l
+        dynamicTypeSize.isAccessibilitySize ? MarbleSpacing.xxl : MarbleSpacing.l
     }
 
     private func streakLabel(for count: Int) -> String {

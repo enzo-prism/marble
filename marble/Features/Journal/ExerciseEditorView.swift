@@ -321,6 +321,7 @@ struct ExerciseEditorView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme))
         .scrollDismissesKeyboard(.immediately)
+        .accessibilityIdentifier("ExerciseEditor.List")
         .navigationTitle(exercise == nil ? "Create Exercise" : "Edit Exercise")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarGlassBackground()

@@ -12,14 +12,27 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 - **Trends** — Swift Charts for consistency, volume, per-exercise progress, supplements, PRs.
 - **Import** — bring workouts in from Apple Health (Apple Watch, Garmin, …) and Strava. See
   [`INTEGRATIONS.md`](INTEGRATIONS.md).
+- **Rest Live Activity** — a WidgetKit extension shows between-set rest countdowns on the
+  Lock Screen / Dynamic Island after interactive set logging.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-06-18)
+## Current state (2026-06-22)
 
-- Code baseline: `main` == `release/1.9` == **1.9 (build 20)**, pushed to `origin`.
-- Live App Store: **1.8 is in review**; **no 1.9 build is on TestFlight/App Store yet**
-  (the 1.9 upload is blocked on a pending Apple agreement + HealthKit signing).
+- Code baseline: `origin/main` == `origin/release/1.9` == **1.9 (build 20)**.
+- Current feature branch: `feature/1.10-resilience-and-live-activity` is **1.9 (build 24)**.
+- Latest TestFlight upload: **1.9 (build 24)** is processed `VALID`, in internal beta
+  testing, and available to the internal all-builds group for phone testing.
+- Local verification on 2026-06-22: iOS 26.5 simulator runtime installed; `MarbleTests`
+  passed **109 tests**; `MarbleUITests` passed **27 tests** with 1 expected
+  accessibility-text skip; the changed Journal empty + Calendar month snapshots passed.
+- Latest TestFlight build 24 improvements: import re-entry guards and
+  duplicate-batch protection, Journal start checklist, Add Set "Save + Next", split-plan
+  logging context, calendar spacing, and sturdier UI test selectors.
+- `MarbleWidgets` target is wired into the app build and its `Info.plist` is checked by
+  Makefile test targets.
+- Live App Store: **1.8 is WAITING_FOR_REVIEW**. There is no 1.9 App Store version record
+  yet, so 1.9 is TestFlight-only until a new App Store version is created.
 - **[`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) is the authoritative, dated source of truth
   for release state** — read it before any release/signing work.
 
@@ -43,6 +56,9 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 - **Import** (`marble/Features/Import/`) — a small `WorkoutImportProvider` abstraction over
   Apple Health, Garmin (via Health), and Strava (official OAuth). Full design + rationale in
   [`INTEGRATIONS.md`](INTEGRATIONS.md).
+- **Live Activity** (`marble/Features/RestTimer/` + `MarbleWidgets/`) — the app starts one
+  rest-timer activity at a time; the widget extension renders the Lock Screen / Dynamic
+  Island UI. Release archive/export signing now covers `Prism.marble.MarbleWidgets`.
 - Privacy manifest at `marble/PrivacyInfo.xcprivacy`.
 
 ## Documentation map

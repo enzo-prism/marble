@@ -8,9 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		655F3804965718365A630E6A /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = F6861D087885DB9D6C488F42 /* SnapshotTesting */; };
+		BEEFC0DE0000000000000001 /* MarbleWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000004 /* MarbleWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BEEFC0DE0000000000000002 /* RestTimerAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000005 /* RestTimerAttributes.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		BEEFC0DE0000000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C6B1ED5B2F154BA20044510C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BEEFC0DE000000000000000C;
+			remoteInfo = MarbleWidgets;
+		};
 		2E2F03CB1C4F458D88DD1B4A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C6B1ED5B2F154BA20044510C /* Project object */;
@@ -39,9 +48,22 @@
 		67315268D5C8382FDD67694F /* MarbleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarbleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C71F1F727C76D935495558D /* MarbleSnapshotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarbleSnapshotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4A3A702FB2046FF990AE054 /* Tests/MarbleTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xctestplan; path = Tests/MarbleTests.xctestplan; sourceTree = "<group>"; };
+		BEEFC0DE0000000000000004 /* MarbleWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MarbleWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BEEFC0DE0000000000000005 /* RestTimerAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RestTimerAttributes.swift; path = marble/Features/RestTimer/RestTimerAttributes.swift; sourceTree = "<group>"; };
 		C25C6D1EACFE4BE39F3E2D08 /* Tests/MarbleSnapshotRecord.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xctestplan; path = Tests/MarbleSnapshotRecord.xctestplan; sourceTree = "<group>"; };
 		C6B1ED632F154BA20044510C /* marble.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = marble.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		BEEFC0DE0000000000000007 /* Exceptions for "MarbleWidgets" folder in "MarbleWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				SETUP.md,
+			);
+			target = BEEFC0DE000000000000000C /* MarbleWidgets */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		00A7CA843BE3D834C6DF6331 /* Tests/Snapshots */ = {
@@ -64,12 +86,34 @@
 			path = marble;
 			sourceTree = "<group>";
 		};
+		BEEFC0DE0000000000000006 /* MarbleWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				BEEFC0DE0000000000000007 /* Exceptions for "MarbleWidgets" folder in "MarbleWidgets" target */,
+			);
+			path = MarbleWidgets;
+			sourceTree = "<group>";
+		};
 		F1B614DE8CBDA726994018D0 /* Tests/Unit */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Tests/Unit;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BEEFC0DE0000000000000008 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BEEFC0DE0000000000000001 /* MarbleWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		6BCB3CF695221DEF1CDD94D3 /* Frameworks */ = {
@@ -88,6 +132,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		C6B1ED602F154BA20044510C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BEEFC0DE0000000000000009 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -121,6 +172,8 @@
 			isa = PBXGroup;
 			children = (
 				C6B1ED652F154BA20044510C /* marble */,
+				BEEFC0DE0000000000000006 /* MarbleWidgets */,
+				BEEFC0DE0000000000000005 /* RestTimerAttributes.swift */,
 				85E03B7D41EDB0B0B0607996 /* Tests */,
 				C6B1ED642F154BA20044510C /* Products */,
 			);
@@ -130,6 +183,7 @@
 			isa = PBXGroup;
 			children = (
 				C6B1ED632F154BA20044510C /* marble.app */,
+				BEEFC0DE0000000000000004 /* MarbleWidgets.appex */,
 				1D50B9A33DB313DD2AF37454 /* MarbleTests.xctest */,
 				9C71F1F727C76D935495558D /* MarbleSnapshotTests.xctest */,
 				67315268D5C8382FDD67694F /* MarbleUITests.xctest */,
@@ -192,10 +246,12 @@
 				C6B1ED5F2F154BA20044510C /* Sources */,
 				C6B1ED602F154BA20044510C /* Frameworks */,
 				C6B1ED612F154BA20044510C /* Resources */,
+				BEEFC0DE0000000000000008 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				BEEFC0DE000000000000000D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				C6B1ED652F154BA20044510C /* marble */,
@@ -206,6 +262,28 @@
 			productName = marble;
 			productReference = C6B1ED632F154BA20044510C /* marble.app */;
 			productType = "com.apple.product-type.application";
+		};
+		BEEFC0DE000000000000000C /* MarbleWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BEEFC0DE0000000000000010 /* Build configuration list for PBXNativeTarget "MarbleWidgets" */;
+			buildPhases = (
+				BEEFC0DE000000000000000B /* Sources */,
+				BEEFC0DE0000000000000009 /* Frameworks */,
+				BEEFC0DE000000000000000A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				BEEFC0DE0000000000000006 /* MarbleWidgets */,
+			);
+			name = MarbleWidgets;
+			packageProductDependencies = (
+			);
+			productName = MarbleWidgets;
+			productReference = BEEFC0DE0000000000000004 /* MarbleWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		DEE1918E7F7B015FADDF5581 /* MarbleTests */ = {
 			isa = PBXNativeTarget;
@@ -245,6 +323,9 @@
 					977B49B601BE1C7BC99F3064 = {
 						CreatedOnToolsVersion = 26.2;
 					};
+					BEEFC0DE000000000000000C = {
+						CreatedOnToolsVersion = 26.2;
+					};
 					C6B1ED622F154BA20044510C = {
 						CreatedOnToolsVersion = 26.2;
 					};
@@ -271,6 +352,7 @@
 			projectRoot = "";
 			targets = (
 				C6B1ED622F154BA20044510C /* marble */,
+				BEEFC0DE000000000000000C /* MarbleWidgets */,
 				DEE1918E7F7B015FADDF5581 /* MarbleTests */,
 				977B49B601BE1C7BC99F3064 /* MarbleSnapshotTests */,
 				87F6472B2133AAAC04A2CB47 /* MarbleUITests */,
@@ -307,6 +389,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BEEFC0DE000000000000000A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -331,6 +420,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BEEFC0DE000000000000000B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BEEFC0DE0000000000000002 /* RestTimerAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EFAABADB881D36F7EC716010 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -350,6 +447,11 @@
 			isa = PBXTargetDependency;
 			target = C6B1ED622F154BA20044510C /* marble */;
 			targetProxy = 2E2F03CB1C4F458D88DD1B4A /* PBXContainerItemProxy */;
+		};
+		BEEFC0DE000000000000000D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BEEFC0DE000000000000000C /* MarbleWidgets */;
+			targetProxy = BEEFC0DE0000000000000003 /* PBXContainerItemProxy */;
 		};
 		F1DEF6E43F683832F1063AAA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -562,12 +664,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 24;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -599,13 +702,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 24;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -621,6 +726,72 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Marble reads workouts from Apple Health to add them to your journal.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Marble requests HealthKit access only to import workouts into your journal.";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "Prism marble App Store HealthKit 2026-06-18-2015";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		BEEFC0DE000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 24;
+				DEVELOPMENT_TEAM = L49MKXGVM4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MarbleWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.9;
+				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble.MarbleWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		BEEFC0DE000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 24;
+				DEVELOPMENT_TEAM = L49MKXGVM4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MarbleWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.9;
+				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble.MarbleWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "Prism marble MarbleWidgets App Store 2026-06-22 build 23";
+				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -711,6 +882,15 @@
 			buildConfigurations = (
 				C6B1ED6F2F154BA20044510C /* Debug */,
 				C6B1ED702F154BA20044510C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BEEFC0DE0000000000000010 /* Build configuration list for PBXNativeTarget "MarbleWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BEEFC0DE000000000000000E /* Debug */,
+				BEEFC0DE000000000000000F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

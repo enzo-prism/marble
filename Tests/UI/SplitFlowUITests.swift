@@ -22,6 +22,8 @@ final class SplitFlowUITests: MarbleUITestCase {
         forceTap(plannedBench)
 
         waitFor(app.navigationBars["Log Set"])
+        let sessionContext = waitForIdentifier("AddSet.SessionContext", timeout: 6)
+        XCTAssertTrue(sessionContext.exists)
         let exercisePicker = app.buttons["AddSet.ExercisePicker"]
         waitFor(exercisePicker)
         XCTAssertEqual(exercisePicker.value as? String, "Bench Press")

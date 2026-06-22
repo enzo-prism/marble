@@ -59,7 +59,10 @@ final class NotificationsFlowUITests: MarbleUITestCase {
         let addButton = app.buttons["Notifications.Add"]
         waitFor(addButton)
         XCTAssertFalse(addButton.isEnabled)
-        XCTAssertTrue(app.staticTexts["10 notification limit reached."].exists)
+
+        let limitMessage = app.descendants(matching: .any).matching(identifier: "Notifications.MaxLimit").firstMatch
+        scrollToElement(limitMessage, in: app.collectionViews.firstMatch, maxSwipes: 4)
+        waitFor(limitMessage)
     }
 
     func testDeniedPermissionShowsSettingsState() {

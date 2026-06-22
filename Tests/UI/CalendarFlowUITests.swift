@@ -1,6 +1,21 @@
 import XCTest
 
 final class CalendarFlowUITests: MarbleUITestCase {
+    func testCalendarGridStartsBelowNavigationChrome() {
+        launchApp(fixtureMode: "populated")
+        navigateToTab(.calendar)
+
+        let calendarGrid = waitForIdentifier("Calendar.View", timeout: 8)
+        let navigationBar = app.navigationBars["Calendar"]
+        waitFor(navigationBar)
+
+        XCTAssertGreaterThan(
+            calendarGrid.frame.minY,
+            navigationBar.frame.maxY,
+            "The calendar grid should start below the navigation bar instead of being covered by toolbar glass."
+        )
+    }
+
     func testCalendarDayPopulated() {
         launchApp(fixtureMode: "populated", calendarTestDay: "populated")
         navigateToTab(.calendar)

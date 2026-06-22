@@ -10,6 +10,12 @@ struct JournalView: View {
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
 
+    @Query(sort: \ImportedWorkout.importedAt, order: .reverse)
+    private var importedWorkouts: [ImportedWorkout]
+
+    @Query(filter: #Predicate<SplitPlan> { $0.isActive == true }, sort: \SplitPlan.updatedAt, order: .reverse)
+    private var activeSplitPlans: [SplitPlan]
+
     @State private var toast: ToastData?
     @State private var pendingUndo: SetEntrySnapshot?
     @State private var quickLogUndoID: UUID?
@@ -32,18 +38,17 @@ struct JournalView: View {
                 }
 
                 if entries.isEmpty {
-                    VStack(spacing: MarbleSpacing.m) {
-                        EmptyStateView(title: "No sets yet", message: "Log your first set to start building momentum.", systemImage: "list.bullet.rectangle")
-                        Button("Log Set") {
-                            quickLog.open()
-                        }
-                        .buttonStyle(MarbleActionButtonStyle(prominence: .primary))
-                        .accessibilityIdentifier("Journal.EmptyState.LogSet")
-                    }
+                    StartChecklistCard(
+                        hasLoggedSet: !entries.isEmpty,
+                        hasImportedWorkout: !importedWorkouts.isEmpty,
+                        hasSplit: !activeSplitPlans.isEmpty,
+                        onLogSet: { quickLog.open() },
+                        onImport: { showingImport = true },
+                        onCreateSplit: { createSplit() }
+                    )
                     .listRowSeparator(.hidden)
                     .listRowBackground(Theme.backgroundColor(for: colorScheme))
                     .marbleRowInsets()
-                    .accessibilityIdentifier("Journal.EmptyState")
                 }
                 ForEach(daySections) { section in
                     Section {
@@ -208,6 +213,13 @@ struct JournalView: View {
         quickLog.open(prefillExerciseID: latest.exercise.id)
     }
 
+    private func createSplit() {
+        SeedData.ensureSplitPlan(in: modelContext)
+        if modelContext.saveOrRollback() {
+            MarbleHaptics.lightImpact()
+        }
+    }
+
     private func duplicate(_ entry: SetEntry) {
         let duplicate = entry.duplicated(at: AppEnvironment.now)
         modelContext.insert(duplicate)
@@ -269,6 +281,108 @@ private struct ToastData {
     let message: String
     let actionTitle: String?
     let onAction: (() -> Void)?
+}
+
+private struct StartChecklistCard: View {
+    let hasLoggedSet: Bool
+    let hasImportedWorkout: Bool
+    let hasSplit: Bool
+    let onLogSet: () -> Void
+    let onImport: () -> Void
+    let onCreateSplit: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                Text("Start Marble")
+                    .font(MarbleTypography.rowTitle)
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityIdentifier("Journal.StartChecklist")
+                Text("Private by default. Stored on this iPhone.")
+                    .font(MarbleTypography.rowSubtitle)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                StartChecklistItem(title: "Log a set", isComplete: hasLoggedSet)
+                StartChecklistItem(title: "Import workouts", isComplete: hasImportedWorkout)
+                StartChecklistItem(title: "Create a split", isComplete: hasSplit)
+            }
+
+            actionButtons
+        }
+        .padding(MarbleSpacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .marbleCardBackground()
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(spacing: MarbleSpacing.xs) {
+                logButton
+                importButton
+                splitButton
+            }
+        } else {
+            HStack(spacing: MarbleSpacing.xs) {
+                logButton
+                importButton
+                splitButton
+            }
+        }
+    }
+
+    private var logButton: some View {
+        Button(action: onLogSet) {
+            Label("Log", systemImage: "plus")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .primary))
+        .accessibilityIdentifier("Journal.StartChecklist.LogSet")
+    }
+
+    private var importButton: some View {
+        Button(action: onImport) {
+            Label("Import", systemImage: "square.and.arrow.down")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
+        .accessibilityIdentifier("Journal.StartChecklist.Import")
+    }
+
+    private var splitButton: some View {
+        Button(action: onCreateSplit) {
+            Label("Split", systemImage: "list.bullet.clipboard")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
+        .disabled(hasSplit)
+        .accessibilityIdentifier("Journal.StartChecklist.CreateSplit")
+    }
+}
+
+private struct StartChecklistItem: View {
+    let title: String
+    let isComplete: Bool
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Label {
+            Text(title)
+                .font(MarbleTypography.rowMeta)
+        } icon: {
+            Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+        }
+        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+        .accessibilityLabel("\(title), \(isComplete ? "complete" : "not complete")")
+    }
 }
 
 private struct SetEntrySnapshot {

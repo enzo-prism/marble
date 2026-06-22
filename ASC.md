@@ -22,27 +22,36 @@ project-local notes.
 - App Store Connect app name: `marble.fit`
 - App Store Connect app ID: `6757725234`
 - Bundle ID: `Prism.marble`
+- Widget extension bundle ID: `Prism.marble.MarbleWidgets`
 - Xcode project: `marble.xcodeproj`
 - Scheme: `marble`
 - Team ID: `L49MKXGVM4`
 - Archive path: `.asc/artifacts/marble.xcarchive`
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
+- Current App Store review version: `1.8`
 
 ## Release Safety
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches.
-- The project version is now `1.9 (build 20)`; some command examples below still show
-  `--version "1.8"` (the in-review App Store version) for illustration. Always run
-  `make asc-version` before acting — the CLI can report a blank generated marketing
-  version, so the Makefile prints a reliable fallback.
+- The working project version is now `1.9 (build 24)` on
+  `feature/1.10-resilience-and-live-activity`; `origin/main` and `origin/release/1.9`
+  remain `1.9 (build 20)`.
+- The live App Store version is still `1.8` and is `WAITING_FOR_REVIEW`. No App Store
+  version record exists for `1.9` yet, so review/validation checks must use `1.8`
+  until that record is created.
+- Always run `make asc-version` before acting — the CLI can report a blank generated
+  marketing version, so the Makefile prints a reliable fallback.
 - Do not cancel an in-flight review, upload a replacement build, or submit to
   review without explicit user approval.
 - Build numbers must move forward from App Store Connect state. Use
   `make asc-next-build`, not local guesses.
 - Regenerate `.asc/artifacts/marble.xcarchive` and `.asc/artifacts/marble.ipa`
   from a clean branch for every release. Do not reuse stale artifacts.
+- The 2026-06-22 Live Activity wiring adds the `MarbleWidgets` app-extension target.
+  Archive/export now needs an App Store provisioning profile mapping for both
+  `Prism.marble` and `Prism.marble.MarbleWidgets`.
 
 ## Apple Rules That Matter Here
 
@@ -78,7 +87,10 @@ make asc-next-build
 
 Those targets already know the Marble app ID, scheme, project path, artifact
 paths, the required archive destination wiring, and the marketing-version
-fallback for this Xcode setup.
+fallback for this Xcode setup. `make asc-review` and `make asc-validate` use
+`ASC_APPSTORE_VERSION` (currently `1.8`); `make asc-next-build` and
+`make asc-publish-testflight` use `ASC_TESTFLIGHT_VERSION` (defaulting to the local
+marketing version, currently `1.9`) for the next upload number.
 
 ## New Machine Checklist
 
@@ -87,6 +99,7 @@ fallback for this Xcode setup.
 3. Confirm Xcode has the required iOS platform installed.
 4. Confirm a usable `ExportOptions.plist` exists before export/upload.
 5. Confirm Apple agreements are current.
+6. Confirm signing/provisioning exists for the containing app and widget extension.
 
 Recommended checks:
 
@@ -104,6 +117,12 @@ not installed, fix Xcode first:
 - Open Xcode
 - Go to Settings > Components
 - Install the required iOS platform/runtime
+
+CLI equivalent on Xcode 26:
+
+```bash
+xcodebuild -downloadPlatform iOS
+```
 
 ## Repo-Specific Commands
 
@@ -175,12 +194,21 @@ asc status --app "6757725234" --output table
 asc review status --app "6757725234" --version "1.8" --platform IOS --output table
 asc review doctor --app "6757725234" --version "1.8" --platform IOS --output table
 asc validate --app "6757725234" --version "1.8" --platform IOS --output table
-asc builds next-build-number --app "6757725234" --version "1.8" --platform IOS --output table
+asc builds next-build-number --app "6757725234" --version "1.9" --platform IOS --output table
 ```
 
 `asc validate` is the canonical App Store submission readiness report in the
 current CLI. `asc review status` and `asc review doctor` are better for review
 state and blocker diagnosis.
+
+For the next TestFlight build on the 1.9 train, use `make asc-next-build` without
+overriding `ASC_APPSTORE_VERSION`; it reads `MARKETING_VERSION` from the project and
+currently reports the next 1.9 build number.
+
+As of 2026-06-22 after uploading build `24`, the next 1.9 build number is `25`.
+Before uploading another 1.9 TestFlight build, bump `CURRENT_PROJECT_VERSION` from
+`24` to the reported next number and re-run `make asc-next-build` to confirm ASC
+still agrees.
 
 ### Create A Deterministic Archive
 
@@ -240,6 +268,33 @@ make asc-publish-testflight \
   ASC_TESTFLIGHT_GROUP="Internal Testers"
 ```
 
+Current phone-test state as of 2026-06-22:
+
+- Build `1.9 (24)` is valid in TestFlight:
+  `ea951140-8063-4d60-9fbd-d524b110ba80`.
+- Build beta detail reports `internalBuildState = IN_BETA_TESTING`.
+- Internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has
+  `hasAccessToAllBuilds = true`.
+- The Enzo internal tester record is `INSTALLED` and belongs to `test group A`.
+
+Useful verification commands:
+
+```bash
+asc builds build-beta-detail view \
+  --build-id "ea951140-8063-4d60-9fbd-d524b110ba80" \
+  --output json --pretty
+
+asc testflight groups list \
+  --app "6757725234" \
+  --internal \
+  --output json --pretty
+
+asc testflight groups links view \
+  --group-id "514a95e2-28fc-436b-b624-9aaec2963adc" \
+  --type betaTesters \
+  --output json --pretty
+```
+
 For external beta review submission:
 
 ```bash
@@ -251,27 +306,46 @@ make asc-publish-testflight \
 
 ### Canonical App Store Publish
 
+Creating a 1.9 App Store version record, attaching a build, or submitting for review is a
+release mutation. Do not run this target without explicit approval and a clean release
+branch. The target intentionally requires `ASC_APPSTORE_PUBLISH_VERSION` so it cannot
+silently publish the local marketing version.
+
+As of 2026-06-22, App Store version `1.8` is still `WAITING_FOR_REVIEW`, so Apple rejects
+creating a `1.9` App Store version with:
+
+```text
+You cannot create a new version of the App in the current state.
+```
+
+Build `1.9 (24)` is already uploaded and valid (`ea951140-8063-4d60-9fbd-d524b110ba80`).
+To submit it immediately, the active 1.8 review submission must first be explicitly
+canceled:
+
+```bash
+asc submit cancel \
+  --id "9be18cb3-defb-40f2-91eb-8148b2c09dfe" \
+  --confirm \
+  --output json --pretty
+```
+
+Only run that command after explicit approval to remove 1.8 from review.
+
 Dry-run first when possible:
 
 ```bash
-asc publish appstore \
-  --app "6757725234" \
-  --project marble.xcodeproj \
-  --scheme marble \
-  --configuration Release \
-  --archive-path .asc/artifacts/marble.xcarchive \
-  --export-options /absolute/path/to/ExportOptions.plist \
-  --ipa-path .asc/artifacts/marble.ipa \
-  --archive-xcodebuild-flag=-destination \
-  --archive-xcodebuild-flag=generic/platform=iOS \
-  --version "1.8" \
-  --dry-run --output json --pretty
+make asc-publish-appstore \
+  ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist \
+  ASC_APPSTORE_PUBLISH_VERSION=1.9 \
+  ASC_APPSTORE_SUBMIT_FLAGS="--dry-run"
 ```
 
 Build/upload/attach without submission:
 
 ```bash
-make asc-publish-appstore ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist
+make asc-publish-appstore \
+  ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist \
+  ASC_APPSTORE_PUBLISH_VERSION=1.9
 ```
 
 Submit for App Review after validation:
@@ -279,6 +353,7 @@ Submit for App Review after validation:
 ```bash
 make asc-publish-appstore \
   ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist \
+  ASC_APPSTORE_PUBLISH_VERSION=1.9 \
   ASC_APPSTORE_SUBMIT_FLAGS="--submit --confirm"
 ```
 
@@ -305,7 +380,7 @@ asc validate --help
 Useful direct commands:
 
 ```bash
-asc builds list --app "6757725234" --version "1.8"
+asc builds list --app "6757725234" --version "1.9"
 asc testflight groups list --app "6757725234"
 asc status --app "6757725234"
 ```

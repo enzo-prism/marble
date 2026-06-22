@@ -2,6 +2,10 @@ import SwiftData
 import XCTest
 @testable import marble
 
+private enum MockSaveError: Error {
+    case failed
+}
+
 final class WorkoutImporterTests: MarbleTestCase {
     private func cardioRecord(source: ImportSource = .appleHealth, externalID: String = "hk-1") -> WorkoutImportRecord {
         WorkoutImportRecord(
@@ -57,11 +61,61 @@ final class WorkoutImporterTests: MarbleTestCase {
         XCTAssertEqual(logs.count, 1)
     }
 
+    func testImportRecordsSkipsDuplicateRecordsInsideSingleBatch() throws {
+        let context = makeInMemoryContext()
+        let record = cardioRecord()
+
+        let summary = try WorkoutImporter.importRecords([record, record], in: context)
+
+        XCTAssertEqual(summary.importedWorkouts, 1)
+        XCTAssertEqual(summary.importedSets, 1)
+        XCTAssertEqual(summary.skipped, 1)
+
+        let logs = try context.fetch(FetchDescriptor<ImportedWorkout>())
+        XCTAssertEqual(logs.count, 1)
+        let sets = try context.fetch(FetchDescriptor<SetEntry>())
+        XCTAssertEqual(sets.count, 1)
+    }
+
+    func testImportRecordsKeepsSameExternalIDFromDifferentSourcesDistinctWithinBatch() throws {
+        let context = makeInMemoryContext()
+        let apple = cardioRecord(source: .appleHealth, externalID: "shared")
+        let garmin = cardioRecord(source: .garminConnect, externalID: "shared")
+
+        let summary = try WorkoutImporter.importRecords([apple, garmin], in: context)
+
+        XCTAssertEqual(summary.importedWorkouts, 2)
+        XCTAssertEqual(summary.importedSets, 2)
+        XCTAssertEqual(summary.skipped, 0)
+
+        let logs = try context.fetch(FetchDescriptor<ImportedWorkout>())
+        XCTAssertEqual(logs.count, 2)
+        let sets = try context.fetch(FetchDescriptor<SetEntry>())
+        XCTAssertEqual(sets.count, 2)
+    }
+
     func testImportRecordsEmptyBatchReturnsZeroSummary() throws {
         let context = makeInMemoryContext()
         let summary = try WorkoutImporter.importRecords([], in: context)
         XCTAssertEqual(summary.importedWorkouts, 0)
         XCTAssertEqual(summary.importedSets, 0)
         XCTAssertEqual(summary.skipped, 0)
+    }
+
+    func testImportRecordsThrowsWhenSaveFails() throws {
+        let context = makeInMemoryContext()
+
+        XCTAssertThrowsError(
+            try WorkoutImporter.importRecords([cardioRecord()], in: context) { _ in
+                throw MockSaveError.failed
+            }
+        ) { error in
+            XCTAssertEqual(error as? WorkoutImporterError, .saveFailed)
+        }
+
+        let logs = try context.fetch(FetchDescriptor<ImportedWorkout>())
+        XCTAssertEqual(logs.count, 0)
+        let sets = try context.fetch(FetchDescriptor<SetEntry>())
+        XCTAssertEqual(sets.count, 0)
     }
 }

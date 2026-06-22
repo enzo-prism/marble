@@ -80,7 +80,7 @@ struct HealthKitWorkoutProvider: WorkoutImportProvider {
             let query = HKSampleQuery(
                 sampleType: HKObjectType.workoutType(),
                 predicate: predicate,
-                limit: 50,
+                limit: HKObjectQueryNoLimit,
                 sortDescriptors: sortDescriptors
             ) { _, samples, error in
                 if let error {
@@ -136,7 +136,7 @@ extension HealthKitWorkoutProvider {
     private static func record(from workout: HKWorkout, averageHeartRate: Double? = nil) -> WorkoutImportRecord {
         let kind = activityKind(for: workout.workoutActivityType, hasDistance: workout.totalDistance != nil)
         let distance = workout.totalDistance?.doubleValue(for: .meter())
-        let calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+        let calories = activeEnergyBurned(for: workout)
 
         var title = kind.displayName
         if let distance, distance > 0, workout.duration > 0 {
@@ -167,6 +167,13 @@ extension HealthKitWorkoutProvider {
             strengthSets: [],
             originName: origin
         )
+    }
+
+    private static func activeEnergyBurned(for workout: HKWorkout) -> Double? {
+        guard let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else {
+            return nil
+        }
+        return workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
     }
 
     /// Identifies which app/device actually recorded a HealthKit workout so the import hub

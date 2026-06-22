@@ -137,6 +137,7 @@ struct ImportView: View {
                 }
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("Import.\(source.rawValue).Fetch")
+                .disabled(state.isFetching || viewModel.isImporting)
 
                 if source == .strava {
                     Button("Disconnect") {

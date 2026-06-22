@@ -126,9 +126,9 @@ struct SplitDayEditorView: View {
         .onAppear {
             load()
         }
-        .onChange(of: selectedExercise) { _, newValue in
-            guard let newValue else { return }
-            addPlannedSet(newValue)
+        .onChange(of: selectedExercise?.id) { _, _ in
+            guard let exercise = selectedExercise else { return }
+            addPlannedSet(exercise)
             selectedExercise = nil
             showExercisePicker = false
         }
@@ -207,7 +207,13 @@ struct SplitDayEditorView: View {
 
     private func openLog(for plannedSet: PlannedSet) {
         let targetDate = DateHelper.nextDate(for: day.weekday, from: AppEnvironment.now)
-        quickLog.open(prefillDate: targetDate, prefillExerciseID: plannedSet.exercise.id)
+        let title = day.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let source = title.isEmpty ? day.weekday.displayName : "\(day.weekday.displayName) · \(title)"
+        quickLog.open(
+            prefillDate: targetDate,
+            prefillExerciseID: plannedSet.exercise.id,
+            context: QuickLogContext(title: "Split", source: source)
+        )
     }
 
     private func plannedSetIdentifier(_ plannedSet: PlannedSet) -> String {

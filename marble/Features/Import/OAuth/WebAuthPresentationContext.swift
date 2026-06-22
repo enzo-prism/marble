@@ -6,9 +6,18 @@ import AuthenticationServices
 @MainActor
 final class WebAuthPresentationContext: NSObject, ASWebAuthenticationPresentationContextProviding {
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        let scene = UIApplication.shared.connectedScenes
+        let scenes = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
-            .first { !$0.windows.isEmpty }
-        return scene?.windows.first ?? ASPresentationAnchor()
+        let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+        if let keyWindow = scene?.windows.first(where: \.isKeyWindow) {
+            return keyWindow
+        }
+        if let window = scene?.windows.first {
+            return window
+        }
+        guard let scene else {
+            preconditionFailure("ASWebAuthenticationSession requires an active window scene.")
+        }
+        return ASPresentationAnchor(windowScene: scene)
     }
 }
