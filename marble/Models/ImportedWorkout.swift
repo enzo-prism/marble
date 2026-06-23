@@ -5,6 +5,11 @@ enum ImportSource: String, Codable, CaseIterable, Identifiable {
     case appleHealth
     case garminConnect
     case strava
+    /// A handwritten workout captured with the camera (or chosen from the photo
+    /// library), read on-device and reviewed before it becomes journal entries.
+    /// Unlike the other sources it has no remote service or `WorkoutImportProvider`;
+    /// it feeds the same dedup + persistence spine through `WorkoutScanImporter`.
+    case photoScan
 
     var id: String { rawValue }
 
@@ -16,6 +21,8 @@ enum ImportSource: String, Codable, CaseIterable, Identifiable {
             return "Garmin Connect"
         case .strava:
             return "Strava"
+        case .photoScan:
+            return "Scanned Workout"
         }
     }
 
@@ -27,6 +34,8 @@ enum ImportSource: String, Codable, CaseIterable, Identifiable {
             return "antenna.radiowaves.left.and.right"
         case .strava:
             return "flame.fill"
+        case .photoScan:
+            return "doc.text.viewfinder"
         }
     }
 }
