@@ -3,6 +3,10 @@ import SwiftData
 
 @Model
 final class SupplementEntry {
+    // Supplement trends/queries sort and filter by `takenAt`; index it so those
+    // stay fast as history grows (mirrors `SetEntry`'s `performedAt` index).
+    #Index<SupplementEntry>([\.takenAt])
+
     @Attribute(.unique) var id: UUID
     var type: SupplementType
     var takenAt: Date

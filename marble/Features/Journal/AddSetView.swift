@@ -7,7 +7,7 @@ struct AddSetView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var quickLog: QuickLogCoordinator
+    @Environment(QuickLogCoordinator.self) private var quickLog
 
     @Binding private var isPresented: Bool
     @State private var selectedExerciseID: UUID?

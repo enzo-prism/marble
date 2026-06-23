@@ -3,7 +3,7 @@ import SwiftData
 import UIKit
 
 struct CalendarView: View {
-    @EnvironmentObject private var quickLog: QuickLogCoordinator
+    @Environment(QuickLogCoordinator.self) private var quickLog
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.marbleActiveDay) private var activeDay
@@ -18,6 +18,12 @@ struct CalendarView: View {
     @State private var selectedDate: Date?
     @State private var visibleMonth = Calendar.current.dateComponents([.year, .month], from: AppEnvironment.now)
     @State private var didOpenRequestedTestDay = false
+
+    // Active-day markers, streak, and the selected-day summary all come from one
+    // walk over the queried models. Memoized so paging the month grid (which only
+    // changes `visibleMonth`, not the derivation inputs) reuses the result instead
+    // of re-walking the full history on every tap.
+    @State private var derivedMemo = RenderMemo<CalendarInputSignature, CalendarDerivedData>()
 
     private let calendar = Calendar.current
 
@@ -55,7 +61,7 @@ struct CalendarView: View {
         }
         .sheet(item: $selectedDay) { selectedDay in
             DaySummarySheet(date: selectedDay.date, entries: entriesForDay(selectedDay.date))
-                .environmentObject(quickLog)
+                .environment(quickLog)
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()
         }
@@ -70,36 +76,58 @@ struct CalendarView: View {
         let daySummary: CalendarSummaryMetrics
     }
 
-    /// One pass over the queried models per render: day markers, streak,
-    /// and the selected-day summary all come out of the same walk.
+    /// Cheap `Equatable` fingerprint of the inputs `deriveCalendarData()` reads.
+    /// Notably excludes `visibleMonth`, so paging the grid reuses the cached walk.
+    fileprivate struct CalendarInputSignature: Equatable {
+        let entryCount: Int
+        let latestEntryUpdate: Date
+        let attachmentCount: Int
+        let latestAttachmentUpdate: Date
+        let headerDate: Date
+        let activeDay: Date
+    }
+
+    /// One pass over the queried models: day markers, streak, and the
+    /// selected-day summary all come out of the same walk. Memoized on the
+    /// inputs it actually reads (see `derivedMemo`).
     private func deriveCalendarData() -> CalendarDerivedData {
-        let targetDay = calendar.startOfDay(for: headerDate)
-        var activeDays = Set<CalendarDayKey>(minimumCapacity: entries.count)
-        var loggedDays = Set<Date>(minimumCapacity: entries.count)
-        var dayEntries: [SetEntry] = []
-
-        for entry in entries {
-            let dayStart = calendar.startOfDay(for: entry.performedAt)
-            loggedDays.insert(dayStart)
-            activeDays.insert(CalendarDayKey(date: entry.performedAt, calendar: calendar))
-            if dayStart == targetDay {
-                dayEntries.append(entry)
-            }
-        }
-
-        for attachment in progressMediaAttachments {
-            activeDays.insert(CalendarDayKey(date: attachment.attachedToDate, calendar: calendar))
-        }
-
-        return CalendarDerivedData(
-            activeDays: activeDays,
-            streak: currentStreak(loggedDays: loggedDays),
-            daySummary: CalendarSummaryMetrics(
-                sets: dayEntries.count,
-                exercises: Set(dayEntries.map { $0.exercise.id }).count,
-                averageRPE: averageRPE(for: dayEntries)
-            )
+        let signature = CalendarInputSignature(
+            entryCount: entries.count,
+            latestEntryUpdate: entries.reduce(Date.distantPast) { Swift.max($0, $1.updatedAt) },
+            attachmentCount: progressMediaAttachments.count,
+            latestAttachmentUpdate: progressMediaAttachments.reduce(Date.distantPast) { Swift.max($0, $1.updatedAt) },
+            headerDate: headerDate,
+            activeDay: activeDay
         )
+        return derivedMemo.value(for: signature) {
+            let targetDay = calendar.startOfDay(for: headerDate)
+            var activeDays = Set<CalendarDayKey>(minimumCapacity: entries.count)
+            var loggedDays = Set<Date>(minimumCapacity: entries.count)
+            var dayEntries: [SetEntry] = []
+
+            for entry in entries {
+                let dayStart = calendar.startOfDay(for: entry.performedAt)
+                loggedDays.insert(dayStart)
+                activeDays.insert(CalendarDayKey(date: entry.performedAt, calendar: calendar))
+                if dayStart == targetDay {
+                    dayEntries.append(entry)
+                }
+            }
+
+            for attachment in progressMediaAttachments {
+                activeDays.insert(CalendarDayKey(date: attachment.attachedToDate, calendar: calendar))
+            }
+
+            return CalendarDerivedData(
+                activeDays: activeDays,
+                streak: currentStreak(loggedDays: loggedDays),
+                daySummary: CalendarSummaryMetrics(
+                    sets: dayEntries.count,
+                    exercises: Set(dayEntries.map { $0.exercise.id }).count,
+                    averageRPE: averageRPE(for: dayEntries)
+                )
+            )
+        }
     }
 
     private func entriesForDay(_ date: Date) -> [SetEntry] {
@@ -452,7 +480,7 @@ struct DaySummarySheet: View {
     let date: Date
     let entries: [SetEntry]
 
-    @EnvironmentObject private var quickLog: QuickLogCoordinator
+    @Environment(QuickLogCoordinator.self) private var quickLog
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize

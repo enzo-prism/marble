@@ -8,8 +8,8 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.undoManager) private var undoManager
 
-    @StateObject private var quickLog = QuickLogCoordinator()
-    @StateObject private var tabSelection = TabSelection()
+    @State private var quickLog = QuickLogCoordinator()
+    @State private var tabSelection = TabSelection()
     @State private var activeDay = DateHelper.startOfDay(for: AppEnvironment.now)
 
     var body: some View {
@@ -49,8 +49,8 @@ struct ContentView: View {
                 }
                 .tag(AppTab.trends)
         }
-        .environmentObject(tabSelection)
-        .environmentObject(quickLog)
+        .environment(tabSelection)
+        .environment(quickLog)
         .environment(\.marbleActiveDay, activeDay)
         .tabBarGlassBackground()
         .marbleTabBarMinimizeBehavior()
@@ -82,7 +82,7 @@ struct ContentView: View {
                 isPresented: $quickLog.isPresentingAddSet
             )
                 .modelContext(modelContext)
-                .environmentObject(quickLog)
+                .environment(quickLog)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()

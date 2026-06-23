@@ -11,7 +11,7 @@ final class AddSetSnapshotTests: SnapshotTestCase {
         let bench = SnapshotFixtures.exercise(named: "Bench Press", in: context)
         let view = AddSetView(initialPerformedAt: SnapshotFixtures.now, initialExercise: bench)
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "AddSet_WeightReps")
     }
 
@@ -25,7 +25,7 @@ final class AddSetSnapshotTests: SnapshotTestCase {
 
         let view = AddSetView(initialPerformedAt: SnapshotFixtures.now, initialExercise: bench)
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "AddSet_WeightReps_History")
     }
 
@@ -37,7 +37,7 @@ final class AddSetSnapshotTests: SnapshotTestCase {
         let pushUps = SnapshotFixtures.exercise(named: "Push Ups", in: context)
         let view = AddSetView(initialPerformedAt: SnapshotFixtures.now, initialExercise: pushUps)
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "AddSet_RepsOnly_AddedLoadOff")
     }
 
@@ -51,7 +51,7 @@ final class AddSetSnapshotTests: SnapshotTestCase {
 
         let view = AddSetView(initialPerformedAt: SnapshotFixtures.now, initialExercise: pushUps)
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "AddSet_RepsOnly_AddedLoadOn")
     }
 
@@ -63,7 +63,7 @@ final class AddSetSnapshotTests: SnapshotTestCase {
         let plank = SnapshotFixtures.exercise(named: "Plank", in: context)
         let view = AddSetView(initialPerformedAt: SnapshotFixtures.now, initialExercise: plank)
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "AddSet_DurationOnly")
     }
 }

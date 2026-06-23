@@ -11,7 +11,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
 
         let view = TrendsView()
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_Empty")
     }
 
@@ -22,7 +22,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
 
         let view = TrendsView()
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_Populated")
     }
 
@@ -34,7 +34,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         let bench = SnapshotFixtures.exercise(named: "Bench Press", in: context)
         let view = TrendsView(initialExercise: bench)
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_Filtered")
     }
 
@@ -63,7 +63,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
 
         let view = TrendsView(initialSelectedDay: SnapshotFixtures.now)
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_ConsistencyTooltip")
     }
 
@@ -75,7 +75,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         let weekStart = TrendsDateHelper.startOfWeek(for: SnapshotFixtures.now)
         let view = TrendsView(initialSelectedWeekStart: weekStart)
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_VolumeTooltip")
     }
 
@@ -87,7 +87,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         let creatine = SnapshotFixtures.supplementType(named: "Creatine", in: context)
         let view = TrendsView(initialSupplementType: creatine, initialSelectedSupplementDay: SnapshotFixtures.now)
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_SupplementsTooltip")
     }
 }

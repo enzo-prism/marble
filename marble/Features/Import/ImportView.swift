@@ -2,14 +2,14 @@ import SwiftUI
 import SwiftData
 
 struct ImportView: View {
-    @StateObject private var viewModel: ImportViewModel
+    @State private var viewModel: ImportViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openURL) private var openURL
 
     init(viewModel: ImportViewModel) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+        _viewModel = State(wrappedValue: viewModel)
     }
 
     var body: some View {

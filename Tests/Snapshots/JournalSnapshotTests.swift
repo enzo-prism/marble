@@ -7,7 +7,7 @@ final class JournalSnapshotTests: SnapshotTestCase {
         let container = SnapshotFixtures.makeContainer()
         let view = JournalView()
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Journal_Empty")
     }
 
@@ -21,7 +21,7 @@ final class JournalSnapshotTests: SnapshotTestCase {
 
         let view = JournalView()
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Journal_Populated")
     }
 
@@ -34,7 +34,7 @@ final class JournalSnapshotTests: SnapshotTestCase {
 
         let view = JournalView()
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Journal_LongName")
     }
 
@@ -48,7 +48,7 @@ final class JournalSnapshotTests: SnapshotTestCase {
 
         let view = JournalView()
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Journal_Extremes")
     }
 

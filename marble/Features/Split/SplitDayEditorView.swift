@@ -5,7 +5,7 @@ struct SplitDayEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
-    @EnvironmentObject private var quickLog: QuickLogCoordinator
+    @Environment(QuickLogCoordinator.self) private var quickLog
 
     @Bindable var day: SplitDay
 

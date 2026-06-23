@@ -1,10 +1,10 @@
-import Combine
 import Foundation
 import SwiftUI
 import SwiftData
 
+@Observable
 @MainActor
-final class ImportViewModel: ObservableObject {
+final class ImportViewModel {
     typealias ImportHandler = ([WorkoutImportRecord], ModelContext) async throws -> WorkoutImporter.Summary
 
     struct SourceState {
@@ -15,12 +15,12 @@ final class ImportViewModel: ObservableObject {
         var errorMessage: String?
     }
 
-    @Published private(set) var states: [ImportSource: SourceState] = [:]
-    @Published var selection: Set<UUID> = []
-    @Published private(set) var isImporting = false
-    @Published var lastSummary: WorkoutImporter.Summary?
-    @Published var lastSummarySource: ImportSource?
-    @Published var importErrorMessage: String?
+    private(set) var states: [ImportSource: SourceState] = [:]
+    var selection: Set<UUID> = []
+    private(set) var isImporting = false
+    var lastSummary: WorkoutImporter.Summary?
+    var lastSummarySource: ImportSource?
+    var importErrorMessage: String?
 
     private let providers: [ImportSource: WorkoutImportProvider]
     private let importHandler: ImportHandler

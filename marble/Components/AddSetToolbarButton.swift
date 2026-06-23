@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AddSetToolbarButton: View {
-    @EnvironmentObject private var quickLog: QuickLogCoordinator
+    @Environment(QuickLogCoordinator.self) private var quickLog
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {

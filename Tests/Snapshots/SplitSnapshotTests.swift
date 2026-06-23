@@ -10,7 +10,7 @@ final class SplitSnapshotTests: SnapshotTestCase {
 
         let emptyView = SplitView()
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(emptyView, named: "Split_Empty", testName: "testSplitStates")
     }
 
@@ -21,7 +21,7 @@ final class SplitSnapshotTests: SnapshotTestCase {
 
         let populatedView = SplitView()
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(populatedView, named: "Split_Populated", testName: "testSplitStates")
     }
 }
