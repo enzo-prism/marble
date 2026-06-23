@@ -495,6 +495,54 @@ final class JournalFlowUITests: MarbleUITestCase {
         }
     }
 
+    func testPersonalRecordBadgeAppearsInJournalHistory() {
+        step("Launch populated journal") {
+            launchApp(fixtureMode: "populated")
+            navigateToTab(.journal)
+        }
+
+        step("A personal-record set is badged in the history") {
+            let list = waitForIdentifier("Journal.List", timeout: 8)
+            let prPredicate = NSPredicate(format: "label CONTAINS[c] %@", "personal record")
+            let prRow = list.descendants(matching: .any).matching(prPredicate).firstMatch
+            if !prRow.waitForExistence(timeout: 4) {
+                let globalRow = app.descendants(matching: .any).matching(prPredicate).firstMatch
+                XCTAssertTrue(globalRow.waitForExistence(timeout: 4), "Expected at least one PR-badged set in the populated journal")
+            }
+        }
+    }
+
+    func testPersonalBestCardAndLivePRWhileLogging() {
+        step("Launch populated journal") {
+            launchApp(fixtureMode: "populated")
+            navigateToTab(.journal)
+        }
+
+        step("Opening an exercise with history shows the personal-best target card") {
+            openAddSet()
+            selectExercise(identifier: "BenchPress")
+
+            let card = app.descendants(matching: .any).matching(identifier: "AddSet.PersonalBest").firstMatch
+            XCTAssertTrue(card.waitForExistence(timeout: 6), "Personal best card should appear for an exercise with history")
+            let heaviest = app.descendants(matching: .any).matching(identifier: "AddSet.PersonalBest.Heaviest").firstMatch
+            XCTAssertTrue(heaviest.waitForExistence(timeout: 4), "Heaviest best should be shown")
+        }
+
+        step("Entering a heavier weight lights up the live PR banner") {
+            let list = addSetListContainer()
+            let weightField = textInput("AddSet.Weight")
+            waitFor(weightField, timeout: 6)
+            if !weightField.isHittable {
+                scrollToElement(weightField, in: list, maxSwipes: 6)
+            }
+            clearAndType(weightField, text: "225")
+            dismissKeyboardIfPresent()
+
+            let liveBanner = app.descendants(matching: .any).matching(identifier: "AddSet.LivePR").firstMatch
+            XCTAssertTrue(liveBanner.waitForExistence(timeout: 4), "Live PR banner should appear when the entry beats the record")
+        }
+    }
+
     private func selectExerciseTemplate(_ identifier: String, file: StaticString = #file, line: UInt = #line) {
         let template = app.buttons[identifier]
         if !template.waitForExistence(timeout: 2) {

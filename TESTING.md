@@ -3,18 +3,25 @@
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
   mapping, the handwritten-scan parser/importer + a real Vision-OCR integration test, the
-  `RenderMemo` cache, and Strava credential resolution). Runs in CI. Last verified locally
-  on 2026-06-23 with Xcode 26.5 / iOS 26.5 simulator: **152 passed, 0 failed**.
+  `RenderMemo` cache, Strava credential resolution, and the **personal-records engine**
+  `PersonalRecordsTests` — PR-badge trail, unit-normalized weight records, all-time bests,
+  usual ranges, and the live-PR projection). Runs in CI. Last verified locally on 2026-06-23
+  with Xcode 26.5 / iOS 26.5 simulator: **164 passed, 0 failed**.
 - Snapshot tests: `MarbleSnapshotTests` (SwiftUI rendering with SnapshotTesting).
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
 ## Latest local verification (2026-06-23)
-- `MarbleTests`: **152 passed, 0 failed** (`make unit`).
-- `MarbleUITests` flows: **28 passed** (`make ui`), including `ImportFlowUITests` and the new
-  `ScanFlowUITests` (the handwritten-scan capture screen is reachable from the Import hub and
-  renders).
-- `MarbleUITests/AccessibilityAuditUITests`: passed (1 expected accessibility-text skip).
+- `MarbleTests`: **164 passed, 0 failed** (`make unit`) — now including `PersonalRecordsTests`.
+- `MarbleUITests` flows: passed (`make ui`), including `ImportFlowUITests`, `ScanFlowUITests`,
+  and the two new personal-records flows in `JournalFlowUITests`
+  (`testPersonalRecordBadgeAppearsInJournalHistory`, `testPersonalBestCardAndLivePRWhileLogging`).
+  Note: the full `make ui` run can hit unrelated long-run simulator flakiness on this host
+  (a single test may crash on a ~10-min combined run, then pass cleanly in isolation) — verify
+  any such failure with `make only TEST=...` before treating it as a regression.
+- `MarbleUITests/AccessibilityAuditUITests`: passed (1 expected accessibility-text skip). The
+  PR badge is rendered on its own row line so it never squeezes the exercise name at large
+  Dynamic Type sizes (an earlier inline placement tripped the `.textClipped` audit).
 - Feature-verification pass on the Apple Health / Watch / Garmin import path and the AI
   photo-scan pipeline. The real Vision OCR step is proven by
   `WorkoutTextRecognizerIntegrationTests`; the FoundationModels LLM parser is availability-

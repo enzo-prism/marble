@@ -2,6 +2,7 @@ import SwiftUI
 
 struct QuickLogCardView: View {
     let entry: SetEntry?
+    var prBadge: PersonalRecordBadge = []
     let onLogAgain: () -> Void
     let onEdit: () -> Void
     let onLogSet: () -> Void
@@ -43,6 +44,10 @@ struct QuickLogCardView: View {
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
 
+                    if !prBadge.isEmpty {
+                        PRBadgeLabel(badge: prBadge)
+                    }
+
                     Text(summary)
                         .font(MarbleTypography.rowSubtitle)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
@@ -52,7 +57,7 @@ struct QuickLogCardView: View {
 
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(entry.exercise.name), \(summary), \(lastLogged)")
+                .accessibilityLabel(accessibilityLabel(for: entry, summary: summary, lastLogged: lastLogged))
 
                 Spacer(minLength: MarbleSpacing.xs)
 
@@ -181,5 +186,10 @@ struct QuickLogCardView: View {
         let day = DateHelper.dayLabel(for: entry.performedAt)
         let time = Formatters.time.string(from: entry.performedAt)
         return "Last logged \(day) at \(time)"
+    }
+
+    private func accessibilityLabel(for entry: SetEntry, summary: String, lastLogged: String) -> String {
+        let prefix = prBadge.isEmpty ? "" : "\(prBadge.accessibilityDescription). "
+        return "\(prefix)\(entry.exercise.name), \(summary), \(lastLogged)"
     }
 }

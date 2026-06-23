@@ -87,12 +87,13 @@ class MarbleUITestCase: XCTestCase {
     }
 
     func navigateToTab(_ tab: MarbleTab) {
-        let fallback = app.tabBars.buttons[tab.rawValue]
+        let tabLabel = NSPredicate(format: "identifier == %@ OR label == %@", tab.rawValue, tab.rawValue)
+        let fallback = app.tabBars.buttons.matching(tabLabel).firstMatch
         if fallback.waitForExistence(timeout: 4) {
             forceTap(fallback)
             return
         }
-        let identified = app.buttons[tab.identifier]
+        let identified = app.buttons.matching(identifier: tab.identifier).firstMatch
         if identified.waitForExistence(timeout: 4) {
             forceTap(identified)
             return

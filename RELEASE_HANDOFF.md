@@ -1,43 +1,40 @@
 # Marble Release Handoff
 
-**Last verified: 2026-06-22.** This file is the single source of truth for "where the
+**Last verified: 2026-06-23.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
-## TL;DR — what "up-to-date" means today (2026-06-22)
+## TL;DR — what "up-to-date" means today (2026-06-23)
 
-- **Code baseline:** `main` has been advanced to **1.9 (build 28)**, adding — on top of
-  build 26's import hub, Live Activity, resilience/UX pass, and Trends redesign — a
-  **performance + iOS 26 pass** (memoized Trends/Calendar/Journal derivations via a new
-  `RenderMemo`, `@Observable` migration of every view model, `#Index` on
-  `SupplementEntry.takenAt`), the **handwritten workout scan** feature
-  (`marble/Features/Import/Scan/` — on-device Vision OCR + deterministic parser with an
-  optional FoundationModels path, wired into the Import hub, `NSCameraUsageDescription`
-  added), and an **iOS 26 polish** pass (finished the `@Observable` migration on
-  `WorkoutScanViewModel`; SF Symbols Magic Replace on the Journal checklist + Import
-  selection toggles). `origin/release/1.9` may still point at the older 1.9 build 20
-  baseline unless it is explicitly updated.
-- **Latest TestFlight build:** **1.9 (build 28)** was uploaded on 2026-06-23 from `main`
-  (`CURRENT_PROJECT_VERSION` 28, build id `54c40cc8-2189-4bf5-bb57-4ec45092bcee`). App
-  Store Connect reports processing `VALID`, and `test group A`
-  (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds. (Build 27,
-  `b3e36109-7e4e-434e-877d-210219ef3893`, is also `VALID`.) **Note:** Apple's ASC
-  *betaGroups* endpoint was intermittently erroring/timing out during the build-28 upload,
-  so `make asc-publish-testflight` failed its upfront group precheck several times; the
-  upload succeeded on retry against the pre-built IPA once the endpoint recovered.
-- **Current working project version:** **1.9 (build 28)** on `main`;
-  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 28` in
+- **Code baseline:** `main` has been advanced to **1.9 (build 29)**, adding a
+  **personal-records (PR)** feature on top of build 28. New pure engine
+  `marble/Components/PersonalRecords.swift` computes, all-time and weight/reps-only: a trail
+  of every record-setting set (each badged in the Journal + quick-log card), the heaviest and
+  most-reps bests (each shown as its full weight × reps combo), and the usual working range.
+  The logging screen (`AddSetView`) gains a "Personal best" target card and a live "New PR!"
+  banner the moment the entry beats a record (`projectedBadge`), plus a celebratory haptic
+  (`MarbleHaptics.celebrate()`). Weight records are unit-normalized (lb/kg) before comparison.
+  Build 28 (perf/iOS 26 pass, `RenderMemo`, `@Observable` migration, handwritten workout scan)
+  remains underneath. `origin/release/1.9` may still point at the older 1.9 build 20 baseline.
+- **Latest TestFlight build:** **1.9 (build 29)** uploaded from `main` on 2026-06-23
+  (`CURRENT_PROJECT_VERSION` 29) carrying the PR feature. Build 28
+  (`54c40cc8-2189-4bf5-bb57-4ec45092bcee`) and build 27
+  (`b3e36109-7e4e-434e-877d-210219ef3893`) remain `VALID`. **Note:** Apple's ASC *betaGroups*
+  endpoint has been intermittently erroring/timing out, so `make asc-publish-testflight` can
+  fail its upfront group precheck; retry against the pre-built IPA until it recovers.
+- **Current working project version:** **1.9 (build 29)** on `main`;
+  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 29` in
   `marble.xcodeproj/project.pbxproj`.
 - **Build/test health:** Xcode 26.5 / iOS 26.5 simulator is installed locally; the
-  build 28 unit suite is green: `MarbleTests` (**152 unit tests, 0 failures**), which now
-  includes `RenderMemoTests`, `TrendsDerivedDataTests`, the scan feature's
-  `HandwrittenWorkoutParser`/`WorkoutScanImporter`/`WorkoutScanViewModel` tests, and a real
-  Vision-OCR integration test; the **28** `MarbleUITests` flows (incl. the new
-  `ScanFlowUITests`) and the accessibility audit also pass. (Snapshot
-  baselines remain host-sensitive — e.g. `AddSet` mismatches on a non-recording host
-  independent of these changes — so they were not used as a release gate.)
+  build 29 unit suite is green: `MarbleTests` (**164 unit tests, 0 failures**), which now
+  includes `PersonalRecordsTests` alongside `RenderMemoTests`, `TrendsDerivedDataTests`, the
+  scan tests, and the real Vision-OCR integration test; the `MarbleUITests` flows (incl. two
+  new PR flows in `JournalFlowUITests`) and the accessibility audit also pass. The full
+  `make ui` run can hit unrelated long-run simulator flakiness on this host — re-verify any
+  single failure in isolation with `make only TEST=...`. (Snapshot baselines remain
+  host-sensitive and were not used as a release gate.)
 - **Live Activity wiring:** `MarbleWidgets` is now a real app-extension target embedded in
   the app, `NSSupportsLiveActivities = YES` is set on the app target, and
   `RestTimerAttributes.swift` is shared into the widget target.

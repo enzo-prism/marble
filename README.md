@@ -6,7 +6,10 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 ## What it is
 
 - **Journal** — fast logging of sets (weight, reps, distance, duration, RPE, rest) with
-  per-exercise metric profiles, plus a supplements log.
+  per-exercise metric profiles, plus a supplements log. **Personal-best (PR) badges**
+  celebrate record sets right in the history, and the logging screen shows your current PR
+  (heaviest + most reps) and usual range so you can shoot to beat it — with a live "New PR!"
+  cue the moment your entry passes your best.
 - **Calendar** — month view with workout-day markers, day detail, and progress photos/videos.
 - **Split** — a weekly workout plan whose planned sets log into the journal in one tap.
 - **Trends** — Swift Charts for consistency, volume, per-exercise progress, supplements, PRs.
@@ -19,14 +22,17 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-06-23)
 
-- Code baseline: `main` is **1.9 (build 28)**; `origin/release/1.9` may still point
-  at the older 1.9 build 20 release baseline unless explicitly updated.
-- Latest TestFlight upload: **1.9 (build 28)** is processed `VALID`, in internal beta
-  testing, and available to the internal all-builds group for phone testing
-  (build id `54c40cc8-2189-4bf5-bb57-4ec45092bcee`; build 27 remains `VALID` too).
-- Local verification (2026-06-23): `MarbleTests` passed **152 tests**, the **28**
-  `MarbleUITests` flows passed (including a new handwritten-scan smoke test), and the
-  accessibility audit passed. A feature-verification pass covered the Apple Health / Watch /
+- Code baseline: `main` is **1.9 (build 29)**, adding a **personal-records (PR)** feature on
+  top of build 28: all-time heaviest-weight and most-reps bests per exercise, a celebratory
+  trophy badge on every record-setting set in the Journal/quick-log card, and a "Personal
+  best" target card + live "New PR!" cue while logging (see `marble/Components/
+  PersonalRecords.swift`). `origin/release/1.9` may still point at the older 1.9 build 20
+  release baseline unless explicitly updated.
+- Latest TestFlight upload: **1.9 (build 29)** ships the PR feature (build 28 — perf/iOS 26
+  pass, handwritten scan — remains `VALID`; build id `54c40cc8-2189-4bf5-bb57-4ec45092bcee`).
+- Local verification (2026-06-23): `MarbleTests` passed **164 tests** (incl. the new
+  `PersonalRecordsTests`), the `MarbleUITests` flows passed (incl. two new PR flow tests),
+  and the accessibility audit passed. A feature-verification pass covered the Apple Health / Watch /
   Garmin import path and the AI photo-scan pipeline (the real Vision OCR step is proven by an
   integration test; the on-device LLM, and real Watch/Garmin/handwriting data, remain
   device-only).

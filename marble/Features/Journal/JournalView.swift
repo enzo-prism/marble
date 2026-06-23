@@ -22,16 +22,19 @@ struct JournalView: View {
     @State private var navPath: [UUID] = []
     @State private var showingImport = false
 
-    // Grouping the full history by day is memoized so unrelated state changes
-    // (a toast appearing, a sheet opening, navigation) don't re-group every entry.
-    @State private var sectionsMemo = RenderMemo<JournalSectionsSignature, [JournalDaySection]>()
+    // Grouping the full history by day AND detecting personal-record sets is
+    // memoized together so unrelated state changes (a toast appearing, a sheet
+    // opening, navigation) don't re-group every entry or recompute records.
+    @State private var derivedMemo = RenderMemo<JournalSectionsSignature, JournalDerived>()
 
     var body: some View {
-        NavigationStack(path: $navPath) {
+        let derived = derived
+        return NavigationStack(path: $navPath) {
             List {
                 Section {
                     QuickLogCardView(
                         entry: entries.first,
+                        prBadge: entries.first.flatMap { derived.prBadges[$0.id] } ?? [],
                         onLogAgain: { quickLogAgain() },
                         onEdit: { openEdit() },
                         onLogSet: { quickLog.open() }
@@ -54,11 +57,12 @@ struct JournalView: View {
                     .listRowBackground(Theme.backgroundColor(for: colorScheme))
                     .marbleRowInsets()
                 }
-                ForEach(daySections) { section in
+                ForEach(derived.sections) { section in
                     Section {
                         ForEach(section.entries) { entry in
                             JournalRow(
                                 entry: entry,
+                                prBadge: derived.prBadges[entry.id] ?? [],
                                 onDuplicate: { duplicate(entry) },
                                 onDelete: { delete(entry) }
                             )
@@ -141,20 +145,22 @@ struct JournalView: View {
         }
     }
 
-    private var daySections: [JournalDaySection] {
+    private var derived: JournalDerived {
         let signature = JournalSectionsSignature(
             count: entries.count,
             latestUpdate: entries.reduce(Date.distantPast) { Swift.max($0, $1.updatedAt) }
         )
-        return sectionsMemo.value(for: signature) {
+        return derivedMemo.value(for: signature) {
             // entries arrive sorted newest-first from the query, so grouping
             // preserves the in-day order without a per-day re-sort.
             let grouped = Dictionary(grouping: entries) { entry in
                 DateHelper.startOfDay(for: entry.performedAt)
             }
-            return grouped.keys.sorted(by: >).map { day in
+            let sections = grouped.keys.sorted(by: >).map { day in
                 JournalDaySection(day: day, entries: grouped[day] ?? [])
             }
+            let prBadges = PersonalRecords.badges(for: entries)
+            return JournalDerived(sections: sections, prBadges: prBadges)
         }
     }
 
@@ -249,6 +255,13 @@ private struct JournalDaySection: Identifiable {
     var id: Date { day }
 }
 
+/// Memoized journal derivations: day-grouped sections plus the map of which
+/// sets are personal records, keyed by `SetEntry.id`.
+private struct JournalDerived {
+    let sections: [JournalDaySection]
+    let prBadges: [UUID: PersonalRecordBadge]
+}
+
 /// Cheap `Equatable` fingerprint for memoizing `daySections`: counts catch
 /// inserts/deletes, the latest `updatedAt` catches in-place edits.
 private struct JournalSectionsSignature: Equatable {
@@ -258,6 +271,7 @@ private struct JournalSectionsSignature: Equatable {
 
 private struct JournalRow: View {
     let entry: SetEntry
+    let prBadge: PersonalRecordBadge
     let onDuplicate: () -> Void
     let onDelete: () -> Void
 
@@ -267,13 +281,14 @@ private struct JournalRow: View {
         NavigationLink(value: entry.id) {
             SetRowView(
                 entry: entry,
+                prBadge: prBadge,
                 accessibilityIdentifier: "SetRow.\(entry.id.uuidString)"
             )
                 .foregroundColor(Theme.primaryTextColor(for: colorScheme))
                 .contentShape(Rectangle())
         }
             .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
-            .accessibilityLabel(SetRowView.accessibilitySummary(for: entry))
+            .accessibilityLabel(SetRowView.accessibilitySummary(for: entry, prBadge: prBadge))
             .accessibilityHint("Open set details")
             .listRowBackground(Theme.backgroundColor(for: colorScheme))
             .marbleRowInsets()

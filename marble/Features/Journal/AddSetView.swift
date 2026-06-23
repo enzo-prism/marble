@@ -32,6 +32,7 @@ struct AddSetView: View {
     @State private var showSaveError = false
     @State private var showMissingExercise = false
     @State private var lastEntry: SetEntry?
+    @State private var personalRecords: ExercisePersonalRecords?
     private let context: QuickLogContext?
     private let repsRange: ClosedRange<Int> = 1...20
     private let defaultRepsValue: Int = 10
@@ -77,7 +78,25 @@ struct AddSetView: View {
                         SectionHeaderView(title: "Last time")
                     }
 
+                    if (exercise.metrics.usesWeight || exercise.metrics.usesReps),
+                       let records = personalRecords {
+                        Section {
+                            PersonalBestCardView(
+                                records: records,
+                                exerciseName: exercise.name,
+                                identifierPrefix: "AddSet.PersonalBest"
+                            )
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                            .marbleRowInsets()
+                        } header: {
+                            SectionHeaderView(title: "Personal best")
+                        }
+                    }
+
                     Section {
+                        livePRBannerRow
+
                         if exercise.metrics.usesWeight {
                             if exercise.metrics.weight == .optional {
                                 Toggle(ExerciseMetricKind.weight.optionalToggleTitle, isOn: $addedLoad)
@@ -306,10 +325,12 @@ struct AddSetView: View {
                 guard let newValue else {
                     selectedExerciseSnapshot = nil
                     lastEntry = nil
+                    personalRecords = nil
                     return
                 }
                 hydrateSelection(id: newValue, shouldApplyDefaults: true)
             }
+            .animation(.snappy(duration: 0.2), value: liveBadge)
             .onAppear {
                 validateSelection()
                 guard !didInitialize else { return }
@@ -386,6 +407,7 @@ struct AddSetView: View {
                 guard let newValue else {
                     selectedExerciseID = nil
                     selectedExerciseSnapshot = nil
+                    personalRecords = nil
                     return
                 }
                 selectExercise(newValue, lastEntry: fetchLastEntry(for: newValue.id))
@@ -430,6 +452,90 @@ struct AddSetView: View {
 
     private var showsInlineSave: Bool {
         isKeyboardVisible
+    }
+
+    /// Which records the current entry would set right now — drives the live
+    /// "New PR!" banner while the lifter types. Only fires against an existing
+    /// best (a first-ever set is celebrated once saved, not mid-entry).
+    private var liveBadge: PersonalRecordBadge {
+        guard let snapshot = selectedExerciseSnapshot else { return [] }
+        let candidateStoredWeight = shouldCaptureWeight(for: snapshot.metrics)
+            ? snapshot.storedWeight(from: weight)
+            : nil
+        let candidateReps = shouldCaptureReps(for: snapshot.metrics) ? reps : nil
+        return PersonalRecords.projectedBadge(
+            storedWeight: candidateStoredWeight,
+            weightUnit: weightUnit,
+            reps: candidateReps,
+            beating: personalRecords,
+            metrics: snapshot.metrics
+        )
+    }
+
+    private var liveBannerText: (title: String, detail: String)? {
+        let badge = liveBadge
+        guard !badge.isEmpty else { return nil }
+        if badge.contains(.weight) && badge.contains(.reps) {
+            return ("New PR! 🎉", "Heavier and more reps than ever")
+        }
+        if badge.contains(.weight) {
+            let detail = liveWeightDelta().map { "\($0) over your best" } ?? "Past your heaviest"
+            return ("New weight PR! 🎉", detail)
+        }
+        let detail = liveRepsDelta().map { "\($0) reps over your best" } ?? "Most reps yet"
+        return ("New reps PR! 🎉", detail)
+    }
+
+    private func liveWeightDelta() -> String? {
+        guard let snapshot = selectedExerciseSnapshot,
+              let best = personalRecords?.heaviestEntry,
+              let bestStored = best.weight,
+              best.weightUnit == weightUnit,
+              let current = weight else { return nil }
+        let displayBest = snapshot.displayedWeightInput(fromStoredWeight: bestStored) ?? bestStored
+        let delta = current - displayBest
+        guard delta > 0 else { return nil }
+        let formatted = Formatters.weight.string(from: NSNumber(value: delta)) ?? "\(delta)"
+        return "+\(formatted) \(weightUnit.symbol)"
+    }
+
+    private func liveRepsDelta() -> Int? {
+        guard let best = personalRecords?.mostRepsEntry?.reps,
+              let current = reps, current > best else { return nil }
+        return current - best
+    }
+
+    @ViewBuilder
+    private var livePRBannerRow: some View {
+        if let text = liveBannerText {
+            HStack(spacing: MarbleSpacing.s) {
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 18, weight: .bold))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                    Text(text.title)
+                        .font(MarbleTypography.rowTitle)
+                    Text(text.detail)
+                        .font(MarbleTypography.rowMeta)
+                        .opacity(0.85)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(Theme.backgroundColor(for: colorScheme))
+            .padding(MarbleSpacing.s)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
+                    .fill(Theme.primaryTextColor(for: colorScheme))
+            )
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+            .marbleRowInsets()
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(text.title) \(text.detail)")
+            .accessibilityIdentifier("AddSet.LivePR")
+            .transition(.opacity)
+        }
     }
 
     private var lastTimeContent: LastTimeContent {
@@ -778,10 +884,16 @@ struct AddSetView: View {
         }()
 
         let now = AppEnvironment.now
+        let storedWeight = exercise.storedWeight(from: resolvedWeight)
+        let achievedPR = didAchievePR(
+            storedWeight: storedWeight,
+            reps: resolvedReps,
+            metrics: metrics
+        )
         let entry = SetEntry(
             exercise: exercise,
             performedAt: performedAt,
-            weight: exercise.storedWeight(from: resolvedWeight),
+            weight: storedWeight,
             weightUnit: weightUnit,
             reps: resolvedReps,
             distance: resolvedDistance,
@@ -806,7 +918,11 @@ struct AddSetView: View {
             return
         }
 
-        MarbleHaptics.success()
+        if achievedPR {
+            MarbleHaptics.celebrate()
+        } else {
+            MarbleHaptics.success()
+        }
         RestActivityController.shared.startRest(for: entry)
         if shouldContinue {
             continueAfterSaving(entry, exercise: exercise)
@@ -848,6 +964,23 @@ struct AddSetView: View {
 
     private func shouldCaptureDuration(for metrics: ExerciseMetricsProfile) -> Bool {
         metrics.durationIsRequired || (metrics.durationSeconds == .optional && logDuration)
+    }
+
+    /// Whether a saved set establishes or beats a weight/reps personal record.
+    /// Unlike the live banner, this also counts the first-ever set for a metric
+    /// (the baseline record) so the celebration matches the journal badge.
+    private func didAchievePR(storedWeight: Double?, reps: Int?, metrics: ExerciseMetricsProfile) -> Bool {
+        let beats = PersonalRecords.projectedBadge(
+            storedWeight: metrics.usesWeight ? storedWeight : nil,
+            weightUnit: weightUnit,
+            reps: metrics.usesReps ? reps : nil,
+            beating: personalRecords,
+            metrics: metrics
+        )
+        if !beats.isEmpty { return true }
+        let isBaselineWeight = metrics.usesWeight && (storedWeight ?? 0) > 0 && personalRecords?.heaviestEntry == nil
+        let isBaselineReps = metrics.usesReps && (reps ?? 0) > 0 && personalRecords?.mostRepsEntry == nil
+        return isBaselineWeight || isBaselineReps
     }
 }
 
@@ -895,6 +1028,7 @@ private extension AddSetView {
         selectedExerciseID = snapshot.id
         selectedExerciseSnapshot = snapshot
         self.lastEntry = lastEntry
+        personalRecords = computeRecords(for: exercise)
         applyDefaults(for: snapshot, lastEntry: lastEntry)
     }
 
@@ -903,6 +1037,7 @@ private extension AddSetView {
             selectedExerciseID = nil
             selectedExerciseSnapshot = nil
             lastEntry = nil
+            personalRecords = nil
             showMissingExercise = true
             return
         }
@@ -910,6 +1045,7 @@ private extension AddSetView {
         selectedExerciseSnapshot = snapshot
         let recent = fetchLastEntry(for: id)
         lastEntry = recent
+        personalRecords = computeRecords(for: exercise)
         if shouldApplyDefaults {
             applyDefaults(for: snapshot, lastEntry: recent)
         }
@@ -921,16 +1057,27 @@ private extension AddSetView {
             selectedExerciseID = nil
             selectedExerciseSnapshot = nil
             lastEntry = nil
+            personalRecords = nil
             showMissingExercise = true
             return
         }
         selectedExerciseSnapshot = ExerciseSnapshot(exercise)
         lastEntry = fetchLastEntry(for: id)
+        personalRecords = computeRecords(for: exercise)
     }
 
     func fetchExercise(id: UUID) -> Exercise? {
         let descriptor = FetchDescriptor<Exercise>(predicate: #Predicate { $0.id == id })
         return (try? modelContext.fetch(descriptor))?.first
+    }
+
+    func fetchAllEntries(for exerciseID: UUID) -> [SetEntry] {
+        let descriptor = FetchDescriptor<SetEntry>(predicate: #Predicate { $0.exercise.id == exerciseID })
+        return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    func computeRecords(for exercise: Exercise) -> ExercisePersonalRecords {
+        PersonalRecords.records(for: exercise, entries: fetchAllEntries(for: exercise.id))
     }
 
     func fetchMostRecentEntry() -> SetEntry? {

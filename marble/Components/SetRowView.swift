@@ -2,11 +2,12 @@ import SwiftUI
 
 struct SetRowView: View {
     let entry: SetEntry
+    let prBadge: PersonalRecordBadge
     let accessibilityIdentifier: String?
 
     @Environment(\.colorScheme) private var colorScheme
 
-    static func accessibilitySummary(for entry: SetEntry) -> String {
+    static func accessibilitySummary(for entry: SetEntry, prBadge: PersonalRecordBadge = []) -> String {
         var parts: [String] = []
         if let weight = entry.weight {
             let formattedWeight = entry.exercise.formattedWeightSummary(weight, unit: entry.weightUnit)
@@ -30,11 +31,13 @@ struct SetRowView: View {
         }
 
         let summary = parts.isEmpty ? "No metrics" : parts.joined(separator: " · ")
-        return "\(entry.exercise.name), \(summary), RPE \(entry.difficulty), Rest \(entry.restAfterSeconds) seconds"
+        let prefix = prBadge.isEmpty ? "" : "\(prBadge.accessibilityDescription). "
+        return "\(prefix)\(entry.exercise.name), \(summary), RPE \(entry.difficulty), Rest \(entry.restAfterSeconds) seconds"
     }
 
-    init(entry: SetEntry, accessibilityIdentifier: String? = nil) {
+    init(entry: SetEntry, prBadge: PersonalRecordBadge = [], accessibilityIdentifier: String? = nil) {
         self.entry = entry
+        self.prBadge = prBadge
         self.accessibilityIdentifier = accessibilityIdentifier
     }
 
@@ -48,6 +51,11 @@ struct SetRowView: View {
                 Text(entry.exercise.name)
                     .font(MarbleTypography.rowTitle)
                     .foregroundColor(Theme.primaryTextColor(for: resolvedScheme))
+
+                if !prBadge.isEmpty {
+                    PRBadgeLabel(badge: prBadge)
+                        .environment(\.colorScheme, resolvedScheme)
+                }
 
                 Text(summaryLine)
                     .font(MarbleTypography.rowSubtitle)
@@ -116,6 +124,6 @@ struct SetRowView: View {
     }
 
     private var accessibilitySummary: String {
-        Self.accessibilitySummary(for: entry)
+        Self.accessibilitySummary(for: entry, prBadge: prBadge)
     }
 }
