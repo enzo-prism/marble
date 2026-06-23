@@ -1,4 +1,3 @@
-import Combine
 import CoreGraphics
 import Foundation
 import SwiftData
@@ -8,8 +7,9 @@ import UIKit
 /// Drives the scan flow: image → on-device text recognition → structured draft →
 /// user review/edit → journal. Recognizer, parser, and import handler are injected so
 /// the orchestration is unit-testable without the camera, Vision, or the model.
+@Observable
 @MainActor
-final class WorkoutScanViewModel: ObservableObject {
+final class WorkoutScanViewModel {
     enum Phase: Equatable {
         case capture
         case processing
@@ -19,12 +19,12 @@ final class WorkoutScanViewModel: ObservableObject {
 
     typealias ImportHandler = (ParsedWorkoutDraft, String, ModelContext) throws -> WorkoutImporter.Summary
 
-    @Published private(set) var phase: Phase = .capture
-    @Published var draft = ParsedWorkoutDraft()
-    @Published private(set) var lastSummary: WorkoutImporter.Summary?
-    @Published var errorMessage: String?
+    private(set) var phase: Phase = .capture
+    var draft = ParsedWorkoutDraft()
+    private(set) var lastSummary: WorkoutImporter.Summary?
+    var errorMessage: String?
     /// Set when the same photo was already imported — surfaced as a heads-up, not a block.
-    @Published private(set) var alreadyImported = false
+    private(set) var alreadyImported = false
 
     private(set) var externalID = ""
 

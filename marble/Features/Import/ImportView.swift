@@ -237,6 +237,7 @@ struct ImportView: View {
                 } else {
                     Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                         .foregroundStyle(selected ? Theme.primaryTextColor(for: colorScheme) : Theme.secondaryTextColor(for: colorScheme))
+                        .contentTransition(.symbolEffect(.replace))
                 }
             }
             .contentShape(Rectangle())

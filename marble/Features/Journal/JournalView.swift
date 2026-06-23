@@ -396,6 +396,7 @@ private struct StartChecklistItem: View {
         } icon: {
             Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .contentTransition(.symbolEffect(.replace))
         }
         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         .accessibilityLabel("\(title), \(isComplete ? "complete" : "not complete")")
