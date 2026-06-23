@@ -35,9 +35,9 @@ project-local notes.
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches.
-- The working project version is now `1.9 (build 24)` on
-  `feature/1.10-resilience-and-live-activity`; `origin/main` and `origin/release/1.9`
-  remain `1.9 (build 20)`.
+- The working project version is now `1.9 (build 25)` on `main`; `origin/release/1.9`
+  may still point at the older `1.9 (build 20)` release baseline unless explicitly
+  updated.
 - The live App Store version is still `1.8` and is `WAITING_FOR_REVIEW`. No App Store
   version record exists for `1.9` yet, so review/validation checks must use `1.8`
   until that record is created.
@@ -205,9 +205,9 @@ For the next TestFlight build on the 1.9 train, use `make asc-next-build` withou
 overriding `ASC_APPSTORE_VERSION`; it reads `MARKETING_VERSION` from the project and
 currently reports the next 1.9 build number.
 
-As of 2026-06-22 after uploading build `24`, the next 1.9 build number is `25`.
+As of 2026-06-22 after uploading build `25`, the next 1.9 build number is `26`.
 Before uploading another 1.9 TestFlight build, bump `CURRENT_PROJECT_VERSION` from
-`24` to the reported next number and re-run `make asc-next-build` to confirm ASC
+`25` to the reported next number and re-run `make asc-next-build` to confirm ASC
 still agrees.
 
 ### Create A Deterministic Archive
@@ -270,8 +270,8 @@ make asc-publish-testflight \
 
 Current phone-test state as of 2026-06-22:
 
-- Build `1.9 (24)` is valid in TestFlight:
-  `ea951140-8063-4d60-9fbd-d524b110ba80`.
+- Build `1.9 (25)` is valid in TestFlight:
+  `95f6d6b1-8678-4c86-9933-96a57135ca86`.
 - Build beta detail reports `internalBuildState = IN_BETA_TESTING`.
 - Internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has
   `hasAccessToAllBuilds = true`.
@@ -281,7 +281,7 @@ Useful verification commands:
 
 ```bash
 asc builds build-beta-detail view \
-  --build-id "ea951140-8063-4d60-9fbd-d524b110ba80" \
+  --build-id "95f6d6b1-8678-4c86-9933-96a57135ca86" \
   --output json --pretty
 
 asc testflight groups list \
@@ -318,7 +318,7 @@ creating a `1.9` App Store version with:
 You cannot create a new version of the App in the current state.
 ```
 
-Build `1.9 (24)` is already uploaded and valid (`ea951140-8063-4d60-9fbd-d524b110ba80`).
+Build `1.9 (25)` is already uploaded and valid (`95f6d6b1-8678-4c86-9933-96a57135ca86`).
 To submit it immediately, the active 1.8 review submission must first be explicitly
 canceled:
 

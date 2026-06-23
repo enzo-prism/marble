@@ -37,8 +37,8 @@ Preferred Makefile targets:
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **1.9 (24)**, build ID
-  `ea951140-8063-4d60-9fbd-d524b110ba80`.
+- Current phone-test build: **1.9 (25)**, build ID
+  `95f6d6b1-8678-4c86-9933-96a57135ca86`.
 - ASC state checked on 2026-06-22: build processing is `VALID`,
   `internalBuildState = IN_BETA_TESTING`, and internal group `test group A` has access to
   all builds.

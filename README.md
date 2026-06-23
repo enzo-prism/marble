@@ -19,16 +19,16 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-06-22)
 
-- Code baseline: `origin/main` == `origin/release/1.9` == **1.9 (build 20)**.
-- Current feature branch: `feature/1.10-resilience-and-live-activity` is **1.9 (build 24)**.
-- Latest TestFlight upload: **1.9 (build 24)** is processed `VALID`, in internal beta
+- Code baseline: `origin/main` is **1.9 (build 25)**; `origin/release/1.9` may still point
+  at the older 1.9 build 20 release baseline unless explicitly updated.
+- Latest TestFlight upload: **1.9 (build 25)** is processed `VALID`, in internal beta
   testing, and available to the internal all-builds group for phone testing.
 - Local verification on 2026-06-22: iOS 26.5 simulator runtime installed; `MarbleTests`
   passed **109 tests**; `MarbleUITests` passed **27 tests** with 1 expected
   accessibility-text skip; the changed Journal empty + Calendar month snapshots passed.
-- Latest TestFlight build 24 improvements: import re-entry guards and
+- Latest TestFlight build 25 improvements: import re-entry guards and
   duplicate-batch protection, Journal start checklist, Add Set "Save + Next", split-plan
-  logging context, calendar spacing, and sturdier UI test selectors.
+  logging context, calendar spacing/overlap fix, and sturdier UI test selectors.
 - `MarbleWidgets` target is wired into the app build and its `Info.plist` is checked by
   Makefile test targets.
 - Live App Store: **1.8 is WAITING_FOR_REVIEW**. There is no 1.9 App Store version record
