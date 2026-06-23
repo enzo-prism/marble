@@ -8,24 +8,30 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ## TL;DR — what "up-to-date" means today (2026-06-22)
 
-- **Code baseline:** `main` has been advanced to **1.9 (build 27)**, adding — on top of
+- **Code baseline:** `main` has been advanced to **1.9 (build 28)**, adding — on top of
   build 26's import hub, Live Activity, resilience/UX pass, and Trends redesign — a
   **performance + iOS 26 pass** (memoized Trends/Calendar/Journal derivations via a new
-  `RenderMemo`, `@Observable` migration of QuickLogCoordinator/TabSelection/ImportViewModel,
-  `#Index` on `SupplementEntry.takenAt`) and the **handwritten workout scan** feature
+  `RenderMemo`, `@Observable` migration of every view model, `#Index` on
+  `SupplementEntry.takenAt`), the **handwritten workout scan** feature
   (`marble/Features/Import/Scan/` — on-device Vision OCR + deterministic parser with an
   optional FoundationModels path, wired into the Import hub, `NSCameraUsageDescription`
-  added). `origin/release/1.9` may still point at the older 1.9 build 20 baseline unless it
-  is explicitly updated.
-- **Latest TestFlight build:** **1.9 (build 27)** was uploaded on 2026-06-22 from `main`
-  (`CURRENT_PROJECT_VERSION` 27, build id `b3e36109-7e4e-434e-877d-210219ef3893`). App
+  added), and an **iOS 26 polish** pass (finished the `@Observable` migration on
+  `WorkoutScanViewModel`; SF Symbols Magic Replace on the Journal checklist + Import
+  selection toggles). `origin/release/1.9` may still point at the older 1.9 build 20
+  baseline unless it is explicitly updated.
+- **Latest TestFlight build:** **1.9 (build 28)** was uploaded on 2026-06-23 from `main`
+  (`CURRENT_PROJECT_VERSION` 28, build id `54c40cc8-2189-4bf5-bb57-4ec45092bcee`). App
   Store Connect reports processing `VALID`, and `test group A`
-  (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds.
-- **Current working project version:** **1.9 (build 27)** on `main`;
-  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 27` in
+  (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds. (Build 27,
+  `b3e36109-7e4e-434e-877d-210219ef3893`, is also `VALID`.) **Note:** Apple's ASC
+  *betaGroups* endpoint was intermittently erroring/timing out during the build-28 upload,
+  so `make asc-publish-testflight` failed its upfront group precheck several times; the
+  upload succeeded on retry against the pre-built IPA once the endpoint recovered.
+- **Current working project version:** **1.9 (build 28)** on `main`;
+  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 28` in
   `marble.xcodeproj/project.pbxproj`.
 - **Build/test health:** Xcode 26.5 / iOS 26.5 simulator is installed locally; the
-  build 27 unit suite is green: `MarbleTests` (**151 unit tests, 0 failures**), which now
+  build 28 unit suite is green: `MarbleTests` (**151 unit tests, 0 failures**), which now
   includes `RenderMemoTests`, `TrendsDerivedDataTests`, and the scan feature's
   `HandwrittenWorkoutParser`/`WorkoutScanImporter`/`WorkoutScanViewModel` tests. (Snapshot
   baselines remain host-sensitive — e.g. `AddSet` mismatches on a non-recording host

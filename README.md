@@ -17,21 +17,22 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-06-22)
+## Current state (2026-06-23)
 
-- Code baseline: `main` is **1.9 (build 27)**; `origin/release/1.9` may still point
+- Code baseline: `main` is **1.9 (build 28)**; `origin/release/1.9` may still point
   at the older 1.9 build 20 release baseline unless explicitly updated.
-- Latest TestFlight upload: **1.9 (build 27)** is processed `VALID`, in internal beta
+- Latest TestFlight upload: **1.9 (build 28)** is processed `VALID`, in internal beta
   testing, and available to the internal all-builds group for phone testing
-  (build id `b3e36109-7e4e-434e-877d-210219ef3893`).
-- Local verification on 2026-06-22: iOS 26.5 simulator runtime installed; `MarbleTests`
+  (build id `54c40cc8-2189-4bf5-bb57-4ec45092bcee`; build 27 remains `VALID` too).
+- Local verification: iOS 26.5 simulator runtime installed; `MarbleTests`
   passed **151 tests**.
-- Build 27 adds two things on top of build 26: a **performance + iOS 26 pass** (the
+- Builds 27–28 add, on top of build 26: a **performance + iOS 26 pass** (the
   Trends/Calendar/Journal screens memoize their derived data via `RenderMemo` instead of
-  re-deriving on every render/scrub; `QuickLogCoordinator`/`TabSelection`/`ImportViewModel`
-  moved to `@Observable`; `SupplementEntry.takenAt` is indexed), and a **handwritten
-  workout scan** feature under `marble/Features/Import/Scan/` (on-device Vision OCR + a
-  deterministic parser, optional on-device LLM path, wired into the Import hub).
+  re-deriving on every render/scrub; all view models moved to `@Observable`;
+  `SupplementEntry.takenAt` is indexed), a **handwritten workout scan** feature under
+  `marble/Features/Import/Scan/` (on-device Vision OCR + a deterministic parser, optional
+  on-device LLM path, wired into the Import hub), and an iOS 26 polish pass (SF Symbols
+  Magic Replace on toggle icons).
 - `MarbleWidgets` target is wired into the app build and its `Info.plist` is checked by
   Makefile test targets.
 - Live App Store: **1.8 is WAITING_FOR_REVIEW**. There is no 1.9 App Store version record
