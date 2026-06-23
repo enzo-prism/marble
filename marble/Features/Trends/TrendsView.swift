@@ -31,6 +31,11 @@ struct TrendsView: View {
     @State private var isPresentingExerciseSearch = false
     @State private var isScrubbingChart = false
 
+    // Caches the derived snapshot so scrubbing a chart (which mutates UI-only
+    // state and re-runs `body`) doesn't re-filter/-group/-sort the full history
+    // every frame. Rebuilt only when the signature below changes.
+    @State private var derivedMemo = RenderMemo<TrendsInputSignature, TrendsDerivedData>()
+
     init(
         initialRange: TrendRange = .thirtyDays,
         initialExercise: Exercise? = nil,
@@ -50,7 +55,7 @@ struct TrendsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                let derived = makeDerivedData()
+                let derived = derivedMemo.value(for: currentInputSignature) { makeDerivedData() }
                 VStack(alignment: .leading, spacing: MarbleSpacing.l) {
                     let hasSetData = !derived.filteredEntries.isEmpty
                     let hasSupplementData = !derived.filteredSupplementEntries.isEmpty
@@ -213,6 +218,25 @@ struct TrendsView: View {
             selectedExercise: selectedExercise,
             selectedSupplementType: selectedSupplementType,
             range: range
+        )
+    }
+
+    /// A cheap fingerprint of everything `makeDerivedData()` actually depends on.
+    /// Counts catch inserts/deletes; the latest `updatedAt` catches in-place
+    /// edits (the app stamps it on every edit); the selected exercise's name
+    /// catches a rename of the one exercise whose fields feed the progress chart.
+    private var currentInputSignature: TrendsInputSignature {
+        TrendsInputSignature(
+            entryCount: entries.count,
+            supplementCount: supplementEntries.count,
+            exerciseCount: exercises.count,
+            latestEntryUpdate: entries.reduce(Date.distantPast) { Swift.max($0, $1.updatedAt) },
+            latestSupplementUpdate: supplementEntries.reduce(Date.distantPast) { Swift.max($0, $1.updatedAt) },
+            range: range,
+            selectedExerciseID: selectedExerciseID,
+            selectedSupplementTypeID: selectedSupplementTypeID,
+            selectedExerciseName: selectedExercise?.name,
+            activeDay: activeDay
         )
     }
 
@@ -440,7 +464,7 @@ struct TrendsView: View {
                             dataRange: dataRange,
                             accessibilityIdentifier: "Trends.ConsistencyChart",
                             accessibilityLabel: "Consistency chart",
-                            accessibilityValue: consistencyAccessibilityValue(for: summaries),
+                            accessibilityValue: derived.consistencyAccessibilityValue,
                             isScrubbing: $isScrubbingChart
                         ) { date in
                             selectDay(date)
@@ -573,7 +597,7 @@ struct TrendsView: View {
                             dataRange: dataRange,
                             accessibilityIdentifier: "Trends.VolumeChart",
                             accessibilityLabel: "Weekly volume chart",
-                            accessibilityValue: volumeAccessibilityValue(for: data),
+                            accessibilityValue: derived.volumeAccessibilityValue,
                             isScrubbing: $isScrubbingChart
                         ) { date in
                             selectWeekStart(date)
@@ -740,7 +764,7 @@ struct TrendsView: View {
                             dataRange: dataRange,
                             accessibilityIdentifier: "Trends.SupplementsChart",
                             accessibilityLabel: "Supplements chart",
-                            accessibilityValue: supplementAccessibilityValue(for: summaries, mode: derived.supplementDisplayMode),
+                            accessibilityValue: derived.supplementAccessibilityValue,
                             isScrubbing: $isScrubbingChart
                         ) { date in
                             selectSupplementDay(date, derived: derived)
@@ -773,28 +797,13 @@ struct TrendsView: View {
     }
 
     private func prCards(derived: TrendsDerivedData) -> some View {
-        let filteredEntries = derived.filteredEntries
-        let bestWeightEntry = filteredEntries
-            .filter { $0.weight != nil }
-            .max { (lhs, rhs) in
-                (lhs.weight ?? 0) < (rhs.weight ?? 0)
-            }
-        // Compare in meters so a 6 mi run beats a 200 m sprint regardless of
-        // the unit each entry was logged in.
-        let bestDistanceEntry = filteredEntries
-            .filter { $0.distance != nil }
-            .max { (lhs, rhs) in
-                lhs.distanceUnit.meters(from: lhs.distance ?? 0) < rhs.distanceUnit.meters(from: rhs.distance ?? 0)
-            }
-        let fastestSpeedEntry = filteredEntries
-            .filter { ($0.distance ?? 0) > 0 && ($0.durationSeconds ?? 0) > 0 }
-            .max { lhs, rhs in
-                let lhsSpeed = lhs.distanceUnit.meters(from: lhs.distance ?? 0) / Double(max(lhs.durationSeconds ?? 1, 1))
-                let rhsSpeed = rhs.distanceUnit.meters(from: rhs.distance ?? 0) / Double(max(rhs.durationSeconds ?? 1, 1))
-                return lhsSpeed < rhsSpeed
-            }
-        let bestReps = filteredEntries.compactMap { $0.reps }.max()
-        let bestDuration = filteredEntries.compactMap { $0.durationSeconds }.max()
+        // Bests are derived once in `TrendsDerivedData.build()` (see the cached
+        // snapshot) instead of re-scanning `filteredEntries` on every render.
+        let bestWeightEntry = derived.bestWeightEntry
+        let bestDistanceEntry = derived.bestDistanceEntry
+        let fastestSpeedEntry = derived.fastestSpeedEntry
+        let bestReps = derived.bestReps
+        let bestDuration = derived.bestDuration
         let sessionCount = derived.activeDayCount
         let showsDistancePRs = bestDistanceEntry != nil
 
@@ -890,48 +899,6 @@ struct TrendsView: View {
         guard !data.isEmpty else { return nil }
         let target = TrendsDateHelper.startOfWeek(for: date)
         return data.min(by: { abs($0.weekStart.timeIntervalSince(target)) < abs($1.weekStart.timeIntervalSince(target)) })?.weekStart
-    }
-
-    private func consistencyAccessibilityValue(for data: [TrendDailySummary]) -> String {
-        guard !data.isEmpty else { return "No data" }
-        let totalSets = data.reduce(0) { $0 + $1.count }
-        let activeBuckets = data.filter { $0.count > 0 }.count
-        let bucketLabel = consistencyUsesWeeks ? "active weeks" : "active days"
-        return "\(totalSets) sets over \(activeBuckets) \(bucketLabel)"
-    }
-
-    private func volumeAccessibilityValue(for data: [VolumeDatum]) -> String {
-        guard !data.isEmpty else { return "No data" }
-        let totals = Dictionary(grouping: data, by: \.series).mapValues { items in
-            items.reduce(0.0) { $0 + $1.value }
-        }
-        let weekCount = Set(data.map(\.weekStart)).count
-        let parts: [String] = [
-            totals[.weighted].map { "Weighted \(Int($0))" },
-            totals[.reps].map { "Reps \(Int($0))" },
-            totals[.duration].map { "Duration \(Int($0)) minutes" }
-        ].compactMap { $0 }
-        let summary = parts.joined(separator: ", ")
-        if summary.isEmpty {
-            return "\(weekCount) weeks of volume"
-        }
-        return "\(summary) across \(weekCount) weeks"
-    }
-
-    private func supplementAccessibilityValue(for data: [SupplementDailySummary], mode: SupplementTrendDisplayMode) -> String {
-        guard !data.isEmpty else { return "No data" }
-        let bucketLabel = consistencyUsesWeeks ? "weeks" : "days"
-        switch mode {
-        case .dose(let unit):
-            let total = data.reduce(0.0) { $0 + $1.totalDose }
-            let formatted = Formatters.dose.string(from: NSNumber(value: total)) ?? "\(total)"
-            let activeBuckets = data.filter { $0.count > 0 }.count
-            return "Total \(formatted) \(unit.displayName) over \(activeBuckets) \(bucketLabel)"
-        case .count:
-            let total = data.reduce(0) { $0 + $1.count }
-            let activeBuckets = data.filter { $0.count > 0 }.count
-            return "\(total) logs over \(activeBuckets) \(bucketLabel)"
-        }
     }
 
     // Sheet data providers run once at presentation, so they filter the raw
@@ -1578,6 +1545,21 @@ enum VolumeSeries: String, CaseIterable {
             return TrendsPalette.volumeDuration.color(for: scheme)
         }
     }
+}
+
+/// Cheap, `Equatable` fingerprint of the inputs `TrendsDerivedData.build()`
+/// depends on, used to memoize the derived snapshot across renders.
+struct TrendsInputSignature: Equatable {
+    let entryCount: Int
+    let supplementCount: Int
+    let exerciseCount: Int
+    let latestEntryUpdate: Date
+    let latestSupplementUpdate: Date
+    let range: TrendRange
+    let selectedExerciseID: UUID?
+    let selectedSupplementTypeID: UUID?
+    let selectedExerciseName: String?
+    let activeDay: Date
 }
 
 enum TrendRange: String, CaseIterable, Identifiable {

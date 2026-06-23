@@ -1,4 +1,3 @@
-import Combine
 import Foundation
 import SwiftUI
 
@@ -7,11 +6,12 @@ struct QuickLogContext: Equatable {
     var source: String
 }
 
-final class QuickLogCoordinator: ObservableObject {
-    @Published var isPresentingAddSet = false
-    @Published var prefillDate: Date = AppEnvironment.now
-    @Published var prefillExerciseID: UUID?
-    @Published var context: QuickLogContext?
+@Observable
+final class QuickLogCoordinator {
+    var isPresentingAddSet = false
+    var prefillDate: Date = AppEnvironment.now
+    var prefillExerciseID: UUID?
+    var context: QuickLogContext?
 
     func open(
         prefillDate: Date = AppEnvironment.now,

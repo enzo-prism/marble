@@ -39,6 +39,20 @@ struct TrendsDerivedData {
     let progressPoints: [ExerciseProgressPoint]
     let liftBests: ExerciseLiftBests?
 
+    // PR-card bests, derived once here instead of re-scanning `filteredEntries`
+    // inside the view body on every render (including chart scrubbing).
+    let bestWeightEntry: SetEntry?
+    let bestDistanceEntry: SetEntry?
+    let fastestSpeedEntry: SetEntry?
+    let bestReps: Int?
+    let bestDuration: Int?
+
+    // Accessibility summaries, also derived once: the chart `.accessibilityValue`
+    // closures previously re-reduced these arrays on every render.
+    let consistencyAccessibilityValue: String
+    let volumeAccessibilityValue: String
+    let supplementAccessibilityValue: String
+
     static func build(
         entries: [SetEntry],
         supplementEntries: [SupplementEntry],
@@ -182,6 +196,26 @@ struct TrendsDerivedData {
             SupplementDailySummary(date: $0.0, entries: $0.1, mode: supplementDisplayMode)
         }
 
+        let bestWeightEntry = filteredEntries
+            .filter { $0.weight != nil }
+            .max { ($0.weight ?? 0) < ($1.weight ?? 0) }
+        // Compare in meters so a 6 mi run beats a 200 m sprint regardless of
+        // the unit each entry was logged in.
+        let bestDistanceEntry = filteredEntries
+            .filter { $0.distance != nil }
+            .max { $0.distanceUnit.meters(from: $0.distance ?? 0) < $1.distanceUnit.meters(from: $1.distance ?? 0) }
+        let fastestSpeedEntry = filteredEntries
+            .filter { ($0.distance ?? 0) > 0 && ($0.durationSeconds ?? 0) > 0 }
+            .max { lhs, rhs in
+                let lhsSpeed = lhs.distanceUnit.meters(from: lhs.distance ?? 0) / Double(max(lhs.durationSeconds ?? 1, 1))
+                let rhsSpeed = rhs.distanceUnit.meters(from: rhs.distance ?? 0) / Double(max(rhs.durationSeconds ?? 1, 1))
+                return lhsSpeed < rhsSpeed
+            }
+        let bestReps = filteredEntries.compactMap { $0.reps }.max()
+        let bestDuration = filteredEntries.compactMap { $0.durationSeconds }.max()
+
+        let usesWeeks = granularity == .week
+
         return TrendsDerivedData(
             filteredEntries: filteredEntries,
             filteredSupplementEntries: filteredSupplementEntries,
@@ -198,8 +232,66 @@ struct TrendsDerivedData {
             supplementSummaries: resolvedSupplementSummaries,
             supplementSummariesWithLogs: resolvedSupplementSummaries.filter { $0.count > 0 },
             progressPoints: selectedExercise.map { ExerciseProgressBuilder.buildPoints(entries: filteredEntries, exercise: $0, range: range) } ?? [],
-            liftBests: selectedExercise.flatMap { ExerciseProgressBuilder.buildLiftBests(entries: filteredEntries, exercise: $0, range: range) }
+            liftBests: selectedExercise.flatMap { ExerciseProgressBuilder.buildLiftBests(entries: filteredEntries, exercise: $0, range: range) },
+            bestWeightEntry: bestWeightEntry,
+            bestDistanceEntry: bestDistanceEntry,
+            fastestSpeedEntry: fastestSpeedEntry,
+            bestReps: bestReps,
+            bestDuration: bestDuration,
+            consistencyAccessibilityValue: Self.makeConsistencyAccessibilityValue(consistencySummaries, usesWeeks: usesWeeks),
+            volumeAccessibilityValue: Self.makeVolumeAccessibilityValue(volumeData),
+            supplementAccessibilityValue: Self.makeSupplementAccessibilityValue(resolvedSupplementSummaries, mode: supplementDisplayMode, usesWeeks: usesWeeks)
         )
+    }
+
+    // MARK: - Accessibility summaries
+    // These mirror the strings the Trends charts expose via `.accessibilityValue`,
+    // computed once during `build()` rather than re-reduced on every render.
+
+    private static func makeConsistencyAccessibilityValue(_ data: [TrendDailySummary], usesWeeks: Bool) -> String {
+        guard !data.isEmpty else { return "No data" }
+        let totalSets = data.reduce(0) { $0 + $1.count }
+        let activeBuckets = data.filter { $0.count > 0 }.count
+        let bucketLabel = usesWeeks ? "active weeks" : "active days"
+        return "\(totalSets) sets over \(activeBuckets) \(bucketLabel)"
+    }
+
+    private static func makeVolumeAccessibilityValue(_ data: [VolumeDatum]) -> String {
+        guard !data.isEmpty else { return "No data" }
+        let totals = Dictionary(grouping: data, by: \.series).mapValues { items in
+            items.reduce(0.0) { $0 + $1.value }
+        }
+        let weekCount = Set(data.map(\.weekStart)).count
+        let parts: [String] = [
+            totals[.weighted].map { "Weighted \(Int($0))" },
+            totals[.reps].map { "Reps \(Int($0))" },
+            totals[.duration].map { "Duration \(Int($0)) minutes" }
+        ].compactMap { $0 }
+        let summary = parts.joined(separator: ", ")
+        if summary.isEmpty {
+            return "\(weekCount) weeks of volume"
+        }
+        return "\(summary) across \(weekCount) weeks"
+    }
+
+    private static func makeSupplementAccessibilityValue(
+        _ data: [SupplementDailySummary],
+        mode: SupplementTrendDisplayMode,
+        usesWeeks: Bool
+    ) -> String {
+        guard !data.isEmpty else { return "No data" }
+        let bucketLabel = usesWeeks ? "weeks" : "days"
+        switch mode {
+        case .dose(let unit):
+            let total = data.reduce(0.0) { $0 + $1.totalDose }
+            let formatted = Formatters.dose.string(from: NSNumber(value: total)) ?? "\(total)"
+            let activeBuckets = data.filter { $0.count > 0 }.count
+            return "Total \(formatted) \(unit.displayName) over \(activeBuckets) \(bucketLabel)"
+        case .count:
+            let total = data.reduce(0) { $0 + $1.count }
+            let activeBuckets = data.filter { $0.count > 0 }.count
+            return "\(total) logs over \(activeBuckets) \(bucketLabel)"
+        }
     }
 
     /// Ranged modes fill empty buckets so the chart shows zero days/weeks;

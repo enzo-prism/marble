@@ -5,7 +5,7 @@ struct JournalView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.marbleActiveDay) private var activeDay
-    @EnvironmentObject private var quickLog: QuickLogCoordinator
+    @Environment(QuickLogCoordinator.self) private var quickLog
 
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
@@ -21,6 +21,10 @@ struct JournalView: View {
     @State private var quickLogUndoID: UUID?
     @State private var navPath: [UUID] = []
     @State private var showingImport = false
+
+    // Grouping the full history by day is memoized so unrelated state changes
+    // (a toast appearing, a sheet opening, navigation) don't re-group every entry.
+    @State private var sectionsMemo = RenderMemo<JournalSectionsSignature, [JournalDaySection]>()
 
     var body: some View {
         NavigationStack(path: $navPath) {
@@ -138,13 +142,19 @@ struct JournalView: View {
     }
 
     private var daySections: [JournalDaySection] {
-        // entries arrive sorted newest-first from the query, so grouping
-        // preserves the in-day order without a per-day re-sort.
-        let grouped = Dictionary(grouping: entries) { entry in
-            DateHelper.startOfDay(for: entry.performedAt)
-        }
-        return grouped.keys.sorted(by: >).map { day in
-            JournalDaySection(day: day, entries: grouped[day] ?? [])
+        let signature = JournalSectionsSignature(
+            count: entries.count,
+            latestUpdate: entries.reduce(Date.distantPast) { Swift.max($0, $1.updatedAt) }
+        )
+        return sectionsMemo.value(for: signature) {
+            // entries arrive sorted newest-first from the query, so grouping
+            // preserves the in-day order without a per-day re-sort.
+            let grouped = Dictionary(grouping: entries) { entry in
+                DateHelper.startOfDay(for: entry.performedAt)
+            }
+            return grouped.keys.sorted(by: >).map { day in
+                JournalDaySection(day: day, entries: grouped[day] ?? [])
+            }
         }
     }
 
@@ -237,6 +247,13 @@ private struct JournalDaySection: Identifiable {
     let entries: [SetEntry]
 
     var id: Date { day }
+}
+
+/// Cheap `Equatable` fingerprint for memoizing `daySections`: counts catch
+/// inserts/deletes, the latest `updatedAt` catches in-place edits.
+private struct JournalSectionsSignature: Equatable {
+    let count: Int
+    let latestUpdate: Date
 }
 
 private struct JournalRow: View {

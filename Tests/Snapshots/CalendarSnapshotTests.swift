@@ -10,8 +10,8 @@ final class CalendarSnapshotTests: SnapshotTestCase {
 
         let view = CalendarView()
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
-            .environmentObject(TabSelection())
+            .environment(QuickLogCoordinator())
+            .environment(TabSelection())
         assertSnapshot(view, named: "Calendar_MonthMarkers")
     }
 
@@ -25,7 +25,7 @@ final class CalendarSnapshotTests: SnapshotTestCase {
 
         let view = DaySummarySheet(date: SnapshotFixtures.now, entries: todayEntries)
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Calendar_DaySheet_Populated")
     }
 
@@ -34,7 +34,7 @@ final class CalendarSnapshotTests: SnapshotTestCase {
         let emptyDate = Calendar.current.date(byAdding: .day, value: 5, to: SnapshotFixtures.now) ?? SnapshotFixtures.now
         let view = DaySummarySheet(date: emptyDate, entries: [])
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Calendar_DaySheet_Empty")
     }
 
@@ -50,7 +50,7 @@ final class CalendarSnapshotTests: SnapshotTestCase {
 
         let view = DaySummarySheet(date: SnapshotFixtures.now, entries: todayEntries)
             .modelContainer(container)
-            .environmentObject(QuickLogCoordinator())
+            .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Calendar_DaySheet_ProgressMedia")
     }
 }

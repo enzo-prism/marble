@@ -1,4 +1,3 @@
-import Combine
 import Foundation
 
 enum AppTab: Hashable {
@@ -9,6 +8,7 @@ enum AppTab: Hashable {
     case trends
 }
 
-final class TabSelection: ObservableObject {
-    @Published var selected: AppTab = .journal
+@Observable
+final class TabSelection {
+    var selected: AppTab = .journal
 }
