@@ -99,7 +99,6 @@ struct ImportView: View {
             }
             .marbleRowInsets()
             .listRowBackground(Theme.backgroundColor(for: colorScheme))
-            .accessibilityIdentifier("Import.Scan")
         }
     }
 
