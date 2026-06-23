@@ -10,9 +10,11 @@
 
 ## Latest local verification (2026-06-22)
 - `MarbleTests`: 109 passed, 0 failed.
-- `MarbleUITests`: 27 executed, 1 expected accessibility-text skip, 0 failed.
-- Snapshot subset refreshed and passed for `JournalSnapshotTests/testJournalEmpty` and
-  `CalendarSnapshotTests/testCalendarMonthWithMarkers`.
+- `MarbleUITests/TrendsSmokeUITests/testTrendsChartsRender`: passed.
+- `MarbleUITests/AccessibilityAuditUITests`: 1 passed, 1 expected accessibility-text skip,
+  0 failed.
+- Trends snapshot baselines refreshed and re-verified for empty, populated, filtered,
+  consistency tooltip, volume tooltip, and supplements tooltip states.
 - `make verify-widget-plist` confirms `MarbleWidgets/Info.plist` exists before unit/test runs.
 
 ## Continuous integration
@@ -37,8 +39,8 @@ Preferred Makefile targets:
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **1.9 (25)**, build ID
-  `95f6d6b1-8678-4c86-9933-96a57135ca86`.
+- Current phone-test build: **1.9 (26)**, build ID
+  `10ab692e-cffb-456b-b312-2c4dede738db`.
 - ASC state checked on 2026-06-22: build processing is `VALID`,
   `internalBuildState = IN_BETA_TESTING`, and internal group `test group A` has access to
   all builds.
@@ -46,7 +48,7 @@ Preferred Makefile targets:
   in `test group A`, so the build should appear in the TestFlight app on the signed-in phone.
 - What to test on device: install/launch stability, the rest timer Live Activity/widget,
   Apple Health workout import, Garmin-via-Health labeling, journal/split logging, and the
-  Strava-hidden-unless-configured posture.
+  Trends summary readability fix, plus the Strava-hidden-unless-configured posture.
 
 Simulator prerequisite:
 - The Make targets use `scripts/sim_destination.sh` to find an iPhone simulator.

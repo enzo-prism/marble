@@ -19,16 +19,17 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-06-22)
 
-- Code baseline: `origin/main` is **1.9 (build 25)**; `origin/release/1.9` may still point
+- Code baseline: `main` is **1.9 (build 26)**; `origin/release/1.9` may still point
   at the older 1.9 build 20 release baseline unless explicitly updated.
-- Latest TestFlight upload: **1.9 (build 25)** is processed `VALID`, in internal beta
-  testing, and available to the internal all-builds group for phone testing.
+- Latest TestFlight upload: **1.9 (build 26)** is processed `VALID`, in internal beta
+  testing, and available to the internal all-builds group for phone testing
+  (`10ab692e-cffb-456b-b312-2c4dede738db`).
 - Local verification on 2026-06-22: iOS 26.5 simulator runtime installed; `MarbleTests`
-  passed **109 tests**; `MarbleUITests` passed **27 tests** with 1 expected
-  accessibility-text skip; the changed Journal empty + Calendar month snapshots passed.
-- Latest TestFlight build 25 improvements: import re-entry guards and
-  duplicate-batch protection, Journal start checklist, Add Set "Save + Next", split-plan
-  logging context, calendar spacing/overlap fix, and sturdier UI test selectors.
+  passed **109 tests**; the Trends smoke UI test passed; the affected Trends snapshots were
+  refreshed and re-verified; accessibility audit passed with 1 expected text-size skip.
+- Latest TestFlight build 26 improvement: the Trends top summary was redesigned into one
+  compact stats surface so "Supplements" stays on one line, with focused UI and snapshot
+  regression coverage.
 - `MarbleWidgets` target is wired into the app build and its `Info.plist` is checked by
   Makefile test targets.
 - Live App Store: **1.8 is WAITING_FOR_REVIEW**. There is no 1.9 App Store version record

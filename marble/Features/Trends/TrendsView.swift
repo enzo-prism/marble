@@ -291,22 +291,7 @@ struct TrendsView: View {
     }
 
     private func trendSummaryStrip(derived: TrendsDerivedData) -> some View {
-        let items = trendSummaryItems(derived: derived)
-        return ViewThatFits(in: .horizontal) {
-            HStack(spacing: MarbleSpacing.xs) {
-                ForEach(items) { item in
-                    TrendSummaryItemView(item: item)
-                }
-            }
-
-            VStack(spacing: MarbleSpacing.xs) {
-                ForEach(items) { item in
-                    TrendSummaryItemView(item: item)
-                }
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("Trends.Summary")
+        TrendSummaryStripView(items: trendSummaryItems(derived: derived))
     }
 
     private func trendSummaryItems(derived: TrendsDerivedData) -> [TrendSummaryItem] {
@@ -314,12 +299,14 @@ struct TrendsView: View {
         let supplementLogs = derived.filteredSupplementEntries.count
         var items: [TrendSummaryItem] = [
             TrendSummaryItem(
+                identifier: "Sets",
                 title: "Sets",
                 value: "\(derived.filteredEntries.count)",
                 detail: "\(derived.activeDayCount) active days",
                 accent: TrendsPalette.consistency.color(for: colorScheme)
             ),
             TrendSummaryItem(
+                identifier: "BestWeek",
                 title: "Best Week",
                 value: bestWeek.map { "\($0.setCount)" } ?? "-",
                 detail: bestWeek.map { TrendsDateHelper.weekLabel(start: $0.weekStart, end: $0.weekEnd) } ?? "No week yet",
@@ -328,6 +315,7 @@ struct TrendsView: View {
         ]
         if supplementLogs > 0 {
             items.append(TrendSummaryItem(
+                identifier: "Supplements",
                 title: "Supplements",
                 value: "\(supplementLogs)",
                 detail: selectedSupplementType?.name ?? "All types",
@@ -1089,12 +1077,13 @@ private extension View {
 }
 
 private struct TrendSummaryItem: Identifiable {
+    let identifier: String
     let title: String
     let value: String
     let detail: String
     var accent: Color? = nil
 
-    var id: String { title }
+    var id: String { identifier }
 }
 
 private struct PRCardMetric {
@@ -1413,44 +1402,145 @@ private struct LiftBestMetricView: View {
     }
 }
 
-private struct TrendSummaryItemView: View {
-    let item: TrendSummaryItem
+private struct TrendSummaryStripView: View {
+    let items: [TrendSummaryItem]
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-            HStack(spacing: MarbleSpacing.xxs) {
-                if let accent = item.accent {
-                    Circle()
-                        .fill(accent)
-                        .frame(width: 6, height: 6)
-                        .accessibilityHidden(true)
-                }
-                Text(item.title)
-                    .font(MarbleTypography.smallLabel)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .textCase(.uppercase)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                verticalLayout
+            } else {
+                horizontalLayout
             }
-
-            Text(item.value)
-                .font(MarbleTypography.rowTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .monospacedDigit()
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text(item.detail)
-                .font(MarbleTypography.rowMeta)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(MarbleSpacing.s)
         .frame(maxWidth: .infinity, alignment: .leading)
         .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("Trends.Summary")
+    }
+
+    private var horizontalLayout: some View {
+        HStack(alignment: .top, spacing: 0) {
+            ForEach(items.indices, id: \.self) { index in
+                TrendSummaryMetricView(item: items[index], style: .compact)
+
+                if index < items.count - 1 {
+                    Rectangle()
+                        .fill(Theme.subtleDividerColor(for: colorScheme))
+                        .frame(width: 1)
+                        .padding(.vertical, MarbleSpacing.xxxs)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+    }
+
+    private var verticalLayout: some View {
+        VStack(spacing: 0) {
+            ForEach(items.indices, id: \.self) { index in
+                TrendSummaryMetricView(item: items[index], style: .row)
+
+                if index < items.count - 1 {
+                    Divider()
+                        .overlay(Theme.subtleDividerColor(for: colorScheme))
+                        .padding(.vertical, MarbleSpacing.xs)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+    }
+}
+
+private enum TrendSummaryMetricStyle {
+    case compact
+    case row
+}
+
+private struct TrendSummaryMetricView: View {
+    let item: TrendSummaryItem
+    let style: TrendSummaryMetricStyle
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Group {
+            switch style {
+            case .compact:
+                compactMetric
+            case .row:
+                rowMetric
+            }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(item.title), \(item.value), \(item.detail)")
+        .accessibilityIdentifier("Trends.SummaryMetric.\(item.identifier)")
+    }
+
+    private var compactMetric: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+            header
+
+            Text(item.value)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            Text(item.detail)
+                .font(MarbleTypography.rowMeta)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .allowsTightening(true)
+        }
+        .padding(.horizontal, MarbleSpacing.xxs)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var rowMetric: some View {
+        HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                header
+
+                Text(item.detail)
+                    .font(MarbleTypography.rowMeta)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(item.value)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var header: some View {
+        HStack(spacing: MarbleSpacing.xxs) {
+            if let accent = item.accent {
+                Circle()
+                    .fill(accent)
+                    .frame(width: 7, height: 7)
+                    .accessibilityHidden(true)
+            }
+
+            Text(item.title)
+                .font(MarbleTypography.rowMeta.weight(.semibold))
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .allowsTightening(true)
+        }
     }
 }
 

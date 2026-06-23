@@ -8,40 +8,38 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ## TL;DR — what "up-to-date" means today (2026-06-22)
 
-- **Code baseline:** `origin/main` has been advanced to **1.9 (build 25)** with the
-  workout import hub, Live Activity widget wiring, resilience/UX pass, and calendar
-  overlap fix. `origin/release/1.9` may still point at the older 1.9 build 20 baseline
-  unless it is explicitly updated.
-- **Latest TestFlight build:** **1.9 (build 25)** was uploaded on 2026-06-22 from
-  `main` after bumping `CURRENT_PROJECT_VERSION` to 25. App Store Connect reports
+- **Code baseline:** `main` has been advanced to **1.9 (build 26)** with the
+  workout import hub, Live Activity widget wiring, resilience/UX pass, calendar
+  overlap fix, and Trends summary redesign. `origin/release/1.9` may still point at the
+  older 1.9 build 20 baseline unless it is explicitly updated.
+- **Latest TestFlight build:** **1.9 (build 26)** was uploaded on 2026-06-22 from
+  `main` after bumping `CURRENT_PROJECT_VERSION` to 26. App Store Connect reports
   processing `VALID`, and `test group A` has access to all builds.
-- **Current working project version:** **1.9 (build 25)** on `main`;
-  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 25` in
+- **Current working project version:** **1.9 (build 26)** on `main`;
+  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 26` in
   `marble.xcodeproj/project.pbxproj`.
 - **Build/test health:** Xcode 26.5 / iOS 26.5 simulator is installed locally; the
-  `MarbleTests` suite is green (**109 unit tests, 0 failures**) and the full
-  `MarbleUITests` suite is green (**27 tests, 1 expected accessibility-text skip,
-  0 failures**) at the current `feature/1.10-resilience-and-live-activity`
-  working tree.
+  build 26 release checks are green: `MarbleTests` (**109 unit tests, 0 failures**),
+  `TrendsSmokeUITests/testTrendsChartsRender`, affected Trends snapshot record + verify,
+  and `AccessibilityAuditUITests` (**1 pass, 1 expected text-size skip, 0 failures**).
 - **Live Activity wiring:** `MarbleWidgets` is now a real app-extension target embedded in
   the app, `NSSupportsLiveActivities = YES` is set on the app target, and
   `RestTimerAttributes.swift` is shared into the widget target.
 - **Live App Store:** version **1.8 is WAITING_FOR_REVIEW** (build `17` submitted; builds
-  `12`–`19` uploaded, all version 1.8). Uploading/distributing 1.9 build 25 did **not**
+  `12`–`19` uploaded, all version 1.8). Uploading/distributing 1.9 build 26 did **not**
   change the in-flight App Store review.
 - **App Store 1.9 gate:** `asc release stage --confirm` for 1.9 still fails while 1.8 is in review with
   Apple's hard error: "You cannot create a new version of the App in the current state."
   A 1.9 App Store version cannot be created while 1.8 remains in review.
-- **Known 1.9 build ID:** `95f6d6b1-8678-4c86-9933-96a57135ca86` (version 1.9,
-  build 25, `VALID`, uploaded 2026-06-22 18:19 PDT).
-- **TestFlight:** **1.9 build 25 is valid and available to the internal all-builds group**.
+- **Known 1.9 build ID:** `10ab692e-cffb-456b-b312-2c4dede738db` (version 1.9,
+  build 26, `VALID`, uploaded 2026-06-22 18:56 PDT).
+- **TestFlight:** **1.9 build 26 is valid and available to the internal all-builds group**.
   `buildBetaDetail` reports `internalBuildState = IN_BETA_TESTING`; internal group
   `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds and
   includes the installed Enzo tester record. External TestFlight remains not submitted.
-- **Latest build 25 improvements:** import re-entry guards and duplicate
-  batch skipping, Journal start checklist, Add Set "Save + Next", split-plan logging
-  context, calendar spacing/overlap fix, and hardened UI selectors/snapshots are now on
-  TestFlight.
+- **Latest build 26 improvement:** the Trends top summary was redesigned into one compact
+  stats surface with one-line labels, including "Supplements"; focused UI and snapshot
+  coverage now guard against the wrap regression.
 
 ---
 
@@ -177,8 +175,8 @@ profile for `Prism.marble.MarbleWidgets`.
 - `.asc/ExportOptions.plist` maps both `Prism.marble` and `Prism.marble.MarbleWidgets`.
 - Release signing is pinned per target in `marble.xcodeproj/project.pbxproj`.
 
-For the next upload after build 25, re-run `make asc-next-build`; it should report `26`
-while build 25 remains the latest processed/uploaded 1.9 build.
+For the next upload after build 26, re-run `make asc-next-build`; it should report `27`
+while build 26 remains the latest processed/uploaded 1.9 build.
 
 Historical planned command, kept for context:
 
@@ -193,15 +191,15 @@ Notes:
 - Before the 2026-06-21 upload, 1.9 had no uploaded builds, so the planned command used
   `--initial-build-number 20` to keep build numbers monotonic with the 1.8 train.
 - "test group A" is the **internal** TestFlight group (no Beta App Review needed).
-- Uploading 1.9 build 25 did **not** affect the in-flight 1.8 review.
-- Build 25 TestFlight notes should use the phone checklist: launch,
+- Uploading 1.9 build 26 did **not** affect the in-flight 1.8 review.
+- Build 26 TestFlight notes should use the phone checklist: launch,
   rest timer Live Activity/widget, Apple Health import, Garmin-via-Health labeling,
-  journal/split logging, and Strava hidden unless configured.
+  journal/split logging, Trends summary readability, and Strava hidden unless configured.
 
 ---
 
 ## Open release decisions
-- Decide whether/when to submit 1.9 for App Store review. TestFlight build 25 is ready,
+- Decide whether/when to submit 1.9 for App Store review. TestFlight build 26 is ready,
   but the App Store version is still 1.8 and still waiting for review.
 - **Strava posture for 1.9 (recommended): ship with Strava _unconfigured_.** Leave
   `StravaClientID` / `StravaClientSecret` / `StravaRedirectURI` out of the build so only the
@@ -219,7 +217,7 @@ Notes:
 
 ### If explicitly approved to replace 1.8 with 1.9 now
 
-This cancels the active 1.8 App Review submission, then creates/stages 1.9 with build 25.
+This cancels the active 1.8 App Review submission, then creates/stages 1.9 with build 26.
 Do not run the cancel command without explicit approval for submission
 `9be18cb3-defb-40f2-91eb-8148b2c09dfe`.
 
@@ -232,7 +230,7 @@ asc submit cancel \
 asc release stage \
   --app "6757725234" \
   --version "1.9" \
-  --build "95f6d6b1-8678-4c86-9933-96a57135ca86" \
+  --build "10ab692e-cffb-456b-b312-2c4dede738db" \
   --copy-metadata-from "1.8" \
   --confirm \
   --output json --pretty
@@ -265,7 +263,7 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 ## Release rules
 - Do not cancel the current App Store review by default.
 - `origin/main` is the canonical code baseline. As of 2026-06-22 it has been advanced to
-  **1.9 (build 25)**. The latest internal TestFlight build is 1.9 (25), but the *live*
+  **1.9 (build 26)**. The latest internal TestFlight build is 1.9 (26), but the *live*
   App Store version is still 1.8.
 - Do not bump builds, upload binaries, or submit for review without explicit user approval.
 - Never reuse stale `.asc` archives/IPAs — `make asc-publish-*` regenerates them.

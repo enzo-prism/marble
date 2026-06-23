@@ -5,6 +5,8 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         launchApp(fixtureMode: "populated")
         navigateToTab(.trends)
 
+        assertTrendSummaryMetrics()
+
         let consistencyChart = chartElement("Trends.ConsistencyChart")
         waitFor(consistencyChart)
         let volumeChart = chartElement("Trends.VolumeChart")
@@ -81,6 +83,20 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         }
 
         XCTAssertTrue(chartElement("Trends.ConsistencyChart").exists)
+    }
+
+    private func assertTrendSummaryMetrics(file: StaticString = #file, line: UInt = #line) {
+        let summary = waitForIdentifier("Trends.Summary", timeout: 8, file: file, line: line)
+        let sets = waitForIdentifier("Trends.SummaryMetric.Sets", timeout: 6, file: file, line: line)
+        let bestWeek = waitForIdentifier("Trends.SummaryMetric.BestWeek", timeout: 6, file: file, line: line)
+        let supplements = waitForIdentifier("Trends.SummaryMetric.Supplements", timeout: 6, file: file, line: line)
+
+        XCTAssertTrue(sets.label.contains("Sets"), file: file, line: line)
+        XCTAssertTrue(bestWeek.label.contains("Best Week"), file: file, line: line)
+        XCTAssertTrue(supplements.label.contains("Supplements"), file: file, line: line)
+        XCTAssertFalse(supplements.label.contains("-"), file: file, line: line)
+        XCTAssertGreaterThanOrEqual(supplements.frame.minX, summary.frame.minX - 1, file: file, line: line)
+        XCTAssertLessThanOrEqual(supplements.frame.maxX, summary.frame.maxX + 1, file: file, line: line)
     }
 
     private func chartElement(_ identifier: String) -> XCUIElement {
