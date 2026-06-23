@@ -7,6 +7,7 @@ struct ImportView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openURL) private var openURL
+    @State private var showingScan = false
 
     init(viewModel: ImportViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -15,6 +16,8 @@ struct ImportView: View {
     var body: some View {
         NavigationStack {
             List {
+                scanSection
+
                 ForEach(viewModel.sources, id: \.self) { source in
                     sourceSection(for: source)
                 }
@@ -62,6 +65,41 @@ struct ImportView: View {
                 }
             }
             .task { await viewModel.refreshStatus() }
+            .sheet(isPresented: $showingScan) {
+                WorkoutScanView()
+                    .modelContext(modelContext)
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+                    .sheetGlassBackground()
+            }
+        }
+    }
+
+    /// Entry point for the on-device handwritten-workout scanner. It has no remote
+    /// service, so it lives outside the provider list and opens its own review flow.
+    private var scanSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                HStack(spacing: MarbleSpacing.s) {
+                    Image(systemName: ImportSource.photoScan.systemImage)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    Text(ImportSource.photoScan.displayName)
+                        .font(MarbleTypography.rowTitle)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                }
+
+                Text("Snap a photo of a handwritten workout. Marble reads it on your device and turns it into sets you can review before logging.")
+                    .font(MarbleTypography.rowMeta)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+
+                Button("Scan a Workout") { showingScan = true }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("Import.Scan.Open")
+            }
+            .marbleRowInsets()
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+            .accessibilityIdentifier("Import.Scan")
         }
     }
 
