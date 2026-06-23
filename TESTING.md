@@ -2,19 +2,24 @@
 
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
-  mapping + Strava credential resolution). Runs in CI. Last verified locally on
-  2026-06-22 with XcodeBuildMCP / iOS 26.5 simulator: **109 passed, 0 failed**.
+  mapping, the handwritten-scan parser/importer + a real Vision-OCR integration test, the
+  `RenderMemo` cache, and Strava credential resolution). Runs in CI. Last verified locally
+  on 2026-06-23 with Xcode 26.5 / iOS 26.5 simulator: **152 passed, 0 failed**.
 - Snapshot tests: `MarbleSnapshotTests` (SwiftUI rendering with SnapshotTesting).
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
-## Latest local verification (2026-06-22)
-- `MarbleTests`: 109 passed, 0 failed.
-- `MarbleUITests/TrendsSmokeUITests/testTrendsChartsRender`: passed.
-- `MarbleUITests/AccessibilityAuditUITests`: 1 passed, 1 expected accessibility-text skip,
-  0 failed.
-- Trends snapshot baselines refreshed and re-verified for empty, populated, filtered,
-  consistency tooltip, volume tooltip, and supplements tooltip states.
+## Latest local verification (2026-06-23)
+- `MarbleTests`: **152 passed, 0 failed** (`make unit`).
+- `MarbleUITests` flows: **28 passed** (`make ui`), including `ImportFlowUITests` and the new
+  `ScanFlowUITests` (the handwritten-scan capture screen is reachable from the Import hub and
+  renders).
+- `MarbleUITests/AccessibilityAuditUITests`: passed (1 expected accessibility-text skip).
+- Feature-verification pass on the Apple Health / Watch / Garmin import path and the AI
+  photo-scan pipeline. The real Vision OCR step is proven by
+  `WorkoutTextRecognizerIntegrationTests`; the FoundationModels LLM parser is availability-
+  gated and falls back to the deterministic parser off-device. Real Watch/Garmin Health data,
+  the on-device LLM, and handwriting-OCR accuracy remain **device-only**.
 - `make verify-widget-plist` confirms `MarbleWidgets/Info.plist` exists before unit/test runs.
 
 ## Continuous integration
@@ -39,16 +44,14 @@ Preferred Makefile targets:
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **1.9 (26)**, build ID
-  `10ab692e-cffb-456b-b312-2c4dede738db`.
-- ASC state checked on 2026-06-22: build processing is `VALID`,
-  `internalBuildState = IN_BETA_TESTING`, and internal group `test group A` has access to
-  all builds.
-- Tester state checked on 2026-06-22: the internal Enzo tester record is `INSTALLED` and is
-  in `test group A`, so the build should appear in the TestFlight app on the signed-in phone.
+- Current phone-test build: **1.9 (28)**, build ID
+  `54c40cc8-2189-4bf5-bb57-4ec45092bcee` (build 27, `b3e36109-…`, is also `VALID`).
+- ASC state checked on 2026-06-23: build processing is `VALID` and internal group
+  `test group A` has access to all builds.
 - What to test on device: install/launch stability, the rest timer Live Activity/widget,
-  Apple Health workout import, Garmin-via-Health labeling, journal/split logging, and the
-  Trends summary readability fix, plus the Strava-hidden-unless-configured posture.
+  Apple Health workout import + Garmin-via-Health labeling, the new **handwritten-workout
+  scan** (Import → "Scan a Workout" → photograph a note → review → log), journal/split
+  logging, the Trends summary, and the Strava-hidden-unless-configured posture.
 
 Simulator prerequisite:
 - The Make targets use `scripts/sim_destination.sh` to find an iPhone simulator.

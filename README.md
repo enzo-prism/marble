@@ -24,8 +24,12 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 - Latest TestFlight upload: **1.9 (build 28)** is processed `VALID`, in internal beta
   testing, and available to the internal all-builds group for phone testing
   (build id `54c40cc8-2189-4bf5-bb57-4ec45092bcee`; build 27 remains `VALID` too).
-- Local verification: iOS 26.5 simulator runtime installed; `MarbleTests`
-  passed **151 tests**.
+- Local verification (2026-06-23): `MarbleTests` passed **152 tests**, the **28**
+  `MarbleUITests` flows passed (including a new handwritten-scan smoke test), and the
+  accessibility audit passed. A feature-verification pass covered the Apple Health / Watch /
+  Garmin import path and the AI photo-scan pipeline (the real Vision OCR step is proven by an
+  integration test; the on-device LLM, and real Watch/Garmin/handwriting data, remain
+  device-only).
 - Builds 27–28 add, on top of build 26: a **performance + iOS 26 pass** (the
   Trends/Calendar/Journal screens memoize their derived data via `RenderMemo` instead of
   re-deriving on every render/scrub; all view models moved to `@Observable`;

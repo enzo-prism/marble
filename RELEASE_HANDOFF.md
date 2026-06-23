@@ -31,9 +31,11 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 28` in
   `marble.xcodeproj/project.pbxproj`.
 - **Build/test health:** Xcode 26.5 / iOS 26.5 simulator is installed locally; the
-  build 28 unit suite is green: `MarbleTests` (**151 unit tests, 0 failures**), which now
-  includes `RenderMemoTests`, `TrendsDerivedDataTests`, and the scan feature's
-  `HandwrittenWorkoutParser`/`WorkoutScanImporter`/`WorkoutScanViewModel` tests. (Snapshot
+  build 28 unit suite is green: `MarbleTests` (**152 unit tests, 0 failures**), which now
+  includes `RenderMemoTests`, `TrendsDerivedDataTests`, the scan feature's
+  `HandwrittenWorkoutParser`/`WorkoutScanImporter`/`WorkoutScanViewModel` tests, and a real
+  Vision-OCR integration test; the **28** `MarbleUITests` flows (incl. the new
+  `ScanFlowUITests`) and the accessibility audit also pass. (Snapshot
   baselines remain host-sensitive — e.g. `AddSet` mismatches on a non-recording host
   independent of these changes — so they were not used as a release gate.)
 - **Live Activity wiring:** `MarbleWidgets` is now a real app-extension target embedded in
@@ -117,11 +119,13 @@ Marble is positioned as a UI layer over fragmented workout sources. All paths ar
     indie compromise; for production consider a tiny token-exchange proxy and point
     `StravaRedirectURI` / exchange at it.
 
-What's verified: app + 109 unit tests build green on Xcode 26.5 / iOS 26.5; Strava mapping,
+What's verified: app + 152 unit tests build green on Xcode 26.5 / iOS 26.5; Strava mapping,
 sport-type classification, date parsing, HealthKit origin detection, Strava credential
 resolution (env vars → Info.plist), import re-entry, failure handling, and duplicate-batch
-skipping are unit-tested; `ImportFlowUITests` opens the import hub from the Journal and
-checks Apple Health + the Garmin bridge render and dismiss.
+skipping are unit-tested; the handwritten-scan parser/importer plus a real Vision-OCR
+integration test (`WorkoutTextRecognizerIntegrationTests`) cover the photo-scan pipeline;
+`ImportFlowUITests` and `ScanFlowUITests` open the import hub from the Journal and check that
+Apple Health, the Garmin bridge, and the Scan capture screen render and dismiss.
 What needs a live pass: the Strava OAuth round-trip + real `athlete/activities` JSON (needs
 real Strava API keys + account), Garmin→Health labeling against a real Garmin source, and
 on-device HealthKit average-HR enrichment.
