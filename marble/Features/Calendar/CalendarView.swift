@@ -35,26 +35,7 @@ struct CalendarView: View {
 
                         calendarActionRow(metrics: derived.daySummary)
 
-                        CalendarRepresentable(
-                            activeDays: derived.activeDays,
-                            visibleMonth: visibleMonth,
-                            onSelect: { components in
-                                guard let components, let date = calendar.date(from: components) else {
-                                    selectedDay = nil
-                                    selectedDate = nil
-                                    return
-                                }
-                                selectedDate = date
-                                presentDaySheet(for: date)
-                            },
-                            onVisibleMonthChange: { components in
-                                visibleMonth = components
-                            }
-                        )
-                        .frame(width: max(0, geometry.size.width - MarbleLayout.pagePadding * 4), height: 360)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.top, calendarTopPadding)
-                        .accessibilityIdentifier("Calendar.View")
+                        calendarMonthSection(activeDays: derived.activeDays)
                     }
                     .padding(.horizontal, MarbleLayout.pagePadding)
                     .padding(.bottom, MarbleSpacing.xxl)
@@ -323,8 +304,8 @@ struct CalendarView: View {
         dynamicTypeSize.isAccessibilitySize ? MarbleSpacing.xl : MarbleSpacing.l
     }
 
-    private var calendarTopPadding: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? MarbleSpacing.xxl : MarbleSpacing.l
+    private var calendarMonthTopGap: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? MarbleSpacing.m : MarbleSpacing.s
     }
 
     private func streakLabel(for count: Int) -> String {
@@ -366,6 +347,38 @@ struct CalendarView: View {
 
     private func pluralize(count: Int, singular: String, plural: String) -> String {
         count == 1 ? singular : plural
+    }
+
+    private func calendarMonthSection(activeDays: Set<CalendarDayKey>) -> some View {
+        VStack(spacing: 0) {
+            Color.clear
+                .frame(height: calendarMonthTopGap)
+                .accessibilityHidden(true)
+
+            ZStack {
+                CalendarRepresentable(
+                    activeDays: activeDays,
+                    visibleMonth: visibleMonth,
+                    onSelect: { components in
+                        guard let components, let date = calendar.date(from: components) else {
+                            selectedDay = nil
+                            selectedDate = nil
+                            return
+                        }
+                        selectedDate = date
+                        presentDaySheet(for: date)
+                    },
+                    onVisibleMonthChange: { components in
+                        visibleMonth = components
+                    }
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("Calendar.View")
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .accessibilityIdentifier("Calendar.MonthSection")
     }
 
     @ViewBuilder
@@ -655,12 +668,27 @@ struct CalendarRepresentable: UIViewRepresentable {
         view.calendar = Calendar.current
         view.locale = Locale.current
         view.tintColor = .label
+        view.clipsToBounds = true
         view.delegate = context.coordinator
         view.visibleDateComponents = visibleMonth
         view.accessibilityIdentifier = "Calendar.View"
         let selection = UICalendarSelectionSingleDate(delegate: context.coordinator)
         view.selectionBehavior = selection
         return view
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UICalendarView, context: Context) -> CGSize? {
+        let screenWidth = uiView.window?.windowScene?.screen.bounds.width
+        let fallbackWidth = uiView.bounds.width > 0 ? uiView.bounds.width : (screenWidth ?? 393)
+        let width = max(0, proposal.width ?? fallbackWidth)
+        let fittingSize = CGSize(width: width, height: UIView.layoutFittingCompressedSize.height)
+        let measured = uiView.systemLayoutSizeFitting(
+            fittingSize,
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        )
+        let height = max(measured.height, uiView.intrinsicContentSize.height, 360)
+        return CGSize(width: width, height: height)
     }
 
     func updateUIView(_ uiView: UICalendarView, context: Context) {
