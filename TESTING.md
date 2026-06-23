@@ -51,14 +51,17 @@ Preferred Makefile targets:
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **1.9 (28)**, build ID
-  `54c40cc8-2189-4bf5-bb57-4ec45092bcee` (build 27, `b3e36109-…`, is also `VALID`).
+- Current phone-test build: **1.9 (29)**, build ID
+  `e61a527f-4780-4e10-9f95-fdf0914cb0ec` (builds 28, `54c40cc8-…`, and 27,
+  `b3e36109-…`, are also `VALID`).
 - ASC state checked on 2026-06-23: build processing is `VALID` and internal group
   `test group A` has access to all builds.
-- What to test on device: install/launch stability, the rest timer Live Activity/widget,
-  Apple Health workout import + Garmin-via-Health labeling, the new **handwritten-workout
-  scan** (Import → "Scan a Workout" → photograph a note → review → log), journal/split
-  logging, the Trends summary, and the Strava-hidden-unless-configured posture.
+- What to test on device: install/launch stability, the new **Personal Records** PR badges,
+  "Personal best" add-set card, live "New PR!" cue + haptic, the rest timer Live
+  Activity/widget, Apple Health workout import + Garmin-via-Health labeling, the
+  **handwritten-workout scan** (Import → "Scan a Workout" → photograph a note → review →
+  log), journal/split logging, the Trends summary, and the Strava-hidden-unless-configured
+  posture.
 
 Simulator prerequisite:
 - The Make targets use `scripts/sim_destination.sh` to find an iPhone simulator.

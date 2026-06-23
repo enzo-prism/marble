@@ -46,8 +46,9 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   Magic Replace on toggle icons).
 - `MarbleWidgets` target is wired into the app build and its `Info.plist` is checked by
   Makefile test targets.
-- Live App Store: **1.8 is WAITING_FOR_REVIEW**. There is no 1.9 App Store version record
-  yet, so 1.9 is TestFlight-only until a new App Store version is created.
+- Live App Store: **1.9 is READY_FOR_REVIEW** with a prepared review submission; **1.8 is
+  COMPLETE / READY_FOR_DISTRIBUTION**. This TestFlight pass did not submit 1.9 for App
+  Review.
 - **[`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) is the authoritative, dated source of truth
   for release state** — read it before any release/signing work.
 

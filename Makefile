@@ -9,7 +9,7 @@ ASC_ARCHIVE_PATH ?= $(ASC_ARTIFACTS_DIR)/marble.xcarchive
 ASC_IPA_PATH ?= $(ASC_ARTIFACTS_DIR)/marble.ipa
 ASC_EXPORT_OPTIONS ?=
 ASC_MARKETING_VERSION ?= $(shell ruby -e 'project = File.read("$(PROJECT)/project.pbxproj"); versions = project.scan(/MARKETING_VERSION = ([^;]+);/).flatten.map(&:strip).uniq; abort("not found") if versions.empty?; print versions.first')
-ASC_APPSTORE_VERSION ?= 1.8
+ASC_APPSTORE_VERSION ?= 1.9
 ASC_TESTFLIGHT_VERSION ?= $(ASC_MARKETING_VERSION)
 ASC_APPSTORE_PUBLISH_VERSION ?=
 ASC_PLATFORM ?= IOS

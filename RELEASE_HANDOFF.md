@@ -41,21 +41,19 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 - **Live Activity wiring:** `MarbleWidgets` is now a real app-extension target embedded in
   the app, `NSSupportsLiveActivities = YES` is set on the app target, and
   `RestTimerAttributes.swift` is shared into the widget target.
-- **Live App Store:** version **1.8 is WAITING_FOR_REVIEW** (build `17` submitted; builds
-  `12`–`19` uploaded, all version 1.8). Uploading/distributing 1.9 build 26 did **not**
-  change the in-flight App Store review.
-- **App Store 1.9 gate:** `asc release stage --confirm` for 1.9 still fails while 1.8 is in review with
-  Apple's hard error: "You cannot create a new version of the App in the current state."
-  A 1.9 App Store version cannot be created while 1.8 remains in review.
-- **Known 1.9 build ID:** `10ab692e-cffb-456b-b312-2c4dede738db` (version 1.9,
-  build 26, `VALID`, uploaded 2026-06-22 18:56 PDT).
-- **TestFlight:** **1.9 build 26 is valid and available to the internal all-builds group**.
+- **Live App Store:** version **1.9 is READY_FOR_REVIEW** with prepared submission
+  `5f0ffd7d-b221-4520-bba9-1953c752b747`; version **1.8 is COMPLETE /
+  READY_FOR_DISTRIBUTION**. Uploading/distributing 1.9 build 29 did **not** submit the 1.9
+  App Review.
+- **Known 1.9 build ID:** `e61a527f-4780-4e10-9f95-fdf0914cb0ec` (version 1.9,
+  build 29, `VALID`, uploaded 2026-06-23 15:15 PDT).
+- **TestFlight:** **1.9 build 29 is valid and available to the internal all-builds group**.
   `buildBetaDetail` reports `internalBuildState = IN_BETA_TESTING`; internal group
   `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds and
   includes the installed Enzo tester record. External TestFlight remains not submitted.
-- **Latest build 26 improvement:** the Trends top summary was redesigned into one compact
-  stats surface with one-line labels, including "Supplements"; focused UI and snapshot
-  coverage now guard against the wrap regression.
+- **Latest build 29 improvement:** Personal Records adds PR badges in Journal/quick-log
+  history, a "Personal best" add-set card, a live "New PR!" cue + haptic, and unit-normalized
+  heaviest / most-reps records.
 
 ---
 
@@ -193,8 +191,8 @@ profile for `Prism.marble.MarbleWidgets`.
 - `.asc/ExportOptions.plist` maps both `Prism.marble` and `Prism.marble.MarbleWidgets`.
 - Release signing is pinned per target in `marble.xcodeproj/project.pbxproj`.
 
-For the next upload after build 26, re-run `make asc-next-build`; it should report `27`
-while build 26 remains the latest processed/uploaded 1.9 build.
+For the next upload after build 29, re-run `make asc-next-build`; it should report `30`
+while build 29 remains the latest processed/uploaded 1.9 build.
 
 Historical planned command, kept for context:
 
@@ -209,16 +207,18 @@ Notes:
 - Before the 2026-06-21 upload, 1.9 had no uploaded builds, so the planned command used
   `--initial-build-number 20` to keep build numbers monotonic with the 1.8 train.
 - "test group A" is the **internal** TestFlight group (no Beta App Review needed).
-- Uploading 1.9 build 26 did **not** affect the in-flight 1.8 review.
-- Build 26 TestFlight notes should use the phone checklist: launch,
-  rest timer Live Activity/widget, Apple Health import, Garmin-via-Health labeling,
-  journal/split logging, Trends summary readability, and Strava hidden unless configured.
+- Uploading 1.9 build 29 did **not** submit App Review.
+- Build 29 TestFlight notes should use the phone checklist: Personal Records PR badges,
+  "Personal best" add-set card, live "New PR!" cue + haptic, launch, rest timer Live
+  Activity/widget, Apple Health import, Garmin-via-Health labeling, journal/split logging,
+  Trends summary readability, and Strava hidden unless configured.
 
 ---
 
 ## Open release decisions
-- Decide whether/when to submit 1.9 for App Store review. TestFlight build 26 is ready,
-  but the App Store version is still 1.8 and still waiting for review.
+- Decide whether/when to submit the prepared 1.9 App Store review. TestFlight build 29 is
+  ready, App Store version 1.9 is `READY_FOR_REVIEW`, and 1.8 is complete / ready for
+  distribution. Do not submit 1.9 without explicit approval.
 - **Strava posture for 1.9 (recommended): ship with Strava _unconfigured_.** Leave
   `StravaClientID` / `StravaClientSecret` / `StravaRedirectURI` out of the build so only the
   fully-verified **Apple Health + Garmin-via-Health** paths go out. Strava stays hidden
@@ -226,39 +226,9 @@ Notes:
   in **1.10** after (a) a live OAuth round-trip with real keys and (b) a decision on the
   in-binary `client_secret` (see "Workout import"). Rationale: Strava is the only import path
   that is network-facing, ships a secret, and is unverified end-to-end.
-- Leave the live 1.8 review to complete (default per rules below: do not cancel), or
-  explicitly approve canceling submission `9be18cb3-defb-40f2-91eb-8148b2c09dfe` if 1.9
-  must replace it immediately.
-- 1.9 App Store submission still needs a 1.9 version record created in ASC. Apple blocks
-  creating that record until the current 1.8 review leaves `WAITING_FOR_REVIEW` or is
-  canceled.
-
-### If explicitly approved to replace 1.8 with 1.9 now
-
-This cancels the active 1.8 App Review submission, then creates/stages 1.9 with build 26.
-Do not run the cancel command without explicit approval for submission
-`9be18cb3-defb-40f2-91eb-8148b2c09dfe`.
-
-```bash
-asc submit cancel \
-  --id "9be18cb3-defb-40f2-91eb-8148b2c09dfe" \
-  --confirm \
-  --output json --pretty
-
-asc release stage \
-  --app "6757725234" \
-  --version "1.9" \
-  --build "10ab692e-cffb-456b-b312-2c4dede738db" \
-  --copy-metadata-from "1.8" \
-  --confirm \
-  --output json --pretty
-
-asc validate \
-  --app "6757725234" \
-  --version "1.9" \
-  --platform IOS \
-  --output table
-```
+- Keep 1.9 App Review submission as a separate explicit step. Before submitting, re-run:
+  `make asc-review`, `make asc-validate`, and `asc review submit --help` with the current
+  CLI.
 
 After validation is clean, use the CLI's current submit path for the prepared 1.9
 version. Re-check `asc review submit --help` first because the installed CLI can drift.
@@ -280,9 +250,9 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel the current App Store review by default.
-- `origin/main` is the canonical code baseline. As of 2026-06-22 it has been advanced to
-  **1.9 (build 26)**. The latest internal TestFlight build is 1.9 (26), but the *live*
-  App Store version is still 1.8.
+- `origin/main` is the canonical code baseline. As of 2026-06-23 it has been advanced to
+  **1.9 (build 29)**. The latest internal TestFlight build is 1.9 (29), and the *live*
+  App Store version is 1.9 `READY_FOR_REVIEW` but not submitted by this run.
 - Do not bump builds, upload binaries, or submit for review without explicit user approval.
 - Never reuse stale `.asc` archives/IPAs — `make asc-publish-*` regenerates them.
 - Keep signing/export files and generated artifacts under ignored `.asc/`.

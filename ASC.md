@@ -29,18 +29,18 @@ project-local notes.
 - Archive path: `.asc/artifacts/marble.xcarchive`
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
-- Current App Store review version: `1.8`
+- Current App Store review version: `1.9`
 
 ## Release Safety
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches.
-- The working project version is now `1.9 (build 26)` on `main`; `origin/release/1.9`
+- The working project version is now `1.9 (build 29)` on `main`; `origin/release/1.9`
   may still point at the older `1.9 (build 20)` release baseline unless explicitly
   updated.
-- The live App Store version is still `1.8` and is `WAITING_FOR_REVIEW`. No App Store
-  version record exists for `1.9` yet, so review/validation checks must use `1.8`
-  until that record is created.
+- The live App Store version is now `1.9` and is `READY_FOR_REVIEW` with a prepared
+  submission (`5f0ffd7d-b221-4520-bba9-1953c752b747`). Version `1.8` is complete /
+  ready for distribution. Review/validation checks should use `1.9`.
 - Always run `make asc-version` before acting — the CLI can report a blank generated
   marketing version, so the Makefile prints a reliable fallback.
 - Do not cancel an in-flight review, upload a replacement build, or submit to
@@ -88,7 +88,7 @@ make asc-next-build
 Those targets already know the Marble app ID, scheme, project path, artifact
 paths, the required archive destination wiring, and the marketing-version
 fallback for this Xcode setup. `make asc-review` and `make asc-validate` use
-`ASC_APPSTORE_VERSION` (currently `1.8`); `make asc-next-build` and
+`ASC_APPSTORE_VERSION` (currently `1.9`); `make asc-next-build` and
 `make asc-publish-testflight` use `ASC_TESTFLIGHT_VERSION` (defaulting to the local
 marketing version, currently `1.9`) for the next upload number.
 
@@ -191,9 +191,9 @@ Direct equivalents:
 
 ```bash
 asc status --app "6757725234" --output table
-asc review status --app "6757725234" --version "1.8" --platform IOS --output table
-asc review doctor --app "6757725234" --version "1.8" --platform IOS --output table
-asc validate --app "6757725234" --version "1.8" --platform IOS --output table
+asc review status --app "6757725234" --version "1.9" --platform IOS --output table
+asc review doctor --app "6757725234" --version "1.9" --platform IOS --output table
+asc validate --app "6757725234" --version "1.9" --platform IOS --output table
 asc builds next-build-number --app "6757725234" --version "1.9" --platform IOS --output table
 ```
 
@@ -205,9 +205,9 @@ For the next TestFlight build on the 1.9 train, use `make asc-next-build` withou
 overriding `ASC_APPSTORE_VERSION`; it reads `MARKETING_VERSION` from the project and
 currently reports the next 1.9 build number.
 
-As of 2026-06-22 after uploading build `26`, the next 1.9 build number is `27`.
+As of 2026-06-23 after uploading build `29`, the next 1.9 build number is `30`.
 Before uploading another 1.9 TestFlight build, bump `CURRENT_PROJECT_VERSION` from
-`26` to the reported next number and re-run `make asc-next-build` to confirm ASC
+`29` to the reported next number and re-run `make asc-next-build` to confirm ASC
 still agrees.
 
 ### Create A Deterministic Archive
@@ -268,21 +268,21 @@ make asc-publish-testflight \
   ASC_TESTFLIGHT_GROUP="Internal Testers"
 ```
 
-Current phone-test state as of 2026-06-22:
+Current phone-test state as of 2026-06-23:
 
-- Build `1.9 (26)` is valid in TestFlight:
-  `10ab692e-cffb-456b-b312-2c4dede738db`.
+- Build `1.9 (29)` is valid in TestFlight:
+  `e61a527f-4780-4e10-9f95-fdf0914cb0ec`.
 - Build beta detail reports `internalBuildState = IN_BETA_TESTING`.
 - Internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has
   `hasAccessToAllBuilds = true`.
-- Build `26` was uploaded with `--notify`, but the group already receives all builds,
-  so the publish command skipped an explicit per-group add.
+- Build `29` has `autoNotifyEnabled = true`; the group already receives all builds, so no
+  explicit per-group add is required.
 
 Useful verification commands:
 
 ```bash
 asc builds build-beta-detail view \
-  --build-id "10ab692e-cffb-456b-b312-2c4dede738db" \
+  --build-id "e61a527f-4780-4e10-9f95-fdf0914cb0ec" \
   --output json --pretty
 
 asc testflight groups list \
@@ -307,30 +307,14 @@ make asc-publish-testflight \
 
 ### Canonical App Store Publish
 
-Creating a 1.9 App Store version record, attaching a build, or submitting for review is a
-release mutation. Do not run this target without explicit approval and a clean release
-branch. The target intentionally requires `ASC_APPSTORE_PUBLISH_VERSION` so it cannot
-silently publish the local marketing version.
+Attaching another build or submitting for review is a release mutation. Do not run this
+target without explicit approval and a clean release branch. The target intentionally
+requires `ASC_APPSTORE_PUBLISH_VERSION` so it cannot silently publish the local marketing
+version.
 
-As of 2026-06-22, App Store version `1.8` is still `WAITING_FOR_REVIEW`, so Apple rejects
-creating a `1.9` App Store version with:
-
-```text
-You cannot create a new version of the App in the current state.
-```
-
-Build `1.9 (26)` is already uploaded and valid (`10ab692e-cffb-456b-b312-2c4dede738db`).
-To submit it immediately, the active 1.8 review submission must first be explicitly
-canceled:
-
-```bash
-asc submit cancel \
-  --id "9be18cb3-defb-40f2-91eb-8148b2c09dfe" \
-  --confirm \
-  --output json --pretty
-```
-
-Only run that command after explicit approval to remove 1.8 from review.
+As of 2026-06-23, App Store version `1.9` already exists and is `READY_FOR_REVIEW` with
+submission `5f0ffd7d-b221-4520-bba9-1953c752b747`. Build `1.9 (29)` is already uploaded
+and valid (`e61a527f-4780-4e10-9f95-fdf0914cb0ec`). This run did not submit App Review.
 
 Dry-run first when possible:
 
