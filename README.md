@@ -28,8 +28,9 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   best" target card + live "New PR!" cue while logging (see `marble/Components/
   PersonalRecords.swift`). `origin/release/1.9` may still point at the older 1.9 build 20
   release baseline unless explicitly updated.
-- Latest TestFlight upload: **1.9 (build 29)** ships the PR feature (build 28 — perf/iOS 26
-  pass, handwritten scan — remains `VALID`; build id `54c40cc8-2189-4bf5-bb57-4ec45092bcee`).
+- Latest TestFlight upload: **1.9 (build 29)** ships the PR feature, processed `VALID`
+  (build id `e61a527f-4780-4e10-9f95-fdf0914cb0ec`) and available to the internal all-builds
+  group for phone testing (build 28 — perf/iOS 26 pass, handwritten scan — remains `VALID`).
 - Local verification (2026-06-23): `MarbleTests` passed **164 tests** (incl. the new
   `PersonalRecordsTests`), the `MarbleUITests` flows passed (incl. two new PR flow tests),
   and the accessibility audit passed. A feature-verification pass covered the Apple Health / Watch /

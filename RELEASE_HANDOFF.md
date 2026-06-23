@@ -18,12 +18,15 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   (`MarbleHaptics.celebrate()`). Weight records are unit-normalized (lb/kg) before comparison.
   Build 28 (perf/iOS 26 pass, `RenderMemo`, `@Observable` migration, handwritten workout scan)
   remains underneath. `origin/release/1.9` may still point at the older 1.9 build 20 baseline.
-- **Latest TestFlight build:** **1.9 (build 29)** uploaded from `main` on 2026-06-23
-  (`CURRENT_PROJECT_VERSION` 29) carrying the PR feature. Build 28
-  (`54c40cc8-2189-4bf5-bb57-4ec45092bcee`) and build 27
+- **Latest TestFlight build:** **1.9 (build 29)** uploaded on 2026-06-23 carrying the PR
+  feature; App Store Connect reports processing **`VALID`** (build id
+  `e61a527f-4780-4e10-9f95-fdf0914cb0ec`). The internal group `test group A`
+  (`514a95e2-28fc-436b-b624-9aaec2963adc`) already receives all builds, so it is testable
+  immediately. Build 28 (`54c40cc8-2189-4bf5-bb57-4ec45092bcee`) and build 27
   (`b3e36109-7e4e-434e-877d-210219ef3893`) remain `VALID`. **Note:** Apple's ASC *betaGroups*
-  endpoint has been intermittently erroring/timing out, so `make asc-publish-testflight` can
-  fail its upfront group precheck; retry against the pre-built IPA until it recovers.
+  endpoint has flapped on past uploads (build 28 needed retry 4); build 29 landed on the first
+  attempt. Workaround when it's down: build the IPA once (`make asc-archive` + `make asc-export`)
+  then loop `asc publish testflight --ipa <prebuilt> --group "test group A"` until it recovers.
 - **Current working project version:** **1.9 (build 29)** on `main`;
   `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 29` in
   `marble.xcodeproj/project.pbxproj`.
