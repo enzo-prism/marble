@@ -19,17 +19,19 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-06-22)
 
-- Code baseline: `main` is **1.9 (build 26)**; `origin/release/1.9` may still point
+- Code baseline: `main` is **1.9 (build 27)**; `origin/release/1.9` may still point
   at the older 1.9 build 20 release baseline unless explicitly updated.
-- Latest TestFlight upload: **1.9 (build 26)** is processed `VALID`, in internal beta
+- Latest TestFlight upload: **1.9 (build 27)** is processed `VALID`, in internal beta
   testing, and available to the internal all-builds group for phone testing
-  (`10ab692e-cffb-456b-b312-2c4dede738db`).
+  (build id `b3e36109-7e4e-434e-877d-210219ef3893`).
 - Local verification on 2026-06-22: iOS 26.5 simulator runtime installed; `MarbleTests`
-  passed **109 tests**; the Trends smoke UI test passed; the affected Trends snapshots were
-  refreshed and re-verified; accessibility audit passed with 1 expected text-size skip.
-- Latest TestFlight build 26 improvement: the Trends top summary was redesigned into one
-  compact stats surface so "Supplements" stays on one line, with focused UI and snapshot
-  regression coverage.
+  passed **151 tests**.
+- Build 27 adds two things on top of build 26: a **performance + iOS 26 pass** (the
+  Trends/Calendar/Journal screens memoize their derived data via `RenderMemo` instead of
+  re-deriving on every render/scrub; `QuickLogCoordinator`/`TabSelection`/`ImportViewModel`
+  moved to `@Observable`; `SupplementEntry.takenAt` is indexed), and a **handwritten
+  workout scan** feature under `marble/Features/Import/Scan/` (on-device Vision OCR + a
+  deterministic parser, optional on-device LLM path, wired into the Import hub).
 - `MarbleWidgets` target is wired into the app build and its `Info.plist` is checked by
   Makefile test targets.
 - Live App Store: **1.8 is WAITING_FOR_REVIEW**. There is no 1.9 App Store version record

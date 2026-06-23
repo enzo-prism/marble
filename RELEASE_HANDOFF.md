@@ -8,20 +8,28 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ## TL;DR — what "up-to-date" means today (2026-06-22)
 
-- **Code baseline:** `main` has been advanced to **1.9 (build 26)** with the
-  workout import hub, Live Activity widget wiring, resilience/UX pass, calendar
-  overlap fix, and Trends summary redesign. `origin/release/1.9` may still point at the
-  older 1.9 build 20 baseline unless it is explicitly updated.
-- **Latest TestFlight build:** **1.9 (build 26)** was uploaded on 2026-06-22 from
-  `main` after bumping `CURRENT_PROJECT_VERSION` to 26. App Store Connect reports
-  processing `VALID`, and `test group A` has access to all builds.
-- **Current working project version:** **1.9 (build 26)** on `main`;
-  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 26` in
+- **Code baseline:** `main` has been advanced to **1.9 (build 27)**, adding — on top of
+  build 26's import hub, Live Activity, resilience/UX pass, and Trends redesign — a
+  **performance + iOS 26 pass** (memoized Trends/Calendar/Journal derivations via a new
+  `RenderMemo`, `@Observable` migration of QuickLogCoordinator/TabSelection/ImportViewModel,
+  `#Index` on `SupplementEntry.takenAt`) and the **handwritten workout scan** feature
+  (`marble/Features/Import/Scan/` — on-device Vision OCR + deterministic parser with an
+  optional FoundationModels path, wired into the Import hub, `NSCameraUsageDescription`
+  added). `origin/release/1.9` may still point at the older 1.9 build 20 baseline unless it
+  is explicitly updated.
+- **Latest TestFlight build:** **1.9 (build 27)** was uploaded on 2026-06-22 from `main`
+  (`CURRENT_PROJECT_VERSION` 27, build id `b3e36109-7e4e-434e-877d-210219ef3893`). App
+  Store Connect reports processing `VALID`, and `test group A`
+  (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds.
+- **Current working project version:** **1.9 (build 27)** on `main`;
+  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 27` in
   `marble.xcodeproj/project.pbxproj`.
 - **Build/test health:** Xcode 26.5 / iOS 26.5 simulator is installed locally; the
-  build 26 release checks are green: `MarbleTests` (**109 unit tests, 0 failures**),
-  `TrendsSmokeUITests/testTrendsChartsRender`, affected Trends snapshot record + verify,
-  and `AccessibilityAuditUITests` (**1 pass, 1 expected text-size skip, 0 failures**).
+  build 27 unit suite is green: `MarbleTests` (**151 unit tests, 0 failures**), which now
+  includes `RenderMemoTests`, `TrendsDerivedDataTests`, and the scan feature's
+  `HandwrittenWorkoutParser`/`WorkoutScanImporter`/`WorkoutScanViewModel` tests. (Snapshot
+  baselines remain host-sensitive — e.g. `AddSet` mismatches on a non-recording host
+  independent of these changes — so they were not used as a release gate.)
 - **Live Activity wiring:** `MarbleWidgets` is now a real app-extension target embedded in
   the app, `NSSupportsLiveActivities = YES` is set on the app target, and
   `RestTimerAttributes.swift` is shared into the widget target.
