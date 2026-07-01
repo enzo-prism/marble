@@ -53,7 +53,8 @@ class MarbleUITestCase: XCTestCase {
         forceReduceTransparency: Bool = false,
         calendarTestDay: String? = nil,
         notificationAuthorization: String? = nil,
-        accessibilityAudit: Bool = false
+        accessibilityAudit: Bool = false,
+        extraEnvironment: [String: String] = [:]
     ) {
         if app != nil {
             app.terminate()
@@ -82,6 +83,9 @@ class MarbleUITestCase: XCTestCase {
         if let contentSizeCategory {
             app.launchEnvironment["MARBLE_FORCE_DYNAMIC_TYPE"] = contentSizeCategory
             app.launchArguments += ["-UIPreferredContentSizeCategoryName", contentSizeCategory]
+        }
+        for (key, value) in extraEnvironment {
+            app.launchEnvironment[key] = value
         }
         app.launch()
     }

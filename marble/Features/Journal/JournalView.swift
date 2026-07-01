@@ -21,6 +21,7 @@ struct JournalView: View {
     @State private var quickLogUndoID: UUID?
     @State private var navPath: [UUID] = []
     @State private var showingImport = false
+    @Namespace private var importZoomNamespace
 
     // Grouping the full history by day AND detecting personal-record sets is
     // memoized together so unrelated state changes (a toast appearing, a sheet
@@ -84,7 +85,9 @@ struct JournalView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
+                // The zoom source lives on the ToolbarItem (not the button) —
+                // the canonical placement for toolbar-to-sheet morphs.
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showingImport = true
                     } label: {
@@ -92,7 +95,10 @@ struct JournalView: View {
                     }
                     .accessibilityLabel("Import Workouts")
                     .accessibilityIdentifier("Journal.ImportWorkouts")
+                }
+                .matchedTransitionSource(id: "journal-import", in: importZoomNamespace)
 
+                ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         NotificationsView(scheduler: CustomNotificationScheduler.live())
                     } label: {
@@ -100,12 +106,18 @@ struct JournalView: View {
                     }
                     .accessibilityLabel("Notifications")
                     .accessibilityIdentifier("Journal.Notifications")
+                }
 
+                // The primary "+" sits in its own glass capsule, visually apart
+                // from the secondary import/notification actions.
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                ToolbarItem(placement: .topBarTrailing) {
                     AddSetToolbarButton()
                 }
             }
             .sheet(isPresented: $showingImport) {
                 ImportView.default()
+                    .navigationTransition(.zoom(sourceID: "journal-import", in: importZoomNamespace))
                     .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
             }

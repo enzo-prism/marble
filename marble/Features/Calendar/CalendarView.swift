@@ -164,6 +164,7 @@ struct CalendarView: View {
 
     private func presentDaySheet(for date: Date) {
         let selection = CalendarSelection(date: date)
+        MarbleHaptics.selection()
         guard selectedDay != nil else {
             selectedDay = selection
             return

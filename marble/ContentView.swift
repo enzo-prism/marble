@@ -12,6 +12,8 @@ struct ContentView: View {
     @State private var tabSelection = TabSelection()
     @State private var activeDay = DateHelper.startOfDay(for: AppEnvironment.now)
 
+    private let restTimer = RestActivityController.shared
+
     var body: some View {
         TabView(selection: $tabSelection.selected) {
             JournalView()
@@ -49,6 +51,9 @@ struct ContentView: View {
                 }
                 .tag(AppTab.trends)
         }
+        .marbleRestPillAccessory(rest: restTimer.activeRest) {
+            RestActivityController.shared.cancelRest()
+        }
         .environment(tabSelection)
         .environment(quickLog)
         .environment(\.marbleActiveDay, activeDay)
@@ -64,6 +69,9 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 refreshActiveDay()
+                // A rest that expired while the app was suspended never ran its
+                // auto-end task; clear it so the pill doesn't linger at 0:00.
+                restTimer.pruneExpiredRest()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in

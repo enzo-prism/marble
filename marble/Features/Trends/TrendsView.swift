@@ -142,8 +142,11 @@ struct TrendsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     exerciseSearchButton
+                }
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                ToolbarItem(placement: .topBarTrailing) {
                     AddSetToolbarButton()
                 }
             }
@@ -183,6 +186,7 @@ struct TrendsView: View {
             .sheetGlassBackground()
         }
         .onChange(of: range) { _, _ in
+            MarbleHaptics.selection()
             clearSelections()
         }
         .onChange(of: selectedExerciseID) { _, _ in

@@ -103,3 +103,7 @@ UI tests rely on these environment variables:
 - `MARBLE_FIXTURE_MODE=populated|empty`
 - `MARBLE_FORCE_COLOR_SCHEME=light|dark`
 - `MARBLE_FORCE_DYNAMIC_TYPE=<UIContentSizeCategory rawValue>`
+- `MARBLE_ENABLE_REST_PILL=1` — opt back in to the tab-bar rest pill (hidden by
+  default under UI testing so it can't overlay unrelated flows). The pill's
+  countdown runs on the wall clock, so pass a *real* `MARBLE_NOW_ISO8601` when
+  using it (see `RestTimerPillUITests`).

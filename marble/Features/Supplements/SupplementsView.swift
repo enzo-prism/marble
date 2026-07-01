@@ -70,14 +70,17 @@ struct SupplementsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         SupplementTypeManagerView()
                     } label: {
                         Image(systemName: "slider.horizontal.3")
                     }
+                    .accessibilityLabel("Manage Supplement Types")
                     .accessibilityIdentifier("Supplements.ManageTypes")
-
+                }
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                ToolbarItem(placement: .topBarTrailing) {
                     AddSetToolbarButton()
                 }
             }
@@ -146,6 +149,11 @@ struct SupplementsView: View {
             updatedAt: now
         )
         modelContext.insert(entry)
+        guard modelContext.saveOrRollback() else {
+            toast = ToastData(message: "Couldn't log \(type.name)", actionTitle: nil, onAction: nil)
+            return
+        }
+        MarbleHaptics.success()
         toast = ToastData(message: "Logged \(type.name)", actionTitle: "Undo") {
             undoQuickAdd(entry)
         }
@@ -154,6 +162,11 @@ struct SupplementsView: View {
     private func delete(_ entry: SupplementEntry) {
         let snapshot = SupplementEntrySnapshot(entry: entry)
         modelContext.delete(entry)
+        guard modelContext.saveOrRollback() else {
+            toast = ToastData(message: "Couldn't delete entry", actionTitle: nil, onAction: nil)
+            return
+        }
+        MarbleHaptics.warning()
         toast = ToastData(message: "Entry deleted", actionTitle: "Undo") {
             undoDelete(snapshot)
         }
@@ -161,11 +174,17 @@ struct SupplementsView: View {
 
     private func undoDelete(_ snapshot: SupplementEntrySnapshot) {
         snapshot.restore(in: modelContext)
+        if modelContext.saveOrRollback() {
+            MarbleHaptics.lightImpact()
+        }
         toast = nil
     }
 
     private func undoQuickAdd(_ entry: SupplementEntry) {
         modelContext.delete(entry)
+        if modelContext.saveOrRollback() {
+            MarbleHaptics.lightImpact()
+        }
         toast = nil
     }
 }

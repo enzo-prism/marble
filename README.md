@@ -15,14 +15,22 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 - **Trends** — Swift Charts for consistency, volume, per-exercise progress, supplements, PRs.
 - **Import** — bring workouts in from Apple Health (Apple Watch, Garmin, …) and Strava. See
   [`INTEGRATIONS.md`](INTEGRATIONS.md).
-- **Rest Live Activity** — a WidgetKit extension shows between-set rest countdowns on the
-  Lock Screen / Dynamic Island after interactive set logging.
+- **Rest timer** — after interactive set logging, a tab-bar pill counts the rest down inside
+  the app (iOS 26 bottom accessory, with an End button), while a WidgetKit Live Activity
+  mirrors it on the Lock Screen / Dynamic Island.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-06-23)
+## Current state (2026-07-01)
 
-- Code baseline: `main` is **1.9 (build 29)**, adding a **personal-records (PR)** feature on
+- **1.9 (build 30)** is an iOS 26 design/UX polish pass: an in-app **rest-timer pill**
+  (tab-bar bottom accessory with live countdown + End button — the rest timer finally has an
+  in-app surface; the Lock Screen Live Activity mirrors it), an Import-sheet zoom morph from
+  its toolbar button, `ToolbarSpacer` grouping so the primary "+" gets its own glass capsule,
+  an explicit Cancel button on Log Set, and a selection-haptics pass (preset chips, trend
+  range, calendar days, Supplements quick-add/delete with explicit save-or-rollback). Unit
+  suite is **168 tests**; a new `RestTimerPillUITests` covers the pill end-to-end.
+- Previous baseline: **1.9 (build 29)** added a **personal-records (PR)** feature on
   top of build 28: all-time heaviest-weight and most-reps bests per exercise, a celebratory
   trophy badge on every record-setting set in the Journal/quick-log card, and a "Personal
   best" target card + live "New PR!" cue while logging (see `marble/Components/
