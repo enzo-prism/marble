@@ -312,7 +312,14 @@ struct AddSetView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        closeSheet()
+                    }
+                    .tint(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityIdentifier("AddSet.Cancel")
+                }
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         save()
                     }
@@ -674,6 +681,7 @@ struct AddSetView: View {
         let shape = Capsule(style: .continuous)
         return Button {
             distance = preset
+            MarbleHaptics.selection()
         } label: {
             Text("\(valueText) \(distanceUnit.symbol)")
                 .font(MarbleTypography.chip)

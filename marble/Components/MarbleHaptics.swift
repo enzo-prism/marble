@@ -27,4 +27,12 @@ enum MarbleHaptics {
         guard !TestHooks.isUITesting else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
+
+    /// The system selection tick for changing a value among options
+    /// (preset chips, range pickers, day selection) — deliberately quieter
+    /// than `lightImpact`, matching the HIG's selection-feedback semantics.
+    static func selection() {
+        guard !TestHooks.isUITesting else { return }
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
 }

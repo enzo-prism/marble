@@ -1,15 +1,32 @@
 # Marble Release Handoff
 
-**Last verified: 2026-06-23.** This file is the single source of truth for "where the
+**Last verified: 2026-07-01.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
-## TL;DR — what "up-to-date" means today (2026-06-23)
+## TL;DR — what "up-to-date" means today (2026-07-01)
 
-- **Code baseline:** `main` has been advanced to **1.9 (build 29)**, adding a
-  **personal-records (PR)** feature on top of build 28. New pure engine
+- **Code baseline:** `main` is being advanced to **1.9 (build 30)** — an iOS 26 design/UX
+  polish pass on top of build 29: an **in-app rest-timer pill** (`tabViewBottomAccessory`,
+  observable `RestActivityController.activeRest`, `RestTimerPillView`, End button) so the
+  rest countdown is finally visible *inside* the app (the Live Activity mirrors it as
+  before); the Journal Import sheet zoom-morphs out of its toolbar button
+  (`matchedTransitionSource` on the ToolbarItem — item-level, NOT on the button, which
+  corrupts toolbar accessibility); `ToolbarSpacer(.fixed)` separates the primary "+" into
+  its own glass capsule on Journal/Trends/Supplements; Add Set gains a Cancel button
+  (`.cancellationAction`, Save is `.confirmationAction`); a haptics pass
+  (`MarbleHaptics.selection()` on preset chips / trend range / calendar day; Supplements
+  quick-add/delete/undo now haptic + explicit `saveOrRollback` with failure toasts).
+  Unit suite = **168 tests** (new `RestActivityControllerTests` state-machine coverage);
+  new `RestTimerPillUITests` (launches with a real `now` + `MARBLE_ENABLE_REST_PILL`).
+- **Host testing caveat (2026-07-01):** two `JournalFlowUITests` cases
+  (`testDualDumbbell…`, `testSprint…`) fail on this Mac **on clean main too** (keyboard
+  Return-key AX flake in `dismissKeyboardIfPresent`); environmental, not a release gate.
+  Everything else in `make ui` + `make audit` is green.
+- **Previous baseline:** build 29 added the **personal-records (PR)** feature on top of
+  build 28. New pure engine
   `marble/Components/PersonalRecords.swift` computes, all-time and weight/reps-only: a trail
   of every record-setting set (each badged in the Journal + quick-log card), the heaviest and
   most-reps bests (each shown as its full weight × reps combo), and the usual working range.
@@ -27,8 +44,8 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   endpoint has flapped on past uploads (build 28 needed retry 4); build 29 landed on the first
   attempt. Workaround when it's down: build the IPA once (`make asc-archive` + `make asc-export`)
   then loop `asc publish testflight --ipa <prebuilt> --group "test group A"` until it recovers.
-- **Current working project version:** **1.9 (build 29)** on `main`;
-  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 29` in
+- **Current working project version:** **1.9 (build 30)**;
+  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 30` in
   `marble.xcodeproj/project.pbxproj`.
 - **Build/test health:** Xcode 26.5 / iOS 26.5 simulator is installed locally; the
   build 29 unit suite is green: `MarbleTests` (**164 unit tests, 0 failures**), which now
