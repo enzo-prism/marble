@@ -84,4 +84,60 @@ final class TrendsDerivedDataTests: MarbleTestCase {
 
         XCTAssertEqual(derived.consistencyAccessibilityValue, "3 sets over 2 active days")
     }
+
+    /// The Trends queries are now range-scoped at the store (TrendsContentView
+    /// builds a `performedAt >= startDate` predicate at init), so `build()`
+    /// receives only in-range rows. This pins that a pre-scoped input produces
+    /// exactly the same derivation as the old fetch-everything input — i.e.
+    /// the query scoping is a pure performance change, not a behavior change.
+    func testPreScopedInputMatchesUnscopedDerivation() {
+        let exercise = bench()
+        var entries: [SetEntry] = []
+        // 60 days of history: half inside the 30-day range, half outside.
+        for daysAgo in 0..<60 {
+            entries.append(SetEntry(
+                exercise: exercise,
+                performedAt: date(daysFromNow: -daysAgo, hour: 9, minute: 0),
+                weight: Double(100 + daysAgo),
+                weightUnit: .lb,
+                reps: 5,
+                restAfterSeconds: 90
+            ))
+        }
+
+        let cutoff = TrendRange.thirtyDays.startDate
+        XCTAssertNotNil(cutoff)
+        let scoped = entries.filter { entry in
+            cutoff.map { entry.performedAt >= $0 } ?? true
+        }
+        XCTAssertLessThan(scoped.count, entries.count, "The fixture must actually have out-of-range rows")
+
+        let fromAll = TrendsDerivedData.build(
+            entries: entries,
+            supplementEntries: [],
+            selectedExercise: nil,
+            selectedSupplementType: nil,
+            range: .thirtyDays,
+            calendar: calendar,
+            now: now
+        )
+        let fromScoped = TrendsDerivedData.build(
+            entries: scoped,
+            supplementEntries: [],
+            selectedExercise: nil,
+            selectedSupplementType: nil,
+            range: .thirtyDays,
+            calendar: calendar,
+            now: now
+        )
+
+        XCTAssertEqual(fromScoped.filteredEntries.map(\.id), fromAll.filteredEntries.map(\.id))
+        XCTAssertEqual(fromScoped.activeDayCount, fromAll.activeDayCount)
+        XCTAssertEqual(fromScoped.consistencySummaries.map(\.count), fromAll.consistencySummaries.map(\.count))
+        XCTAssertEqual(fromScoped.weeklySummaries.map(\.weightedVolume), fromAll.weeklySummaries.map(\.weightedVolume))
+        XCTAssertEqual(fromScoped.bestWeightEntry?.id, fromAll.bestWeightEntry?.id)
+        XCTAssertEqual(fromScoped.bestReps, fromAll.bestReps)
+        XCTAssertEqual(fromScoped.consistencyAccessibilityValue, fromAll.consistencyAccessibilityValue)
+        XCTAssertEqual(fromScoped.volumeAccessibilityValue, fromAll.volumeAccessibilityValue)
+    }
 }

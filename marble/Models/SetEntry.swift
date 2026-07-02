@@ -3,7 +3,10 @@ import SwiftData
 
 @Model
 final class SetEntry {
-    #Index<SetEntry>([\.performedAt])
+    // `performedAt` backs the journal/trends sorts and date-range scoping;
+    // `updatedAt` backs the O(1) latest-edit lookup the render-memo
+    // signatures use instead of walking every row per body evaluation.
+    #Index<SetEntry>([\.performedAt], [\.updatedAt])
 
     @Attribute(.unique) var id: UUID
     var exercise: Exercise

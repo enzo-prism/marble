@@ -16,6 +16,10 @@ struct JournalView: View {
     @Query(filter: #Predicate<SplitPlan> { $0.isActive == true }, sort: \SplitPlan.updatedAt, order: .reverse)
     private var activeSplitPlans: [SplitPlan]
 
+    /// One-row freshness probe for the memo signature (see LatestUpdateQueries).
+    @Query(LatestUpdateQueries.setEntry)
+    private var latestUpdatedEntries: [SetEntry]
+
     @State private var toast: ToastData?
     @State private var pendingUndo: SetEntrySnapshot?
     @State private var quickLogUndoID: UUID?
@@ -160,7 +164,7 @@ struct JournalView: View {
     private var derived: JournalDerived {
         let signature = JournalSectionsSignature(
             count: entries.count,
-            latestUpdate: entries.reduce(Date.distantPast) { Swift.max($0, $1.updatedAt) }
+            latestUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast
         )
         return derivedMemo.value(for: signature) {
             // entries arrive sorted newest-first from the query, so grouping

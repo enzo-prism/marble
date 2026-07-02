@@ -1,14 +1,26 @@
 # Marble Release Handoff
 
-**Last verified: 2026-07-01.** This file is the single source of truth for "where the
+**Last verified: 2026-07-02.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
-## TL;DR — what "up-to-date" means today (2026-07-01)
+## TL;DR — what "up-to-date" means today (2026-07-02)
 
-- **Code baseline:** `main` is being advanced to **1.9 (build 31)** — a workout-import
+- **Code baseline:** `main` is being advanced to **1.9 (build 32)** — a performance pass
+  for all supported iPhones (A13 floor): range-scoped Trends `@Query`s (thin `TrendsView`
+  shell + `TrendsContentView` init-built predicates — the documented dynamic-query
+  pattern; "All" stays unbounded by design), day-scoped `ProgressMediaSection` query,
+  one-row `updatedAt` freshness probes (`LatestUpdateQueries` + new `updatedAt` indexes
+  on SetEntry/SupplementEntry/ProgressMediaAttachment — additive, lightweight migration)
+  replacing the per-frame O(n) signature reduces, and Journal-style memoization for
+  Supplements grouping. Equivalence test proves scoping is behavior-identical; 3
+  `measure()` tripwires (`DerivationPerformanceTests`) pin the 5k-row derivation costs.
+  Unit suite = **182 tests**. Deliberately NOT changed: Journal/Calendar full-history
+  queries (behavior), chart mark construction (pre-bucketed small N), launch path
+  (already deferred).
+- **Build 31 baseline:** a workout-import
   overhaul on top of build 30: enriched `ImportedWorkout` ledger (kind/origin/source app/
   device/distance/duration/calories/avg+max HR/elevation/indoor — all additive optional
   fields, lightweight migration) with `SetEntry.importedWorkout` linkage; provenance
@@ -62,8 +74,8 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   publish testflight` requires `--app 6757725234` (or `ASC_APP_ID`); use `--wait` to poll to
   `VALID`. Workaround when betaGroups is down: build the IPA once (`make asc-archive` +
   `make asc-export`) then loop the publish command until it recovers.
-- **Current working project version:** **1.9 (build 31)**;
-  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 31` in
+- **Current working project version:** **1.9 (build 32)**;
+  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 32` in
   `marble.xcodeproj/project.pbxproj`.
 - **Build/test health:** Xcode 26.5 / iOS 26.5 simulator is installed locally; the
   build 29 unit suite is green: `MarbleTests` (**164 unit tests, 0 failures**), which now

@@ -12,8 +12,23 @@ struct ProgressMediaSection: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    @Query(sort: \ProgressMediaAttachment.createdAt, order: .reverse)
-    private var attachments: [ProgressMediaAttachment]
+    /// Scoped to this section's single day at init: the store does the
+    /// filtering (instead of fetching every attachment ever and filtering
+    /// per body pass), so a years-deep media library costs this sheet nothing.
+    @Query private var attachments: [ProgressMediaAttachment]
+
+    init(date: Date) {
+        self.date = date
+        let dayStart = Calendar.current.startOfDay(for: date)
+        let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+        _attachments = Query(
+            filter: #Predicate<ProgressMediaAttachment> {
+                $0.attachedToDate >= dayStart && $0.attachedToDate < dayEnd
+            },
+            sort: \ProgressMediaAttachment.createdAt,
+            order: .reverse
+        )
+    }
 
     @State private var selectedItems: [PhotosPickerItem] = []
     @State private var isImporting = false
@@ -122,10 +137,9 @@ struct ProgressMediaSection: View {
         .accessibilityHint("Choose photos or videos to attach to \(DateHelper.dayLabel(for: date)).")
     }
 
+    /// The day-scoped query already filters and sorts; no per-body work left.
     private var progressAttachments: [ProgressMediaAttachment] {
         attachments
-            .filter { calendar.isDate($0.attachedToDate, inSameDayAs: date) }
-            .sorted { $0.createdAt > $1.createdAt }
     }
 
     private var progressSummary: String {

@@ -55,6 +55,9 @@ enum ProgressMediaKind: String, Codable, CaseIterable, Identifiable {
 
 @Model
 final class ProgressMediaAttachment {
+    // `attachedToDate` backs the per-day media query on the calendar sheet;
+    // `updatedAt` backs the O(1) latest-edit lookup for memo signatures.
+    #Index<ProgressMediaAttachment>([\.attachedToDate], [\.updatedAt])
     @Attribute(.unique) var id: UUID
     var attachedToDate: Date
     var kindRaw: String
