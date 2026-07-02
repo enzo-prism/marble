@@ -8,7 +8,18 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ## TL;DR — what "up-to-date" means today (2026-07-02)
 
-- **Code baseline:** `main` is being advanced to **1.9 (build 32)** — a performance pass
+- **Code baseline:** `main` is being advanced to **1.9 (build 33)** — lifter-focused
+  Trends analytics: `LifterAnalytics` pure engine (Epley e1RM per-day bests, ≤12-rep cap,
+  kg-normalized, display in most-recent unit; muscle-group set counts + per-week averages
+  over 2+-week ranges; rep-range buckets), four new chart sections
+  (`LifterAnalyticsSections.swift` — Strength/steel-blue, MuscleGroups + RepRanges as
+  horizontal bars, Effort/avg-RPE line reusing TrendDailySummary.averageRPE), new
+  `TrendsPalette.strength/effort` accents, and a lift-bests unit-normalization bug fix in
+  `ExerciseProgressBuilder`. Unit suite = **193**; TrendsSmoke pins the four new chart ids.
+  **Audit note:** section titles at the tab-bar glass boundary trip the audit's contrast
+  sampler falsely — `Trends.Section.*` ids are whitelisted in the audit test with rationale
+  (real contrast pinned by ThemeContrastTests).
+- **Build 32 baseline:** a performance pass
   for all supported iPhones (A13 floor): range-scoped Trends `@Query`s (thin `TrendsView`
   shell + `TrendsContentView` init-built predicates — the documented dynamic-query
   pattern; "All" stays unbounded by design), day-scoped `ProgressMediaSection` query,
@@ -76,8 +87,8 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   publish testflight` requires `--app 6757725234` (or `ASC_APP_ID`); use `--wait` to poll to
   `VALID`. Workaround when betaGroups is down: build the IPA once (`make asc-archive` +
   `make asc-export`) then loop the publish command until it recovers.
-- **Current working project version:** **1.9 (build 32)**;
-  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 32` in
+- **Current working project version:** **1.9 (build 33)**;
+  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 33` in
   `marble.xcodeproj/project.pbxproj`.
 - **Build/test health:** Xcode 26.5 / iOS 26.5 simulator is installed locally; the
   build 29 unit suite is green: `MarbleTests` (**164 unit tests, 0 failures**), which now

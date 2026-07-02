@@ -23,6 +23,13 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-07-02)
 
+- **1.9 (build 33)** adds **lifter-focused analytics** to Trends: an estimated-1RM
+  progression chart per exercise (Epley, sets ≤12 reps, unit-normalized — with the
+  all-time best marked), sets per muscle group with weekly averages (RP volume-landmark
+  style), rep-range distribution (1–5 / 6–12 / 13+), and an Effort chart (average RPE per
+  day/week — the fatigue/adaptation cue). Pure engine in
+  `marble/Features/Trends/LifterAnalytics.swift`; also fixes lift-bests comparing weights
+  across units without normalizing. Unit suite is **193 tests**.
 - **1.9 (build 32)** is a **performance pass for all supported iPhones** (A13 floor): the
   Trends queries are finally range-scoped (`TrendsView` shell + `TrendsContentView`
   rebuilding `@Query` predicates per range — the documented dynamic-query pattern); the

@@ -28,6 +28,13 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         }
         waitFor(supplementsChart)
 
+        // The lifter-analytics sections sit between the volume chart and the
+        // supplements section; by the time the scroll reached supplements they
+        // have rendered at least once, so existence checks are stable here.
+        assertChartReachable("Trends.MuscleGroupsChart")
+        assertChartReachable("Trends.RepRangesChart")
+        assertChartReachable("Trends.EffortChart")
+
         let prCards = app.otherElements["Trends.PRCards"]
         if !prCards.exists {
             let scrollView = app.scrollViews["Trends.Scroll"]
@@ -65,6 +72,10 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         forceTap(benchOption)
         XCTAssertEqual(exerciseFilterButton.value as? String, "Bench Press")
         XCTAssertTrue(chartElement("Trends.ConsistencyChart").exists)
+
+        // With a weight+reps exercise selected, the estimated-1RM section
+        // renders below Progress (fixture Bench Press sets are ≤ 12 reps).
+        assertChartReachable("Trends.StrengthChart")
 
         forceTap(exerciseFilterButton)
         let allExercisesOption = waitForIdentifier("Trends.ExerciseSearch.All", timeout: 6)
@@ -105,5 +116,25 @@ final class TrendsSmokeUITests: MarbleUITestCase {
             return legacyChartElement
         }
         return app.buttons[identifier]
+    }
+
+    /// Finds a chart anywhere in the hierarchy, scrolling down a few times if
+    /// it hasn't been materialized yet.
+    private func assertChartReachable(_ identifier: String, file: StaticString = #file, line: UInt = #line) {
+        let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        if !element.exists {
+            let scrollView = app.scrollViews["Trends.Scroll"]
+            for _ in 0..<4 {
+                if scrollView.exists {
+                    scrollView.swipeUp()
+                } else {
+                    app.swipeUp()
+                }
+                if element.exists {
+                    break
+                }
+            }
+        }
+        XCTAssertTrue(element.waitForExistence(timeout: 6), "Missing chart \(identifier)", file: file, line: line)
     }
 }
