@@ -64,8 +64,10 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   (`MarbleHaptics.celebrate()`). Weight records are unit-normalized (lb/kg) before comparison.
   Build 28 (perf/iOS 26 pass, `RenderMemo`, `@Observable` migration, handwritten workout scan)
   remains underneath. `origin/release/1.9` may still point at the older 1.9 build 20 baseline.
-- **Latest TestFlight build:** **1.9 (build 31)** uploaded 2026-07-01 carrying the workout
-  import overhaul; processing **`VALID`** (build id `c5caf019-7fba-4441-a6a6-bfc5823e29b4`).
+- **Latest TestFlight build:** **1.9 (build 32)** uploaded 2026-07-02 carrying the
+  all-iPhones performance pass; processing **`VALID`** (build id
+  `6afb27d5-e894-43cb-829e-bb2e044d08cc`). Build 31
+  (`c5caf019-7fba-4441-a6a6-bfc5823e29b4`, workout-import overhaul) remains `VALID`.
   Build 30 (`256edfc1-9644-40a1-a955-c24bb844b15c`, iOS 26 design/UX polish + rest pill) and
   build 29 (`e61a527f-4780-4e10-9f95-fdf0914cb0ec`, Personal Records) remain `VALID`. The
   internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) receives all builds,
