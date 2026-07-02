@@ -52,15 +52,16 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   (`MarbleHaptics.celebrate()`). Weight records are unit-normalized (lb/kg) before comparison.
   Build 28 (perf/iOS 26 pass, `RenderMemo`, `@Observable` migration, handwritten workout scan)
   remains underneath. `origin/release/1.9` may still point at the older 1.9 build 20 baseline.
-- **Latest TestFlight build:** **1.9 (build 29)** uploaded on 2026-06-23 carrying the PR
-  feature; App Store Connect reports processing **`VALID`** (build id
-  `e61a527f-4780-4e10-9f95-fdf0914cb0ec`). The internal group `test group A`
-  (`514a95e2-28fc-436b-b624-9aaec2963adc`) already receives all builds, so it is testable
-  immediately. Build 28 (`54c40cc8-2189-4bf5-bb57-4ec45092bcee`) and build 27
-  (`b3e36109-7e4e-434e-877d-210219ef3893`) remain `VALID`. **Note:** Apple's ASC *betaGroups*
-  endpoint has flapped on past uploads (build 28 needed retry 4); build 29 landed on the first
-  attempt. Workaround when it's down: build the IPA once (`make asc-archive` + `make asc-export`)
-  then loop `asc publish testflight --ipa <prebuilt> --group "test group A"` until it recovers.
+- **Latest TestFlight build:** **1.9 (build 31)** uploaded 2026-07-01 carrying the workout
+  import overhaul; processing **`VALID`** (build id `c5caf019-7fba-4441-a6a6-bfc5823e29b4`).
+  Build 30 (`256edfc1-9644-40a1-a955-c24bb844b15c`, iOS 26 design/UX polish + rest pill) and
+  build 29 (`e61a527f-4780-4e10-9f95-fdf0914cb0ec`, Personal Records) remain `VALID`. The
+  internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) receives all builds,
+  so each is testable immediately. **Note:** Apple's ASC *betaGroups* endpoint has flapped on
+  past uploads (build 28 needed retry 4); builds 29–31 landed on the first attempt. `asc
+  publish testflight` requires `--app 6757725234` (or `ASC_APP_ID`); use `--wait` to poll to
+  `VALID`. Workaround when betaGroups is down: build the IPA once (`make asc-archive` +
+  `make asc-export`) then loop the publish command until it recovers.
 - **Current working project version:** **1.9 (build 31)**;
   `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 31` in
   `marble.xcodeproj/project.pbxproj`.
