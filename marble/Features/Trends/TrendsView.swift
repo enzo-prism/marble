@@ -169,6 +169,13 @@ struct TrendsContentView: View {
                                         }
                                     }
                                 }
+
+                                if let oneRepMaxSeries = derived.oneRepMaxSeries {
+                                    OneRepMaxSectionView(
+                                        series: oneRepMaxSeries,
+                                        accessibilityValue: derived.oneRepMaxAccessibilityValue
+                                    )
+                                }
                             }
 
                             VStack(alignment: .leading, spacing: MarbleSpacing.s) {
@@ -176,6 +183,25 @@ struct TrendsContentView: View {
                                     .font(MarbleTypography.sectionTitle)
                                     .foregroundColor(Theme.primaryTextColor(for: colorScheme))
                                 volumeChart(derived: derived)
+                            }
+
+                            if !derived.muscleGroupSets.isEmpty {
+                                MuscleGroupSectionView(
+                                    groups: derived.muscleGroupSets,
+                                    accessibilityValue: derived.muscleGroupAccessibilityValue
+                                )
+                            }
+
+                            if !derived.repRangeBuckets.isEmpty {
+                                RepRangeSectionView(buckets: derived.repRangeBuckets)
+                            }
+
+                            if derived.effortSummaries.count > 1 {
+                                EffortSectionView(
+                                    summaries: derived.effortSummaries,
+                                    usesWeeks: consistencyUsesWeeks,
+                                    accessibilityValue: derived.effortAccessibilityValue
+                                )
                             }
                         } else {
                             Text("No workout data for this range.")

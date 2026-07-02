@@ -39,6 +39,17 @@ struct TrendsDerivedData {
     let progressPoints: [ExerciseProgressPoint]
     let liftBests: ExerciseLiftBests?
 
+    // Lifter analytics (see LifterAnalytics): estimated-1RM progression for
+    // the selected exercise, set counts per muscle group, rep-range
+    // distribution, and the effort (average-RPE) trend — all derived from the
+    // same filtered entries in this one build pass.
+    let oneRepMaxSeries: LifterAnalytics.OneRepMaxSeries?
+    let muscleGroupSets: [LifterAnalytics.MuscleGroupSets]
+    let repRangeBuckets: [LifterAnalytics.RepRangeBucket]
+    /// Consistency buckets that actually contain sets, re-used as the effort
+    /// series (their `averageRPE` is already derived per bucket).
+    let effortSummaries: [TrendDailySummary]
+
     // PR-card bests, derived once here instead of re-scanning `filteredEntries`
     // inside the view body on every render (including chart scrubbing).
     let bestWeightEntry: SetEntry?
@@ -52,6 +63,9 @@ struct TrendsDerivedData {
     let consistencyAccessibilityValue: String
     let volumeAccessibilityValue: String
     let supplementAccessibilityValue: String
+    let oneRepMaxAccessibilityValue: String
+    let muscleGroupAccessibilityValue: String
+    let effortAccessibilityValue: String
 
     static func build(
         entries: [SetEntry],
@@ -214,6 +228,16 @@ struct TrendsDerivedData {
         let bestReps = filteredEntries.compactMap { $0.reps }.max()
         let bestDuration = filteredEntries.compactMap { $0.durationSeconds }.max()
 
+        let oneRepMaxSeries = selectedExercise.flatMap {
+            LifterAnalytics.oneRepMaxSeries(entries: filteredEntries, exercise: $0, calendar: calendar)
+        }
+        let muscleGroupSets = LifterAnalytics.muscleGroupSets(
+            entries: filteredEntries,
+            weekCount: LifterAnalytics.weekCount(range: range, entries: filteredEntries, now: now)
+        )
+        let repRangeBuckets = LifterAnalytics.repRangeDistribution(entries: filteredEntries)
+        let effortSummaries = consistencySummaries.filter { $0.count > 0 }
+
         let usesWeeks = granularity == .week
 
         return TrendsDerivedData(
@@ -233,6 +257,10 @@ struct TrendsDerivedData {
             supplementSummariesWithLogs: resolvedSupplementSummaries.filter { $0.count > 0 },
             progressPoints: selectedExercise.map { ExerciseProgressBuilder.buildPoints(entries: filteredEntries, exercise: $0, range: range) } ?? [],
             liftBests: selectedExercise.flatMap { ExerciseProgressBuilder.buildLiftBests(entries: filteredEntries, exercise: $0, range: range) },
+            oneRepMaxSeries: oneRepMaxSeries,
+            muscleGroupSets: muscleGroupSets,
+            repRangeBuckets: repRangeBuckets,
+            effortSummaries: effortSummaries,
             bestWeightEntry: bestWeightEntry,
             bestDistanceEntry: bestDistanceEntry,
             fastestSpeedEntry: fastestSpeedEntry,
@@ -240,8 +268,33 @@ struct TrendsDerivedData {
             bestDuration: bestDuration,
             consistencyAccessibilityValue: Self.makeConsistencyAccessibilityValue(consistencySummaries, usesWeeks: usesWeeks),
             volumeAccessibilityValue: Self.makeVolumeAccessibilityValue(volumeData),
-            supplementAccessibilityValue: Self.makeSupplementAccessibilityValue(resolvedSupplementSummaries, mode: supplementDisplayMode, usesWeeks: usesWeeks)
+            supplementAccessibilityValue: Self.makeSupplementAccessibilityValue(resolvedSupplementSummaries, mode: supplementDisplayMode, usesWeeks: usesWeeks),
+            oneRepMaxAccessibilityValue: Self.makeOneRepMaxAccessibilityValue(oneRepMaxSeries),
+            muscleGroupAccessibilityValue: Self.makeMuscleGroupAccessibilityValue(muscleGroupSets),
+            effortAccessibilityValue: Self.makeEffortAccessibilityValue(effortSummaries, usesWeeks: usesWeeks)
         )
+    }
+
+    private static func makeOneRepMaxAccessibilityValue(_ series: LifterAnalytics.OneRepMaxSeries?) -> String {
+        guard let series, let best = series.best else { return "No data" }
+        let bestText = Formatters.weight.string(from: NSNumber(value: best.displayValue)) ?? "\(Int(best.displayValue))"
+        return "Best estimated one rep max \(bestText) \(series.displayUnit.symbol), across \(series.points.count) training days"
+    }
+
+    private static func makeMuscleGroupAccessibilityValue(_ groups: [LifterAnalytics.MuscleGroupSets]) -> String {
+        guard !groups.isEmpty else { return "No data" }
+        let top = groups.prefix(3)
+            .map { "\($0.category.displayName) \($0.setCount)" }
+            .joined(separator: ", ")
+        return "Sets by muscle group, most trained: \(top)"
+    }
+
+    private static func makeEffortAccessibilityValue(_ summaries: [TrendDailySummary], usesWeeks: Bool) -> String {
+        let values = summaries.compactMap(\.averageRPE)
+        guard !values.isEmpty else { return "No data" }
+        let average = values.reduce(0, +) / Double(values.count)
+        let bucketLabel = usesWeeks ? "weeks" : "days"
+        return String(format: "Average effort RPE %.1f over %d active %@", average, values.count, bucketLabel)
     }
 
     // MARK: - Accessibility summaries

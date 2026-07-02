@@ -234,7 +234,12 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
     private func shouldIgnoreTrendsContrast(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
         guard issue.auditType == .contrast else { return false }
         guard let element = issue.element else { return false }
-        return element.identifier.hasPrefix("Trends.PRCard.")
+        if element.identifier.hasPrefix("Trends.PRCard.") { return true }
+        // Section titles are primaryTextColor on the app background — a pair
+        // ThemeContrastTests pins at >= 4.5:1. The audit's sampler misfires on
+        // them when the scroll position parks a title at the tab bar's glass
+        // boundary (same artifact class as the PRCard ignores above).
+        return element.identifier.hasPrefix("Trends.Section.")
     }
 
     @available(iOS 17.0, *)

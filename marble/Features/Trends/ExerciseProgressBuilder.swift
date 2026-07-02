@@ -72,11 +72,13 @@ enum ExerciseProgressBuilder {
             return true
         }
 
+        // Compare in kilograms so a 100 kg set beats a 100 lb set — the same
+        // unit-normalization PersonalRecords uses for the journal's PR badges.
         let heaviestEntry = filtered
             .filter { $0.weight != nil }
             .max { lhs, rhs in
-                let lhsWeight = lhs.weight ?? 0
-                let rhsWeight = rhs.weight ?? 0
+                let lhsWeight = PersonalRecords.kilograms(lhs.weight ?? 0, unit: lhs.weightUnit)
+                let rhsWeight = PersonalRecords.kilograms(rhs.weight ?? 0, unit: rhs.weightUnit)
                 if lhsWeight == rhsWeight {
                     return (lhs.reps ?? 0) < (rhs.reps ?? 0)
                 }
@@ -89,7 +91,8 @@ enum ExerciseProgressBuilder {
                 let lhsReps = lhs.reps ?? 0
                 let rhsReps = rhs.reps ?? 0
                 if lhsReps == rhsReps {
-                    return (lhs.weight ?? 0) < (rhs.weight ?? 0)
+                    return PersonalRecords.kilograms(lhs.weight ?? 0, unit: lhs.weightUnit)
+                        < PersonalRecords.kilograms(rhs.weight ?? 0, unit: rhs.weightUnit)
                 }
                 return lhsReps < rhsReps
             }

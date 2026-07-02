@@ -215,4 +215,40 @@ final class ExerciseProgressBuilderTests: MarbleTestCase {
         let day = calendar.date(byAdding: .day, value: daysFromNow, to: start) ?? start
         return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
     }
+    /// Regression: bests must compare in kilograms — 100 kg beats 200 lb
+    /// (90.7 kg) even though 200 > 100 numerically.
+    func testLiftBestsNormalizeUnitsWhenComparing() {
+        let exercise = Exercise(
+            name: "Bench",
+            category: .chest,
+            metrics: .weightAndRepsRequired,
+            defaultRestSeconds: 90
+        )
+        let poundsSet = SetEntry(
+            exercise: exercise,
+            performedAt: date(daysFromNow: 0, hour: 9, minute: 0),
+            weight: 200,
+            weightUnit: .lb,
+            reps: 5,
+            restAfterSeconds: 90
+        )
+        let kilogramsSet = SetEntry(
+            exercise: exercise,
+            performedAt: date(daysFromNow: 0, hour: 10, minute: 0),
+            weight: 100,
+            weightUnit: .kg,
+            reps: 3,
+            restAfterSeconds: 90
+        )
+
+        let bests = ExerciseProgressBuilder.buildLiftBests(
+            entries: [poundsSet, kilogramsSet],
+            exercise: exercise,
+            range: .all
+        )
+
+        XCTAssertEqual(bests?.heaviestEntry?.weight, 100)
+        XCTAssertEqual(bests?.heaviestEntry?.weightUnit, .kg)
+    }
+
 }
