@@ -23,7 +23,19 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-07-01)
 
-- **1.9 (build 30)** is an iOS 26 design/UX polish pass: an in-app **rest-timer pill**
+- **1.9 (build 31)** overhauls the **workout import** feature end-to-end: structured
+  workout detail (kind, origin, source app, device, distance, duration, calories, avg/max
+  heart rate, elevation, indoor/outdoor) captured on the `ImportedWorkout` ledger with
+  every journal entry linked back (`SetEntry.importedWorkout`); a read-only workout detail
+  sheet with a live heart-rate sparkline (Swift Charts + `HKStatisticsCollectionQuery`);
+  optional **auto-import** of new Apple Health workouts on every app-open (incremental
+  `HKAnchoredObjectQuery` with a persisted anchor, `HealthAutoImportService`); honest
+  read-authorization UX (`getRequestStatusForAuthorization` — the old build misread the
+  write-side sharing status); an expanded activity-type mapping (rowing/HIIT/elliptical/
+  sports/multisport); Garmin bridge status + step-by-step setup + `gcm-ciq://` deep link;
+  an import history section; and provenance badges on imported sets in the journal. See
+  [`INTEGRATIONS.md`](INTEGRATIONS.md).
+- **1.9 (build 30)** was an iOS 26 design/UX polish pass: an in-app **rest-timer pill**
   (tab-bar bottom accessory with live countdown + End button — the rest timer finally has an
   in-app surface; the Lock Screen Live Activity mirrors it), an Import-sheet zoom morph from
   its toolbar button, `ToolbarSpacer` grouping so the primary "+" gets its own glass capsule,

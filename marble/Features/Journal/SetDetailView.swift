@@ -185,6 +185,10 @@ struct SetDetailView: View {
                     .accessibilityIdentifier("SetDetail.Notes")
             }
 
+            if let imported = entry.importedWorkout {
+                importedSection(imported)
+            }
+
             Section {
                 Button("Duplicate") {
                     duplicate()
@@ -220,6 +224,55 @@ struct SetDetailView: View {
             entry.updatedAt = AppEnvironment.now
             modelContext.saveOrRollback()
         }
+    }
+
+    /// Read-only provenance + workout-level stats for imported sets. The set's
+    /// own metrics stay editable above; this is what the source recorded about
+    /// the whole workout.
+    @ViewBuilder
+    private func importedSection(_ imported: ImportedWorkout) -> some View {
+        Section {
+            importedRow(label: "Origin", value: imported.displayOrigin)
+            if let app = imported.sourceAppName, app != imported.displayOrigin {
+                importedRow(label: "Via", value: app)
+            }
+            if let device = imported.deviceName {
+                importedRow(label: "Device", value: device)
+            }
+            if let calories = imported.calories, calories > 0 {
+                importedRow(label: "Calories", value: "\(Int(calories)) kcal")
+            }
+            if let average = imported.averageHeartRate, average > 0 {
+                importedRow(label: "Avg Heart Rate", value: "\(Int(average)) bpm")
+            }
+            if let maximum = imported.maxHeartRate, maximum > 0 {
+                importedRow(label: "Max Heart Rate", value: "\(Int(maximum)) bpm")
+            }
+            if let elevation = imported.elevationAscendedMeters, elevation > 0 {
+                importedRow(label: "Elevation Gain", value: "\(Int(elevation)) m")
+            }
+            if let isIndoor = imported.isIndoor {
+                importedRow(label: "Environment", value: isIndoor ? "Indoor" : "Outdoor")
+            }
+        } header: {
+            SectionHeaderView(title: "Imported Workout")
+        }
+        .accessibilityIdentifier("SetDetail.Imported")
+    }
+
+    private func importedRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(MarbleTypography.rowSubtitle)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            Spacer(minLength: MarbleSpacing.s)
+            Text(value)
+                .font(MarbleTypography.rowSubtitle)
+                .monospacedDigit()
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .multilineTextAlignment(.trailing)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private var exerciseBinding: Binding<Exercise?> {

@@ -2,15 +2,11 @@ import Foundation
 import SwiftData
 
 enum WorkoutImportMapper {
+    /// The note is now just the provenance line — calories, heart rate, and the
+    /// rest live as structured fields on the linked `ImportedWorkout`, where the
+    /// journal detail view renders them properly instead of as note text.
     static func importNote(for record: WorkoutImportRecord) -> String {
-        var parts = ["Imported from \(record.displayOrigin)"]
-        if let calories = record.calories, calories > 0 {
-            parts.append("\(Int(calories)) kcal")
-        }
-        if let hr = record.averageHeartRate, hr > 0 {
-            parts.append("\(Int(hr)) bpm avg")
-        }
-        return parts.joined(separator: " · ")
+        "Imported from \(record.displayOrigin)"
     }
 
     static func inferredCategory(for name: String) -> ExerciseCategory {

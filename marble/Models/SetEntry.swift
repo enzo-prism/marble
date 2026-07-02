@@ -20,6 +20,12 @@ final class SetEntry {
     var createdAt: Date
     var updatedAt: Date
 
+    /// The imported workout this entry came from, when it was created by the
+    /// import pipeline rather than logged by hand. Optional and additive; the
+    /// inverse lives on `ImportedWorkout.entries`. Duplicating a set does NOT
+    /// carry this over — a manual duplicate is the user's own log.
+    var importedWorkout: ImportedWorkout?
+
     init(
         id: UUID = UUID(),
         exercise: Exercise,
