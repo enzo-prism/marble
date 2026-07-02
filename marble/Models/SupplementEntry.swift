@@ -5,7 +5,9 @@ import SwiftData
 final class SupplementEntry {
     // Supplement trends/queries sort and filter by `takenAt`; index it so those
     // stay fast as history grows (mirrors `SetEntry`'s `performedAt` index).
-    #Index<SupplementEntry>([\.takenAt])
+    // `takenAt` backs the supplements sort; `updatedAt` backs the O(1)
+    // latest-edit lookup used by render-memo signatures.
+    #Index<SupplementEntry>([\.takenAt], [\.updatedAt])
 
     @Attribute(.unique) var id: UUID
     var type: SupplementType

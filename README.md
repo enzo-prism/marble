@@ -21,8 +21,17 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-01)
+## Current state (2026-07-02)
 
+- **1.9 (build 32)** is a **performance pass for all supported iPhones** (A13 floor): the
+  Trends queries are finally range-scoped (`TrendsView` shell + `TrendsContentView`
+  rebuilding `@Query` predicates per range — the documented dynamic-query pattern); the
+  calendar day-sheet's media query is day-scoped at init; Journal/Trends/Calendar/
+  Supplements memo signatures use one-row `updatedAt` probes (`LatestUpdateQueries`,
+  new indexes on `SetEntry`/`SupplementEntry`/`ProgressMediaAttachment`) instead of
+  walking every row per frame; Supplements grouping is memoized like Journal. Proven
+  behavior-preserving by an equivalence test; three `measure()` benchmarks guard the
+  hot derivations at 5k-row scale. Unit suite is **182 tests**.
 - **1.9 (build 31)** overhauls the **workout import** feature end-to-end: structured
   workout detail (kind, origin, source app, device, distance, duration, calories, avg/max
   heart rate, elevation, indoor/outdoor) captured on the `ImportedWorkout` ledger with

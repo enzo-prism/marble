@@ -14,6 +14,13 @@ struct CalendarView: View {
     @Query(sort: \ProgressMediaAttachment.createdAt, order: .reverse)
     private var progressMediaAttachments: [ProgressMediaAttachment]
 
+    /// One-row freshness probes for the memo signature (see LatestUpdateQueries).
+    @Query(LatestUpdateQueries.setEntry)
+    private var latestUpdatedEntries: [SetEntry]
+
+    @Query(LatestUpdateQueries.progressMediaAttachment)
+    private var latestUpdatedAttachments: [ProgressMediaAttachment]
+
     @State private var selectedDay: CalendarSelection?
     @State private var selectedDate: Date?
     @State private var visibleMonth = Calendar.current.dateComponents([.year, .month], from: AppEnvironment.now)
@@ -93,9 +100,9 @@ struct CalendarView: View {
     private func deriveCalendarData() -> CalendarDerivedData {
         let signature = CalendarInputSignature(
             entryCount: entries.count,
-            latestEntryUpdate: entries.reduce(Date.distantPast) { Swift.max($0, $1.updatedAt) },
+            latestEntryUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast,
             attachmentCount: progressMediaAttachments.count,
-            latestAttachmentUpdate: progressMediaAttachments.reduce(Date.distantPast) { Swift.max($0, $1.updatedAt) },
+            latestAttachmentUpdate: latestUpdatedAttachments.first?.updatedAt ?? .distantPast,
             headerDate: headerDate,
             activeDay: activeDay
         )

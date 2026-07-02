@@ -11,7 +11,16 @@ struct SupplementsView: View {
     @Query(sort: \SupplementType.name)
     private var types: [SupplementType]
 
+    /// One-row freshness probe for the memo signature (see LatestUpdateQueries).
+    @Query(LatestUpdateQueries.supplementEntry)
+    private var latestUpdatedEntries: [SupplementEntry]
+
     @State private var toast: ToastData?
+
+    // Day-grouping the full history is memoized (same pattern as Journal) so
+    // unrelated state changes — a toast appearing, a sheet opening — don't
+    // re-group and re-sort every entry on each body evaluation.
+    @State private var derivedMemo = RenderMemo<SupplementsSignature, SupplementsDerived>()
 
     var body: some View {
         NavigationStack {
@@ -99,16 +108,30 @@ struct SupplementsView: View {
         }
     }
 
-    private var groupedEntries: [Date: [SupplementEntry]] {
-        Dictionary(grouping: entries) { entry in
-            DateHelper.startOfDay(for: entry.takenAt)
-        }.mapValues { dayEntries in
-            dayEntries.sorted { $0.takenAt > $1.takenAt }
+    private var derived: SupplementsDerived {
+        let signature = SupplementsSignature(
+            count: entries.count,
+            latestUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast
+        )
+        return derivedMemo.value(for: signature) {
+            // Entries arrive sorted newest-first from the query, so grouping
+            // preserves in-day order without a per-day re-sort.
+            let grouped = Dictionary(grouping: entries) { entry in
+                DateHelper.startOfDay(for: entry.takenAt)
+            }
+            return SupplementsDerived(
+                groupedEntries: grouped,
+                sectionedDays: grouped.keys.sorted(by: >)
+            )
         }
     }
 
+    private var groupedEntries: [Date: [SupplementEntry]] {
+        derived.groupedEntries
+    }
+
     private var sectionedDays: [Date] {
-        groupedEntries.keys.sorted(by: >)
+        derived.sectionedDays
     }
 
     private var quickTypes: [SupplementType] {
@@ -193,6 +216,20 @@ private struct ToastData {
     let message: String
     let actionTitle: String?
     let onAction: (() -> Void)?
+}
+
+/// Memoized supplements derivations: entries grouped per day plus the sorted
+/// day list, computed once per data change instead of per body evaluation.
+private struct SupplementsDerived {
+    let groupedEntries: [Date: [SupplementEntry]]
+    let sectionedDays: [Date]
+}
+
+/// Cheap `Equatable` fingerprint: the count catches inserts/deletes, the
+/// one-row `updatedAt` probe catches in-place edits.
+private struct SupplementsSignature: Equatable {
+    let count: Int
+    let latestUpdate: Date
 }
 
 private struct SupplementEntrySnapshot {

@@ -2,26 +2,77 @@ import SwiftUI
 import SwiftData
 import Charts
 
+/// Thin shell that owns the selected range so the content view below can
+/// rebuild its `@Query` predicates whenever the range changes. SwiftData
+/// queries are configured at init, so date-scoping them requires the scoping
+/// input to arrive *through* init — the documented dynamic-query pattern.
+/// This finally range-scopes the app's heaviest fetches instead of loading
+/// every row ever logged on every data change.
 struct TrendsView: View {
+    @State private var range: TrendRange
+
+    private let initialExercise: Exercise?
+    private let initialSelectedDay: Date?
+    private let initialSelectedWeekStart: Date?
+    private let initialSupplementType: SupplementType?
+    private let initialSelectedSupplementDay: Date?
+
+    init(
+        initialRange: TrendRange = .thirtyDays,
+        initialExercise: Exercise? = nil,
+        initialSelectedDay: Date? = nil,
+        initialSelectedWeekStart: Date? = nil,
+        initialSupplementType: SupplementType? = nil,
+        initialSelectedSupplementDay: Date? = nil
+    ) {
+        _range = State(initialValue: initialRange)
+        self.initialExercise = initialExercise
+        self.initialSelectedDay = initialSelectedDay
+        self.initialSelectedWeekStart = initialSelectedWeekStart
+        self.initialSupplementType = initialSupplementType
+        self.initialSelectedSupplementDay = initialSelectedSupplementDay
+    }
+
+    var body: some View {
+        TrendsContentView(
+            range: $range,
+            initialExercise: initialExercise,
+            initialSelectedDay: initialSelectedDay,
+            initialSelectedWeekStart: initialSelectedWeekStart,
+            initialSupplementType: initialSupplementType,
+            initialSelectedSupplementDay: initialSelectedSupplementDay
+        )
+    }
+}
+
+struct TrendsContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     // Declared (not read) so the environment change invalidates this view:
     // range buckets anchored to "today" must re-derive on a new day.
     @Environment(\.marbleActiveDay) private var activeDay
 
-    @Query(sort: \SetEntry.performedAt, order: .reverse)
-    private var entries: [SetEntry]
+    /// Scoped to the selected range at init (see `TrendsView`): only rows the
+    /// charts can actually show are fetched and kept live. "All" keeps the
+    /// unbounded fetch — that's what the user asked to see.
+    @Query private var entries: [SetEntry]
 
     @Query(sort: \Exercise.name)
     private var exercises: [Exercise]
 
-    @Query(sort: \SupplementEntry.takenAt, order: .reverse)
-    private var supplementEntries: [SupplementEntry]
+    @Query private var supplementEntries: [SupplementEntry]
 
     @Query(sort: \SupplementType.name)
     private var supplementTypes: [SupplementType]
 
-    @State private var range: TrendRange = .thirtyDays
+    /// One-row freshness probes for the memo signature (see LatestUpdateQueries).
+    @Query(LatestUpdateQueries.setEntry)
+    private var latestUpdatedEntries: [SetEntry]
+
+    @Query(LatestUpdateQueries.supplementEntry)
+    private var latestUpdatedSupplements: [SupplementEntry]
+
+    @Binding private var range: TrendRange
     @State private var selectedExerciseID: UUID?
     @State private var selectedSupplementTypeID: UUID?
     @State private var selectedDay: Date?
@@ -37,19 +88,38 @@ struct TrendsView: View {
     @State private var derivedMemo = RenderMemo<TrendsInputSignature, TrendsDerivedData>()
 
     init(
-        initialRange: TrendRange = .thirtyDays,
+        range: Binding<TrendRange>,
         initialExercise: Exercise? = nil,
         initialSelectedDay: Date? = nil,
         initialSelectedWeekStart: Date? = nil,
         initialSupplementType: SupplementType? = nil,
         initialSelectedSupplementDay: Date? = nil
     ) {
-        _range = State(initialValue: initialRange)
+        _range = range
         _selectedExerciseID = State(initialValue: initialExercise?.id)
         _selectedDay = State(initialValue: initialSelectedDay)
         _selectedWeekStart = State(initialValue: initialSelectedWeekStart)
         _selectedSupplementTypeID = State(initialValue: initialSupplementType?.id)
         _selectedSupplementDay = State(initialValue: initialSelectedSupplementDay)
+
+        // Rebuilt whenever the range changes (the shell re-inits this view):
+        // ranged modes fetch only rows on/after the range start, served by the
+        // performedAt/takenAt indexes.
+        if let startDate = range.wrappedValue.startDate {
+            _entries = Query(
+                filter: #Predicate<SetEntry> { $0.performedAt >= startDate },
+                sort: \SetEntry.performedAt,
+                order: .reverse
+            )
+            _supplementEntries = Query(
+                filter: #Predicate<SupplementEntry> { $0.takenAt >= startDate },
+                sort: \SupplementEntry.takenAt,
+                order: .reverse
+            )
+        } else {
+            _entries = Query(sort: \SetEntry.performedAt, order: .reverse)
+            _supplementEntries = Query(sort: \SupplementEntry.takenAt, order: .reverse)
+        }
     }
 
     var body: some View {
@@ -234,8 +304,8 @@ struct TrendsView: View {
             entryCount: entries.count,
             supplementCount: supplementEntries.count,
             exerciseCount: exercises.count,
-            latestEntryUpdate: entries.reduce(Date.distantPast) { Swift.max($0, $1.updatedAt) },
-            latestSupplementUpdate: supplementEntries.reduce(Date.distantPast) { Swift.max($0, $1.updatedAt) },
+            latestEntryUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast,
+            latestSupplementUpdate: latestUpdatedSupplements.first?.updatedAt ?? .distantPast,
             range: range,
             selectedExerciseID: selectedExerciseID,
             selectedSupplementTypeID: selectedSupplementTypeID,
