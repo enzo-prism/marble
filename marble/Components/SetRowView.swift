@@ -31,7 +31,10 @@ struct SetRowView: View {
         }
 
         let summary = parts.isEmpty ? "No metrics" : parts.joined(separator: " · ")
-        let prefix = prBadge.isEmpty ? "" : "\(prBadge.accessibilityDescription). "
+        var prefix = prBadge.isEmpty ? "" : "\(prBadge.accessibilityDescription). "
+        if let imported = entry.importedWorkout {
+            prefix += "Imported from \(imported.displayOrigin). "
+        }
         return "\(prefix)\(entry.exercise.name), \(summary), RPE \(entry.difficulty), Rest \(entry.restAfterSeconds) seconds"
     }
 
@@ -54,6 +57,11 @@ struct SetRowView: View {
 
                 if !prBadge.isEmpty {
                     PRBadgeLabel(badge: prBadge)
+                        .environment(\.colorScheme, resolvedScheme)
+                }
+
+                if let imported = entry.importedWorkout {
+                    ImportedOriginBadge(origin: imported.displayOrigin)
                         .environment(\.colorScheme, resolvedScheme)
                 }
 

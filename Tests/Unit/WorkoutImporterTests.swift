@@ -118,4 +118,62 @@ final class WorkoutImporterTests: MarbleTestCase {
         let sets = try context.fetch(FetchDescriptor<SetEntry>())
         XCTAssertEqual(sets.count, 0)
     }
+
+    /// The ledger row is now the record of truth for workout-level detail, and
+    /// every journal entry links back to it so the UI can badge and expand
+    /// imported sets.
+    func testImportPersistsWorkoutDetailAndLinksEntries() throws {
+        let context = makeInMemoryContext()
+        let record = WorkoutImportRecord(
+            source: .appleHealth,
+            externalID: "hk-detail",
+            date: now,
+            title: "Running",
+            kind: .running,
+            distanceMeters: 5200,
+            durationSeconds: 1810,
+            calories: 289,
+            averageHeartRate: 152,
+            maxHeartRate: 171,
+            elevationAscendedMeters: 84,
+            isIndoor: false,
+            originName: "Garmin",
+            sourceAppName: "Garmin Connect",
+            deviceName: "Forerunner 265"
+        )
+
+        let summary = try WorkoutImporter.importRecords([record], in: context)
+        XCTAssertEqual(summary.importedWorkouts, 1)
+
+        let log = try XCTUnwrap(context.fetch(FetchDescriptor<ImportedWorkout>()).first)
+        XCTAssertEqual(log.kind, .running)
+        XCTAssertEqual(log.originName, "Garmin")
+        XCTAssertEqual(log.sourceAppName, "Garmin Connect")
+        XCTAssertEqual(log.deviceName, "Forerunner 265")
+        XCTAssertEqual(log.distanceMeters, 5200)
+        XCTAssertEqual(log.durationSeconds, 1810)
+        XCTAssertEqual(log.calories, 289)
+        XCTAssertEqual(log.averageHeartRate, 152)
+        XCTAssertEqual(log.maxHeartRate, 171)
+        XCTAssertEqual(log.elevationAscendedMeters, 84)
+        XCTAssertEqual(log.isIndoor, false)
+        XCTAssertEqual(log.displayOrigin, "Garmin")
+
+        let entry = try XCTUnwrap(context.fetch(FetchDescriptor<SetEntry>()).first)
+        XCTAssertEqual(entry.importedWorkout?.deduplicationKey, log.deduplicationKey)
+        XCTAssertEqual(log.entries.count, 1)
+    }
+
+    /// Duplicating an imported set by hand produces the user's own log — the
+    /// provenance link must not carry over.
+    func testDuplicatedEntryDropsImportLink() throws {
+        let context = makeInMemoryContext()
+        _ = try WorkoutImporter.importRecords([cardioRecord()], in: context)
+        let entry = try XCTUnwrap(context.fetch(FetchDescriptor<SetEntry>()).first)
+        XCTAssertNotNil(entry.importedWorkout)
+
+        let duplicate = entry.duplicated(at: now.addingTimeInterval(60))
+
+        XCTAssertNil(duplicate.importedWorkout)
+    }
 }

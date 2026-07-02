@@ -142,6 +142,8 @@ enum TestFixtures {
 
         entries.forEach { context.insert($0) }
 
+        seedImportedWorkout(in: context, at: at(days: -1, hour: 7, minute: 30))
+
         let supplements = (try? context.fetch(FetchDescriptor<SupplementType>())) ?? []
         let supplementsByName = Dictionary(uniqueKeysWithValues: supplements.map { ($0.name, $0) })
 
@@ -341,6 +343,53 @@ enum TestFixtures {
         }
     }
 
+    /// One fully-detailed imported workout (a Garmin run bridged through Apple
+    /// Health) with its linked journal entry, so UI tests and audits can walk
+    /// the journal's imported badge, the set detail's imported section, and
+    /// the import hub's history + detail sheet.
+    private static func seedImportedWorkout(in context: ModelContext, at date: Date) {
+        let running = Exercise(
+            name: "Running",
+            category: .run,
+            metrics: .distanceAndDurationRequired,
+            defaultRestSeconds: 0
+        )
+        context.insert(running)
+
+        let workout = ImportedWorkout(
+            source: .appleHealth,
+            externalID: "fixture-garmin-run",
+            title: "Running",
+            workoutDate: date,
+            setsImported: 1,
+            kind: .running,
+            originName: "Garmin",
+            sourceAppName: "Garmin Connect",
+            deviceName: "Forerunner 265",
+            distanceMeters: 5200,
+            durationSeconds: 1815,
+            calories: 289,
+            averageHeartRate: 152,
+            maxHeartRate: 171,
+            elevationAscendedMeters: 84,
+            isIndoor: false
+        )
+        context.insert(workout)
+
+        let entry = SetEntry(
+            exercise: running,
+            performedAt: date,
+            distance: 5200,
+            distanceUnit: .meters,
+            durationSeconds: 1815,
+            difficulty: 6,
+            restAfterSeconds: 0,
+            notes: "Imported from Garmin"
+        )
+        entry.importedWorkout = workout
+        context.insert(entry)
+    }
+
     private static func clear(_ context: ModelContext) {
         let sets = (try? context.fetch(FetchDescriptor<SetEntry>())) ?? []
         let supplements = (try? context.fetch(FetchDescriptor<SupplementEntry>())) ?? []
@@ -350,7 +399,9 @@ enum TestFixtures {
         let splitDays = (try? context.fetch(FetchDescriptor<SplitDay>())) ?? []
         let plannedSets = (try? context.fetch(FetchDescriptor<PlannedSet>())) ?? []
         let customNotifications = (try? context.fetch(FetchDescriptor<CustomNotification>())) ?? []
+        let importedWorkouts = (try? context.fetch(FetchDescriptor<ImportedWorkout>())) ?? []
 
+        importedWorkouts.forEach { context.delete($0) }
         sets.forEach { context.delete($0) }
         supplements.forEach { context.delete($0) }
         exercises.forEach { context.delete($0) }

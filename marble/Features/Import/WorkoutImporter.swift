@@ -43,9 +43,25 @@ enum WorkoutImporter {
             externalID: record.externalID,
             title: record.title,
             workoutDate: record.date,
-            setsImported: entries.count
+            setsImported: entries.count,
+            kind: record.kind,
+            originName: record.originName,
+            sourceAppName: record.sourceAppName,
+            deviceName: record.deviceName,
+            distanceMeters: record.distanceMeters,
+            durationSeconds: record.durationSeconds,
+            calories: record.calories,
+            averageHeartRate: record.averageHeartRate,
+            maxHeartRate: record.maxHeartRate,
+            elevationAscendedMeters: record.elevationAscendedMeters,
+            isIndoor: record.isIndoor
         )
         context.insert(log)
+        // Link the journal entries back to their ledger row so the journal can
+        // badge imported sets and expand the full workout detail.
+        for entry in entries {
+            entry.importedWorkout = log
+        }
         return .imported(setCount: entries.count)
     }
 

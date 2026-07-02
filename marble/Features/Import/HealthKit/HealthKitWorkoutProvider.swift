@@ -15,23 +15,62 @@ enum HealthKitImportError: LocalizedError {
     }
 }
 
+/// One averaged heart-rate bucket inside a workout window, for the detail sparkline.
+nonisolated struct HeartRatePoint: Sendable, Identifiable {
+    let id = UUID()
+    let date: Date
+    let beatsPerMinute: Double
+}
+
 struct HealthKitWorkoutProvider: WorkoutImportProvider {
     let source: ImportSource = .appleHealth
     private let healthStore: HKHealthStore
+
+    /// Newest-first cap when fetching with no date range, so "load everything"
+    /// on a years-deep Health store can't stall the UI with thousands of
+    /// per-workout enrichment queries.
+    static let unboundedFetchLimit = 500
 
     init(healthStore: HKHealthStore? = nil) {
         self.healthStore = healthStore ?? HKHealthStore()
     }
 
+    private static var readTypes: Set<HKObjectType> {
+        var types: Set<HKObjectType> = [HKObjectType.workoutType()]
+        let quantityIdentifiers: [HKQuantityTypeIdentifier] = [
+            .distanceWalkingRunning,
+            .distanceCycling,
+            .distanceSwimming,
+            .activeEnergyBurned,
+            .heartRate
+        ]
+        for identifier in quantityIdentifiers {
+            if let type = HKQuantityType.quantityType(forIdentifier: identifier) {
+                types.insert(type)
+            }
+        }
+        return types
+    }
+
+    /// Read authorization is deliberately opaque in HealthKit: the system never
+    /// reveals whether the user granted or denied *read* access, only whether we
+    /// still need to ask. So the honest states are "not connected yet"
+    /// (`shouldRequest`) and "connected" (`unnecessary` — the request was made;
+    /// what the user granted is between them and Health). The old implementation
+    /// read the *sharing* status, which reports write access we never ask for,
+    /// and could show "Access denied" to users who had granted read access.
     func authorizationStatus() async -> ImportAuthorizationStatus {
         guard HKHealthStore.isHealthDataAvailable() else {
             return .needsConfiguration("Health data isn’t available on this device.")
         }
-        switch healthStore.authorizationStatus(for: HKObjectType.workoutType()) {
-        case .sharingAuthorized:
+        let status: HKAuthorizationRequestStatus = await withCheckedContinuation { continuation in
+            healthStore.getRequestStatusForAuthorization(toShare: [], read: Self.readTypes) { status, _ in
+                continuation.resume(returning: status)
+            }
+        }
+        switch status {
+        case .unnecessary:
             return .authorized
-        case .sharingDenied:
-            return .denied
         default:
             return .notDetermined
         }
@@ -41,22 +80,8 @@ struct HealthKitWorkoutProvider: WorkoutImportProvider {
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthKitImportError.unavailable
         }
-        var readTypes: Set<HKObjectType> = [HKObjectType.workoutType()]
-        let quantityIdentifiers: [HKQuantityTypeIdentifier] = [
-            .distanceWalkingRunning,
-            .distanceCycling,
-            .distanceSwimming,
-            .activeEnergyBurned,
-            // Average heart rate enriches the imported note for Apple Watch / Garmin / etc.
-            .heartRate
-        ]
-        for identifier in quantityIdentifiers {
-            if let type = HKQuantityType.quantityType(forIdentifier: identifier) {
-                readTypes.insert(type)
-            }
-        }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            healthStore.requestAuthorization(toShare: [], read: readTypes) { success, error in
+            healthStore.requestAuthorization(toShare: [], read: Self.readTypes) { success, error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else if !success {
@@ -76,11 +101,12 @@ struct HealthKitWorkoutProvider: WorkoutImportProvider {
             HKQuery.predicateForSamples(withStart: $0.lowerBound, end: $0.upperBound, options: .strictStartDate)
         }
         let sortDescriptors = [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
+        let limit = range == nil ? Self.unboundedFetchLimit : HKObjectQueryNoLimit
         let workouts: [HKWorkout] = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKWorkout], Error>) in
             let query = HKSampleQuery(
                 sampleType: HKObjectType.workoutType(),
                 predicate: predicate,
-                limit: HKObjectQueryNoLimit,
+                limit: limit,
                 sortDescriptors: sortDescriptors
             ) { _, samples, error in
                 if let error {
@@ -91,61 +117,151 @@ struct HealthKitWorkoutProvider: WorkoutImportProvider {
             }
             healthStore.execute(query)
         }
+        return await Self.records(from: workouts, in: healthStore)
+    }
 
-        // Apple Health stores heart-rate as standalone samples, not as a field on the
-        // workout, so enrich each workout with its in-window average. Looked up per workout
-        // and tolerant of missing data (older imports, sources that don't record HR).
-        var heartRates: [UUID: Double] = [:]
-        for workout in workouts {
-            if let bpm = await Self.averageHeartRate(
-                start: workout.startDate,
-                end: workout.endDate,
-                in: healthStore
-            ), bpm > 0 {
-                heartRates[workout.uuid] = bpm
+    /// Incremental fetch for auto-import: returns only workouts added to Health
+    /// since the given anchor, plus the new anchor to persist. `notBefore`
+    /// bounds the very first run (nil anchor would otherwise replay the user's
+    /// entire Health history).
+    func fetchNewWorkouts(sinceAnchor anchorData: Data?, notBefore: Date) async throws -> (records: [WorkoutImportRecord], anchor: Data?) {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            throw HealthKitImportError.unavailable
+        }
+        let anchor = anchorData.flatMap {
+            try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: $0)
+        }
+        let predicate = HKQuery.predicateForSamples(withStart: notBefore, end: nil, options: .strictStartDate)
+        let (workouts, newAnchor): ([HKWorkout], HKQueryAnchor?) = try await withCheckedThrowingContinuation { continuation in
+            let query = HKAnchoredObjectQuery(
+                type: HKObjectType.workoutType(),
+                predicate: predicate,
+                anchor: anchor,
+                limit: HKObjectQueryNoLimit
+            ) { _, samples, _, newAnchor, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ((samples as? [HKWorkout]) ?? [], newAnchor))
+                }
             }
+            healthStore.execute(query)
+        }
+        let records = await Self.records(from: workouts, in: healthStore)
+        let archived = newAnchor.flatMap {
+            try? NSKeyedArchiver.archivedData(withRootObject: $0, requiringSecureCoding: true)
+        }
+        return (records, archived)
+    }
+
+    /// Minute-bucketed average heart rate across a workout window, oldest first —
+    /// enough resolution for the detail sparkline without pulling every sample.
+    func heartRateSeries(start: Date, end: Date, buckets: Int = 60) async -> [HeartRatePoint] {
+        guard HKHealthStore.isHealthDataAvailable(),
+              let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate),
+              end > start, buckets > 0
+        else { return [] }
+
+        let bucketSeconds = max(15, Int(end.timeIntervalSince(start)) / buckets)
+        var interval = DateComponents()
+        interval.second = bucketSeconds
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+
+        let collection: HKStatisticsCollection? = await withCheckedContinuation { continuation in
+            let query = HKStatisticsCollectionQuery(
+                quantityType: heartRateType,
+                quantitySamplePredicate: predicate,
+                options: .discreteAverage,
+                anchorDate: start,
+                intervalComponents: interval
+            )
+            query.initialResultsHandler = { _, results, _ in
+                continuation.resume(returning: results)
+            }
+            healthStore.execute(query)
         }
 
-        return workouts.map { Self.record(from: $0, averageHeartRate: heartRates[$0.uuid]) }
+        guard let collection else { return [] }
+        let beatsPerMinute = HKUnit.count().unitDivided(by: .minute())
+        var points: [HeartRatePoint] = []
+        collection.enumerateStatistics(from: start, to: end) { statistics, _ in
+            if let average = statistics.averageQuantity()?.doubleValue(for: beatsPerMinute), average > 0 {
+                points.append(HeartRatePoint(date: statistics.startDate, beatsPerMinute: average))
+            }
+        }
+        return points
     }
 }
 
 extension HealthKitWorkoutProvider {
-    /// Average heart rate (bpm) recorded during a workout's time window, or `nil` when no
-    /// samples exist or access wasn't granted. A discrete-average statistics query over the
-    /// window catches HR regardless of which source associated it with the workout, so it
-    /// works for Apple Watch and bridged sources (Garmin, Wahoo, …) alike.
-    private static func averageHeartRate(start: Date, end: Date, in store: HKHealthStore) async -> Double? {
-        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else {
-            return nil
+    /// Caps concurrent per-workout enrichment queries so a large fetch doesn't
+    /// flood HealthKit; enrichment used to run serially, which made a 90-day
+    /// load crawl.
+    private static let enrichmentConcurrency = 6
+
+    private static func records(from workouts: [HKWorkout], in store: HKHealthStore) async -> [WorkoutImportRecord] {
+        guard !workouts.isEmpty else { return [] }
+        var heartRates: [UUID: (average: Double?, maximum: Double?)] = [:]
+        heartRates.reserveCapacity(workouts.count)
+
+        await withTaskGroup(of: (UUID, (average: Double?, maximum: Double?)).self) { group in
+            var iterator = workouts.makeIterator()
+            @discardableResult
+            func addNext() -> Bool {
+                guard let workout = iterator.next() else { return false }
+                group.addTask {
+                    (workout.uuid, await heartRate(for: workout, in: store))
+                }
+                return true
+            }
+            for _ in 0..<enrichmentConcurrency {
+                if !addNext() { break }
+            }
+            for await (uuid, rates) in group {
+                heartRates[uuid] = rates
+                addNext()
+            }
         }
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
-        return await withCheckedContinuation { (continuation: CheckedContinuation<Double?, Never>) in
+
+        return workouts.map { record(from: $0, heartRate: heartRates[$0.uuid] ?? (nil, nil)) }
+    }
+
+    /// Average + max heart rate for a workout. Prefers the statistics the
+    /// recording app associated with the workout (exact), falling back to a
+    /// window statistics query (catches bridged sources like Garmin that write
+    /// HR samples without associating them).
+    private static func heartRate(for workout: HKWorkout, in store: HKHealthStore) async -> (average: Double?, maximum: Double?) {
+        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else {
+            return (nil, nil)
+        }
+        let beatsPerMinute = HKUnit.count().unitDivided(by: .minute())
+        if let statistics = workout.statistics(for: heartRateType) {
+            let average = statistics.averageQuantity()?.doubleValue(for: beatsPerMinute)
+            let maximum = statistics.maximumQuantity()?.doubleValue(for: beatsPerMinute)
+            if average != nil || maximum != nil {
+                return (average, maximum)
+            }
+        }
+        let predicate = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: .strictStartDate)
+        return await withCheckedContinuation { continuation in
             let query = HKStatisticsQuery(
                 quantityType: heartRateType,
                 quantitySamplePredicate: predicate,
-                options: .discreteAverage
+                options: [.discreteAverage, .discreteMax]
             ) { _, statistics, _ in
-                let beatsPerMinute = HKUnit.count().unitDivided(by: .minute())
-                continuation.resume(returning: statistics?.averageQuantity()?.doubleValue(for: beatsPerMinute))
+                continuation.resume(returning: (
+                    statistics?.averageQuantity()?.doubleValue(for: beatsPerMinute),
+                    statistics?.maximumQuantity()?.doubleValue(for: beatsPerMinute)
+                ))
             }
             store.execute(query)
         }
     }
 
-    private static func record(from workout: HKWorkout, averageHeartRate: Double? = nil) -> WorkoutImportRecord {
+    private static func record(from workout: HKWorkout, heartRate: (average: Double?, maximum: Double?)) -> WorkoutImportRecord {
         let kind = activityKind(for: workout.workoutActivityType, hasDistance: workout.totalDistance != nil)
         let distance = workout.totalDistance?.doubleValue(for: .meter())
         let calories = activeEnergyBurned(for: workout)
-
-        var title = kind.displayName
-        if let distance, distance > 0, workout.duration > 0 {
-            let pace = distance / workout.duration
-            if pace > 0 {
-                let secondsPerKilometer = 1000.0 / pace
-                title += String(format: " · %d:%02d /km", Int(secondsPerKilometer) / 60, Int(secondsPerKilometer) % 60)
-            }
-        }
 
         let origin = originName(
             sourceName: workout.sourceRevision.source.name,
@@ -158,14 +274,19 @@ extension HealthKitWorkoutProvider {
             source: .appleHealth,
             externalID: workout.uuid.uuidString,
             date: workout.startDate,
-            title: title,
+            title: kind.displayName,
             kind: kind,
             distanceMeters: distance,
             durationSeconds: Int(workout.duration.rounded()),
             calories: calories,
-            averageHeartRate: averageHeartRate,
+            averageHeartRate: heartRate.average.flatMap { $0 > 0 ? $0 : nil },
+            maxHeartRate: heartRate.maximum.flatMap { $0 > 0 ? $0 : nil },
+            elevationAscendedMeters: elevationAscendedMeters(from: workout.metadata),
+            isIndoor: isIndoor(from: workout.metadata),
             strengthSets: [],
-            originName: origin
+            originName: origin,
+            sourceAppName: workout.sourceRevision.source.name,
+            deviceName: workout.device?.name ?? workout.device?.model
         )
     }
 
@@ -174,6 +295,21 @@ extension HealthKitWorkoutProvider {
             return nil
         }
         return workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
+    }
+
+    /// Elevation climbed, from workout metadata. Pure over the dictionary so
+    /// it's unit-testable without an `HKWorkout`.
+    static func elevationAscendedMeters(from metadata: [String: Any]?) -> Double? {
+        guard let quantity = metadata?[HKMetadataKeyElevationAscended] as? HKQuantity else {
+            return nil
+        }
+        let meters = quantity.doubleValue(for: .meter())
+        return meters > 0 ? meters : nil
+    }
+
+    /// Indoor/outdoor flag, from workout metadata. Pure for unit tests.
+    static func isIndoor(from metadata: [String: Any]?) -> Bool? {
+        (metadata?[HKMetadataKeyIndoorWorkout] as? NSNumber)?.boolValue
     }
 
     /// Identifies which app/device actually recorded a HealthKit workout so the import hub
@@ -208,19 +344,30 @@ extension HealthKitWorkoutProvider {
 
     static func activityKind(for type: HKWorkoutActivityType, hasDistance: Bool) -> ImportedActivityKind {
         switch type {
-        case .running:
+        case .running, .trackAndField:
             return .running
-        case .cycling:
+        case .cycling, .handCycling:
             return .cycling
-        case .swimming:
+        case .swimming, .swimBikeRun:
             return .swimming
-        case .walking:
+        case .walking, .wheelchairWalkPace, .wheelchairRunPace:
             return .walking
-        case .hiking:
+        case .hiking, .climbing:
             return .hiking
-        case .traditionalStrengthTraining, .functionalStrengthTraining, .preparationAndRecovery:
+        case .traditionalStrengthTraining, .functionalStrengthTraining, .coreTraining,
+             .preparationAndRecovery:
             return .strength
+        case .rowing, .elliptical, .stairClimbing, .stairs, .stepTraining, .jumpRope,
+             .highIntensityIntervalTraining, .crossTraining, .mixedCardio, .cardioDance,
+             .socialDance, .kickboxing, .boxing, .martialArts, .paddleSports, .surfingSports,
+             .downhillSkiing, .crossCountrySkiing, .snowboarding, .snowSports, .skatingSports,
+             .soccer, .basketball, .tennis, .tableTennis, .badminton, .racquetball, .squash,
+             .pickleball, .volleyball, .americanFootball, .australianFootball, .rugby,
+             .hockey, .lacrosse, .baseball, .softball, .golf, .discSports:
+            return .otherCardio
         default:
+            // Mind-and-body types (yoga, pilates, tai chi, …) and anything
+            // unrecognized: distance decides whether it reads as cardio.
             return hasDistance ? .otherCardio : .other
         }
     }

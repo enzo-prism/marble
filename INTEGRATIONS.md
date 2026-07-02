@@ -121,14 +121,39 @@ non-empty); a blank or whitespace-only env var falls through to the Info.plist v
 
 ## What gets imported
 
-A `WorkoutImportRecord` maps to one or more `SetEntry`s:
+A `WorkoutImportRecord` maps to one or more `SetEntry`s **plus one enriched
+`ImportedWorkout` ledger row** that keeps the workout-level detail:
 
-- **Cardio** (run/ride/swim/walk/hike) → a single distance + duration entry under the `Run`
-  category, with calories and average HR captured in the note.
+- **Cardio** (run/ride/swim/walk/hike/gym-cardio/sports) → a single distance + duration
+  entry named for its kind. The activity-type mapping covers the common HealthKit types
+  (rowing, elliptical, HIIT, stair climbing, multisport, ball sports, …), so Garmin
+  profiles stop collapsing into "Workout".
 - **Strength** → if per-set detail is available, one entry per lift (exercise · weight ·
   reps); otherwise a single duration entry. *(Per-set detail isn't available through Apple
-  Health, so today it applies only to sources that expose it.)*
-- The note records the true origin, e.g. `Imported from Garmin · 320 kcal · 150 bpm avg`.
+  Health — Garmin keeps reps/sets in its own cloud — so today it applies only to sources
+  that expose it. The Garmin card says so instead of over-promising.)*
+- **Workout-level detail lives structured on `ImportedWorkout`** (kind, origin, source
+  app, device, distance, duration, calories, avg/max heart rate, elevation gain,
+  indoor/outdoor), captured via `HKWorkout.statistics(for:)` with a window-query fallback
+  for bridged sources that don't associate their samples. Each `SetEntry` links back via
+  `SetEntry.importedWorkout`, which powers the journal's origin badge, the set detail's
+  read-only "Imported Workout" section, and the hub's history + detail sheet (with a live
+  heart-rate sparkline re-queried from Health when enough samples exist — Garmin bridges
+  HR sparsely).
+- The note is just the provenance line (`Imported from Garmin`); stats are no longer
+  string-stuffed into notes.
+
+**Auto-import** (`HealthAutoImportService`): optional, off by default. When enabled, each
+foreground activation runs an incremental `HKAnchoredObjectQuery` (persisted
+`HKQueryAnchor`, bounded by the enable date) and imports anything new through the same
+dedup ledger. The anchor only advances after a successful save. No background-delivery
+entitlement — sync happens when the app opens, which matches how Garmin's own
+Health sync behaves anyway.
+
+**Authorization honesty:** HealthKit never reveals read grants. The hub derives status
+from `getRequestStatusForAuthorization` (ask vs. already-asked) and, on a zero-result
+load, points at Settings › Apps › Health › Data Access & Devices rather than guessing
+"denied" from the (write-only) sharing status like earlier builds did.
 
 We intentionally **don't** import GPS tracks, per-second streams, photos, or social data.
 

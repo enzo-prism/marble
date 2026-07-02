@@ -55,6 +55,31 @@ final class ImportedWorkout {
     var setsImported: Int
     var importedAt: Date
 
+    // Workout-level detail captured at import time (all optional and additive —
+    // rows imported by earlier builds simply have them nil). The ledger is the
+    // record of truth for imported detail; SetEntry rows link back via
+    // `SetEntry.importedWorkout` so the journal can badge and expand them.
+    var kindRaw: String?
+    /// Recording brand when it differs from the source hub (e.g. "Garmin" for a
+    /// workout that arrived through Apple Health).
+    var originName: String?
+    /// The app that wrote the sample (e.g. "Garmin Connect", "Strava").
+    var sourceAppName: String?
+    /// The hardware that recorded it (e.g. "Apple Watch", "Forerunner 265").
+    var deviceName: String?
+    var distanceMeters: Double?
+    var durationSeconds: Int?
+    var calories: Double?
+    var averageHeartRate: Double?
+    var maxHeartRate: Double?
+    var elevationAscendedMeters: Double?
+    var isIndoor: Bool?
+
+    /// The journal entries this import produced. Deleting the ledger row leaves
+    /// the entries in place (nullify); deleting an entry just unlinks it.
+    @Relationship(deleteRule: .nullify, inverse: \SetEntry.importedWorkout)
+    var entries: [SetEntry] = []
+
     init(
         id: UUID = UUID(),
         source: ImportSource,
@@ -62,7 +87,18 @@ final class ImportedWorkout {
         title: String,
         workoutDate: Date,
         setsImported: Int,
-        importedAt: Date = Date()
+        importedAt: Date = Date(),
+        kind: ImportedActivityKind? = nil,
+        originName: String? = nil,
+        sourceAppName: String? = nil,
+        deviceName: String? = nil,
+        distanceMeters: Double? = nil,
+        durationSeconds: Int? = nil,
+        calories: Double? = nil,
+        averageHeartRate: Double? = nil,
+        maxHeartRate: Double? = nil,
+        elevationAscendedMeters: Double? = nil,
+        isIndoor: Bool? = nil
     ) {
         self.id = id
         self.deduplicationKey = Self.deduplicationKey(source: source, externalID: externalID)
@@ -72,6 +108,17 @@ final class ImportedWorkout {
         self.workoutDate = workoutDate
         self.setsImported = setsImported
         self.importedAt = importedAt
+        self.kindRaw = kind?.rawValue
+        self.originName = originName
+        self.sourceAppName = sourceAppName
+        self.deviceName = deviceName
+        self.distanceMeters = distanceMeters
+        self.durationSeconds = durationSeconds
+        self.calories = calories
+        self.averageHeartRate = averageHeartRate
+        self.maxHeartRate = maxHeartRate
+        self.elevationAscendedMeters = elevationAscendedMeters
+        self.isIndoor = isIndoor
     }
 
     static func deduplicationKey(source: ImportSource, externalID: String) -> String {
@@ -84,4 +131,13 @@ extension ImportedWorkout {
         get { ImportSource(rawValue: sourceRaw) ?? .appleHealth }
         set { sourceRaw = newValue.rawValue }
     }
+
+    var kind: ImportedActivityKind? {
+        get { kindRaw.flatMap(ImportedActivityKind.init(rawValue:)) }
+        set { kindRaw = newValue?.rawValue }
+    }
+
+    /// Human-readable origin for labels: the recording brand if known, else the
+    /// source hub's own name.
+    var displayOrigin: String { originName ?? source.displayName }
 }

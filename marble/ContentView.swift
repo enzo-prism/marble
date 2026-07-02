@@ -72,6 +72,9 @@ struct ContentView: View {
                 // A rest that expired while the app was suspended never ran its
                 // auto-end task; clear it so the pill doesn't linger at 0:00.
                 restTimer.pruneExpiredRest()
+                // Pull any workouts that landed in Apple Health while we were
+                // away (no-op unless the user enabled auto-import).
+                Task { await HealthAutoImportService.shared.syncIfEnabled(into: modelContext) }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in

@@ -13,6 +13,11 @@ final class ImportViewModel {
         var alreadyImported: Set<String> = []
         var isFetching = false
         var errorMessage: String?
+        /// Whether a fetch has completed at least once, so the UI can tell
+        /// "no workouts found" apart from "not loaded yet".
+        var hasLoaded = false
+        /// The lookback window of the most recent fetch, echoed in the UI.
+        var lastLookbackDays: Int?
     }
 
     private(set) var states: [ImportSource: SourceState] = [:]
@@ -80,6 +85,15 @@ final class ImportViewModel {
         (states[.appleHealth]?.records ?? []).filter { $0.originName == originName }.count
     }
 
+    /// The most recent fetched Apple Health workout recorded by a given brand,
+    /// so the Garmin card can say how fresh the bridge is.
+    func latestAppleHealthOriginDate(_ originName: String) -> Date? {
+        (states[.appleHealth]?.records ?? [])
+            .filter { $0.originName == originName }
+            .map(\.date)
+            .max()
+    }
+
     func fetch(_ source: ImportSource, into context: ModelContext, lookbackDays: Int = 30) async {
         guard let provider = providers[source] else { return }
         guard states[source]?.isFetching != true else { return }
@@ -105,6 +119,8 @@ final class ImportViewModel {
             states[source]?.alreadyImported = []
             states[source]?.errorMessage = error.localizedDescription
         }
+        states[source]?.hasLoaded = true
+        states[source]?.lastLookbackDays = lookbackDays > 0 ? lookbackDays : nil
     }
 
     func toggle(_ record: WorkoutImportRecord) {

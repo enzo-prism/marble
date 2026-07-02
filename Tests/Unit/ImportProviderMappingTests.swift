@@ -138,6 +138,44 @@ final class ImportProviderMappingTests: MarbleTestCase {
         XCTAssertEqual(HealthKitWorkoutProvider.activityKind(for: .yoga, hasDistance: true), .otherCardio)
     }
 
+    /// The expanded mapping: gym cardio, sports, and multisport types stop
+    /// collapsing into "other" — Garmin especially maps many profiles here.
+    func testHealthKitExpandedActivityKindMapping() {
+        XCTAssertEqual(HealthKitWorkoutProvider.activityKind(for: .rowing, hasDistance: true), .otherCardio)
+        XCTAssertEqual(HealthKitWorkoutProvider.activityKind(for: .elliptical, hasDistance: false), .otherCardio)
+        XCTAssertEqual(HealthKitWorkoutProvider.activityKind(for: .highIntensityIntervalTraining, hasDistance: false), .otherCardio)
+        XCTAssertEqual(HealthKitWorkoutProvider.activityKind(for: .stairClimbing, hasDistance: false), .otherCardio)
+        XCTAssertEqual(HealthKitWorkoutProvider.activityKind(for: .coreTraining, hasDistance: false), .strength)
+        XCTAssertEqual(HealthKitWorkoutProvider.activityKind(for: .swimBikeRun, hasDistance: true), .swimming)
+        XCTAssertEqual(HealthKitWorkoutProvider.activityKind(for: .soccer, hasDistance: false), .otherCardio)
+        XCTAssertEqual(HealthKitWorkoutProvider.activityKind(for: .handCycling, hasDistance: true), .cycling)
+        XCTAssertEqual(HealthKitWorkoutProvider.activityKind(for: .wheelchairRunPace, hasDistance: true), .walking)
+    }
+
+    // MARK: - HealthKit metadata parsing (pure seams over the metadata dictionary)
+
+    func testElevationAscendedParsesQuantityMetadata() {
+        let metadata: [String: Any] = [
+            HKMetadataKeyElevationAscended: HKQuantity(unit: .meter(), doubleValue: 84)
+        ]
+        XCTAssertEqual(HealthKitWorkoutProvider.elevationAscendedMeters(from: metadata), 84)
+        XCTAssertNil(HealthKitWorkoutProvider.elevationAscendedMeters(from: [:]))
+        XCTAssertNil(HealthKitWorkoutProvider.elevationAscendedMeters(from: nil))
+        XCTAssertNil(
+            HealthKitWorkoutProvider.elevationAscendedMeters(from: [
+                HKMetadataKeyElevationAscended: HKQuantity(unit: .meter(), doubleValue: 0)
+            ]),
+            "Zero elevation reads as 'not recorded', not a stat worth showing"
+        )
+    }
+
+    func testIsIndoorParsesBoolMetadata() {
+        XCTAssertEqual(HealthKitWorkoutProvider.isIndoor(from: [HKMetadataKeyIndoorWorkout: true]), true)
+        XCTAssertEqual(HealthKitWorkoutProvider.isIndoor(from: [HKMetadataKeyIndoorWorkout: false]), false)
+        XCTAssertNil(HealthKitWorkoutProvider.isIndoor(from: [:]))
+        XCTAssertNil(HealthKitWorkoutProvider.isIndoor(from: nil))
+    }
+
     // MARK: - HealthKit origin detection (the import-hub labeling)
 
     func testOriginDetectsGarminFromSourceName() {

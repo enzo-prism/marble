@@ -8,8 +8,25 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ## TL;DR — what "up-to-date" means today (2026-07-01)
 
-- **Code baseline:** `main` is being advanced to **1.9 (build 30)** — an iOS 26 design/UX
-  polish pass on top of build 29: an **in-app rest-timer pill** (`tabViewBottomAccessory`,
+- **Code baseline:** `main` is being advanced to **1.9 (build 31)** — a workout-import
+  overhaul on top of build 30: enriched `ImportedWorkout` ledger (kind/origin/source app/
+  device/distance/duration/calories/avg+max HR/elevation/indoor — all additive optional
+  fields, lightweight migration) with `SetEntry.importedWorkout` linkage; provenance
+  badges in the journal (`ImportedOriginBadge`) + read-only "Imported Workout" section in
+  set detail; `ImportedWorkoutDetailView` (stats grid + live HR sparkline, gated ≥8 points
+  because Garmin bridges HR sparsely); `HealthAutoImportService` (opt-in foreground
+  auto-import via persisted `HKQueryAnchor`, anchor advances only after save); HealthKit
+  authorization fixed to `getRequestStatusForAuthorization` (old code misread write-side
+  sharing status); parallel per-workout HR enrichment (was serial), max-HR/elevation/
+  indoor/source-app/device captured; expanded `activityKind` mapping; Load menu with
+  30/90/365-day lookbacks + zero-result Settings guidance; Garmin card with live bridge
+  status, numbered setup steps, `gcm-ciq://` deep link (App Store fallback); import
+  history section in the hub. Unit suite = **178 tests** (new
+  `HealthAutoImportServiceTests`, importer link/detail tests, metadata-parsing tests);
+  `ImportFlowUITests` grew to 3 flows; populated fixture seeds a Garmin run so audits
+  walk the new UI. **Gotcha reconfirmed:** container `accessibilityIdentifier` clobbers
+  child identifiers (Import.GarminBridge moved off the VStack onto the header row).
+- **Build 30 baseline:** an iOS 26 design/UX polish pass on top of build 29: an **in-app rest-timer pill** (`tabViewBottomAccessory`,
   observable `RestActivityController.activeRest`, `RestTimerPillView`, End button) so the
   rest countdown is finally visible *inside* the app (the Live Activity mirrors it as
   before); the Journal Import sheet zoom-morphs out of its toolbar button
@@ -44,8 +61,8 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   endpoint has flapped on past uploads (build 28 needed retry 4); build 29 landed on the first
   attempt. Workaround when it's down: build the IPA once (`make asc-archive` + `make asc-export`)
   then loop `asc publish testflight --ipa <prebuilt> --group "test group A"` until it recovers.
-- **Current working project version:** **1.9 (build 30)**;
-  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 30` in
+- **Current working project version:** **1.9 (build 31)**;
+  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 31` in
   `marble.xcodeproj/project.pbxproj`.
 - **Build/test health:** Xcode 26.5 / iOS 26.5 simulator is installed locally; the
   build 29 unit suite is green: `MarbleTests` (**164 unit tests, 0 failures**), which now
