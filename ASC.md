@@ -29,18 +29,20 @@ project-local notes.
 - Archive path: `.asc/artifacts/marble.xcarchive`
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
-- Current App Store review version: `1.9`
+- Current App Store review version: `2.0` (build 34, submitted 2026-07-07, WAITING_FOR_REVIEW)
 
 ## Release Safety
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches.
-- The working project version is now `1.9 (build 29)` on `main`; `origin/release/1.9`
+- The working project version is now `2.0 (build 34)`; `origin/release/1.9`
   may still point at the older `1.9 (build 20)` release baseline unless explicitly
   updated.
-- The live App Store version is now `1.9` and is `READY_FOR_REVIEW` with a prepared
-  submission (`5f0ffd7d-b221-4520-bba9-1953c752b747`). Version `1.8` is complete /
-  ready for distribution. Review/validation checks should use `1.9`.
+- The live App Store version is `1.9` (READY_FOR_SALE). Version `2.0` (build 34,
+  buildId `4da0a6d6-d542-4c07-814f-47e4e9987a47`) was submitted for review on
+  2026-07-07 (submission `a89a2e97-369e-4f80-a658-2cab40d79b19`) with refreshed
+  metadata (`.asc/metadata-2.0/`) and a new 04-trends screenshot in all three
+  sets. Review/validation checks should use `2.0`.
 - Always run `make asc-version` before acting — the CLI can report a blank generated
   marketing version, so the Makefile prints a reliable fallback.
 - Do not cancel an in-flight review, upload a replacement build, or submit to
