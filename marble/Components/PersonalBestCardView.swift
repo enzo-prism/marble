@@ -41,6 +41,22 @@ struct PersonalBestCardView: View {
                     .accessibilityLabel(usual)
                     .accessibilityIdentifier("\(identifierPrefix).Usual")
                 }
+
+                if let cue = PersonalRecords.proximityCue(for: records) {
+                    Label {
+                        Text(cue.message)
+                            .font(MarbleTypography.rowMeta.weight(.semibold))
+                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "target")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(cue.message)
+                    .accessibilityIdentifier("\(identifierPrefix).Proximity")
+                }
             } else {
                 Text("No personal best yet — log your first set to set the bar. 💪")
                     .font(MarbleTypography.rowSubtitle)

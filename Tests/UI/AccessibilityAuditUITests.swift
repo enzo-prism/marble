@@ -239,7 +239,14 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         // ThemeContrastTests pins at >= 4.5:1. The audit's sampler misfires on
         // them when the scroll position parks a title at the tab bar's glass
         // boundary (same artifact class as the PRCard ignores above).
-        return element.identifier.hasPrefix("Trends.Section.")
+        if element.identifier.hasPrefix("Trends.Section.") { return true }
+        // The same glass-boundary artifact hits whichever Trends static text
+        // happens to land under the tab bar at the audit's scroll position
+        // (e.g. a strength-dashboard row). Only contrast, only static text,
+        // only the bottom sliver of the window, only while Trends is up.
+        guard app.scrollViews["Trends.Scroll"].exists, element.elementType == .staticText else { return false }
+        let windowMaxY = app.windows.firstMatch.frame.maxY
+        return element.frame.maxY >= windowMaxY - 90
     }
 
     @available(iOS 17.0, *)

@@ -9,6 +9,7 @@ struct ImportView: View {
     @Environment(\.openURL) private var openURL
     @State private var showingScan = false
     @State private var autoImportEnabled = HealthAutoImportService.shared.isEnabled
+    @State private var healthExportEnabled = UserDefaults.standard.bool(forKey: HealthSessionExporter.enabledDefaultsKey)
     @State private var detailSelection: DetailSelection?
 
     /// The five most recent ledger rows, shown as "Recently imported" so the
@@ -223,6 +224,35 @@ struct ImportView: View {
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .accessibilityIdentifier("Import.AutoImport.LastResult")
             }
+
+            Divider()
+                .overlay(Theme.subtleDividerColor(for: colorScheme))
+                .padding(.vertical, MarbleSpacing.xxs)
+                .accessibilityHidden(true)
+
+            Toggle("Send sessions to Apple Health", isOn: $healthExportEnabled)
+                .font(MarbleTypography.rowTitle)
+                .tint(Theme.dividerColor(for: colorScheme))
+                .onChange(of: healthExportEnabled) { _, enabled in
+                    MarbleHaptics.selection()
+                    UserDefaults.standard.set(enabled, forKey: HealthSessionExporter.enabledDefaultsKey)
+                    guard enabled else { return }
+                    Task {
+                        let granted = await HealthSessionExporter.shared.requestAuthorization()
+                        if granted {
+                            await HealthSessionExporter.shared.exportIfEnabled(from: modelContext)
+                        } else {
+                            healthExportEnabled = false
+                            UserDefaults.standard.set(false, forKey: HealthSessionExporter.enabledDefaultsKey)
+                        }
+                    }
+                }
+                .accessibilityIdentifier("Import.HealthExport.Toggle")
+
+            Text("Completed training days are saved to Apple Health as strength workouts with your session effort (RPE), so Marble sessions count toward Apple's Training Load.")
+                .font(MarbleTypography.caption)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .fixedSize(horizontal: false, vertical: true)
         }
         .marbleRowInsets()
         .listRowBackground(Theme.backgroundColor(for: colorScheme))

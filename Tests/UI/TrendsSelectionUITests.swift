@@ -20,18 +20,10 @@ final class TrendsSelectionUITests: MarbleUITestCase {
 
         let scrollView = app.scrollViews["Trends.Scroll"]
         let volumeChart = chartElement("Trends.VolumeChart")
-        if !volumeChart.exists {
-            for _ in 0..<3 {
-                if scrollView.exists {
-                    scrollView.swipeUp()
-                } else {
-                    app.swipeUp()
-                }
-                if volumeChart.exists {
-                    break
-                }
-            }
-        }
+        // The coaching sections above the chart make the page taller than a
+        // few blind swipes; scroll until the chart is actually on screen so
+        // the normalized-coordinate tap lands inside the plot.
+        scrollToElement(volumeChart, in: scrollView)
         waitFor(volumeChart)
 
         volumeChart.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.4)).tap()

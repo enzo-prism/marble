@@ -48,9 +48,13 @@ struct TrendsView: View {
 struct TrendsContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.modelContext) private var modelContext
     // Declared (not read) so the environment change invalidates this view:
     // range buckets anchored to "today" must re-derive on a new day.
     @Environment(\.marbleActiveDay) private var activeDay
+
+    /// Sessions per week that count as a hit week (see TrainingConsistency).
+    @AppStorage("weeklySessionTarget") private var weeklyTarget = TrainingConsistency.defaultWeeklyTarget
 
     /// Scoped to the selected range at init (see `TrendsView`): only rows the
     /// charts can actually show are fetched and kept live. "All" keeps the
@@ -81,6 +85,7 @@ struct TrendsContentView: View {
     @State private var sheetDestination: TrendsSheetDestination?
     @State private var isPresentingExerciseSearch = false
     @State private var isScrubbingChart = false
+    @State private var monthlyReportForSheet: MonthlyReport?
 
     // Caches the derived snapshot so scrubbing a chart (which mutates UI-only
     // state and re-runs `body`) doesn't re-filter/-group/-sort the full history
@@ -131,6 +136,20 @@ struct TrendsContentView: View {
                     let hasSupplementData = !derived.filteredSupplementEntries.isEmpty
 
                     rangePicker
+
+                    if derived.consistencySnapshot.lifetimeSets > 0 {
+                        ConsistencyGoalCardView(
+                            snapshot: derived.consistencySnapshot,
+                            weeklyTarget: $weeklyTarget
+                        )
+                    }
+
+                    if let report = derived.monthlyReport {
+                        MonthlyReportCardView(report: report) {
+                            monthlyReportForSheet = report
+                        }
+                    }
+
                     if let liftBests = derived.liftBests {
                         LiftBestsHighlightView(bests: liftBests)
                     }
@@ -152,6 +171,12 @@ struct TrendsContentView: View {
                                     .font(MarbleTypography.sectionTitle)
                                     .foregroundColor(Theme.primaryTextColor(for: colorScheme))
                                 consistencyChart(derived: derived)
+                            }
+
+                            if selectedExercise == nil, !derived.strengthAssessments.isEmpty {
+                                StrengthDashboardView(assessments: derived.strengthAssessments) { exerciseID in
+                                    selectedExerciseID = exerciseID
+                                }
                             }
 
                             if selectedExercise != nil {
@@ -176,6 +201,14 @@ struct TrendsContentView: View {
                                         accessibilityValue: derived.oneRepMaxAccessibilityValue
                                     )
                                 }
+
+                                if let hint = derived.doubleProgressionHint {
+                                    DoubleProgressionHintView(hint: hint)
+                                }
+
+                                if !derived.repRecords.isEmpty {
+                                    RepRecordsSectionView(records: derived.repRecords)
+                                }
                             }
 
                             VStack(alignment: .leading, spacing: MarbleSpacing.s) {
@@ -185,9 +218,9 @@ struct TrendsContentView: View {
                                 volumeChart(derived: derived)
                             }
 
-                            if !derived.muscleGroupSets.isEmpty {
+                            if !derived.muscleCoverage.isEmpty {
                                 MuscleGroupSectionView(
-                                    groups: derived.muscleGroupSets,
+                                    groups: derived.muscleCoverage,
                                     accessibilityValue: derived.muscleGroupAccessibilityValue
                                 )
                             }
@@ -212,9 +245,16 @@ struct TrendsContentView: View {
                         supplementsSection(derived: derived)
                             .padding(.top, MarbleSpacing.xxl)
 
+                        if hasSetData, !derived.prEvents.isEmpty {
+                            PRFeedSectionView(events: derived.prEvents)
+                                .padding(.top, MarbleSpacing.xxl)
+                        }
+
                         if hasSetData {
                             VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                Text("PRs")
+                                // Range-scoped bests — distinct on purpose from
+                                // the all-time records in the feed above.
+                                Text("Range Bests")
                                     .font(MarbleTypography.sectionTitle)
                                     .foregroundColor(Theme.primaryTextColor(for: colorScheme))
                                     .accessibilityHidden(true)
@@ -269,6 +309,12 @@ struct TrendsContentView: View {
             .presentationDragIndicator(.visible)
             .sheetGlassBackground()
         }
+        .sheet(item: $monthlyReportForSheet) { report in
+            MonthlyReportSheet(report: report)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .sheetGlassBackground()
+        }
         .sheet(isPresented: $isPresentingExerciseSearch) {
             NavigationStack {
                 TrendsExerciseSearchView(
@@ -315,10 +361,24 @@ struct TrendsContentView: View {
         TrendsDerivedData.build(
             entries: entries,
             supplementEntries: supplementEntries,
+            historyEntries: fetchHistoryEntries(),
             selectedExercise: selectedExercise,
             selectedSupplementType: selectedSupplementType,
-            range: range
+            range: range,
+            weeklyTarget: weeklyTarget
         )
+    }
+
+    /// One-shot full-history fetch for the coaching layer (records, streaks,
+    /// and verdicts describe the lifter, not the visible range). Runs only
+    /// when the memo rebuilds — never per render — and reuses the live query
+    /// when the range is already unbounded. The freshness probe catches every
+    /// insert/edit; a deletion of a pre-range row can stay stale until the
+    /// next signature change, which is acceptable for a feed of past records.
+    private func fetchHistoryEntries() -> [SetEntry] {
+        if range == .all { return Array(entries) }
+        let descriptor = FetchDescriptor<SetEntry>()
+        return (try? modelContext.fetch(descriptor)) ?? Array(entries)
     }
 
     /// A cheap fingerprint of everything `makeDerivedData()` actually depends on.
@@ -336,7 +396,8 @@ struct TrendsContentView: View {
             selectedExerciseID: selectedExerciseID,
             selectedSupplementTypeID: selectedSupplementTypeID,
             selectedExerciseName: selectedExercise?.name,
-            activeDay: activeDay
+            activeDay: activeDay,
+            weeklyTarget: weeklyTarget
         )
     }
 
@@ -1660,6 +1721,7 @@ struct TrendsInputSignature: Equatable {
     let selectedSupplementTypeID: UUID?
     let selectedExerciseName: String?
     let activeDay: Date
+    let weeklyTarget: Int
 }
 
 enum TrendRange: String, CaseIterable, Identifiable {

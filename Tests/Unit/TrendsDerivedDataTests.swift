@@ -25,6 +25,7 @@ final class TrendsDerivedDataTests: MarbleTestCase {
         let derived = TrendsDerivedData.build(
             entries: [mostReps, heaviest, lighter],
             supplementEntries: [],
+            historyEntries: [mostReps, heaviest, lighter],
             selectedExercise: nil,
             selectedSupplementType: nil,
             range: .all,
@@ -51,6 +52,7 @@ final class TrendsDerivedDataTests: MarbleTestCase {
         let derived = TrendsDerivedData.build(
             entries: [shortFast, longFastest, yardsFarthest],
             supplementEntries: [],
+            historyEntries: [shortFast, longFastest, yardsFarthest],
             selectedExercise: nil,
             selectedSupplementType: nil,
             range: .all,
@@ -75,6 +77,7 @@ final class TrendsDerivedDataTests: MarbleTestCase {
         let derived = TrendsDerivedData.build(
             entries: entries,
             supplementEntries: [],
+            historyEntries: entries,
             selectedExercise: nil,
             selectedSupplementType: nil,
             range: .thirtyDays,
@@ -115,6 +118,7 @@ final class TrendsDerivedDataTests: MarbleTestCase {
         let fromAll = TrendsDerivedData.build(
             entries: entries,
             supplementEntries: [],
+            historyEntries: entries,
             selectedExercise: nil,
             selectedSupplementType: nil,
             range: .thirtyDays,
@@ -124,6 +128,7 @@ final class TrendsDerivedDataTests: MarbleTestCase {
         let fromScoped = TrendsDerivedData.build(
             entries: scoped,
             supplementEntries: [],
+            historyEntries: entries,
             selectedExercise: nil,
             selectedSupplementType: nil,
             range: .thirtyDays,

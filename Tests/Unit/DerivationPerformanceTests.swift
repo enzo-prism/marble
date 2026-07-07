@@ -45,6 +45,7 @@ final class DerivationPerformanceTests: MarbleTestCase {
             _ = TrendsDerivedData.build(
                 entries: entries,
                 supplementEntries: [],
+                historyEntries: entries,
                 selectedExercise: nil,
                 selectedSupplementType: nil,
                 range: .all,

@@ -135,7 +135,7 @@ struct OneRepMaxSectionView: View {
 // MARK: - Sets per muscle group
 
 struct MuscleGroupSectionView: View {
-    let groups: [LifterAnalytics.MuscleGroupSets]
+    let groups: [LifterCoaching.MuscleGroupCoverage]
     let accessibilityValue: String
 
     @Environment(\.colorScheme) private var colorScheme
@@ -149,35 +149,50 @@ struct MuscleGroupSectionView: View {
 
             chart
 
-            Text("Sets logged per muscle group in this range.")
+            Text("Weekly hard sets per muscle (pressing counts half toward triceps and shoulders, pulling toward biceps). The 10–20 band is a guide, not a verdict — muscles with recent history but no sets in this range show as reminders.")
                 .font(MarbleTypography.caption)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private var chart: some View {
         let accent = TrendsPalette.volumeWeighted.color(for: colorScheme)
+        let band = LifterCoaching.weeklySetBand
+        let maxValue = max(groups.map(\.setsPerWeek).max() ?? 1, band.upperBound)
         // Horizontal bars on purpose: orientation distinguishes the category
         // comparisons from the time-series charts above (HIG pattern).
-        return Chart(groups) { group in
-            BarMark(
-                x: .value("Sets", group.setCount),
-                y: .value("Muscle Group", group.category.displayName)
-            )
-            .foregroundStyle(TrendsPalette.barGradient(accent))
-            .cornerRadius(3)
-            .annotation(position: .trailing, alignment: .leading, spacing: MarbleSpacing.xxs) {
-                Text(annotationText(for: group))
-                    .font(MarbleTypography.smallLabel)
-                    .monospacedDigit()
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .accessibilityHidden(true)
+        return Chart {
+            ForEach(groups) { group in
+                BarMark(
+                    x: .value("Sets per week", group.setsPerWeek),
+                    y: .value("Muscle Group", group.category.displayName)
+                )
+                .foregroundStyle(TrendsPalette.barGradient(accent))
+                .cornerRadius(3)
+                .annotation(position: .trailing, alignment: .leading, spacing: MarbleSpacing.xxs) {
+                    Text(annotationText(for: group))
+                        .font(MarbleTypography.smallLabel)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .accessibilityHidden(true)
+                }
+                .accessibilityLabel(group.category.displayName)
+                .accessibilityValue(accessibilityText(for: group))
             }
-            .accessibilityLabel(group.category.displayName)
-            .accessibilityValue(accessibilityText(for: group))
+
+            // The 10–20 hard-sets-per-week guide band, drawn as two quiet rules.
+            RuleMark(x: .value("Band low", band.lowerBound))
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.35))
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                .accessibilityHidden(true)
+            RuleMark(x: .value("Band high", band.upperBound))
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.35))
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                .accessibilityHidden(true)
         }
         .frame(height: max(CGFloat(groups.count) * 34, 60))
-        .chartXScale(domain: 0 ... Double((groups.map(\.setCount).max() ?? 1)) * 1.25)
+        .chartXScale(domain: 0 ... maxValue * 1.25)
         .chartXAxis(.hidden)
         .chartYAxis {
             AxisMarks(position: .leading) { _ in
@@ -186,23 +201,25 @@ struct MuscleGroupSectionView: View {
             }
         }
         .chartLegend(.hidden)
-        .accessibilityLabel("Sets per muscle group chart")
+        .accessibilityLabel("Weekly sets per muscle group chart")
         .accessibilityValue(accessibilityValue)
         .accessibilityIdentifier("Trends.MuscleGroupsChart")
     }
 
-    private func annotationText(for group: LifterAnalytics.MuscleGroupSets) -> String {
-        if let average = group.averagePerWeek {
-            return "\(group.setCount) · \(Formatters.weight.string(from: NSNumber(value: average)) ?? "\(average)")/wk"
+    private func annotationText(for group: LifterCoaching.MuscleGroupCoverage) -> String {
+        var parts = [String(format: "%.1f/wk", group.setsPerWeek)]
+        if let daysAgo = group.lastTrainedDaysAgo {
+            parts.append(daysAgo == 0 ? "today" : "\(daysAgo)d ago")
         }
-        return "\(group.setCount)"
+        return parts.joined(separator: " · ")
     }
 
-    private func accessibilityText(for group: LifterAnalytics.MuscleGroupSets) -> String {
-        if let average = group.averagePerWeek {
-            return String(format: "%d sets, about %.1f per week", group.setCount, average)
+    private func accessibilityText(for group: LifterCoaching.MuscleGroupCoverage) -> String {
+        var text = String(format: "%.1f sets per week, %@", group.setsPerWeek, group.band.label)
+        if let daysAgo = group.lastTrainedDaysAgo {
+            text += daysAgo == 0 ? ", trained today" : ", last trained \(daysAgo) days ago"
         }
-        return "\(group.setCount) sets"
+        return text
     }
 }
 

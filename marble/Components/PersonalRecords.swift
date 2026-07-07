@@ -224,6 +224,67 @@ enum PersonalRecords {
         return badge
     }
 
+    // MARK: - PR proximity
+
+    /// A record close enough to reach today, framed as opportunity BEFORE the
+    /// attempt ("a rep-PR is in reach") — goal-gradient research says effort
+    /// rises near a target, but only when it reads as controllable, never as
+    /// a missed target afterwards.
+    enum ProximityCue: Equatable {
+        case weight(deltaText: String)
+        case reps(delta: Int)
+
+        var message: String {
+            switch self {
+            case .weight(let deltaText):
+                return "You're \(deltaText) from a weight PR — in reach today."
+            case .reps(let delta):
+                return delta == 1
+                    ? "1 rep past your usual top is a rep PR — in reach today."
+                    : "\(delta) reps past your usual top is a rep PR — in reach today."
+            }
+        }
+    }
+
+    /// Weight records within this fraction of the usual working top count
+    /// as "in reach"; anything further is a program goal, not a today goal.
+    static let proximityWeightFraction = 0.05
+    /// Rep records at most this many reps past the usual top count as in reach.
+    static let proximityRepWindow = 2
+
+    static func proximityCue(for records: ExercisePersonalRecords) -> ProximityCue? {
+        // Weight first — the more celebrated record.
+        if let best = records.heaviestEntry,
+           let bestWeight = best.weight,
+           let usual = records.usualWeightRange,
+           let unit = records.usualWeightUnit,
+           unit == best.weightUnit {
+            let bestDisplay = displayWeight(for: best)
+            let delta = bestDisplay - usual.upperBound
+            let threshold = max(bestDisplay * proximityWeightFraction, unit == .kg ? 2.5 : 5.0)
+            if delta > 0, delta <= threshold, bestWeight > 0 {
+                let formatted = Formatters.weight.string(from: NSNumber(value: delta)) ?? "\(delta)"
+                return .weight(deltaText: "\(formatted) \(unit.symbol)")
+            }
+        }
+
+        if let bestReps = records.mostRepsEntry?.reps,
+           let usualReps = records.usualRepsRange {
+            let delta = bestReps - usualReps.upperBound
+            if delta > 0, delta <= proximityRepWindow {
+                return .reps(delta: delta)
+            }
+        }
+
+        return nil
+    }
+
+    /// The best entry's weight in the same display terms as the usual range
+    /// (per-hand for dumbbell pairs).
+    private static func displayWeight(for entry: SetEntry) -> Double {
+        entry.exercise.displayedWeightInput(from: entry.weight) ?? (entry.weight ?? 0)
+    }
+
     // MARK: - Ordering helpers
 
     private static func isChronologicallyBefore(_ lhs: SetEntry, _ rhs: SetEntry) -> Bool {

@@ -12,6 +12,7 @@ struct NotificationsView: View {
 
     @State private var authorizationStatus: CustomNotificationAuthorizationStatus = .notDetermined
     @State private var showingNewNotification = false
+    @AppStorage(WeeklyGoalReminder.enabledDefaultsKey) private var weeklyGoalReminderEnabled = true
     @State private var editingNotification: CustomNotification?
 
     private let scheduler: CustomNotificationScheduler
@@ -23,6 +24,8 @@ struct NotificationsView: View {
     var body: some View {
         List {
             permissionSection
+
+            weeklyGoalSection
 
             Section {
                 if orderedNotifications.isEmpty {
@@ -92,6 +95,35 @@ struct NotificationsView: View {
         }
         .task {
             authorizationStatus = await scheduler.authorizationStatus()
+        }
+    }
+
+    /// The one adaptive nudge Marble sends on its own: quiet, at most once a
+    /// week, and only when the weekly goal is genuinely on the line.
+    private var weeklyGoalSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                Toggle("Weekly goal reminder", isOn: $weeklyGoalReminderEnabled)
+                    .font(MarbleTypography.rowTitle)
+                    .tint(Theme.dividerColor(for: colorScheme))
+                    .onChange(of: weeklyGoalReminderEnabled) { _, enabled in
+                        MarbleHaptics.selection()
+                        if !enabled {
+                            WeeklyGoalReminder.removePending()
+                        }
+                    }
+                    .accessibilityIdentifier("Notifications.WeeklyGoal.Toggle")
+
+                Text("A quiet heads-up on the last realistic evening to keep your weekly session goal — cancelled automatically once you've trained.")
+                    .font(MarbleTypography.caption)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .marbleRowInsets()
+            .listRowSeparator(.hidden)
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+        } header: {
+            SectionHeaderView(title: "Weekly Goal")
         }
     }
 

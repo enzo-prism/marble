@@ -76,6 +76,13 @@ struct ContentView: View {
                 // away (no-op unless the user enabled auto-import).
                 Task { await HealthAutoImportService.shared.syncIfEnabled(into: modelContext) }
             }
+            if newPhase == .active || newPhase == .background {
+                // Keep the weekly-goal nudge honest: reschedule against what
+                // was actually logged, cancel it once the target is hit.
+                Task { await WeeklyGoalReminder.sync(modelContext: modelContext) }
+                // Refresh Apple Health session export (no-op unless enabled).
+                Task { await HealthSessionExporter.shared.exportIfEnabled(from: modelContext) }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
             refreshActiveDay()

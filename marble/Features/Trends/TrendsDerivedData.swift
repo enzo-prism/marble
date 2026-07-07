@@ -40,15 +40,26 @@ struct TrendsDerivedData {
     let liftBests: ExerciseLiftBests?
 
     // Lifter analytics (see LifterAnalytics): estimated-1RM progression for
-    // the selected exercise, set counts per muscle group, rep-range
-    // distribution, and the effort (average-RPE) trend — all derived from the
-    // same filtered entries in this one build pass.
+    // the selected exercise, rep-range distribution, and the effort
+    // (average-RPE) trend — all derived from the same filtered entries in
+    // this one build pass.
     let oneRepMaxSeries: LifterAnalytics.OneRepMaxSeries?
-    let muscleGroupSets: [LifterAnalytics.MuscleGroupSets]
     let repRangeBuckets: [LifterAnalytics.RepRangeBucket]
     /// Consistency buckets that actually contain sets, re-used as the effort
     /// series (their `averageRPE` is already derived per bucket).
     let effortSummaries: [TrendDailySummary]
+
+    // Coaching layer (see LifterCoaching / TrainingConsistency /
+    // MonthlyReportBuilder). These read full history — verdicts, records, and
+    // streaks describe the lifter, not the visible range — so `build` takes
+    // the one-shot `historyEntries` fetch alongside the range-scoped rows.
+    let strengthAssessments: [LifterCoaching.ProgressionAssessment]
+    let doubleProgressionHint: LifterCoaching.DoubleProgressionHint?
+    let repRecords: [LifterCoaching.RepRecord]
+    let prEvents: [LifterCoaching.PREvent]
+    let muscleCoverage: [LifterCoaching.MuscleGroupCoverage]
+    let consistencySnapshot: TrainingConsistency.Snapshot
+    let monthlyReport: MonthlyReport?
 
     // PR-card bests, derived once here instead of re-scanning `filteredEntries`
     // inside the view body on every render (including chart scrubbing).
@@ -70,9 +81,11 @@ struct TrendsDerivedData {
     static func build(
         entries: [SetEntry],
         supplementEntries: [SupplementEntry],
+        historyEntries: [SetEntry],
         selectedExercise: Exercise?,
         selectedSupplementType: SupplementType?,
         range: TrendRange,
+        weeklyTarget: Int = TrainingConsistency.defaultWeeklyTarget,
         calendar: Calendar = .current,
         now: Date = AppEnvironment.now
     ) -> TrendsDerivedData {
@@ -210,9 +223,14 @@ struct TrendsDerivedData {
             SupplementDailySummary(date: $0.0, entries: $0.1, mode: supplementDisplayMode)
         }
 
+        // Compare in kilograms so a 100 kg set beats a 200 lb set — the same
+        // normalization the PR engine and lift bests use.
         let bestWeightEntry = filteredEntries
             .filter { $0.weight != nil }
-            .max { ($0.weight ?? 0) < ($1.weight ?? 0) }
+            .max {
+                PersonalRecords.kilograms($0.weight ?? 0, unit: $0.weightUnit)
+                    < PersonalRecords.kilograms($1.weight ?? 0, unit: $1.weightUnit)
+            }
         // Compare in meters so a 6 mi run beats a 200 m sprint regardless of
         // the unit each entry was logged in.
         let bestDistanceEntry = filteredEntries
@@ -231,12 +249,42 @@ struct TrendsDerivedData {
         let oneRepMaxSeries = selectedExercise.flatMap {
             LifterAnalytics.oneRepMaxSeries(entries: filteredEntries, exercise: $0, calendar: calendar)
         }
-        let muscleGroupSets = LifterAnalytics.muscleGroupSets(
-            entries: filteredEntries,
-            weekCount: LifterAnalytics.weekCount(range: range, entries: filteredEntries, now: now)
-        )
         let repRangeBuckets = LifterAnalytics.repRangeDistribution(entries: filteredEntries)
         let effortSummaries = consistencySummaries.filter { $0.count > 0 }
+
+        // Coaching layer. Range entries say what the lifter is doing now;
+        // history says where their records and streaks actually stand.
+        let strengthAssessments = LifterCoaching.topLiftAssessments(
+            rangeEntries: filteredEntries,
+            history: historyEntries,
+            calendar: calendar
+        )
+        let doubleProgressionHint = selectedExercise.flatMap {
+            LifterCoaching.doubleProgressionHint(history: historyEntries, exercise: $0, calendar: calendar)
+        }
+        let repRecords = selectedExercise.map {
+            LifterCoaching.repRecords(history: historyEntries, exercise: $0)
+        } ?? []
+        let prEvents = LifterCoaching.prEvents(
+            history: historyEntries,
+            rangeStart: startDate,
+            selectedExerciseID: selectedExerciseID,
+            calendar: calendar
+        )
+        let muscleCoverage = LifterCoaching.muscleGroupCoverage(
+            rangeEntries: filteredEntries,
+            history: historyEntries,
+            weekCount: LifterAnalytics.weekCount(range: range, entries: filteredEntries, now: now),
+            now: now,
+            calendar: calendar
+        )
+        let consistencySnapshot = TrainingConsistency.snapshot(
+            history: historyEntries,
+            target: weeklyTarget,
+            now: now,
+            calendar: calendar
+        )
+        let monthlyReport = MonthlyReportBuilder.build(history: historyEntries, now: now, calendar: calendar)
 
         let usesWeeks = granularity == .week
 
@@ -258,9 +306,15 @@ struct TrendsDerivedData {
             progressPoints: selectedExercise.map { ExerciseProgressBuilder.buildPoints(entries: filteredEntries, exercise: $0, range: range) } ?? [],
             liftBests: selectedExercise.flatMap { ExerciseProgressBuilder.buildLiftBests(entries: filteredEntries, exercise: $0, range: range) },
             oneRepMaxSeries: oneRepMaxSeries,
-            muscleGroupSets: muscleGroupSets,
             repRangeBuckets: repRangeBuckets,
             effortSummaries: effortSummaries,
+            strengthAssessments: strengthAssessments,
+            doubleProgressionHint: doubleProgressionHint,
+            repRecords: repRecords,
+            prEvents: prEvents,
+            muscleCoverage: muscleCoverage,
+            consistencySnapshot: consistencySnapshot,
+            monthlyReport: monthlyReport,
             bestWeightEntry: bestWeightEntry,
             bestDistanceEntry: bestDistanceEntry,
             fastestSpeedEntry: fastestSpeedEntry,
@@ -270,7 +324,7 @@ struct TrendsDerivedData {
             volumeAccessibilityValue: Self.makeVolumeAccessibilityValue(volumeData),
             supplementAccessibilityValue: Self.makeSupplementAccessibilityValue(resolvedSupplementSummaries, mode: supplementDisplayMode, usesWeeks: usesWeeks),
             oneRepMaxAccessibilityValue: Self.makeOneRepMaxAccessibilityValue(oneRepMaxSeries),
-            muscleGroupAccessibilityValue: Self.makeMuscleGroupAccessibilityValue(muscleGroupSets),
+            muscleGroupAccessibilityValue: Self.makeMuscleGroupAccessibilityValue(muscleCoverage),
             effortAccessibilityValue: Self.makeEffortAccessibilityValue(effortSummaries, usesWeeks: usesWeeks)
         )
     }
@@ -281,12 +335,12 @@ struct TrendsDerivedData {
         return "Best estimated one rep max \(bestText) \(series.displayUnit.symbol), across \(series.points.count) training days"
     }
 
-    private static func makeMuscleGroupAccessibilityValue(_ groups: [LifterAnalytics.MuscleGroupSets]) -> String {
+    private static func makeMuscleGroupAccessibilityValue(_ groups: [LifterCoaching.MuscleGroupCoverage]) -> String {
         guard !groups.isEmpty else { return "No data" }
         let top = groups.prefix(3)
-            .map { "\($0.category.displayName) \($0.setCount)" }
+            .map { String(format: "%@ %.1f sets per week, %@", $0.category.displayName, $0.setsPerWeek, $0.band.label) }
             .joined(separator: ", ")
-        return "Sets by muscle group, most trained: \(top)"
+        return "Weekly sets by muscle group: \(top)"
     }
 
     private static func makeEffortAccessibilityValue(_ summaries: [TrendDailySummary], usesWeeks: Bool) -> String {
