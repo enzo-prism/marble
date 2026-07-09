@@ -21,6 +21,7 @@ final class HealthSessionExporter {
 
     static let enabledDefaultsKey = "healthSessionExportEnabled"
     static let exportedDayKeysKey = "healthSessionExportedDayKeys"
+    static let exportedSessionIDsKey = "healthSessionExportedSessionIDs"
     /// How far back a never-exported day is still worth writing.
     static let exportWindowDays = 14
     /// Exported-day bookkeeping kept in defaults (oldest trimmed past this).
@@ -80,18 +81,36 @@ final class HealthSessionExporter {
         )
         guard let entries = try? modelContext.fetch(descriptor) else { return }
 
+        let sessionDescriptor = FetchDescriptor<WorkoutSession>(
+            predicate: #Predicate { $0.startedAt >= windowStart && $0.endedAt != nil },
+            sortBy: [SortDescriptor(\.startedAt)]
+        )
+        let sessions = (try? modelContext.fetch(sessionDescriptor)) ?? []
+        var exportedSessionIDs = Set(UserDefaults.standard.stringArray(forKey: Self.exportedSessionIDsKey) ?? [])
+
+        for session in sessions where !exportedSessionIDs.contains(session.id.uuidString) {
+            let manualSets = session.orderedEntries.filter { $0.importedWorkout == nil }
+            guard !manualSets.isEmpty else { continue }
+            guard await export(sets: manualSets, start: session.startedAt, end: session.endedAt) else { continue }
+            exportedSessionIDs.insert(session.id.uuidString)
+        }
+        UserDefaults.standard.set(Array(exportedSessionIDs).sorted(), forKey: Self.exportedSessionIDsKey)
+
         var exportedKeys = UserDefaults.standard.stringArray(forKey: Self.exportedDayKeysKey) ?? []
         let exportedSet = Set(exportedKeys)
 
-        let sessions = Dictionary(grouping: entries.filter { $0.importedWorkout == nil }) {
+        let sessionEntryIDs = Set(sessions.flatMap(\.entries).map(\.id))
+        let legacyDays = Dictionary(grouping: entries.filter {
+            $0.importedWorkout == nil && !sessionEntryIDs.contains($0.id)
+        }) {
             calendar.startOfDay(for: $0.performedAt)
         }
 
-        for (day, sets) in sessions.sorted(by: { $0.key < $1.key }) {
+        for (day, sets) in legacyDays.sorted(by: { $0.key < $1.key }) {
             guard day < today else { continue }
             let dayKey = Self.dayKeyFormatter.string(from: day)
             guard !exportedSet.contains(dayKey) else { continue }
-            guard await export(sets: sets) else { continue }
+            guard await export(sets: sets, start: nil, end: nil) else { continue }
             exportedKeys.append(dayKey)
         }
 
@@ -102,14 +121,14 @@ final class HealthSessionExporter {
     }
 
     /// One day's sets → one strength workout + one related effort sample.
-    private func export(sets: [SetEntry]) async -> Bool {
+    private func export(sets: [SetEntry], start explicitStart: Date?, end explicitEnd: Date?) async -> Bool {
         guard let first = sets.first, let last = sets.last else { return false }
 
-        let start = first.performedAt
+        let start = explicitStart ?? first.performedAt
         // The last set's own duration/rest keeps the window honest for timed
         // work; a small tail covers the final set's execution otherwise.
         let tailSeconds = max(last.durationSeconds ?? 0, 90)
-        let end = last.performedAt.addingTimeInterval(TimeInterval(tailSeconds))
+        let end = explicitEnd ?? last.performedAt.addingTimeInterval(TimeInterval(tailSeconds))
         guard end > start else { return false }
 
         let configuration = HKWorkoutConfiguration()

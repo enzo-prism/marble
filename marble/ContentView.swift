@@ -8,9 +8,13 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.undoManager) private var undoManager
 
+    @Query(filter: #Predicate<WorkoutSession> { $0.endedAt == nil }, sort: \WorkoutSession.startedAt, order: .reverse)
+    private var activeSessions: [WorkoutSession]
+
     @State private var quickLog = QuickLogCoordinator()
     @State private var tabSelection = TabSelection()
     @State private var activeDay = DateHelper.startOfDay(for: AppEnvironment.now)
+    @State private var persistenceIssues = PersistenceIssueCenter.shared
 
     private let restTimer = RestActivityController.shared
 
@@ -30,9 +34,9 @@ struct ContentView: View {
                 }
                 .tag(AppTab.calendar)
 
-            SplitView()
+            WorkoutView()
                 .tabItem {
-                    Label("Split", systemImage: "list.bullet.clipboard")
+                    Label("Workout", systemImage: "figure.strengthtraining.traditional")
                         .accessibilityIdentifier("Tab.Split")
                 }
                 .tag(AppTab.split)
@@ -97,6 +101,7 @@ struct ContentView: View {
                 initialPerformedAt: quickLog.prefillDate,
                 initialExercise: fetchExercise(id: quickLog.prefillExerciseID),
                 context: quickLog.context,
+                activeSession: fetchWorkoutSession(id: quickLog.workoutSessionID) ?? activeSessions.first,
                 isPresented: $quickLog.isPresentingAddSet
             )
                 .modelContext(modelContext)
@@ -106,6 +111,15 @@ struct ContentView: View {
                 .sheetGlassBackground()
         }
         .background(Theme.backgroundColor(for: colorScheme))
+        .alert("Unable to Save", isPresented: Binding(
+            get: { persistenceIssues.message != nil },
+            set: { if !$0 { persistenceIssues.message = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+                .accessibilityIdentifier("Persistence.Error.OK")
+        } message: {
+            Text(persistenceIssues.message ?? "Please try again.")
+        }
         .applyTestOverrides()
         .task {
             // Routes the system undo gestures (shake, three-finger swipe)
@@ -154,6 +168,12 @@ struct ContentView: View {
     private func fetchExercise(id: UUID?) -> Exercise? {
         guard let id else { return nil }
         let descriptor = FetchDescriptor<Exercise>(predicate: #Predicate { $0.id == id })
+        return (try? modelContext.fetch(descriptor))?.first
+    }
+
+    private func fetchWorkoutSession(id: UUID?) -> WorkoutSession? {
+        guard let id else { return nil }
+        let descriptor = FetchDescriptor<WorkoutSession>(predicate: #Predicate { $0.id == id })
         return (try? modelContext.fetch(descriptor))?.first
     }
 }

@@ -5,7 +5,8 @@ struct SplitDayEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(QuickLogCoordinator.self) private var quickLog
+    @Query(filter: #Predicate<WorkoutSession> { $0.endedAt == nil }, sort: \WorkoutSession.startedAt, order: .reverse)
+    private var activeSessions: [WorkoutSession]
 
     @Bindable var day: SplitDay
 
@@ -14,6 +15,8 @@ struct SplitDayEditorView: View {
     @State private var showNotes = false
     @State private var showExercisePicker = false
     @State private var selectedExercise: Exercise?
+    @State private var loggingExercise: Exercise?
+    @State private var isPresentingLog = false
 
     var body: some View {
         List {
@@ -140,6 +143,22 @@ struct SplitDayEditorView: View {
             .presentationDragIndicator(.visible)
             .sheetGlassBackground()
         }
+        .sheet(isPresented: $isPresentingLog, onDismiss: {
+            loggingExercise = nil
+        }) {
+            if let loggingExercise {
+                AddSetView(
+                    initialPerformedAt: DateHelper.nextDate(for: day.weekday, from: AppEnvironment.now),
+                    initialExercise: loggingExercise,
+                    context: logContext,
+                    activeSession: activeSessions.first,
+                    isPresented: $isPresentingLog
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .sheetGlassBackground()
+            }
+        }
     }
 
     private func load() {
@@ -206,14 +225,14 @@ struct SplitDayEditorView: View {
     }
 
     private func openLog(for plannedSet: PlannedSet) {
-        let targetDate = DateHelper.nextDate(for: day.weekday, from: AppEnvironment.now)
+        loggingExercise = plannedSet.exercise
+        isPresentingLog = true
+    }
+
+    private var logContext: QuickLogContext {
         let title = day.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let source = title.isEmpty ? day.weekday.displayName : "\(day.weekday.displayName) · \(title)"
-        quickLog.open(
-            prefillDate: targetDate,
-            prefillExerciseID: plannedSet.exercise.id,
-            context: QuickLogContext(title: "Split", source: source)
-        )
+        return QuickLogContext(title: "Split", source: source)
     }
 
     private func plannedSetIdentifier(_ plannedSet: PlannedSet) -> String {

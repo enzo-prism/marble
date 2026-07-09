@@ -35,6 +35,17 @@ enum MarbleSchemaV1: VersionedSchema {
     }
 }
 
+/// Schema V2 adds first-class workout sessions without changing any existing
+/// entity. This is a lightweight, additive migration and preserves every
+/// pre-session set as standalone history.
+enum MarbleSchemaV2: VersionedSchema {
+    static var versionIdentifier = Schema.Version(2, 0, 0)
+
+    static var models: [any PersistentModel.Type] {
+        MarbleSchemaV1.models + [WorkoutSession.self]
+    }
+}
+
 // MARK: - Migration plan
 
 /// Ordered list of schema versions plus the migration stages between them.
@@ -52,10 +63,12 @@ enum MarbleSchemaV1: VersionedSchema {
 ///   4. Add a migration test (see `SchemaMigrationTests`).
 enum MarbleMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [MarbleSchemaV1.self]
+        [MarbleSchemaV1.self, MarbleSchemaV2.self]
     }
 
     static var stages: [MigrationStage] {
-        []
+        [
+            .lightweight(fromVersion: MarbleSchemaV1.self, toVersion: MarbleSchemaV2.self)
+        ]
     }
 }

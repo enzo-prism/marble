@@ -9,7 +9,7 @@ final class SmokeNavigationUITests: MarbleUITestCase {
         let tabAnchors: [MarbleTab: String] = [
             .journal: "Journal.List",
             .calendar: "Calendar.View",
-            .split: "Split.List",
+            .split: "Workout.List",
             .supplements: "Supplements.List",
             .trends: "Trends.Scroll"
         ]

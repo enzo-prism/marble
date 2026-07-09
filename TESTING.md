@@ -5,23 +5,20 @@
   mapping, the handwritten-scan parser/importer + a real Vision-OCR integration test, the
   `RenderMemo` cache, Strava credential resolution, and the **personal-records engine**
   `PersonalRecordsTests` — PR-badge trail, unit-normalized weight records, all-time bests,
-  usual ranges, and the live-PR projection). Runs in CI. Last verified locally on 2026-06-23
-  with Xcode 26.5 / iOS 26.5 simulator: **164 passed, 0 failed**.
+  usual ranges, the live-PR projection, workout sessions, backup/restore validation, and
+  recovery safety). Runs in CI. Last verified locally on 2026-07-09 with Xcode 26.5 /
+  iOS 26.5 simulator: **238 passed, 0 failed**.
 - Snapshot tests: `MarbleSnapshotTests` (SwiftUI rendering with SnapshotTesting).
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
-## Latest local verification (2026-06-23)
-- `MarbleTests`: **164 passed, 0 failed** (`make unit`) — now including `PersonalRecordsTests`.
-- `MarbleUITests` flows: passed (`make ui`), including `ImportFlowUITests`, `ScanFlowUITests`,
-  and the two new personal-records flows in `JournalFlowUITests`
-  (`testPersonalRecordBadgeAppearsInJournalHistory`, `testPersonalBestCardAndLivePRWhileLogging`).
-  Note: the full `make ui` run can hit unrelated long-run simulator flakiness on this host
-  (a single test may crash on a ~10-min combined run, then pass cleanly in isolation) — verify
-  any such failure with `make only TEST=...` before treating it as a regression.
-- `MarbleUITests/AccessibilityAuditUITests`: passed (1 expected accessibility-text skip). The
-  PR badge is rendered on its own row line so it never squeezes the exercise name at large
-  Dynamic Type sizes (an earlier inline placement tripped the `.textClipped` audit).
+## Latest local verification (2026-07-09)
+- `MarbleTests`: **238 passed, 0 failed** (`make unit`).
+- `MarbleUITests`: **35 flows passed, 0 failed** (`make ui`), including workout start/log/
+  finish, Data management, focused Trends, plan logging, and XXXL interaction coverage.
+- `AccessibilityAuditUITests`: default audit passed; the iOS 26.5 runtime skips its
+  unsupported Dynamic Type audit, covered by dedicated XXXL tests for Workout and Trends.
+- Signed Release archive/export: passed for `Prism.marble` and `Prism.marble.MarbleWidgets`.
 - Feature-verification pass on the Apple Health / Watch / Garmin import path and the AI
   photo-scan pipeline. The real Vision OCR step is proven by
   `WorkoutTextRecognizerIntegrationTests`; the FoundationModels LLM parser is availability-
@@ -46,22 +43,19 @@ Preferred Makefile targets:
 - `make snapshot-quick` (quick snapshots only)
 - `make snapshot-record` (records baselines; sets `RECORD_SNAPSHOTS=1`)
 - `make ui-smoke` (fast navigation smoke)
-- `make ui` (UI flow tests)
+- `make ui` (UI flow tests; excludes the separate accessibility audit so long-running
+  audit sampling cannot degrade later simulator interactions)
 - `make audit` (accessibility audits)
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **1.9 (29)**, build ID
-  `e61a527f-4780-4e10-9f95-fdf0914cb0ec` (builds 28, `54c40cc8-…`, and 27,
-  `b3e36109-…`, are also `VALID`).
-- ASC state checked on 2026-06-23: build processing is `VALID` and internal group
-  `test group A` has access to all builds.
-- What to test on device: install/launch stability, the new **Personal Records** PR badges,
-  "Personal best" add-set card, live "New PR!" cue + haptic, the rest timer Live
-  Activity/widget, Apple Health workout import + Garmin-via-Health labeling, the
-  **handwritten-workout scan** (Import → "Scan a Workout" → photograph a note → review →
-  log), journal/split logging, the Trends summary, and the Strava-hidden-unless-configured
-  posture.
+- Current phone-test build: **2.0 (35)**, build ID
+  `742c71d5-0154-4a07-a456-c2382157b4d5`; `VALID` and `IN_BETA_TESTING` internally.
+- ASC state checked on 2026-07-09: internal group `test group A` receives all builds;
+  external beta remains unsubmitted.
+- What to test on device: start and finish a workout session, log planned and repeated
+  sets, review recent workouts, check weekly-goal/priority-lift/monthly-report Trends, and
+  export + restore a JSON backup. Confirm the backup disclosure that media is excluded.
 
 Simulator prerequisite:
 - The Make targets use `scripts/sim_destination.sh` to find an iPhone simulator.

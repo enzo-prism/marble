@@ -17,12 +17,14 @@ final class PersistenceRecoveryTests: XCTestCase {
             .appendingPathComponent("marble-persist-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
         storeURL = tempDirectory.appendingPathComponent("Marble.store")
+        clearRecoveryNotice()
     }
 
     override func tearDownWithError() throws {
         if let tempDirectory {
             try? FileManager.default.removeItem(at: tempDirectory)
         }
+        clearRecoveryNotice()
         try super.tearDownWithError()
     }
 
@@ -75,5 +77,54 @@ final class PersistenceRecoveryTests: XCTestCase {
         // The fresh store is fully usable.
         context.insert(Exercise(name: "Fresh", category: .other, metrics: .repsOnlyRequired, defaultRestSeconds: 60))
         XCTAssertNoThrow(try context.save())
+    }
+
+    func testMigratesV1StoreToV2WithoutRecoveryOrDataLoss() throws {
+        try autoreleasepool {
+            let v1Schema = Schema(versionedSchema: MarbleSchemaV1.self)
+            let configuration = ModelConfiguration(schema: v1Schema, url: storeURL)
+            let container = try ModelContainer(for: v1Schema, configurations: [configuration])
+            let context = ModelContext(container)
+            context.insert(Exercise(name: "Legacy Squat", category: .legs, metrics: .weightAndRepsRequired, defaultRestSeconds: 120))
+            try context.save()
+        }
+
+        let migrated = PersistenceController.makeRecoveringContainer(at: storeURL)
+        let context = ModelContext(migrated)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<Exercise>()).map(\.name), ["Legacy Squat"])
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<WorkoutSession>()), 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.appendingPathExtension("corrupt").path))
+    }
+
+    func testRepeatedRecoveryNeverOverwritesOlderBackup() throws {
+        let olderBytes = Data(repeating: 0xA1, count: 8192)
+        try olderBytes.write(to: storeURL)
+        try autoreleasepool {
+            _ = PersistenceController.makeRecoveringContainer(at: storeURL)
+        }
+
+        let originalBackupURL = storeURL.appendingPathExtension("corrupt")
+        XCTAssertEqual(try Data(contentsOf: originalBackupURL), olderBytes)
+
+        try Data(repeating: 0xB2, count: 8192).write(to: storeURL)
+        for sidecar in ["Marble.store-wal", "Marble.store-shm"] {
+            try? FileManager.default.removeItem(at: tempDirectory.appendingPathComponent(sidecar))
+        }
+        try autoreleasepool {
+            _ = PersistenceController.makeRecoveringContainer(at: storeURL)
+        }
+
+        XCTAssertEqual(try Data(contentsOf: originalBackupURL), olderBytes)
+        let recoveryNames = try FileManager.default.contentsOfDirectory(atPath: tempDirectory.path)
+            .filter { $0.hasPrefix("Marble.store.corrupt-") }
+        XCTAssertEqual(recoveryNames.count, 1)
+    }
+
+    private func clearRecoveryNotice() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: PersistenceRecoveryNotice.recoveryDateKey)
+        defaults.removeObject(forKey: PersistenceRecoveryNotice.recoveryBackupNameKey)
+        defaults.removeObject(forKey: PersistenceRecoveryNotice.acknowledgedKey)
+        defaults.removeObject(forKey: PersistenceRecoveryNotice.lastSuccessfulRestoreKey)
     }
 }

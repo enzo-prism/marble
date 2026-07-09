@@ -1,24 +1,17 @@
 # Marble Release Handoff
 
-**Last verified: 2026-07-02.** This file is the single source of truth for "where the
+**Last verified: 2026-07-09.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
-## TL;DR — what "up-to-date" means today (2026-07-02)
+## TL;DR — what "up-to-date" means today (2026-07-09)
 
-- **Code baseline:** `main` is being advanced to **1.9 (build 33)** — lifter-focused
-  Trends analytics: `LifterAnalytics` pure engine (Epley e1RM per-day bests, ≤12-rep cap,
-  kg-normalized, display in most-recent unit; muscle-group set counts + per-week averages
-  over 2+-week ranges; rep-range buckets), four new chart sections
-  (`LifterAnalyticsSections.swift` — Strength/steel-blue, MuscleGroups + RepRanges as
-  horizontal bars, Effort/avg-RPE line reusing TrendDailySummary.averageRPE), new
-  `TrendsPalette.strength/effort` accents, and a lift-bests unit-normalization bug fix in
-  `ExerciseProgressBuilder`. Unit suite = **193**; TrendsSmoke pins the four new chart ids.
-  **Audit note:** section titles at the tab-bar glass boundary trip the audit's contrast
-  sampler falsely — `Trends.Section.*` ids are whitelisted in the audit test with rationale
-  (real contrast pinned by ThemeContrastTests).
+- **Code baseline:** branch `agent/workout-sessions-data-safety` is **2.0 (build 35)**. It
+  adds first-class workout sessions, a session-led Workout tab, focused Trends, JSON
+  backup/restore, safer recovery, visible persistence errors, and true session bounds for
+  Apple Health export. Media is not included in JSON backups and the UI says so explicitly.
 - **Build 32 baseline:** a performance pass
   for all supported iPhones (A13 floor): range-scoped Trends `@Query`s (thin `TrendsView`
   shell + `TrendsContentView` init-built predicates — the documented dynamic-query
@@ -75,46 +68,25 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   (`MarbleHaptics.celebrate()`). Weight records are unit-normalized (lb/kg) before comparison.
   Build 28 (perf/iOS 26 pass, `RenderMemo`, `@Observable` migration, handwritten workout scan)
   remains underneath. `origin/release/1.9` may still point at the older 1.9 build 20 baseline.
-- **Latest TestFlight build:** **1.9 (build 33)** uploaded 2026-07-02 carrying the
-  lifter-analytics Trends update; processing **`VALID`** (build id
-  `815fb849-4a1e-499c-be4f-96f4963936b9`). Build 32
-  (`6afb27d5-e894-43cb-829e-bb2e044d08cc`, all-iPhones performance pass) and build 31
-  (`c5caf019-7fba-4441-a6a6-bfc5823e29b4`, workout-import overhaul) remain `VALID`.
-  Build 30 (`256edfc1-9644-40a1-a955-c24bb844b15c`, iOS 26 design/UX polish + rest pill) and
-  build 29 (`e61a527f-4780-4e10-9f95-fdf0914cb0ec`, Personal Records) remain `VALID`. The
-  internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) receives all builds,
-  so each is testable immediately. **Note:** Apple's ASC *betaGroups* endpoint has flapped on
-  past uploads (build 28 needed retry 4); builds 29–31 landed on the first attempt. `asc
-  publish testflight` requires `--app 6757725234` (or `ASC_APP_ID`); use `--wait` to poll to
-  `VALID`. Workaround when betaGroups is down: build the IPA once (`make asc-archive` +
-  `make asc-export`) then loop the publish command until it recovers.
-- **Current working project version:** **1.9 (build 33)**;
-  `MARKETING_VERSION = 1.9`, `CURRENT_PROJECT_VERSION = 33` in
+- **Latest TestFlight build:** **2.0 (build 35)** uploaded 2026-07-09; processing is
+  **`VALID`**, internal state is **`IN_BETA_TESTING`**, and build id is
+  `742c71d5-0154-4a07-a456-c2382157b4d5`. Internal group `test group A`
+  (`514a95e2-28fc-436b-b624-9aaec2963adc`) receives all builds. External beta remains
+  `READY_FOR_BETA_SUBMISSION` and was not submitted.
+- **Current working project version:** **2.0 (build 35)**;
+  `MARKETING_VERSION = 2.0`, `CURRENT_PROJECT_VERSION = 35` in
   `marble.xcodeproj/project.pbxproj`.
-- **Build/test health:** Xcode 26.5 / iOS 26.5 simulator is installed locally; the
-  build 29 unit suite is green: `MarbleTests` (**164 unit tests, 0 failures**), which now
-  includes `PersonalRecordsTests` alongside `RenderMemoTests`, `TrendsDerivedDataTests`, the
-  scan tests, and the real Vision-OCR integration test; the `MarbleUITests` flows (incl. two
-  new PR flows in `JournalFlowUITests`) and the accessibility audit also pass. The full
-  `make ui` run can hit unrelated long-run simulator flakiness on this host — re-verify any
-  single failure in isolation with `make only TEST=...`. (Snapshot baselines remain
-  host-sensitive and were not used as a release gate.)
+- **Build/test health:** Xcode 26.5 / iOS 26.5 simulator; **238 unit tests** and **35 UI
+  flows** pass with zero failures. The default accessibility audit passes; the runtime's
+  unsupported Dynamic Type audit is an expected skip covered by dedicated XXXL tests. A
+  signed app + widget archive/export succeeded. Snapshot baselines remain host-runtime
+  sensitive and were not used as a release gate.
 - **Live Activity wiring:** `MarbleWidgets` is now a real app-extension target embedded in
   the app, `NSSupportsLiveActivities = YES` is set on the app target, and
   `RestTimerAttributes.swift` is shared into the widget target.
-- **Live App Store:** version **1.9 is READY_FOR_REVIEW** with prepared submission
-  `5f0ffd7d-b221-4520-bba9-1953c752b747`; version **1.8 is COMPLETE /
-  READY_FOR_DISTRIBUTION**. Uploading/distributing 1.9 build 29 did **not** submit the 1.9
-  App Review.
-- **Known 1.9 build ID:** `e61a527f-4780-4e10-9f95-fdf0914cb0ec` (version 1.9,
-  build 29, `VALID`, uploaded 2026-06-23 15:15 PDT).
-- **TestFlight:** **1.9 build 29 is valid and available to the internal all-builds group**.
-  `buildBetaDetail` reports `internalBuildState = IN_BETA_TESTING`; internal group
-  `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds and
-  includes the installed Enzo tester record. External TestFlight remains not submitted.
-- **Latest build 29 improvement:** Personal Records adds PR badges in Journal/quick-log
-  history, a "Personal best" add-set card, a live "New PR!" cue + haptic, and unit-normalized
-  heaviest / most-reps records.
+- **Live App Store:** version **2.0 is `WAITING_FOR_REVIEW`** under submission
+  `a89a2e97-369e-4f80-a658-2cab40d79b19`. The build 35 TestFlight upload did not alter,
+  cancel, or resubmit that App Store review.
 
 ---
 
@@ -311,9 +283,9 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel the current App Store review by default.
-- `origin/main` is the canonical code baseline. As of 2026-06-23 it has been advanced to
-  **1.9 (build 29)**. The latest internal TestFlight build is 1.9 (29), and the *live*
-  App Store version is 1.9 `READY_FOR_REVIEW` but not submitted by this run.
+- `origin/main` is the canonical base branch. The build 35 release candidate is on
+  `agent/workout-sessions-data-safety` until its PR merges. The latest internal TestFlight
+  build is **2.0 (35)**; App Store 2.0 remains `WAITING_FOR_REVIEW` and was not mutated.
 - Do not bump builds, upload binaries, or submit for review without explicit user approval.
 - Never reuse stale `.asc` archives/IPAs — `make asc-publish-*` regenerates them.
 - Keep signing/export files and generated artifacts under ignored `.asc/`.
@@ -326,7 +298,7 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # expect MARKETING_VERSION 1.9
+make asc-version      # expect MARKETING_VERSION 2.0
 make asc-status
 make asc-builds
 make asc-next-build

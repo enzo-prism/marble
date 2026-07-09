@@ -86,6 +86,7 @@ struct TrendsContentView: View {
     @State private var isPresentingExerciseSearch = false
     @State private var isScrubbingChart = false
     @State private var monthlyReportForSheet: MonthlyReport?
+    @State private var showsDetailedAnalytics = false
 
     // Caches the derived snapshot so scrubbing a chart (which mutates UI-only
     // state and re-runs `body`) doesn't re-filter/-group/-sort the full history
@@ -138,23 +139,35 @@ struct TrendsContentView: View {
                     rangePicker
 
                     if derived.consistencySnapshot.lifetimeSets > 0 {
-                        ConsistencyGoalCardView(
+                        TrendsFocusView(
                             snapshot: derived.consistencySnapshot,
-                            weeklyTarget: $weeklyTarget
+                            weeklyTarget: $weeklyTarget,
+                            report: derived.monthlyReport,
+                            assessments: derived.strengthAssessments,
+                            onSelectExercise: { selectedExerciseID = $0 },
+                            onOpenReport: { monthlyReportForSheet = $0 }
                         )
                     }
 
-                    if let report = derived.monthlyReport {
-                        MonthlyReportCardView(report: report) {
-                            monthlyReportForSheet = report
-                        }
-                    }
-
-                    if let liftBests = derived.liftBests {
-                        LiftBestsHighlightView(bests: liftBests)
-                    }
                     if hasSetData || hasSupplementData {
-                        trendSummaryStrip(derived: derived)
+                        Button {
+                            withAnimation(.snappy) {
+                                showsDetailedAnalytics.toggle()
+                            }
+                        } label: {
+                            Label(
+                                title: {
+                                    Text(showsDetailedAnalytics ? "Hide Detailed Analytics" : "Explore Detailed Analytics")
+                                        .fixedSize(horizontal: false, vertical: true)
+                                },
+                                icon: {
+                                    Image(systemName: showsDetailedAnalytics ? "chevron.up" : "chart.xyaxis.line")
+                                }
+                            )
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
+                        .accessibilityIdentifier("Trends.Details.Toggle")
                     }
 
                     if !hasSetData && !hasSupplementData {
@@ -164,7 +177,12 @@ struct TrendsContentView: View {
                             systemImage: "chart.line.uptrend.xyaxis"
                         )
                             .accessibilityIdentifier("Trends.EmptyState")
-                    } else {
+                    } else if showsDetailedAnalytics {
+                        if let liftBests = derived.liftBests {
+                            LiftBestsHighlightView(bests: liftBests)
+                        }
+                        trendSummaryStrip(derived: derived)
+
                         if hasSetData {
                             VStack(alignment: .leading, spacing: MarbleSpacing.s) {
                                 Text("Consistency")
@@ -262,6 +280,7 @@ struct TrendsContentView: View {
                             }
                         }
                     }
+
                 }
                 .padding(MarbleLayout.pagePadding)
             }

@@ -34,6 +34,7 @@ struct AddSetView: View {
     @State private var lastEntry: SetEntry?
     @State private var personalRecords: ExercisePersonalRecords?
     private let context: QuickLogContext?
+    private let activeSession: WorkoutSession?
     private let repsRange: ClosedRange<Int> = 1...20
     private let defaultRepsValue: Int = 10
 
@@ -41,11 +42,13 @@ struct AddSetView: View {
         initialPerformedAt: Date = AppEnvironment.now,
         initialExercise: Exercise? = nil,
         context: QuickLogContext? = nil,
+        activeSession: WorkoutSession? = nil,
         isPresented: Binding<Bool> = .constant(true)
     ) {
         _performedAt = State(initialValue: initialPerformedAt)
         _selectedExerciseID = State(initialValue: initialExercise?.id)
         self.context = context
+        self.activeSession = activeSession
         _isPresented = isPresented
     }
 
@@ -915,6 +918,7 @@ struct AddSetView: View {
         )
 
         modelContext.insert(entry)
+        activeSession?.append(entry, at: now)
         do {
             try modelContext.save()
         } catch {

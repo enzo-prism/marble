@@ -44,6 +44,7 @@ final class NotificationsFlowUITests: MarbleUITestCase {
     func testMaxTenNotificationsDisablesAdd() {
         launchApp(fixtureMode: "empty")
         openNotifications()
+        let list = waitForIdentifier("Notifications.List")
 
         for index in 1...CustomNotificationTestValues.maximumCount {
             app.buttons["Notifications.Add"].tap()
@@ -53,7 +54,9 @@ final class NotificationsFlowUITests: MarbleUITestCase {
             messageField.tap()
             messageField.typeText("Reminder \(index)")
             app.buttons["NotificationEditor.Save"].tap()
-            XCTAssertTrue(app.staticTexts["Reminder \(index)"].waitForExistence(timeout: 5))
+            let reminder = app.staticTexts["Reminder \(index)"]
+            scrollToElement(reminder, in: list, maxSwipes: 3)
+            XCTAssertTrue(reminder.waitForExistence(timeout: 5))
         }
 
         let addButton = app.buttons["Notifications.Add"]

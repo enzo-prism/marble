@@ -18,13 +18,14 @@ enum MarbleAppearance {
 enum MarbleTab: String, CaseIterable {
     case journal = "Journal"
     case calendar = "Calendar"
-    case split = "Split"
+    case split = "Workout"
     case supplements = "Supplements"
     case trends = "Trends"
 
     var identifier: String {
-        "Tab.\(rawValue)"
+        self == .split ? "Tab.Split" : "Tab.\(rawValue)"
     }
+
 }
 
 class MarbleUITestCase: XCTestCase {
@@ -104,6 +105,11 @@ class MarbleUITestCase: XCTestCase {
         }
     }
 
+    func revealDetailedTrends(file: StaticString = #file, line: UInt = #line) {
+        let toggle = waitForIdentifier("Trends.Details.Toggle", timeout: 8, file: file, line: line)
+        forceTap(toggle, file: file, line: line)
+    }
+
     func forceTap(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), file: file, line: line)
         if element.isHittable {
@@ -125,14 +131,20 @@ class MarbleUITestCase: XCTestCase {
     }
 
     func scrollToElement(_ element: XCUIElement, in container: XCUIElement, maxSwipes: Int = 8) {
-        if element.exists && element.isHittable { return }
+        func isFullyVisible() -> Bool {
+            guard element.exists, element.isHittable, container.exists else { return false }
+            let visibleFrame = container.frame.insetBy(dx: 0, dy: 8)
+            return visibleFrame.contains(element.frame)
+        }
+
+        if isFullyVisible() { return }
         for _ in 0..<maxSwipes {
             if container.isHittable {
                 container.swipeUp()
             } else {
                 app.swipeUp()
             }
-            if element.exists && element.isHittable {
+            if isFullyVisible() {
                 return
             }
         }

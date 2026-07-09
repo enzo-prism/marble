@@ -5,6 +5,8 @@ final class SplitFlowUITests: MarbleUITestCase {
         launchApp(fixtureMode: "empty")
         navigateToTab(.split)
 
+        forceTap(waitForIdentifier("Workout.Plan"))
+
         let mondayRow = waitForIdentifier("Split.Day.Monday")
         forceTap(mondayRow)
 
@@ -21,7 +23,7 @@ final class SplitFlowUITests: MarbleUITestCase {
         let plannedBench = waitForIdentifier("SplitDayEditor.PlannedSet.BenchPress")
         forceTap(plannedBench)
 
-        waitFor(app.navigationBars["Log Set"])
+        waitFor(app.navigationBars["Log Set"], timeout: 15)
         let sessionContext = waitForIdentifier("AddSet.SessionContext", timeout: 6)
         XCTAssertTrue(sessionContext.exists)
         let exercisePicker = app.buttons["AddSet.ExercisePicker"]

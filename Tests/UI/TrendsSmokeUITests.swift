@@ -1,9 +1,25 @@
 import XCTest
 
 final class TrendsSmokeUITests: MarbleUITestCase {
+    func testDetailsToggleSupportsLargestAccessibilityText() {
+        launchApp(
+            contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
+            fixtureMode: "populated"
+        )
+        navigateToTab(.trends)
+
+        let scrollView = app.scrollViews["Trends.Scroll"]
+        let toggle = app.descendants(matching: .any).matching(identifier: "Trends.Details.Toggle").firstMatch
+        scrollToElement(toggle, in: scrollView)
+        waitFor(toggle, timeout: 8)
+        XCTAssertTrue(toggle.isHittable)
+        XCTAssertGreaterThan(toggle.frame.height, 80, "The detailed analytics action should grow to fit its wrapped label")
+    }
+
     func testTrendsChartsRender() {
         launchApp(fixtureMode: "populated")
         navigateToTab(.trends)
+        revealDetailedTrends()
 
         assertTrendSummaryMetrics()
 

@@ -11,8 +11,12 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
   (heaviest + most reps) and usual range so you can shoot to beat it — with a live "New PR!"
   cue the moment your entry passes your best.
 - **Calendar** — month view with workout-day markers, day detail, and progress photos/videos.
-- **Split** — a weekly workout plan whose planned sets log into the journal in one tap.
-- **Trends** — Swift Charts for consistency, volume, per-exercise progress, supplements, PRs.
+- **Workout** — start and finish timed workout sessions, log planned sets in one tap, and
+  review recent sessions; the weekly split remains the editable plan behind the tab.
+- **Trends** — a focused weekly goal, priority lift, and monthly report first; detailed
+  consistency, volume, per-exercise, supplement, and PR charts remain one tap away.
+- **Data safety** — export and restore exercises, sets, supplements, sessions, and plans as
+  JSON. Progress photos and videos remain on-device and are intentionally excluded.
 - **Import** — bring workouts in from Apple Health (Apple Watch, Garmin, …) and Strava. See
   [`INTEGRATIONS.md`](INTEGRATIONS.md).
 - **Rest timer** — after interactive set logging, a tab-bar pill counts the rest down inside
@@ -21,8 +25,12 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-02)
+## Current state (2026-07-09)
 
+- **2.0 (build 35)** adds first-class `WorkoutSession` history, a session-led Workout tab,
+  focused Trends, JSON backup/restore, safer migration recovery, and visible save failures.
+  Local verification: **238 unit tests**, **35 UI flows**, the accessibility audit, and a
+  signed Release archive all pass.
 - **1.9 (build 33)** adds **lifter-focused analytics** to Trends: an estimated-1RM
   progression chart per exercise (Epley, sets ≤12 reps, unit-normalized — with the
   all-time best marked), sets per muscle group with weekly averages (RP volume-landmark
@@ -64,15 +72,8 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   best" target card + live "New PR!" cue while logging (see `marble/Components/
   PersonalRecords.swift`). `origin/release/1.9` may still point at the older 1.9 build 20
   release baseline unless explicitly updated.
-- Latest TestFlight upload: **1.9 (build 29)** ships the PR feature, processed `VALID`
-  (build id `e61a527f-4780-4e10-9f95-fdf0914cb0ec`) and available to the internal all-builds
-  group for phone testing (build 28 — perf/iOS 26 pass, handwritten scan — remains `VALID`).
-- Local verification (2026-06-23): `MarbleTests` passed **164 tests** (incl. the new
-  `PersonalRecordsTests`), the `MarbleUITests` flows passed (incl. two new PR flow tests),
-  and the accessibility audit passed. A feature-verification pass covered the Apple Health / Watch /
-  Garmin import path and the AI photo-scan pipeline (the real Vision OCR step is proven by an
-  integration test; the on-device LLM, and real Watch/Garmin/handwriting data, remain
-  device-only).
+- Latest TestFlight upload: **2.0 (build 35)** is `VALID` and `IN_BETA_TESTING` internally
+  (build id `742c71d5-0154-4a07-a456-c2382157b4d5`). External beta remains unsubmitted.
 - Builds 27–28 add, on top of build 26: a **performance + iOS 26 pass** (the
   Trends/Calendar/Journal screens memoize their derived data via `RenderMemo` instead of
   re-deriving on every render/scrub; all view models moved to `@Observable`;
@@ -82,9 +83,8 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   Magic Replace on toggle icons).
 - `MarbleWidgets` target is wired into the app build and its `Info.plist` is checked by
   Makefile test targets.
-- Live App Store: **1.9 is READY_FOR_REVIEW** with a prepared review submission; **1.8 is
-  COMPLETE / READY_FOR_DISTRIBUTION**. This TestFlight pass did not submit 1.9 for App
-  Review.
+- Live App Store: **2.0 is `WAITING_FOR_REVIEW`** under submission
+  `a89a2e97-369e-4f80-a658-2cab40d79b19`. Uploading build 35 did not change that submission.
 - **[`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) is the authoritative, dated source of truth
   for release state** — read it before any release/signing work.
 
@@ -96,13 +96,12 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 ## Architecture
 
 - **SwiftUI + SwiftData, local-only.** Feature folders under `marble/Features/`: `Journal`,
-  `Calendar`, `Supplements`, `Trends`, `Split`, `Notifications`, and `Import`.
+  `Calendar`, `Workout`, `Supplements`, `Trends`, `Split`, `Notifications`, and `Import`.
 - **Models** (`marble/Models/`) are SwiftData `@Model` types plus a rich domain core in
   `Enums.swift` (the configurable per-exercise metric profiles).
-- **Versioned schema.** `marble/Persistence/MarbleSchema.swift` declares `MarbleSchemaV1` +
-  `MarbleMigrationPlan`. The container **self-recovers** from a failed migration (backs the
-  old store up to `*.corrupt`, recreates, falls back to in-memory) instead of crash-looping.
-  Add a `MarbleSchemaV2` + a `MigrationStage` for any breaking model change.
+- **Versioned schema.** `marble/Persistence/MarbleSchema.swift` declares V1, additive V2
+  workout-session storage, and `MarbleMigrationPlan`. The container **self-recovers** from
+  a failed migration without overwriting older recovery copies.
 - **Design system** (`marble/Theme/`, `marble/Components/`) — the monochrome "Marble" brand
   with Liquid Glass confined to navigation surfaces.
 - **Import** (`marble/Features/Import/`) — a small `WorkoutImportProvider` abstraction over

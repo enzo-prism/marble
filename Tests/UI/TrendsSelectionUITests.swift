@@ -4,8 +4,11 @@ final class TrendsSelectionUITests: MarbleUITestCase {
     func testTrendsConsistencySelectionOpensDayDetails() {
         launchApp(fixtureMode: "populated")
         navigateToTab(.trends)
+        revealDetailedTrends()
 
+        let scrollView = app.scrollViews["Trends.Scroll"]
         let chart = chartElement("Trends.ConsistencyChart")
+        scrollToElement(chart, in: scrollView)
         waitFor(chart)
 
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
@@ -17,6 +20,7 @@ final class TrendsSelectionUITests: MarbleUITestCase {
     func testTrendsWeeklyVolumeSelectionOpensWeekDetails() {
         launchApp(fixtureMode: "populated")
         navigateToTab(.trends)
+        revealDetailedTrends()
 
         let scrollView = app.scrollViews["Trends.Scroll"]
         let volumeChart = chartElement("Trends.VolumeChart")
@@ -35,6 +39,7 @@ final class TrendsSelectionUITests: MarbleUITestCase {
     func testTrendsSupplementsSelectionOpensSupplementDayDetails() {
         launchApp(fixtureMode: "populated")
         navigateToTab(.trends)
+        revealDetailedTrends()
 
         let scrollView = app.scrollViews["Trends.Scroll"]
         let supplementsChart = chartElement("Trends.SupplementsChart")

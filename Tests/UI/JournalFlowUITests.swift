@@ -279,13 +279,15 @@ final class JournalFlowUITests: MarbleUITestCase {
             iconMode.buttons["Emoji"].tap()
 
             let firstEmojiSuggestion = app.buttons["ExerciseEditor.EmojiSuggestion.0"]
-            waitFor(firstEmojiSuggestion)
+            if !firstEmojiSuggestion.waitForExistence(timeout: 8) {
+                let editorList = app.descendants(matching: .any).matching(identifier: "ExerciseEditor.List").firstMatch
+                let container = editorList.exists ? editorList : app.collectionViews.firstMatch
+                scrollToElement(firstEmojiSuggestion, in: container, maxSwipes: 6)
+            }
+            waitFor(firstEmojiSuggestion, timeout: 10)
             forceTap(firstEmojiSuggestion)
 
-            let weightedBodyweightTemplate = app.buttons["ExerciseEditor.Template.weightedBodyweight"]
-            scrollToElement(weightedBodyweightTemplate, in: app.tables.firstMatch)
-            waitFor(weightedBodyweightTemplate)
-            forceTap(weightedBodyweightTemplate)
+            selectExerciseTemplate("ExerciseEditor.Template.weightedBodyweight")
 
             let saveExercise = app.buttons["ExerciseEditor.Save"]
             waitFor(saveExercise)

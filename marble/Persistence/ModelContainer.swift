@@ -27,7 +27,9 @@ enum PersistenceController {
             #if DEBUG
             print("ModelContainer open failed, attempting recovery: \(error)")
             #endif
-            backupCorruptStore(at: url)
+            if let backupURL = backupCorruptStore(at: url) {
+                PersistenceRecoveryNotice.record(backupName: backupURL.lastPathComponent)
+            }
             do {
                 return try makePersistentContainer(at: url)
             } catch {
@@ -42,7 +44,7 @@ enum PersistenceController {
     // MARK: - Container construction
 
     private static var schema: Schema {
-        Schema(versionedSchema: MarbleSchemaV1.self)
+        Schema(versionedSchema: MarbleSchemaV2.self)
     }
 
     private static func makePersistentContainer(at url: URL) throws -> ModelContainer {
@@ -98,14 +100,24 @@ enum PersistenceController {
         }
     }
 
-    /// Moves the store at `base` (and its sidecars) aside to `*.corrupt` so a failed
-    /// migration doesn't destroy data outright; a later build could offer to recover from it.
-    private static func backupCorruptStore(at base: URL) {
+    /// Moves the store at `base` (and its sidecars) aside so a failed migration
+    /// doesn't destroy data outright. Older recovery copies are never overwritten.
+    @discardableResult
+    private static func backupCorruptStore(at base: URL) -> URL? {
         let manager = FileManager.default
-        for url in sidecarURLs(for: base) where manager.fileExists(atPath: url.path) {
-            let backup = url.appendingPathExtension("corrupt")
-            try? manager.removeItem(at: backup)
-            try? manager.moveItem(at: url, to: backup)
+        let storeFiles = sidecarURLs(for: base)
+        let hasOlderBackup = storeFiles.contains { manager.fileExists(atPath: $0.appendingPathExtension("corrupt").path) }
+        let suffix = hasOlderBackup ? "corrupt-\(UUID().uuidString)" : "corrupt"
+        var preservedURL: URL?
+
+        for url in storeFiles where manager.fileExists(atPath: url.path) {
+            let backup = url.appendingPathExtension(suffix)
+            if (try? manager.moveItem(at: url, to: backup)) != nil {
+                if url == base || preservedURL == nil {
+                    preservedURL = backup
+                }
+            }
         }
+        return preservedURL
     }
 }
