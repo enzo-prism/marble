@@ -19,7 +19,7 @@ ASC_UPLOAD_TIMEOUT ?= 45m
 ASC_APPSTORE_SUBMIT_FLAGS ?=
 ASC_TESTFLIGHT_FLAGS ?=
 
-.PHONY: test unit ui ui-smoke audit snapshot snapshot-quick snapshot-record quick only verify-widget-plist
+.PHONY: test unit ui ui-smoke audit snapshot snapshot-quick snapshot-record quick only migration-release verify-widget-plist
 .PHONY: asc-auth asc-doctor asc-app asc-builds asc-version asc-status asc-review asc-validate asc-next-build
 .PHONY: asc-archive asc-export asc-publish-testflight asc-publish-appstore
 
@@ -56,6 +56,9 @@ quick: unit snapshot-quick
 only:
 	@if [[ -z "$(TEST)" ]]; then echo "Set TEST=Target/Class/testName"; exit 1; fi
 	SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:$(TEST)
+
+migration-release:
+	MIGRATION_BASE_REF="$${MIGRATION_BASE_REF:-25a1c52}" SIMULATOR_UDID="$${SIMULATOR_UDID:-}" scripts/test_previous_release_migration.sh
 
 asc-auth:
 	asc auth status --validate --output json --pretty

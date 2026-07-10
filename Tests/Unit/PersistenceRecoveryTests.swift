@@ -96,6 +96,13 @@ final class PersistenceRecoveryTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.appendingPathExtension("corrupt").path))
     }
 
+    func testAdditiveV2UsesAutomaticMigrationWithoutExplicitStage() {
+        XCTAssertTrue(
+            MarbleMigrationPlan.stages.isEmpty,
+            "V2 only adds WorkoutSession; a redundant explicit stage crashes real V1 Release stores"
+        )
+    }
+
     func testRepeatedRecoveryNeverOverwritesOlderBackup() throws {
         let olderBytes = Data(repeating: 0xA1, count: 8192)
         try olderBytes.write(to: storeURL)

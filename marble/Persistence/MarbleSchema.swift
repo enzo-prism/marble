@@ -36,8 +36,8 @@ enum MarbleSchemaV1: VersionedSchema {
 }
 
 /// Schema V2 adds first-class workout sessions without changing any existing
-/// entity. This is a lightweight, additive migration and preserves every
-/// pre-session set as standalone history.
+/// entity. SwiftData handles this additive change with its automatic lightweight
+/// migration, preserving every pre-session set as standalone history.
 enum MarbleSchemaV2: VersionedSchema {
     static var versionIdentifier = Schema.Version(2, 0, 0)
 
@@ -50,25 +50,22 @@ enum MarbleSchemaV2: VersionedSchema {
 
 /// Ordered list of schema versions plus the migration stages between them.
 ///
-/// All schema changes up to and including `MarbleSchemaV1` are additive (new optional
-/// properties and new models), which SwiftData handles as lightweight migrations
-/// automatically — so there are no stages yet.
+/// All schema changes through `MarbleSchemaV2` are additive, which SwiftData handles
+/// automatically. Do not add a redundant V1 → V2 stage: when opening a store produced by
+/// the previous Release build, SwiftData resolves both endpoints to V2 and Core Data aborts
+/// with "Duplicate version checksums detected."
 ///
 /// To make a breaking change in the future:
-///   1. Copy the current model definitions into a `MarbleSchemaV2` enum (capturing the
+///   1. Copy the current model definitions into a `MarbleSchemaV3` enum (capturing the
 ///      *old* shape) and bump `versionIdentifier`.
 ///   2. Apply your change to the live model types.
-///   3. Append `MarbleSchemaV2.self` to `schemas` and add a `.lightweight` or
-///      `.custom(...)` `MigrationStage` from V1 to V2 below.
-///   4. Add a migration test (see `SchemaMigrationTests`).
+///   3. Append `MarbleSchemaV3.self` to `schemas`; add a `.custom(...)` stage only when
+///      automatic lightweight migration cannot express the required data transformation.
+///   4. Add a previous-Release migration test (see `PersistenceRecoveryTests`).
 enum MarbleMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
         [MarbleSchemaV1.self, MarbleSchemaV2.self]
     }
 
-    static var stages: [MigrationStage] {
-        [
-            .lightweight(fromVersion: MarbleSchemaV1.self, toVersion: MarbleSchemaV2.self)
-        ]
-    }
+    static var stages: [MigrationStage] { [] }
 }
