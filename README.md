@@ -25,12 +25,14 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-09)
+## Current state (2026-07-10)
 
-- **2.0 (build 35)** adds first-class `WorkoutSession` history, a session-led Workout tab,
-  focused Trends, JSON backup/restore, safer migration recovery, and visible save failures.
-  Local verification: **238 unit tests**, **35 UI flows**, the accessibility audit, and a
-  signed Release archive all pass.
+- **2.0 (build 36)** fixes the build-35 launch crash for existing users by removing a
+  redundant SwiftData stage and letting the additive `WorkoutSession` schema migrate
+  automatically. It retains first-class session history, the session-led Workout tab,
+  focused Trends, JSON backup/restore, safer recovery, and visible save failures. Local
+  verification: a real build-34 → build-36 Release upgrade, **239 unit tests**, all **35 UI
+  flows**, the accessibility audit, and a signed Release archive pass.
 - **1.9 (build 33)** adds **lifter-focused analytics** to Trends: an estimated-1RM
   progression chart per exercise (Epley, sets ≤12 reps, unit-normalized — with the
   all-time best marked), sets per muscle group with weekly averages (RP volume-landmark
@@ -72,8 +74,8 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   best" target card + live "New PR!" cue while logging (see `marble/Components/
   PersonalRecords.swift`). `origin/release/1.9` may still point at the older 1.9 build 20
   release baseline unless explicitly updated.
-- Latest TestFlight upload: **2.0 (build 35)** is `VALID` and `IN_BETA_TESTING` internally
-  (build id `742c71d5-0154-4a07-a456-c2382157b4d5`). External beta remains unsubmitted.
+- Latest TestFlight upload: **2.0 (build 36)** is `VALID` and `IN_BETA_TESTING` internally
+  (build id `1179329c-c5f5-438d-9bca-52ac05e9aa08`). External beta remains unsubmitted.
 - Builds 27–28 add, on top of build 26: a **performance + iOS 26 pass** (the
   Trends/Calendar/Journal screens memoize their derived data via `RenderMemo` instead of
   re-deriving on every render/scrub; all view models moved to `@Observable`;
@@ -84,7 +86,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 - `MarbleWidgets` target is wired into the app build and its `Info.plist` is checked by
   Makefile test targets.
 - Live App Store: **2.0 is `WAITING_FOR_REVIEW`** under submission
-  `a89a2e97-369e-4f80-a658-2cab40d79b19`. Uploading build 35 did not change that submission.
+  `a89a2e97-369e-4f80-a658-2cab40d79b19`. Uploading build 36 did not change that submission.
 - **[`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) is the authoritative, dated source of truth
   for release state** — read it before any release/signing work.
 

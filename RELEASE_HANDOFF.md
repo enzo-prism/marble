@@ -1,17 +1,18 @@
 # Marble Release Handoff
 
-**Last verified: 2026-07-09.** This file is the single source of truth for "where the
+**Last verified: 2026-07-10.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
-## TL;DR — what "up-to-date" means today (2026-07-09)
+## TL;DR — what "up-to-date" means today (2026-07-10)
 
-- **Code baseline:** branch `agent/workout-sessions-data-safety` is **2.0 (build 35)**. It
-  adds first-class workout sessions, a session-led Workout tab, focused Trends, JSON
-  backup/restore, safer recovery, visible persistence errors, and true session bounds for
-  Apple Health export. Media is not included in JSON backups and the UI says so explicitly.
+- **Code baseline:** **2.0 (build 36)** fixes the build-35 launch crash for stores created
+  by earlier releases. The additive V2 schema now uses SwiftData's automatic lightweight
+  migration instead of the redundant explicit stage that resolved both endpoints to the
+  V2 checksum. It retains first-class workout sessions, focused Trends, JSON backup/restore,
+  safer recovery, visible persistence errors, and true Apple Health session bounds.
 - **Build 32 baseline:** a performance pass
   for all supported iPhones (A13 floor): range-scoped Trends `@Query`s (thin `TrendsView`
   shell + `TrendsContentView` init-built predicates — the documented dynamic-query
@@ -68,24 +69,27 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   (`MarbleHaptics.celebrate()`). Weight records are unit-normalized (lb/kg) before comparison.
   Build 28 (perf/iOS 26 pass, `RenderMemo`, `@Observable` migration, handwritten workout scan)
   remains underneath. `origin/release/1.9` may still point at the older 1.9 build 20 baseline.
-- **Latest TestFlight build:** **2.0 (build 35)** uploaded 2026-07-09; processing is
+- **Latest TestFlight build:** **2.0 (build 36)** uploaded 2026-07-10; processing is
   **`VALID`**, internal state is **`IN_BETA_TESTING`**, and build id is
-  `742c71d5-0154-4a07-a456-c2382157b4d5`. Internal group `test group A`
+  `1179329c-c5f5-438d-9bca-52ac05e9aa08`. Internal group `test group A`
   (`514a95e2-28fc-436b-b624-9aaec2963adc`) receives all builds. External beta remains
   `READY_FOR_BETA_SUBMISSION` and was not submitted.
-- **Current working project version:** **2.0 (build 35)**;
-  `MARKETING_VERSION = 2.0`, `CURRENT_PROJECT_VERSION = 35` in
+- **Current working project version:** **2.0 (build 36)**;
+  `MARKETING_VERSION = 2.0`, `CURRENT_PROJECT_VERSION = 36` in
   `marble.xcodeproj/project.pbxproj`.
-- **Build/test health:** Xcode 26.5 / iOS 26.5 simulator; **238 unit tests** and **35 UI
-  flows** pass with zero failures. The default accessibility audit passes; the runtime's
-  unsupported Dynamic Type audit is an expected skip covered by dedicated XXXL tests. A
-  signed app + widget archive/export succeeded. Snapshot baselines remain host-runtime
-  sensitive and were not used as a release gate.
+- **Build/test health:** Xcode 26.5 / iOS 26.5 simulator; **239 unit tests**, all **35 UI
+  flows**, and the default accessibility audit pass. One chart-coordinate UI test needed an
+  immediate isolated retry after the full-suite run; it passed unchanged. A dedicated
+  Release gate installed build 34, preserved all 40 seeded exercises, overlaid build 36,
+  launched without an exception, and verified the new `WorkoutSession` table. The runtime's
+  unsupported Dynamic Type audit is an expected skip covered by dedicated XXXL tests. The
+  signed app + widget archive/export succeeded. Snapshot baselines remain host-sensitive;
+  the unchanged build-35 source reproduces the same Add Set mismatch on this runtime.
 - **Live Activity wiring:** `MarbleWidgets` is now a real app-extension target embedded in
   the app, `NSSupportsLiveActivities = YES` is set on the app target, and
   `RestTimerAttributes.swift` is shared into the widget target.
 - **Live App Store:** version **2.0 is `WAITING_FOR_REVIEW`** under submission
-  `a89a2e97-369e-4f80-a658-2cab40d79b19`. The build 35 TestFlight upload did not alter,
+  `a89a2e97-369e-4f80-a658-2cab40d79b19`. The build 36 TestFlight upload did not alter,
   cancel, or resubmit that App Store review.
 
 ---
@@ -283,9 +287,9 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel the current App Store review by default.
-- `origin/main` is the canonical base branch. The build 35 release candidate is on
-  `agent/workout-sessions-data-safety` until its PR merges. The latest internal TestFlight
-  build is **2.0 (35)**; App Store 2.0 remains `WAITING_FOR_REVIEW` and was not mutated.
+- `origin/main` is the canonical release baseline for **2.0 (36)**. The latest internal
+  TestFlight build is **2.0 (36)**; App Store 2.0 remains `WAITING_FOR_REVIEW` and was not
+  mutated.
 - Do not bump builds, upload binaries, or submit for review without explicit user approval.
 - Never reuse stale `.asc` archives/IPAs — `make asc-publish-*` regenerates them.
 - Keep signing/export files and generated artifacts under ignored `.asc/`.

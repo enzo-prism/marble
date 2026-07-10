@@ -35,7 +35,7 @@ project-local notes.
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches.
-- The working project version is now `2.0 (build 35)`; `origin/release/1.9`
+- The working project version is now `2.0 (build 36)`; `origin/release/1.9`
   may still point at the older `1.9 (build 20)` release baseline unless explicitly
   updated.
 - The live App Store version is `1.9` (READY_FOR_SALE). Version `2.0` (build 34,
@@ -265,21 +265,21 @@ make asc-publish-testflight \
   ASC_TESTFLIGHT_GROUP="Internal Testers"
 ```
 
-Current phone-test state as of 2026-07-09:
+Current phone-test state as of 2026-07-10:
 
-- Build `2.0 (35)` is valid in TestFlight:
-  `742c71d5-0154-4a07-a456-c2382157b4d5`.
+- Build `2.0 (36)` is valid in TestFlight:
+  `1179329c-c5f5-438d-9bca-52ac05e9aa08`.
 - Build beta detail reports `internalBuildState = IN_BETA_TESTING`.
 - Internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has
   `hasAccessToAllBuilds = true`.
-- Build `35` has `autoNotifyEnabled = true`; the group already receives all builds, so no
+- Build `36` has `autoNotifyEnabled = true`; the group already receives all builds, so no
   explicit per-group add is required.
 
 Useful verification commands:
 
 ```bash
 asc builds build-beta-detail view \
-  --build-id "742c71d5-0154-4a07-a456-c2382157b4d5" \
+  --build-id "1179329c-c5f5-438d-9bca-52ac05e9aa08" \
   --output json --pretty
 
 asc testflight groups list \
@@ -309,8 +309,8 @@ target without explicit approval and a clean release branch. The target intentio
 requires `ASC_APPSTORE_PUBLISH_VERSION` so it cannot silently publish the local marketing
 version.
 
-As of 2026-07-09, App Store version `2.0` is `WAITING_FOR_REVIEW` under submission
-`a89a2e97-369e-4f80-a658-2cab40d79b19`. Build `2.0 (35)` is uploaded and valid for
+As of 2026-07-10, App Store version `2.0` is `WAITING_FOR_REVIEW` under submission
+`a89a2e97-369e-4f80-a658-2cab40d79b19`. Build `2.0 (36)` is uploaded and valid for
 TestFlight, but this run did not attach it to or resubmit App Review.
 
 Dry-run first when possible:
