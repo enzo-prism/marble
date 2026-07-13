@@ -8,12 +8,13 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ## TL;DR — what "up-to-date" means today (2026-07-12)
 
-- **Build 37 candidate:** reusable sprint prescriptions add fixed distance, 1–50 repeats,
+- **Build 37:** reusable sprint prescriptions add fixed distance, 1–50 repeats,
   an exact or ranged whole-second target time, prescribed recovery, per-rep RPE/rest logging,
   live goal feedback, and summaries across exercise selection and workout planning. The new
   `SprintPrescription` model is additive `MarbleSchemaV3`; backup/restore supports it while
-  retaining compatibility with older JSON. App and all test targets compile locally. The
-  runtime migration and simulator suites still require a compatible booted iOS Simulator.
+  retaining compatibility with older JSON. App and all test targets compile locally; the
+  signed archive/export succeeded and the build is valid in internal TestFlight. The runtime
+  migration and simulator suites still require a compatible booted iOS Simulator.
 - **Code baseline:** **2.0 (build 36)** fixes the build-35 launch crash for stores created
   by earlier releases. The additive V2 schema now uses SwiftData's automatic lightweight
   migration instead of the redundant explicit stage that resolved both endpoints to the
@@ -75,13 +76,13 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   (`MarbleHaptics.celebrate()`). Weight records are unit-normalized (lb/kg) before comparison.
   Build 28 (perf/iOS 26 pass, `RenderMemo`, `@Observable` migration, handwritten workout scan)
   remains underneath. `origin/release/1.9` may still point at the older 1.9 build 20 baseline.
-- **Latest TestFlight build:** **2.0 (build 36)** uploaded 2026-07-10; processing is
+- **Latest TestFlight build:** **2.0 (build 37)** uploaded 2026-07-12; processing is
   **`VALID`**, internal state is **`IN_BETA_TESTING`**, and build id is
-  `1179329c-c5f5-438d-9bca-52ac05e9aa08`. Internal group `test group A`
+  `a8b05f0c-a748-4005-8472-d87c33ea75c4`. Internal group `test group A`
   (`514a95e2-28fc-436b-b624-9aaec2963adc`) receives all builds. External beta remains
   `READY_FOR_BETA_SUBMISSION` and was not submitted.
-- **Current working project version:** **2.0 (build 36)**;
-  `MARKETING_VERSION = 2.0`, `CURRENT_PROJECT_VERSION = 36` in
+- **Current working project version:** **2.0 (build 37)**;
+  `MARKETING_VERSION = 2.0`, `CURRENT_PROJECT_VERSION = 37` in
   `marble.xcodeproj/project.pbxproj`.
 - **Build/test health:** Xcode 26.5 / iOS 26.5 simulator; **239 unit tests**, all **35 UI
   flows**, and the default accessibility audit pass. One chart-coordinate UI test needed an
@@ -95,7 +96,7 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   the app, `NSSupportsLiveActivities = YES` is set on the app target, and
   `RestTimerAttributes.swift` is shared into the widget target.
 - **Live App Store:** version **2.0 is `WAITING_FOR_REVIEW`** under submission
-  `a89a2e97-369e-4f80-a658-2cab40d79b19`. The build 36 TestFlight upload did not alter,
+  `a89a2e97-369e-4f80-a658-2cab40d79b19`. The build 37 TestFlight upload did not alter,
   cancel, or resubmit that App Store review.
 
 ---

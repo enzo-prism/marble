@@ -30,11 +30,12 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-07-12)
 
-- **2.0 (build 37 candidate)** adds reusable sprint prescriptions: fixed distance and
+- **2.0 (build 37)** adds reusable sprint prescriptions: fixed distance and
   repeats, exact or ranged whole-second target times, prescribed recovery, per-rep RPE/rest
   logging, goal feedback, plan/picker summaries, JSON backup/restore, and additive V3
-  persistence. The app and all test targets compile; runtime simulator suites still require
-  an installed and booted compatible iOS runtime.
+  persistence. The app and all test targets compile, and the signed build is valid in
+  internal TestFlight. Runtime simulator suites still require an installed and booted
+  compatible iOS runtime.
 - **2.0 (build 36)** fixes the build-35 launch crash for existing users by removing a
   redundant SwiftData stage and letting the additive `WorkoutSession` schema migrate
   automatically. It retains first-class session history, the session-led Workout tab,
@@ -82,8 +83,8 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   best" target card + live "New PR!" cue while logging (see `marble/Components/
   PersonalRecords.swift`). `origin/release/1.9` may still point at the older 1.9 build 20
   release baseline unless explicitly updated.
-- Latest TestFlight upload: **2.0 (build 36)** is `VALID` and `IN_BETA_TESTING` internally
-  (build id `1179329c-c5f5-438d-9bca-52ac05e9aa08`). External beta remains unsubmitted.
+- Latest TestFlight upload: **2.0 (build 37)** is `VALID` and `IN_BETA_TESTING` internally
+  (build id `a8b05f0c-a748-4005-8472-d87c33ea75c4`). External beta remains unsubmitted.
 - Builds 27–28 add, on top of build 26: a **performance + iOS 26 pass** (the
   Trends/Calendar/Journal screens memoize their derived data via `RenderMemo` instead of
   re-deriving on every render/scrub; all view models moved to `@Observable`;
@@ -94,7 +95,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 - `MarbleWidgets` target is wired into the app build and its `Info.plist` is checked by
   Makefile test targets.
 - Live App Store: **2.0 is `WAITING_FOR_REVIEW`** under submission
-  `a89a2e97-369e-4f80-a658-2cab40d79b19`. Uploading build 36 did not change that submission.
+  `a89a2e97-369e-4f80-a658-2cab40d79b19`. Uploading build 37 did not change that submission.
 - **[`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) is the authoritative, dated source of truth
   for release state** — read it before any release/signing work.
 

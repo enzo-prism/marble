@@ -50,9 +50,9 @@ Preferred Makefile targets:
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **2.0 (35)**, build ID
-  `742c71d5-0154-4a07-a456-c2382157b4d5`; `VALID` and `IN_BETA_TESTING` internally.
-- ASC state checked on 2026-07-09: internal group `test group A` receives all builds;
+- Current phone-test build: **2.0 (37)**, build ID
+  `a8b05f0c-a748-4005-8472-d87c33ea75c4`; `VALID` and `IN_BETA_TESTING` internally.
+- ASC state checked on 2026-07-12: internal group `test group A` receives all builds;
   external beta remains unsubmitted.
 - What to test on device: start and finish a workout session, log planned and repeated
   sets, review recent workouts, check weekly-goal/priority-lift/monthly-report Trends, and

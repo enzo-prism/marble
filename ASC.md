@@ -35,7 +35,7 @@ project-local notes.
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches.
-- The working project version is now `2.0 (build 36)`; `origin/release/1.9`
+- The working project version is now `2.0 (build 37)`; `origin/release/1.9`
   may still point at the older `1.9 (build 20)` release baseline unless explicitly
   updated.
 - The live App Store version is `1.9` (READY_FOR_SALE). Version `2.0` (build 34,
@@ -265,21 +265,21 @@ make asc-publish-testflight \
   ASC_TESTFLIGHT_GROUP="Internal Testers"
 ```
 
-Current phone-test state as of 2026-07-10:
+Current phone-test state as of 2026-07-12:
 
-- Build `2.0 (36)` is valid in TestFlight:
-  `1179329c-c5f5-438d-9bca-52ac05e9aa08`.
+- Build `2.0 (37)` is valid in TestFlight:
+  `a8b05f0c-a748-4005-8472-d87c33ea75c4`.
 - Build beta detail reports `internalBuildState = IN_BETA_TESTING`.
 - Internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has
   `hasAccessToAllBuilds = true`.
-- Build `36` has `autoNotifyEnabled = true`; the group already receives all builds, so no
+- Build `37` has `autoNotifyEnabled = true`; the group already receives all builds, so no
   explicit per-group add is required.
 
 Useful verification commands:
 
 ```bash
 asc builds build-beta-detail view \
-  --build-id "1179329c-c5f5-438d-9bca-52ac05e9aa08" \
+  --build-id "a8b05f0c-a748-4005-8472-d87c33ea75c4" \
   --output json --pretty
 
 asc testflight groups list \
