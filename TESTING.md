@@ -17,10 +17,15 @@
 ## Latest local verification (2026-07-12)
 - `MarbleTests`: **254 passed, 0 failed** (`make unit`).
 - `MarbleUITests`: **35 flows passed, 0 failed** (`make ui`), including workout start/log/
-  finish, Data management, focused Trends, plan logging, and XXXL interaction coverage.
+  finish, Data management, focused Trends, plan logging, exercise creation/management,
+  sprint prescription logging, and XXXL interaction coverage. One known Trends chart
+  coordinate case required an immediate isolated retry and passed unchanged.
 - `AccessibilityAuditUITests`: default audit passed; the iOS 26.5 runtime skips its
-  unsupported Dynamic Type audit, covered by dedicated XXXL tests for Workout and Trends.
-- Signed Release archive/export: passed for `Prism.marble` and `Prism.marble.MarbleWidgets`.
+  unsupported Dynamic Type audit, covered by dedicated XXXL tests for Workout, Trends,
+  Exercise Picker, Exercise Library, and New Exercise.
+- Previous-release Release migration: passed; all 40 seeded exercises survived the overlay.
+- Signed build 38 Release archive/export: passed for `Prism.marble` and
+  `Prism.marble.MarbleWidgets`.
 - Feature-verification pass on the Apple Health / Watch / Garmin import path and the AI
   photo-scan pipeline. The real Vision OCR step is proven by
   `WorkoutTextRecognizerIntegrationTests`; the FoundationModels LLM parser is availability-
@@ -51,8 +56,8 @@ Preferred Makefile targets:
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **2.0 (37)**, build ID
-  `a8b05f0c-a748-4005-8472-d87c33ea75c4`; `VALID` and `IN_BETA_TESTING` internally.
+- Current phone-test build: **2.0 (38)**, build ID
+  `d014fc86-cd82-4aef-95f0-53a82418028c`; `VALID` and `IN_BETA_TESTING` internally.
 - ASC state checked on 2026-07-12: internal group `test group A` receives all builds;
   external beta remains unsubmitted.
 - What to test on device: start and finish a workout session, log planned and repeated

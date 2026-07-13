@@ -34,6 +34,13 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-07-12)
 
+- **2.0 (build 38)** redesigns exercise creation and management end to end: a searchable,
+  category-filterable Exercise Library; explicit tracking types; contextual fields; safe
+  draft editing; duplicate-name validation; unsaved-change protection; history/planned-plan
+  impact warnings; and guarded deletion. Sprint setup is now a direct type with distance,
+  repeats, exact/ranged target time, and one recovery control. Verified with 254 unit tests,
+  all 35 UI flows, default accessibility audit, XXXL interaction coverage, and a real
+  previous-release migration. Build 38 is valid in internal TestFlight.
 - **2.0 (build 37)** adds reusable sprint prescriptions: fixed distance and
   repeats, exact or ranged whole-second target times, prescribed recovery, per-rep RPE/rest
   logging, goal feedback, plan/picker summaries, JSON backup/restore, and additive V3
@@ -87,8 +94,8 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   best" target card + live "New PR!" cue while logging (see `marble/Components/
   PersonalRecords.swift`). `origin/release/1.9` may still point at the older 1.9 build 20
   release baseline unless explicitly updated.
-- Latest TestFlight upload: **2.0 (build 37)** is `VALID` and `IN_BETA_TESTING` internally
-  (build id `a8b05f0c-a748-4005-8472-d87c33ea75c4`). External beta remains unsubmitted.
+- Latest TestFlight upload: **2.0 (build 38)** is `VALID` and `IN_BETA_TESTING` internally
+  (build id `d014fc86-cd82-4aef-95f0-53a82418028c`). External beta remains unsubmitted.
 - Builds 27–28 add, on top of build 26: a **performance + iOS 26 pass** (the
   Trends/Calendar/Journal screens memoize their derived data via `RenderMemo` instead of
   re-deriving on every render/scrub; all view models moved to `@Observable`;
@@ -99,7 +106,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 - `MarbleWidgets` target is wired into the app build and its `Info.plist` is checked by
   Makefile test targets.
 - Live App Store: **2.0 is `WAITING_FOR_REVIEW`** under submission
-  `a89a2e97-369e-4f80-a658-2cab40d79b19`. Uploading build 37 did not change that submission.
+  `a89a2e97-369e-4f80-a658-2cab40d79b19`. Uploading build 38 did not change that submission.
 - **[`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) is the authoritative, dated source of truth
   for release state** — read it before any release/signing work.
 
