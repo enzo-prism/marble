@@ -8,6 +8,12 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ## TL;DR — what "up-to-date" means today (2026-07-12)
 
+- **Build 39:** Journal and Quick Log now show every sprint rep's saved exact/ranged target
+  with accessible green check / red x / neutral unscored feedback. Set Details compares the
+  recorded result with the frozen per-rep goal and explains the outcome. Additive
+  `MarbleSchemaV4`, legacy backfill provenance, backup/restore validation, duplicate/undo/
+  intent support, and migration coverage preserve history when an exercise goal changes.
+  Commit `3e6d4b6` is live on `origin/main`; build 39 is valid in internal TestFlight.
 - **Build 38:** the Exercise Library and editor are redesigned end to end. Search, category
   filters, favorites, stable compact summaries, create-from-search, and first-library empty
   states make discovery clear. Explicit tracking types reveal only relevant fields; edits
@@ -83,19 +89,22 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   (`MarbleHaptics.celebrate()`). Weight records are unit-normalized (lb/kg) before comparison.
   Build 28 (perf/iOS 26 pass, `RenderMemo`, `@Observable` migration, handwritten workout scan)
   remains underneath. `origin/release/1.9` may still point at the older 1.9 build 20 baseline.
-- **Latest TestFlight build:** **2.0 (build 38)** uploaded 2026-07-12; processing is
+- **Latest TestFlight build:** **2.0 (build 39)** uploaded 2026-07-12; processing is
   **`VALID`**, internal state is **`IN_BETA_TESTING`**, and build id is
-  `d014fc86-cd82-4aef-95f0-53a82418028c`. Internal group `test group A`
-  (`514a95e2-28fc-436b-b624-9aaec2963adc`) receives all builds. External beta remains
-  `READY_FOR_BETA_SUBMISSION` and was not submitted.
-- **Current working project version:** **2.0 (build 38)**;
-  `MARKETING_VERSION = 2.0`, `CURRENT_PROJECT_VERSION = 38` in
+  `f61c2343-850c-42ad-9783-87eb013f308d`. Internal group `test group A`
+  (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds and automatic tester
+  notifications enabled. External beta remains `READY_FOR_BETA_SUBMISSION` and was not
+  submitted.
+- **Current working project version:** **2.0 (build 39)**;
+  `MARKETING_VERSION = 2.0`, `CURRENT_PROJECT_VERSION = 39` in
   `marble.xcodeproj/project.pbxproj`.
 - **Build/test health:** Xcode 26.5 / iOS 26.5 simulator; **254 unit tests**, all **35 UI
   flows**, the default accessibility audit, and explicit XXXL exercise-library interactions
   pass. One chart-coordinate UI test needed an immediate isolated retry after the full-suite
   run; it passed unchanged. The Release migration gate installed the previous baseline,
-  preserved all 40 seeded exercises, overlaid build 38, and launched successfully. The
+  preserved all 40 seeded exercises, overlaid build 39, and launched successfully. Build 39
+  also passed 19 focused sprint/schema/backup tests and the end-to-end sprint Journal UI
+  flow (range hit, detail explanation, and edited miss). The
   runtime's unsupported Dynamic Type audit is an expected skip covered by dedicated XXXL
   tests. The signed app + widget archive/export succeeded. Snapshot baselines remain
   host-sensitive; the unchanged Journal surface still produces the known local mismatch.
@@ -103,7 +112,7 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   the app, `NSSupportsLiveActivities = YES` is set on the app target, and
   `RestTimerAttributes.swift` is shared into the widget target.
 - **Live App Store:** version **2.0 is `WAITING_FOR_REVIEW`** under submission
-  `a89a2e97-369e-4f80-a658-2cab40d79b19`. The build 38 TestFlight upload did not alter,
+  `a89a2e97-369e-4f80-a658-2cab40d79b19`. The build 39 TestFlight upload did not alter,
   cancel, or resubmit that App Store review.
 
 ---
@@ -301,8 +310,8 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel the current App Store review by default.
-- `origin/main` is the canonical release baseline for **2.0 (38)**. The latest internal
-  TestFlight build is **2.0 (38)**; App Store 2.0 remains `WAITING_FOR_REVIEW` and was not
+- `origin/main` is the canonical release baseline for **2.0 (39)**. The latest internal
+  TestFlight build is **2.0 (39)**; App Store 2.0 remains `WAITING_FOR_REVIEW` and was not
   mutated.
 - Do not bump builds, upload binaries, or submit for review without explicit user approval.
 - Never reuse stale `.asc` archives/IPAs — `make asc-publish-*` regenerates them.

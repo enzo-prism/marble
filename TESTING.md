@@ -25,8 +25,9 @@
   unsupported Dynamic Type audit, covered by dedicated XXXL tests for Workout, Trends,
   Exercise Picker, Exercise Library, and New Exercise.
 - Previous-release Release migration: passed; all 40 seeded exercises survived the overlay.
-- Signed build 38 Release archive/export: passed for `Prism.marble` and
-  `Prism.marble.MarbleWidgets`.
+- Signed build 39 Release archive/export: passed for `Prism.marble` and
+  `Prism.marble.MarbleWidgets`; App Store Connect processing is `VALID` and internal state
+  is `IN_BETA_TESTING`.
 - Feature-verification pass on the Apple Health / Watch / Garmin import path and the AI
   photo-scan pipeline. The real Vision OCR step is proven by
   `WorkoutTextRecognizerIntegrationTests`; the FoundationModels LLM parser is availability-
