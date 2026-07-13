@@ -5,7 +5,12 @@ struct RestPicker: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private let presets: [Int] = [30, 60, 90, 120, 180]
+    private let presets: [Int]
+
+    init(restSeconds: Binding<Int>, presets: [Int] = [30, 60, 90, 120, 180]) {
+        _restSeconds = restSeconds
+        self.presets = presets
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xs) {

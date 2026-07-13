@@ -9,6 +9,9 @@ struct AddSetView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(QuickLogCoordinator.self) private var quickLog
 
+    @Query(sort: \SprintPrescription.createdAt)
+    private var sprintPrescriptions: [SprintPrescription]
+
     @Binding private var isPresented: Bool
     @State private var selectedExerciseID: UUID?
     @State private var selectedExerciseSnapshot: ExerciseSnapshot?
@@ -33,6 +36,7 @@ struct AddSetView: View {
     @State private var showMissingExercise = false
     @State private var lastEntry: SetEntry?
     @State private var personalRecords: ExercisePersonalRecords?
+    @State private var sprintSequenceCompleted = 0
     private let context: QuickLogContext?
     private let activeSession: WorkoutSession?
     private let repsRange: ClosedRange<Int> = 1...20
@@ -94,6 +98,23 @@ struct AddSetView: View {
                             .marbleRowInsets()
                         } header: {
                             SectionHeaderView(title: "Personal best")
+                        }
+                    }
+
+                    if let prescription = exercise.sprintPrescription {
+                        Section {
+                            SprintGoalCardView(
+                                prescription: prescription,
+                                distanceUnit: exercise.preferredDistanceUnit,
+                                restSeconds: restAfterSeconds,
+                                completedRepetitions: completedSprintRepetitions(for: exercise.id),
+                                actualSeconds: durationSeconds
+                            )
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                            .marbleRowInsets()
+                        } header: {
+                            SectionHeaderView(title: "Sprint Goal")
                         }
                     }
 
@@ -175,7 +196,18 @@ struct AddSetView: View {
                                     .accessibilityIdentifier("AddSet.LogDistance")
                             }
 
-                            if shouldCaptureDistance(for: exercise.metrics) {
+                            if shouldCaptureDistance(for: exercise.metrics), let prescription = exercise.sprintPrescription {
+                                HStack {
+                                    Text("Distance")
+                                        .font(MarbleTypography.rowTitle)
+                                    Spacer()
+                                    Text(exercise.formattedDistanceSummary(prescription.distance))
+                                        .font(MarbleTypography.rowSubtitle.monospacedDigit())
+                                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                }
+                                .padding(.vertical, MarbleSpacing.s)
+                                .accessibilityIdentifier("AddSet.Sprint.Distance")
+                            } else if shouldCaptureDistance(for: exercise.metrics) {
                                 VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
                                     HStack {
                                         OptionalNumberField(
@@ -229,6 +261,20 @@ struct AddSetView: View {
                         SectionHeaderView(title: "Metrics")
                     }
 
+                    if exercise.sprintPrescription != nil {
+                        Section {
+                            VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+                                RPEPicker(value: $difficulty)
+                                    .accessibilityIdentifier("AddSet.Sprint.RPE")
+                                RestPicker(restSeconds: $restAfterSeconds)
+                                    .accessibilityIdentifier("AddSet.Sprint.Rest")
+                            }
+                            .padding(.vertical, MarbleSpacing.s)
+                        } header: {
+                            SectionHeaderView(title: "Effort & Recovery")
+                        }
+                    }
+
                     Section {
                         TextField("Optional note", text: $notes, axis: .vertical)
                             .marbleFieldStyle()
@@ -241,10 +287,12 @@ struct AddSetView: View {
                     Section {
                         DisclosureGroup(isExpanded: $showDetails) {
                             VStack(alignment: .leading, spacing: MarbleSpacing.m) {
-                                RPEPicker(value: $difficulty)
+                                if exercise.sprintPrescription == nil {
+                                    RPEPicker(value: $difficulty)
 
-                                RestPicker(restSeconds: $restAfterSeconds)
-                                    .accessibilityIdentifier("AddSet.RestPicker")
+                                    RestPicker(restSeconds: $restAfterSeconds)
+                                        .accessibilityIdentifier("AddSet.RestPicker")
+                                }
 
                                 VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
                                     DatePicker("Performed", selection: $performedAt)
@@ -627,14 +675,17 @@ struct AddSetView: View {
 
     private var saveAndNextButtonContent: some View {
         Button {
-            save(shouldContinue: true)
+            save(shouldContinue: !isFinalSprintRep)
         } label: {
-            Label("Save + Next", systemImage: "arrow.forward.circle")
+            Label(
+                isFinalSprintRep ? "Save Final Rep" : sprintActionTitle,
+                systemImage: isFinalSprintRep ? "checkmark.circle" : "arrow.forward.circle"
+            )
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true, prominence: .primary))
         .allowsHitTesting(effectiveCanSave)
-        .accessibilityIdentifier("AddSet.SaveAndNext")
+        .accessibilityIdentifier(isFinalSprintRep ? "AddSet.Sprint.SaveFinal" : "AddSet.SaveAndNext")
     }
 
     private var saveButtonContent: some View {
@@ -799,6 +850,21 @@ struct AddSetView: View {
     }
 
     private func applyDefaults(for exercise: ExerciseSnapshot, lastEntry: SetEntry?) {
+        if let prescription = exercise.sprintPrescription {
+            weight = nil
+            addedLoad = false
+            reps = nil
+            logReps = false
+            distance = prescription.distance
+            distanceUnit = exercise.preferredDistanceUnit
+            logDistance = true
+            durationSeconds = nil
+            logDuration = true
+            difficulty = 8
+            restAfterSeconds = exercise.defaultRestSeconds
+            return
+        }
+
         if let lastEntry {
             weight = exercise.displayedWeightInput(fromStoredWeight: lastEntry.weight)
             weightUnit = lastEntry.weightUnit
@@ -935,6 +1001,9 @@ struct AddSetView: View {
         } else {
             MarbleHaptics.success()
         }
+        if exerciseSnapshotIsSprint, activeSession == nil {
+            sprintSequenceCompleted += 1
+        }
         RestActivityController.shared.startRest(for: entry)
         if shouldContinue {
             continueAfterSaving(entry, exercise: exercise)
@@ -978,6 +1047,27 @@ struct AddSetView: View {
         metrics.durationIsRequired || (metrics.durationSeconds == .optional && logDuration)
     }
 
+    private func completedSprintRepetitions(for exerciseID: UUID) -> Int {
+        if let activeSession {
+            return activeSession.entries.filter { $0.exercise.id == exerciseID }.count
+        }
+        return sprintSequenceCompleted
+    }
+
+    private var exerciseSnapshotIsSprint: Bool {
+        selectedExerciseSnapshot?.sprintPrescription != nil
+    }
+
+    private var isFinalSprintRep: Bool {
+        guard let exercise = selectedExerciseSnapshot,
+              let prescription = exercise.sprintPrescription else { return false }
+        return completedSprintRepetitions(for: exercise.id) + 1 == prescription.repetitionCount
+    }
+
+    private var sprintActionTitle: String {
+        exerciseSnapshotIsSprint ? "Save Rep + Start Rest" : "Save + Next"
+    }
+
     /// Whether a saved set establishes or beats a weight/reps personal record.
     /// Unlike the live banner, this also counts the first-ever set for a metric
     /// (the baseline record) so the celebration matches the journal badge.
@@ -1006,8 +1096,9 @@ private extension AddSetView {
         let resistanceTrackingStyle: ResistanceTrackingStyle
         let preferredDistanceUnit: DistanceUnit
         let defaultRestSeconds: Int
+        let sprintPrescription: SprintPrescriptionPlan?
 
-        init(_ exercise: Exercise) {
+        init(_ exercise: Exercise, sprintPrescription: SprintPrescription? = nil) {
             id = exercise.id
             name = exercise.name
             category = exercise.category
@@ -1016,6 +1107,7 @@ private extension AddSetView {
             resistanceTrackingStyle = exercise.resistanceTrackingStyle
             preferredDistanceUnit = exercise.preferredDistanceUnit
             defaultRestSeconds = exercise.defaultRestSeconds
+            self.sprintPrescription = sprintPrescription?.plan
         }
 
         var weightInputTitle: String {
@@ -1033,10 +1125,15 @@ private extension AddSetView {
         func storedWeight(from inputWeight: Double?) -> Double? {
             resistanceTrackingStyle.storedWeight(from: inputWeight)
         }
+
+        func formattedDistanceSummary(_ distance: Double) -> String {
+            let formatted = Formatters.distance.string(from: NSNumber(value: distance)) ?? "\(distance)"
+            return "\(formatted) \(preferredDistanceUnit.symbol)"
+        }
     }
 
     func selectExercise(_ exercise: Exercise, lastEntry: SetEntry?) {
-        let snapshot = ExerciseSnapshot(exercise)
+        let snapshot = ExerciseSnapshot(exercise, sprintPrescription: sprintPrescription(for: exercise.id))
         selectedExerciseID = snapshot.id
         selectedExerciseSnapshot = snapshot
         self.lastEntry = lastEntry
@@ -1053,7 +1150,7 @@ private extension AddSetView {
             showMissingExercise = true
             return
         }
-        let snapshot = ExerciseSnapshot(exercise)
+        let snapshot = ExerciseSnapshot(exercise, sprintPrescription: sprintPrescription(for: exercise.id))
         selectedExerciseSnapshot = snapshot
         let recent = fetchLastEntry(for: id)
         lastEntry = recent
@@ -1073,7 +1170,7 @@ private extension AddSetView {
             showMissingExercise = true
             return
         }
-        selectedExerciseSnapshot = ExerciseSnapshot(exercise)
+        selectedExerciseSnapshot = ExerciseSnapshot(exercise, sprintPrescription: sprintPrescription(for: exercise.id))
         lastEntry = fetchLastEntry(for: id)
         personalRecords = computeRecords(for: exercise)
     }
@@ -1081,6 +1178,17 @@ private extension AddSetView {
     func fetchExercise(id: UUID) -> Exercise? {
         let descriptor = FetchDescriptor<Exercise>(predicate: #Predicate { $0.id == id })
         return (try? modelContext.fetch(descriptor))?.first
+    }
+
+    func sprintPrescription(for exerciseID: UUID) -> SprintPrescription? {
+        if let cached = sprintPrescriptions.first(where: { $0.exerciseID == exerciseID }) {
+            return cached
+        }
+        var descriptor = FetchDescriptor<SprintPrescription>(
+            predicate: #Predicate { $0.exerciseID == exerciseID }
+        )
+        descriptor.fetchLimit = 1
+        return try? modelContext.fetch(descriptor).first
     }
 
     func fetchAllEntries(for exerciseID: UUID) -> [SetEntry] {

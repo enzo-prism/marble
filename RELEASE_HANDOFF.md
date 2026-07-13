@@ -1,13 +1,19 @@
 # Marble Release Handoff
 
-**Last verified: 2026-07-10.** This file is the single source of truth for "where the
+**Last verified: 2026-07-12.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
-## TL;DR — what "up-to-date" means today (2026-07-10)
+## TL;DR — what "up-to-date" means today (2026-07-12)
 
+- **Build 37 candidate:** reusable sprint prescriptions add fixed distance, 1–50 repeats,
+  an exact or ranged whole-second target time, prescribed recovery, per-rep RPE/rest logging,
+  live goal feedback, and summaries across exercise selection and workout planning. The new
+  `SprintPrescription` model is additive `MarbleSchemaV3`; backup/restore supports it while
+  retaining compatibility with older JSON. App and all test targets compile locally. The
+  runtime migration and simulator suites still require a compatible booted iOS Simulator.
 - **Code baseline:** **2.0 (build 36)** fixes the build-35 launch crash for stores created
   by earlier releases. The additive V2 schema now uses SwiftData's automatic lightweight
   migration instead of the redundant explicit stage that resolved both endpoints to the

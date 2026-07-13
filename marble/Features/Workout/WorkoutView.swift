@@ -12,6 +12,9 @@ struct WorkoutView: View {
     @Query(filter: #Predicate<SplitPlan> { $0.isActive == true }, sort: \SplitPlan.updatedAt, order: .reverse)
     private var plans: [SplitPlan]
 
+    @Query(sort: \SprintPrescription.createdAt)
+    private var sprintPrescriptions: [SprintPrescription]
+
     @State private var showingPlan = false
     @State private var showingData = false
     @State private var showingFinishConfirmation = false
@@ -39,6 +42,7 @@ struct WorkoutView: View {
                     StartWorkoutSection(
                         title: suggestedTitle,
                         plannedSets: todayPlannedSets,
+                        sprintPrescriptions: sprintPrescriptions,
                         onStart: { _ = startWorkout() },
                         onStartAndLog: startAndLog,
                         onEditPlan: { showingPlan = true }
@@ -255,6 +259,7 @@ private struct ActiveWorkoutSection: View {
 private struct StartWorkoutSection: View {
     let title: String
     let plannedSets: [PlannedSet]
+    let sprintPrescriptions: [SprintPrescription]
     let onStart: () -> Void
     let onStartAndLog: (PlannedSet) -> Void
     let onEditPlan: () -> Void
@@ -291,9 +296,20 @@ private struct StartWorkoutSection: View {
                 Button { onStartAndLog(plannedSet) } label: {
                     HStack {
                         ExerciseIconView(exercise: plannedSet.exercise, fontSize: 17, frameSize: 28)
-                        Text(plannedSet.exercise.name)
-                            .font(MarbleTypography.rowTitle)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                            Text(plannedSet.exercise.name)
+                                .font(MarbleTypography.rowTitle)
+                                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                            if let prescription = sprintPrescriptions.first(where: { $0.exerciseID == plannedSet.exercise.id }) {
+                                Text(prescription.summary(
+                                    distanceUnit: plannedSet.exercise.preferredDistanceUnit,
+                                    restSeconds: plannedSet.exercise.defaultRestSeconds
+                                ))
+                                .font(MarbleTypography.rowMeta)
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
                         Spacer()
                         Image(systemName: "play.circle")
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))

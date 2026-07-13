@@ -118,6 +118,10 @@ if ! sqlite3 "$STORE_PATH" ".tables" | tr ' ' '\n' | rg -qx 'ZWORKOUTSESSION'; t
     echo "Candidate did not create the WorkoutSession table." >&2
     exit 1
 fi
+if ! sqlite3 "$STORE_PATH" ".tables" | tr ' ' '\n' | rg -qx 'ZSPRINTPRESCRIPTION'; then
+    echo "Candidate did not create the SprintPrescription table." >&2
+    exit 1
+fi
 
 EXERCISE_COUNT_AFTER="$(sqlite3 "$STORE_PATH" 'SELECT COUNT(*) FROM ZEXERCISE;')"
 if [[ "$EXERCISE_COUNT_AFTER" != "$EXERCISE_COUNT_BEFORE" ]]; then

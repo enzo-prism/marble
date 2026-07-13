@@ -103,6 +103,23 @@ final class PersistenceRecoveryTests: XCTestCase {
         )
     }
 
+    func testMigratesV2StoreToV3AndPreservesTrainingData() throws {
+        try autoreleasepool {
+            let v2Schema = Schema(versionedSchema: MarbleSchemaV2.self)
+            let configuration = ModelConfiguration(schema: v2Schema, url: storeURL)
+            let container = try ModelContainer(for: v2Schema, configurations: [configuration])
+            let context = ModelContext(container)
+            context.insert(Exercise(name: "Legacy Sprint", category: .power, metrics: .distanceAndDurationRequired, defaultRestSeconds: 120))
+            try context.save()
+        }
+
+        let migrated = PersistenceController.makeRecoveringContainer(at: storeURL)
+        let context = ModelContext(migrated)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<Exercise>()).map(\.name), ["Legacy Sprint"])
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<SprintPrescription>()), 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.appendingPathExtension("corrupt").path))
+    }
+
     func testRepeatedRecoveryNeverOverwritesOlderBackup() throws {
         let olderBytes = Data(repeating: 0xA1, count: 8192)
         try olderBytes.write(to: storeURL)

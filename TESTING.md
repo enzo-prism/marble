@@ -5,8 +5,9 @@
   mapping, the handwritten-scan parser/importer + a real Vision-OCR integration test, the
   `RenderMemo` cache, Strava credential resolution, and the **personal-records engine**
   `PersonalRecordsTests` — PR-badge trail, unit-normalized weight records, all-time bests,
-  usual ranges, the live-PR projection, workout sessions, backup/restore validation, and
-  recovery safety). Runs in CI. Last verified locally on 2026-07-09 with Xcode 26.5 /
+  usual ranges, the live-PR projection, workout sessions, sprint-prescription target
+  boundaries/persistence/orphan cleanup, backup/restore validation, and recovery safety).
+  Runs in CI. Last verified locally on 2026-07-09 with Xcode 26.5 /
   iOS 26.5 simulator: **238 passed, 0 failed**.
 - Snapshot tests: `MarbleSnapshotTests` (SwiftUI rendering with SnapshotTesting).
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
@@ -56,6 +57,10 @@ Preferred Makefile targets:
 - What to test on device: start and finish a workout session, log planned and repeated
   sets, review recent workouts, check weekly-goal/priority-lift/monthly-report Trends, and
   export + restore a JSON backup. Confirm the backup disclosure that media is excluded.
+- Sprint pass: create a 150 m sprint exercise with 4 repetitions, test a 19-second target
+  and a 19–21-second range, log all four reps with RPE and recovery, confirm goal feedback
+  at both range boundaries, and verify the final rep closes the sequence without a fifth
+  accidental repetition. Reopen the exercise and confirm its prescription persisted.
 
 Simulator prerequisite:
 - The Make targets use `scripts/sim_destination.sh` to find an iPhone simulator.

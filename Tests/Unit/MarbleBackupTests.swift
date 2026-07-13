@@ -11,8 +11,8 @@ final class MarbleBackupTests: MarbleTestCase {
 
     func testBackupRoundTripRestoresCoreTrainingDataAndRelationships() throws {
         let source = makeInMemoryContext()
-        let exercise = Exercise(name: "Deadlift", category: .back, metrics: .weightAndRepsRequired, defaultRestSeconds: 180)
-        let entry = SetEntry(exercise: exercise, performedAt: now, weight: 315, reps: 5, restAfterSeconds: 180)
+        let exercise = Exercise(name: "150m Sprints", category: .run, preferredDistanceUnit: .meters, metrics: .distanceAndDurationRequired, defaultRestSeconds: 180)
+        let entry = SetEntry(exercise: exercise, performedAt: now, distance: 150, durationSeconds: 20, restAfterSeconds: 180)
         let session = WorkoutSession(title: "Pull", startedAt: now.addingTimeInterval(-1200), endedAt: now, entries: [entry])
         let type = SupplementType(name: "Creatine", defaultDose: 5, unit: .g, isFavorite: true)
         let supplement = SupplementEntry(type: type, takenAt: now, dose: 5, unit: .g)
@@ -21,6 +21,13 @@ final class MarbleBackupTests: MarbleTestCase {
         source.insert(session)
         source.insert(type)
         source.insert(supplement)
+        source.insert(SprintPrescription(
+            exerciseID: exercise.id,
+            distance: 150,
+            repetitionCount: 4,
+            targetLowerSeconds: 19,
+            targetUpperSeconds: 21
+        ))
         try source.save()
 
         let document = try MarbleBackupService.makeDocument(in: source, now: now)
@@ -38,13 +45,19 @@ final class MarbleBackupTests: MarbleTestCase {
         XCTAssertEqual(try destination.fetchCount(FetchDescriptor<SetEntry>()), 1)
         XCTAssertEqual(try destination.fetchCount(FetchDescriptor<WorkoutSession>()), 1)
         XCTAssertEqual(try destination.fetchCount(FetchDescriptor<SupplementEntry>()), 1)
+        let restoredSprint = try XCTUnwrap(destination.fetch(FetchDescriptor<SprintPrescription>()).first)
+        XCTAssertEqual(restoredSprint.distance, 150)
+        XCTAssertEqual(restoredSprint.repetitionCount, 4)
+        XCTAssertEqual(restoredSprint.targetLowerSeconds, 19)
+        XCTAssertEqual(restoredSprint.targetUpperSeconds, 21)
         let restoredSession = try XCTUnwrap(destination.fetch(FetchDescriptor<WorkoutSession>()).first)
-        XCTAssertEqual(restoredSession.entries.first?.exercise.name, "Deadlift")
+        XCTAssertEqual(restoredSession.entries.first?.exercise.name, "150m Sprints")
 
         let secondRestore = try MarbleBackupService.restore(data: document.data, into: destination)
         XCTAssertEqual(secondRestore.sets, 0)
         XCTAssertEqual(secondRestore.sessions, 0)
         XCTAssertEqual(try destination.fetchCount(FetchDescriptor<SetEntry>()), 1, "merge restore must be idempotent")
+        XCTAssertEqual(try destination.fetchCount(FetchDescriptor<SprintPrescription>()), 1)
     }
 
     func testRestoreRepairsMissingSetRelationshipOnExistingSession() throws {
@@ -76,5 +89,47 @@ final class MarbleBackupTests: MarbleTestCase {
         let context = makeInMemoryContext()
         XCTAssertThrowsError(try MarbleBackupService.restore(data: Data("not-json".utf8), into: context))
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<SetEntry>()), 0)
+    }
+
+    func testLegacyBackupWithoutSprintPrescriptionsStillRestores() throws {
+        let source = makeInMemoryContext()
+        source.insert(Exercise(name: "Legacy Run", category: .run, metrics: .distanceAndDurationRequired, defaultRestSeconds: 0))
+        try source.save()
+        let document = try MarbleBackupService.makeDocument(in: source, now: now)
+
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: document.data) as? [String: Any])
+        json.removeValue(forKey: "sprintPrescriptions")
+        let legacyData = try JSONSerialization.data(withJSONObject: json)
+
+        let destination = makeInMemoryContext()
+        let summary = try MarbleBackupService.restore(data: legacyData, into: destination)
+        XCTAssertEqual(summary.exercises, 1)
+        XCTAssertEqual(try destination.fetchCount(FetchDescriptor<SprintPrescription>()), 0)
+    }
+
+    func testRestoreRejectsInvalidSprintPrescriptionBeforeMutation() throws {
+        let source = makeInMemoryContext()
+        let exercise = Exercise(name: "Sprint", category: .run, metrics: .distanceAndDurationRequired, defaultRestSeconds: 180)
+        source.insert(exercise)
+        source.insert(SprintPrescription(
+            exerciseID: exercise.id,
+            distance: 150,
+            repetitionCount: 4,
+            targetLowerSeconds: 19,
+            targetUpperSeconds: 21
+        ))
+        try source.save()
+        let document = try MarbleBackupService.makeDocument(in: source, now: now)
+
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: document.data) as? [String: Any])
+        var records = try XCTUnwrap(json["sprintPrescriptions"] as? [[String: Any]])
+        records[0]["distance"] = 0
+        json["sprintPrescriptions"] = records
+        let invalidData = try JSONSerialization.data(withJSONObject: json)
+
+        let destination = makeInMemoryContext()
+        XCTAssertThrowsError(try MarbleBackupService.restore(data: invalidData, into: destination))
+        XCTAssertEqual(try destination.fetchCount(FetchDescriptor<Exercise>()), 0)
+        XCTAssertEqual(try destination.fetchCount(FetchDescriptor<SprintPrescription>()), 0)
     }
 }

@@ -13,6 +13,9 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 - **Calendar** — month view with workout-day markers, day detail, and progress photos/videos.
 - **Workout** — start and finish timed workout sessions, log planned sets in one tap, and
   review recent sessions; the weekly split remains the editable plan behind the tab.
+- **Sprint workouts** — create reusable distance prescriptions with a repetition count,
+  exact or ranged target time, and recovery; log every sprint with actual time, RPE, rest,
+  rep progress, and immediate goal feedback. See [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md).
 - **Trends** — a focused weekly goal, priority lift, and monthly report first; detailed
   consistency, volume, per-exercise, supplement, and PR charts remain one tap away.
 - **Data safety** — export and restore exercises, sets, supplements, sessions, and plans as
@@ -25,8 +28,13 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-10)
+## Current state (2026-07-12)
 
+- **2.0 (build 37 candidate)** adds reusable sprint prescriptions: fixed distance and
+  repeats, exact or ranged whole-second target times, prescribed recovery, per-rep RPE/rest
+  logging, goal feedback, plan/picker summaries, JSON backup/restore, and additive V3
+  persistence. The app and all test targets compile; runtime simulator suites still require
+  an installed and booted compatible iOS runtime.
 - **2.0 (build 36)** fixes the build-35 launch crash for existing users by removing a
   redundant SwiftData stage and letting the additive `WorkoutSession` schema migrate
   automatically. It retains first-class session history, the session-led Workout tab,
@@ -102,8 +110,9 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 - **Models** (`marble/Models/`) are SwiftData `@Model` types plus a rich domain core in
   `Enums.swift` (the configurable per-exercise metric profiles).
 - **Versioned schema.** `marble/Persistence/MarbleSchema.swift` declares V1, additive V2
-  workout-session storage, and `MarbleMigrationPlan`. The container **self-recovers** from
-  a failed migration without overwriting older recovery copies.
+  workout-session storage, additive V3 sprint prescriptions, and `MarbleMigrationPlan`.
+  The container **self-recovers** from a failed migration without overwriting older recovery
+  copies.
 - **Design system** (`marble/Theme/`, `marble/Components/`) — the monochrome "Marble" brand
   with Liquid Glass confined to navigation surfaces.
 - **Import** (`marble/Features/Import/`) — a small `WorkoutImportProvider` abstraction over
@@ -119,6 +128,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 | File | What it covers |
 |---|---|
 | [`INTEGRATIONS.md`](INTEGRATIONS.md) | Workout import — how each source works and **why** |
+| [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md) | Sprint prescription attributes, logging flow, and persistence |
 | [`AGENTS.md`](AGENTS.md) | Coding, UI, testing, and release rules for contributors/agents |
 | [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) | Dated source of truth for release/version/signing state |
 | [`TESTING.md`](TESTING.md) | Test suites, deterministic launch hooks, snapshot rules |

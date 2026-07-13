@@ -67,6 +67,7 @@ enum MarbleBackupService {
         let supplementEntries = try context.fetch(FetchDescriptor<SupplementEntry>())
         let sessions = try context.fetch(FetchDescriptor<WorkoutSession>())
         let plans = try context.fetch(FetchDescriptor<SplitPlan>())
+        let sprintPrescriptions = try context.fetch(FetchDescriptor<SprintPrescription>())
 
         let payload = Payload(
             formatVersion: currentVersion,
@@ -76,7 +77,8 @@ enum MarbleBackupService {
             supplementTypes: supplementTypes.map(SupplementTypeRecord.init),
             supplementEntries: supplementEntries.map(SupplementEntryRecord.init),
             sessions: sessions.map(SessionRecord.init),
-            plans: plans.map(PlanRecord.init)
+            plans: plans.map(PlanRecord.init),
+            sprintPrescriptions: sprintPrescriptions.map(SprintPrescriptionRecord.init)
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -123,6 +125,21 @@ enum MarbleBackupService {
             context.insert(exercise)
             exercises[record.id] = exercise
             insertedExercises += 1
+        }
+
+        let existingSprintExerciseIDs = Set(try context.fetch(FetchDescriptor<SprintPrescription>()).map(\.exerciseID))
+        for record in payload.sprintPrescriptions ?? [] where !existingSprintExerciseIDs.contains(record.exerciseID) {
+            guard exercises[record.exerciseID] != nil else { throw MarbleBackupError.missingExercise(record.exerciseID) }
+            context.insert(SprintPrescription(
+                id: record.id,
+                exerciseID: record.exerciseID,
+                distance: record.distance,
+                repetitionCount: record.repetitionCount,
+                targetLowerSeconds: record.targetLowerSeconds,
+                targetUpperSeconds: record.targetUpperSeconds,
+                createdAt: record.createdAt,
+                updatedAt: record.updatedAt
+            ))
         }
 
         var supplementTypes = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<SupplementType>()).map { ($0.id, $0) })
@@ -287,7 +304,8 @@ enum MarbleBackupService {
               hasUniqueIDs(payload.supplementTypes, id: \.id),
               hasUniqueIDs(payload.supplementEntries, id: \.id),
               hasUniqueIDs(payload.sessions, id: \.id),
-              hasUniqueIDs(payload.plans, id: \.id)
+              hasUniqueIDs(payload.plans, id: \.id),
+              hasUniqueIDs(payload.sprintPrescriptions ?? [], id: \.id)
         else {
             throw MarbleBackupError.invalidPayload
         }
@@ -297,13 +315,24 @@ enum MarbleBackupService {
         let supplementTypeIDs = Set(payload.supplementTypes.map(\.id))
         let days = payload.plans.flatMap(\.days)
         let plannedSets = days.flatMap(\.plannedSets)
+        let sprintPrescriptions = payload.sprintPrescriptions ?? []
 
         guard hasUniqueIDs(days, id: \.id),
               hasUniqueIDs(plannedSets, id: \.id),
               payload.sets.allSatisfy({ exerciseIDs.contains($0.exerciseID) }),
               payload.supplementEntries.allSatisfy({ supplementTypeIDs.contains($0.typeID) }),
               payload.sessions.allSatisfy({ session in session.entryIDs.allSatisfy(setIDs.contains) }),
-              plannedSets.allSatisfy({ exerciseIDs.contains($0.exerciseID) })
+              plannedSets.allSatisfy({ exerciseIDs.contains($0.exerciseID) }),
+              sprintPrescriptions.allSatisfy({ exerciseIDs.contains($0.exerciseID) }),
+              Set(sprintPrescriptions.map(\.exerciseID)).count == sprintPrescriptions.count,
+              sprintPrescriptions.allSatisfy({
+                  SprintPrescriptionPlan(
+                      distance: $0.distance,
+                      repetitionCount: $0.repetitionCount,
+                      targetLowerSeconds: $0.targetLowerSeconds,
+                      targetUpperSeconds: $0.targetUpperSeconds
+                  ).isValid
+              })
         else {
             throw MarbleBackupError.invalidPayload
         }
@@ -319,6 +348,29 @@ private nonisolated struct Payload: Codable {
     let supplementEntries: [SupplementEntryRecord]
     let sessions: [SessionRecord]
     let plans: [PlanRecord]
+    let sprintPrescriptions: [SprintPrescriptionRecord]?
+}
+
+private nonisolated struct SprintPrescriptionRecord: Codable {
+    let id: UUID
+    let exerciseID: UUID
+    let distance: Double
+    let repetitionCount: Int
+    let targetLowerSeconds: Int
+    let targetUpperSeconds: Int
+    let createdAt: Date
+    let updatedAt: Date
+
+    @MainActor init(_ prescription: SprintPrescription) {
+        id = prescription.id
+        exerciseID = prescription.exerciseID
+        distance = prescription.distance
+        repetitionCount = prescription.repetitionCount
+        targetLowerSeconds = prescription.targetLowerSeconds
+        targetUpperSeconds = prescription.targetUpperSeconds
+        createdAt = prescription.createdAt
+        updatedAt = prescription.updatedAt
+    }
 }
 
 private nonisolated struct ExerciseRecord: Codable {

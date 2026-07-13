@@ -2,12 +2,18 @@ import SwiftUI
 
 struct DurationPicker: View {
     @Binding var durationSeconds: Int?
+    let identifierPrefix: String
 
     @Environment(\.colorScheme) private var colorScheme
 
     private let hourRange = Array(0...12)
     private let minuteRange = Array(0...59)
     private let secondRange = Array(0...59)
+
+    init(durationSeconds: Binding<Int?>, identifierPrefix: String = "DurationPicker") {
+        _durationSeconds = durationSeconds
+        self.identifierPrefix = identifierPrefix
+    }
 
     var body: some View {
         HStack(spacing: MarbleSpacing.s) {
@@ -20,7 +26,7 @@ struct DurationPicker: View {
             .labelsHidden()
             .tint(Theme.primaryTextColor(for: colorScheme))
             .accessibilityLabel("Hours")
-            .accessibilityIdentifier("DurationPicker.Hours")
+            .accessibilityIdentifier("\(identifierPrefix).Hours")
 
             Picker("Minutes", selection: minutesBinding) {
                 ForEach(minuteRange, id: \.self) { minute in
@@ -31,7 +37,7 @@ struct DurationPicker: View {
             .labelsHidden()
             .tint(Theme.primaryTextColor(for: colorScheme))
             .accessibilityLabel("Minutes")
-            .accessibilityIdentifier("DurationPicker.Minutes")
+            .accessibilityIdentifier("\(identifierPrefix).Minutes")
 
             Picker("Seconds", selection: secondsBinding) {
                 ForEach(secondRange, id: \.self) { second in
@@ -42,7 +48,7 @@ struct DurationPicker: View {
             .labelsHidden()
             .tint(Theme.primaryTextColor(for: colorScheme))
             .accessibilityLabel("Seconds")
-            .accessibilityIdentifier("DurationPicker.Seconds")
+            .accessibilityIdentifier("\(identifierPrefix).Seconds")
         }
     }
 

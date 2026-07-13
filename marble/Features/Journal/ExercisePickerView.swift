@@ -13,6 +13,9 @@ struct ExercisePickerView: View {
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var recentEntries: [SetEntry]
 
+    @Query(sort: \SprintPrescription.createdAt)
+    private var sprintPrescriptions: [SprintPrescription]
+
     @State private var searchText: String = ""
     @State private var createDraftName: String = ""
     @State private var showCreateExercise = false
@@ -236,7 +239,7 @@ struct ExercisePickerView: View {
                         }
                     }
 
-                    Text(exercise.configurationSummaryText)
+                    Text(configurationSummary(for: exercise))
                         .font(MarbleTypography.rowMeta)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .fixedSize(horizontal: false, vertical: true)
@@ -247,7 +250,17 @@ struct ExercisePickerView: View {
         }
         .marbleRowInsets()
         .accessibilityIdentifier("ExercisePicker.Row.\(sanitizedName)")
-        .accessibilityValue(exercise.configurationSummaryText)
+        .accessibilityValue(configurationSummary(for: exercise))
+    }
+
+    private func configurationSummary(for exercise: Exercise) -> String {
+        guard let prescription = sprintPrescriptions.first(where: { $0.exerciseID == exercise.id }) else {
+            return exercise.configurationSummaryText
+        }
+        return prescription.summary(
+            distanceUnit: exercise.preferredDistanceUnit,
+            restSeconds: exercise.defaultRestSeconds
+        )
     }
 
     private func handleSavedExerciseFromManage(_ exercise: Exercise) {

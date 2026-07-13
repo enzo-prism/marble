@@ -6,6 +6,7 @@ enum SeedData {
     private static let didEnsureSplitPlanKey = "didEnsureMarbleSplitPlan"
 
     static func seedIfNeeded(in context: ModelContext) {
+        SprintPrescription.removeOrphans(in: context)
         if TestHooks.isUITesting {
             switch TestHooks.fixtureMode {
             case .empty:

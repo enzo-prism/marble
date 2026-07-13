@@ -1,9 +1,11 @@
 import SwiftUI
+import SwiftData
 
 struct PlannedSetRowView: View {
     let plannedSet: PlannedSet
 
     @Environment(\.colorScheme) private var colorScheme
+    @Query(sort: \SprintPrescription.createdAt) private var sprintPrescriptions: [SprintPrescription]
 
     var body: some View {
         HStack(alignment: .top, spacing: MarbleLayout.rowSpacing) {
@@ -26,6 +28,12 @@ struct PlannedSetRowView: View {
     }
 
     private var subtitle: String {
+        if let prescription = sprintPrescriptions.first(where: { $0.exerciseID == plannedSet.exercise.id }) {
+            return prescription.summary(
+                distanceUnit: plannedSet.exercise.preferredDistanceUnit,
+                restSeconds: plannedSet.exercise.defaultRestSeconds
+            )
+        }
         let trimmed = plannedSet.notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? "Planned set" : trimmed
     }

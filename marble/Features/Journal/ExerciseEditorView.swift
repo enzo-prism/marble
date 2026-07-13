@@ -12,6 +12,9 @@ struct ExerciseEditorView: View {
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
 
+    @Query(sort: \SprintPrescription.createdAt)
+    private var sprintPrescriptions: [SprintPrescription]
+
     let exercise: Exercise?
     let initialName: String
     let onSave: ((Exercise) -> Void)?
@@ -32,6 +35,13 @@ struct ExerciseEditorView: View {
     @State private var durationRequirement: MetricRequirement = .none
     @State private var defaultRestSeconds: Int = 60
     @State private var isFavorite: Bool = false
+    @State private var sprintPrescriptionEnabled = false
+    @State private var sprintDistance: Double? = 60
+    @State private var sprintRepetitionCount = 4
+    @State private var sprintTargetMode: SprintTargetMode = .time
+    @State private var sprintTargetSeconds: Int? = 8
+    @State private var sprintTargetLowerSeconds: Int? = 19
+    @State private var sprintTargetUpperSeconds: Int? = 21
     @State private var showSaveError = false
     @State private var didInitialize = false
 
@@ -236,6 +246,26 @@ struct ExerciseEditorView: View {
                 SectionHeaderView(title: "How You Log It")
             }
 
+            if canConfigureSprint {
+                Section {
+                    editorCard {
+                        SprintPrescriptionEditorView(
+                            isEnabled: $sprintPrescriptionEnabled,
+                            distance: $sprintDistance,
+                            distanceUnit: $preferredDistanceUnit,
+                            repetitionCount: $sprintRepetitionCount,
+                            targetMode: $sprintTargetMode,
+                            targetSeconds: $sprintTargetSeconds,
+                            targetLowerSeconds: $sprintTargetLowerSeconds,
+                            targetUpperSeconds: $sprintTargetUpperSeconds,
+                            restSeconds: $defaultRestSeconds
+                        )
+                    }
+                } header: {
+                    SectionHeaderView(title: "Sprint Workout")
+                }
+            }
+
             Section {
                 editorCard {
                     VStack(alignment: .leading, spacing: MarbleSpacing.s) {
@@ -299,21 +329,23 @@ struct ExerciseEditorView: View {
                 }
             }
 
-            Section {
-                editorCard {
-                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                        Text("Default rest")
-                            .font(MarbleTypography.rowTitle)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                        Text("This prefills the rest timer whenever you start a new log for this exercise.")
-                            .font(MarbleTypography.rowSubtitle)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        RestPicker(restSeconds: $defaultRestSeconds)
-                            .accessibilityIdentifier("ExerciseEditor.DefaultRest")
+            if !sprintPrescriptionEnabled {
+                Section {
+                    editorCard {
+                        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                            Text("Default rest")
+                                .font(MarbleTypography.rowTitle)
+                                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                            Text("This prefills the rest timer whenever you start a new log for this exercise.")
+                                .font(MarbleTypography.rowSubtitle)
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                            RestPicker(restSeconds: $defaultRestSeconds)
+                                .accessibilityIdentifier("ExerciseEditor.DefaultRest")
+                        }
                     }
+                } header: {
+                    SectionHeaderView(title: "Defaults")
                 }
-            } header: {
-                SectionHeaderView(title: "Defaults")
             }
         }
         .listStyle(.plain)
@@ -430,6 +462,33 @@ struct ExerciseEditorView: View {
             messages.append("Turn on at least one metric so this exercise has something meaningful to log.")
         }
 
+        if sprintPrescriptionEnabled {
+            if !metricsProfile.distanceIsRequired || !metricsProfile.durationIsRequired {
+                messages.append("Sprint workouts require distance and duration on every rep.")
+            }
+            if (sprintDistance ?? 0) <= 0 {
+                messages.append("Add a sprint distance greater than zero.")
+            }
+            if !(1...50).contains(sprintRepetitionCount) {
+                messages.append("Choose between 1 and 50 sprint reps.")
+            }
+            switch sprintTargetMode {
+            case .time:
+                if (sprintTargetSeconds ?? 0) <= 0 {
+                    messages.append("Add a goal time greater than zero.")
+                }
+            case .range:
+                let lower = sprintTargetLowerSeconds ?? 0
+                let upper = sprintTargetUpperSeconds ?? 0
+                if lower <= 0 {
+                    messages.append("Add a fast-end time greater than zero.")
+                }
+                if upper < lower {
+                    messages.append("The slow end must be equal to or slower than the fast end.")
+                }
+            }
+        }
+
         return messages
     }
 
@@ -453,6 +512,10 @@ struct ExerciseEditorView: View {
             notes.append("This setup works well for sprints and intervals where both distance and time matter.")
         }
 
+        if let preview = sprintPrescriptionPreview {
+            notes.append(preview)
+        }
+
         return notes
     }
 
@@ -469,6 +532,38 @@ struct ExerciseEditorView: View {
             GridItem(.flexible(), spacing: MarbleSpacing.s),
             GridItem(.flexible(), spacing: MarbleSpacing.s)
         ]
+    }
+
+    private var canConfigureSprint: Bool {
+        metricsProfile.usesDistance && metricsProfile.usesDuration
+    }
+
+    private var sprintPrescriptionPreview: String? {
+        guard sprintPrescriptionEnabled,
+              let distance = sprintDistance,
+              distance > 0 else { return nil }
+        let lower: Int
+        let upper: Int
+        switch sprintTargetMode {
+        case .time:
+            guard let target = sprintTargetSeconds, target > 0 else { return nil }
+            lower = target
+            upper = target
+        case .range:
+            guard let fast = sprintTargetLowerSeconds,
+                  let slow = sprintTargetUpperSeconds,
+                  fast > 0,
+                  slow >= fast else { return nil }
+            lower = fast
+            upper = slow
+        }
+        let draft = SprintPrescriptionPlan(
+            distance: distance,
+            repetitionCount: sprintRepetitionCount,
+            targetLowerSeconds: lower,
+            targetUpperSeconds: upper
+        )
+        return "Sprint plan: \(draft.summary(distanceUnit: preferredDistanceUnit, restSeconds: defaultRestSeconds))."
     }
 
     private var selectedTemplate: ExerciseLoggingTemplate? {
@@ -538,6 +633,13 @@ struct ExerciseEditorView: View {
         preferredDistanceUnit = template.distanceUnit
         if let impliedCategory = template.impliedCategory {
             category = impliedCategory
+        }
+        if template == .sprint {
+            sprintPrescriptionEnabled = true
+            sprintDistance = sprintDistance ?? 60
+            sprintRepetitionCount = max(sprintRepetitionCount, 1)
+        } else if template == .run || template.profile != .distanceAndDurationRequired {
+            sprintPrescriptionEnabled = false
         }
     }
 
@@ -721,6 +823,18 @@ struct ExerciseEditorView: View {
         durationRequirement = exercise.metrics.durationSeconds
         defaultRestSeconds = exercise.defaultRestSeconds
         isFavorite = exercise.isFavorite
+        if let prescription = sprintPrescriptions.first(where: { $0.exerciseID == exercise.id }) {
+            sprintPrescriptionEnabled = true
+            sprintDistance = prescription.distance
+            sprintRepetitionCount = prescription.repetitionCount
+            sprintTargetMode = prescription.targetMode
+            if prescription.targetMode == .time {
+                sprintTargetSeconds = prescription.targetLowerSeconds
+            } else {
+                sprintTargetLowerSeconds = prescription.targetLowerSeconds
+                sprintTargetUpperSeconds = prescription.targetUpperSeconds
+            }
+        }
     }
 
     private func save() {
@@ -753,6 +867,8 @@ struct ExerciseEditorView: View {
             savedExercise = newExercise
         }
 
+        persistSprintPrescription(for: savedExercise)
+
         do {
             try modelContext.save()
         } catch {
@@ -767,6 +883,48 @@ struct ExerciseEditorView: View {
         onSave?(savedExercise)
         if dismissAfterSave {
             dismiss()
+        }
+    }
+
+    private func persistSprintPrescription(for exercise: Exercise) {
+        let existing = sprintPrescriptions.first { $0.exerciseID == exercise.id }
+        guard sprintPrescriptionEnabled else {
+            if let existing { modelContext.delete(existing) }
+            return
+        }
+
+        guard let distance = sprintDistance else { return }
+        let lower: Int
+        let upper: Int
+        switch sprintTargetMode {
+        case .time:
+            guard let target = sprintTargetSeconds else { return }
+            lower = target
+            upper = target
+        case .range:
+            guard let fast = sprintTargetLowerSeconds,
+                  let slow = sprintTargetUpperSeconds else { return }
+            lower = fast
+            upper = slow
+        }
+
+        let now = AppEnvironment.now
+        if let existing {
+            existing.distance = distance
+            existing.repetitionCount = sprintRepetitionCount
+            existing.targetLowerSeconds = lower
+            existing.targetUpperSeconds = upper
+            existing.updatedAt = now
+        } else {
+            modelContext.insert(SprintPrescription(
+                exerciseID: exercise.id,
+                distance: distance,
+                repetitionCount: sprintRepetitionCount,
+                targetLowerSeconds: lower,
+                targetUpperSeconds: upper,
+                createdAt: now,
+                updatedAt: now
+            ))
         }
     }
 }
@@ -872,6 +1030,8 @@ fileprivate extension ExerciseEditorView {
         var impliedCategory: ExerciseCategory? {
             switch self {
             case .run:
+                return .run
+            case .sprint:
                 return .run
             default:
                 return nil

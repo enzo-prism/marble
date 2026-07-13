@@ -46,25 +46,35 @@ enum MarbleSchemaV2: VersionedSchema {
     }
 }
 
+/// Schema V3 adds reusable sprint prescriptions as a standalone entity. Existing
+/// Exercise and SetEntry entities are unchanged, keeping their shipped checksums stable.
+enum MarbleSchemaV3: VersionedSchema {
+    static var versionIdentifier = Schema.Version(3, 0, 0)
+
+    static var models: [any PersistentModel.Type] {
+        MarbleSchemaV2.models + [SprintPrescription.self]
+    }
+}
+
 // MARK: - Migration plan
 
 /// Ordered list of schema versions plus the migration stages between them.
 ///
-/// All schema changes through `MarbleSchemaV2` are additive, which SwiftData handles
+/// All schema changes through `MarbleSchemaV3` are additive, which SwiftData handles
 /// automatically. Do not add a redundant V1 → V2 stage: when opening a store produced by
 /// the previous Release build, SwiftData resolves both endpoints to V2 and Core Data aborts
 /// with "Duplicate version checksums detected."
 ///
 /// To make a breaking change in the future:
-///   1. Copy the current model definitions into a `MarbleSchemaV3` enum (capturing the
+///   1. Copy the current model definitions into a `MarbleSchemaV4` enum (capturing the
 ///      *old* shape) and bump `versionIdentifier`.
 ///   2. Apply your change to the live model types.
-///   3. Append `MarbleSchemaV3.self` to `schemas`; add a `.custom(...)` stage only when
+///   3. Append `MarbleSchemaV4.self` to `schemas`; add a `.custom(...)` stage only when
 ///      automatic lightweight migration cannot express the required data transformation.
 ///   4. Add a previous-Release migration test (see `PersistenceRecoveryTests`).
 enum MarbleMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [MarbleSchemaV1.self, MarbleSchemaV2.self]
+        [MarbleSchemaV1.self, MarbleSchemaV2.self, MarbleSchemaV3.self]
     }
 
     static var stages: [MigrationStage] { [] }

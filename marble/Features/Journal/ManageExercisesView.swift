@@ -11,6 +11,9 @@ struct ManageExercisesView: View {
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
 
+    @Query(sort: \SprintPrescription.createdAt)
+    private var sprintPrescriptions: [SprintPrescription]
+
     @State private var showingNewExercise = false
     @State private var showCannotDelete = false
     @State private var showDeleteError = false
@@ -70,7 +73,7 @@ struct ManageExercisesView: View {
                                     }
                                 }
 
-                                Text(exercise.configurationSummaryText)
+                                Text(configurationSummary(for: exercise))
                                     .font(MarbleTypography.rowMeta)
                                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                                     .fixedSize(horizontal: false, vertical: true)
@@ -160,6 +163,9 @@ struct ManageExercisesView: View {
                 showCannotDelete = true
                 continue
             }
+            sprintPrescriptions
+                .filter { $0.exerciseID == exercise.id }
+                .forEach(modelContext.delete)
             modelContext.delete(exercise)
         }
 
@@ -178,5 +184,15 @@ struct ManageExercisesView: View {
         guard let exercise = pendingSavedExercise else { return }
         pendingSavedExercise = nil
         onExerciseSaved?(exercise)
+    }
+
+    private func configurationSummary(for exercise: Exercise) -> String {
+        guard let prescription = sprintPrescriptions.first(where: { $0.exerciseID == exercise.id }) else {
+            return exercise.configurationSummaryText
+        }
+        return prescription.summary(
+            distanceUnit: exercise.preferredDistanceUnit,
+            restSeconds: exercise.defaultRestSeconds
+        )
     }
 }
