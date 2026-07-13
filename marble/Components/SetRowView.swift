@@ -88,7 +88,8 @@ struct SetRowView: View {
                 if let sprintGoal {
                     SprintGoalStatusLine(
                         evaluation: SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry),
-                        snapshot: sprintGoal
+                        snapshot: sprintGoal,
+                        showsRepetition: false
                     )
                     .environment(\.colorScheme, resolvedScheme)
                 }
@@ -151,7 +152,13 @@ struct SetRowView: View {
 
     private var secondaryLine: String {
         let rest = DateHelper.formattedDuration(seconds: entry.restAfterSeconds)
-        return "RPE \(entry.difficulty) · Rest \(rest)"
+        var parts: [String] = []
+        if let sprintGoal, let repetitionNumber = sprintGoal.repetitionNumber {
+            parts.append("Rep \(repetitionNumber)/\(sprintGoal.repetitionCount)")
+        }
+        parts.append("RPE \(entry.difficulty)")
+        parts.append("Rest \(rest)")
+        return parts.joined(separator: " · ")
     }
 
     private var accessibilitySummary: String {

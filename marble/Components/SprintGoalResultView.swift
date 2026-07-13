@@ -5,6 +5,7 @@ import SwiftUI
 struct SprintGoalStatusLine: View {
     let evaluation: SprintGoalEvaluation
     let snapshot: SprintGoalSnapshot
+    var showsRepetition = true
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -58,7 +59,7 @@ struct SprintGoalStatusLine: View {
 
     private var contextLabel: String {
         var parts: [String] = []
-        if let repetitionNumber = snapshot.repetitionNumber {
+        if showsRepetition, let repetitionNumber = snapshot.repetitionNumber {
             parts.append("Rep \(repetitionNumber)/\(snapshot.repetitionCount)")
         }
         parts.append("\(snapshot.isInferred ? "Current target" : "Target") \(evaluation.targetText)")

@@ -465,7 +465,7 @@ final class JournalFlowUITests: MarbleUITestCase {
 
     func testSprintExerciseShowsDistanceAndDurationLogging() {
         step("Launch and open Journal tab") {
-            launchApp(fixtureMode: "empty")
+            launchApp(appearance: .dark, fixtureMode: "empty")
             navigateToTab(.journal)
         }
 
