@@ -421,7 +421,7 @@ struct AddSetView: View {
                 }
             }
             .onChange(of: logDuration) { _, newValue in
-                if newValue, (durationSeconds ?? 0) == 0 {
+                if newValue, (durationSeconds ?? 0) == 0, !exerciseSnapshotIsSprint {
                     durationSeconds = 60
                 }
                 if !newValue {
@@ -983,7 +983,25 @@ struct AddSetView: View {
             updatedAt: now
         )
 
+        let sprintGoalSnapshot: SprintGoalSnapshot? = {
+            guard let exerciseSnapshot = selectedExerciseSnapshot,
+                  let prescription = exerciseSnapshot.sprintPrescription else { return nil }
+            let repetitionNumber = completedSprintRepetitions(for: exerciseSnapshot.id) + 1
+            return SprintGoalSnapshot(
+                setEntryID: entry.id,
+                exerciseID: exercise.id,
+                distance: prescription.distance,
+                distanceUnit: exerciseSnapshot.preferredDistanceUnit,
+                repetitionNumber: repetitionNumber <= prescription.repetitionCount ? repetitionNumber : nil,
+                repetitionCount: prescription.repetitionCount,
+                targetLowerSeconds: prescription.targetLowerSeconds,
+                targetUpperSeconds: prescription.targetUpperSeconds,
+                createdAt: now
+            )
+        }()
+
         modelContext.insert(entry)
+        if let sprintGoalSnapshot { modelContext.insert(sprintGoalSnapshot) }
         activeSession?.append(entry, at: now)
         do {
             try modelContext.save()

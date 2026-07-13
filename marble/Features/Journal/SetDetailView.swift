@@ -8,6 +8,9 @@ struct SetDetailView: View {
 
     @Bindable var entry: SetEntry
 
+    @Query(sort: \SprintGoalSnapshot.createdAt)
+    private var sprintGoalSnapshots: [SprintGoalSnapshot]
+
     @State private var addedLoad = false
     @State private var logReps = false
     @State private var logDistance = false
@@ -32,6 +35,19 @@ struct SetDetailView: View {
                     }
                 }
                 .accessibilityIdentifier("SetDetail.ExercisePicker")
+            }
+
+            if let sprintGoal {
+                Section {
+                    SprintGoalResultCard(
+                        entry: entry,
+                        snapshot: sprintGoal,
+                        evaluation: SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry)
+                    )
+                    .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                } header: {
+                    SectionHeaderView(title: "Sprint Result")
+                }
             }
 
             Section {
@@ -197,6 +213,7 @@ struct SetDetailView: View {
                 .accessibilityIdentifier("SetDetail.Duplicate")
 
                 Button("Delete", role: .destructive) {
+                    if let sprintGoal { modelContext.delete(sprintGoal) }
                     modelContext.delete(entry)
                     if modelContext.saveOrRollback() {
                         MarbleHaptics.warning()
@@ -286,6 +303,10 @@ struct SetDetailView: View {
         )
     }
 
+    private var sprintGoal: SprintGoalSnapshot? {
+        sprintGoalSnapshots.first { $0.setEntryID == entry.id }
+    }
+
     private var weightBinding: Binding<Double?> {
         Binding(
             get: { entry.exercise.displayedWeightInput(from: entry.weight) },
@@ -362,6 +383,20 @@ struct SetDetailView: View {
             updatedAt: now
         )
         modelContext.insert(duplicate)
+        if let sprintGoal {
+            modelContext.insert(SprintGoalSnapshot(
+                setEntryID: duplicate.id,
+                exerciseID: duplicate.exercise.id,
+                distance: sprintGoal.distance,
+                distanceUnit: sprintGoal.distanceUnit,
+                repetitionNumber: nil,
+                repetitionCount: sprintGoal.repetitionCount,
+                targetLowerSeconds: sprintGoal.targetLowerSeconds,
+                targetUpperSeconds: sprintGoal.targetUpperSeconds,
+                isInferred: sprintGoal.isInferred,
+                createdAt: now
+            ))
+        }
         if modelContext.saveOrRollback() {
             MarbleHaptics.success()
             RestActivityController.shared.startRest(for: duplicate)

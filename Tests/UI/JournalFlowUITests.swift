@@ -487,6 +487,12 @@ final class JournalFlowUITests: MarbleUITestCase {
 
             selectExerciseTemplate("ExerciseEditor.Template.sprint")
 
+            let rangeMode = app.buttons["Range"]
+            let editorList = waitForIdentifier("ExerciseEditor.List", timeout: 6)
+            scrollToElement(rangeMode, in: editorList)
+            waitFor(rangeMode)
+            rangeMode.tap()
+
             let saveExercise = app.buttons["ExerciseEditor.Save"]
             waitFor(saveExercise)
             forceTap(saveExercise)
@@ -505,6 +511,13 @@ final class JournalFlowUITests: MarbleUITestCase {
             let durationControl = app.otherElements["AddSet.Duration"]
             waitFor(durationControl)
 
+            let secondsPicker = app.buttons["DurationPicker.Seconds"]
+            waitFor(secondsPicker)
+            secondsPicker.tap()
+            let twentySeconds = app.buttons["20s"]
+            waitFor(twentySeconds)
+            twentySeconds.tap()
+
             let saveButton = revealAddSetSaveButton()
             forceTap(saveButton)
             if app.navigationBars["Log Set"].exists {
@@ -519,14 +532,34 @@ final class JournalFlowUITests: MarbleUITestCase {
             let latestRow = rows.element(boundBy: 0)
             waitFor(latestRow, timeout: 8)
             XCTAssertTrue((latestRow.label as String).contains("60 m"))
+            XCTAssertTrue((latestRow.label as String).contains("Goal hit"))
+            XCTAssertTrue((latestRow.label as String).contains("Target 19–21s"))
+            takeScreenshot("Sprint range goal hit in Journal")
 
             forceTap(latestRow)
             waitFor(app.navigationBars["Set Details"], timeout: 6)
+
+            let sprintResult = app.descendants(matching: .any)
+                .matching(identifier: "SetDetail.SprintGoalResult").firstMatch
+            waitFor(sprintResult)
+            XCTAssertTrue((sprintResult.label as String).contains("Goal hit"))
+            XCTAssertTrue((sprintResult.label as String).contains("inside your target range"))
+            takeScreenshot("Sprint range goal hit details")
 
             let detailDistance = textInput("SetDetail.Distance")
             waitFor(detailDistance)
             XCTAssertEqual(detailDistance.value as? String, "60")
             XCTAssertTrue(app.otherElements["SetDetail.Duration"].waitForExistence(timeout: 2))
+
+            let detailSeconds = app.buttons["DurationPicker.Seconds"]
+            forceTap(detailSeconds)
+            forceTap(app.buttons["25s"])
+            let missedResult = app.descendants(matching: .any).matching(
+                NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "SetDetail.SprintGoalResult", "Goal missed")
+            ).firstMatch
+            waitFor(missedResult)
+            XCTAssertTrue((missedResult.label as String).contains("4 seconds slower"))
+            takeScreenshot("Sprint range goal missed details")
         }
     }
 

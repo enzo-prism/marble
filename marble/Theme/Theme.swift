@@ -74,6 +74,24 @@ enum Theme {
             : Color(white: ThemePalette.lightDestructiveAction)
     }
 
+    /// Semantic sprint-result colors. Marble stays monochrome everywhere else;
+    /// these two accents are reserved for an athlete's recorded goal result.
+    /// The light variants are deliberately darker than the default system
+    /// colors so compact bold labels retain contrast on white.
+    static func sprintGoalHitColor(for scheme: ColorScheme) -> Color {
+        let resolved = resolvedScheme(scheme)
+        return resolved == .dark
+            ? Color(red: 0.30, green: 0.92, blue: 0.48)
+            : Color(red: 0.00, green: 0.36, blue: 0.13)
+    }
+
+    static func sprintGoalMissColor(for scheme: ColorScheme) -> Color {
+        let resolved = resolvedScheme(scheme)
+        return resolved == .dark
+            ? Color(red: 1.00, green: 0.42, blue: 0.38)
+            : Color(red: 0.70, green: 0.02, blue: 0.06)
+    }
+
     static func applyTabBarAppearance(for scheme: ColorScheme) {
         let resolved = resolvedScheme(scheme)
         let reduceTransparency = UIAccessibility.isReduceTransparencyEnabled || TestHooks.forceReduceTransparency

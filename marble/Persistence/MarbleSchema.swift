@@ -56,11 +56,22 @@ enum MarbleSchemaV3: VersionedSchema {
     }
 }
 
+/// Schema V4 adds immutable per-rep sprint goal snapshots. The reusable exercise
+/// prescription remains editable, while each historical rep keeps the exact target
+/// it was logged against. This is additive so the shipped SetEntry remains unchanged.
+enum MarbleSchemaV4: VersionedSchema {
+    static var versionIdentifier = Schema.Version(4, 0, 0)
+
+    static var models: [any PersistentModel.Type] {
+        MarbleSchemaV3.models + [SprintGoalSnapshot.self]
+    }
+}
+
 // MARK: - Migration plan
 
 /// Ordered list of schema versions plus the migration stages between them.
 ///
-/// All schema changes through `MarbleSchemaV3` are additive, which SwiftData handles
+/// All schema changes through `MarbleSchemaV4` are additive, which SwiftData handles
 /// automatically. Do not add a redundant V1 → V2 stage: when opening a store produced by
 /// the previous Release build, SwiftData resolves both endpoints to V2 and Core Data aborts
 /// with "Duplicate version checksums detected."
@@ -74,7 +85,7 @@ enum MarbleSchemaV3: VersionedSchema {
 ///   4. Add a previous-Release migration test (see `PersistenceRecoveryTests`).
 enum MarbleMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [MarbleSchemaV1.self, MarbleSchemaV2.self, MarbleSchemaV3.self]
+        [MarbleSchemaV1.self, MarbleSchemaV2.self, MarbleSchemaV3.self, MarbleSchemaV4.self]
     }
 
     static var stages: [MigrationStage] { [] }

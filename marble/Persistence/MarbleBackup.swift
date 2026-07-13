@@ -68,6 +68,7 @@ enum MarbleBackupService {
         let sessions = try context.fetch(FetchDescriptor<WorkoutSession>())
         let plans = try context.fetch(FetchDescriptor<SplitPlan>())
         let sprintPrescriptions = try context.fetch(FetchDescriptor<SprintPrescription>())
+        let sprintGoalSnapshots = try context.fetch(FetchDescriptor<SprintGoalSnapshot>())
 
         let payload = Payload(
             formatVersion: currentVersion,
@@ -78,7 +79,8 @@ enum MarbleBackupService {
             supplementEntries: supplementEntries.map(SupplementEntryRecord.init),
             sessions: sessions.map(SessionRecord.init),
             plans: plans.map(PlanRecord.init),
-            sprintPrescriptions: sprintPrescriptions.map(SprintPrescriptionRecord.init)
+            sprintPrescriptions: sprintPrescriptions.map(SprintPrescriptionRecord.init),
+            sprintGoalSnapshots: sprintGoalSnapshots.map(SprintGoalSnapshotRecord.init)
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -183,6 +185,25 @@ enum MarbleBackupService {
 
         let allSets = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<SetEntry>()).map { ($0.id, $0) })
             .merging(restoredSets) { _, restored in restored }
+
+        let existingSprintGoalSetIDs = Set(try context.fetch(FetchDescriptor<SprintGoalSnapshot>()).map(\.setEntryID))
+        for record in payload.sprintGoalSnapshots ?? [] where !existingSprintGoalSetIDs.contains(record.setEntryID) {
+            guard allSets[record.setEntryID] != nil else { throw MarbleBackupError.invalidPayload }
+            context.insert(SprintGoalSnapshot(
+                id: record.id,
+                setEntryID: record.setEntryID,
+                exerciseID: record.exerciseID,
+                distance: record.distance,
+                distanceUnit: record.distanceUnit,
+                repetitionNumber: record.repetitionNumber,
+                repetitionCount: record.repetitionCount,
+                targetLowerSeconds: record.targetLowerSeconds,
+                targetUpperSeconds: record.targetUpperSeconds,
+                isInferred: record.isInferred,
+                createdAt: record.createdAt
+            ))
+        }
+
         let existingSessions = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<WorkoutSession>()).map { ($0.id, $0) })
         for record in payload.sessions {
             let sessionEntries = record.entryIDs.compactMap { allSets[$0] }
@@ -305,17 +326,20 @@ enum MarbleBackupService {
               hasUniqueIDs(payload.supplementEntries, id: \.id),
               hasUniqueIDs(payload.sessions, id: \.id),
               hasUniqueIDs(payload.plans, id: \.id),
-              hasUniqueIDs(payload.sprintPrescriptions ?? [], id: \.id)
+              hasUniqueIDs(payload.sprintPrescriptions ?? [], id: \.id),
+              hasUniqueIDs(payload.sprintGoalSnapshots ?? [], id: \.id)
         else {
             throw MarbleBackupError.invalidPayload
         }
 
         let exerciseIDs = Set(payload.exercises.map(\.id))
         let setIDs = Set(payload.sets.map(\.id))
+        let exerciseIDBySetID = Dictionary(uniqueKeysWithValues: payload.sets.map { ($0.id, $0.exerciseID) })
         let supplementTypeIDs = Set(payload.supplementTypes.map(\.id))
         let days = payload.plans.flatMap(\.days)
         let plannedSets = days.flatMap(\.plannedSets)
         let sprintPrescriptions = payload.sprintPrescriptions ?? []
+        let sprintGoalSnapshots = payload.sprintGoalSnapshots ?? []
 
         guard hasUniqueIDs(days, id: \.id),
               hasUniqueIDs(plannedSets, id: \.id),
@@ -332,6 +356,22 @@ enum MarbleBackupService {
                       targetLowerSeconds: $0.targetLowerSeconds,
                       targetUpperSeconds: $0.targetUpperSeconds
                   ).isValid
+              }),
+              sprintGoalSnapshots.allSatisfy({ snapshot in
+                  setIDs.contains(snapshot.setEntryID) &&
+                  exerciseIDs.contains(snapshot.exerciseID) &&
+                  exerciseIDBySetID[snapshot.setEntryID] == snapshot.exerciseID
+              }),
+              Set(sprintGoalSnapshots.map(\.setEntryID)).count == sprintGoalSnapshots.count,
+              sprintGoalSnapshots.allSatisfy({ snapshot in
+                  SprintPrescriptionPlan(
+                      distance: snapshot.distance,
+                      repetitionCount: snapshot.repetitionCount,
+                      targetLowerSeconds: snapshot.targetLowerSeconds,
+                      targetUpperSeconds: snapshot.targetUpperSeconds
+                  ).isValid && snapshot.repetitionNumber.map {
+                      (1...snapshot.repetitionCount).contains($0)
+                  } != false
               })
         else {
             throw MarbleBackupError.invalidPayload
@@ -349,6 +389,35 @@ private nonisolated struct Payload: Codable {
     let sessions: [SessionRecord]
     let plans: [PlanRecord]
     let sprintPrescriptions: [SprintPrescriptionRecord]?
+    let sprintGoalSnapshots: [SprintGoalSnapshotRecord]?
+}
+
+private nonisolated struct SprintGoalSnapshotRecord: Codable {
+    let id: UUID
+    let setEntryID: UUID
+    let exerciseID: UUID
+    let distance: Double
+    let distanceUnit: DistanceUnit
+    let repetitionNumber: Int?
+    let repetitionCount: Int
+    let targetLowerSeconds: Int
+    let targetUpperSeconds: Int
+    let isInferred: Bool
+    let createdAt: Date
+
+    @MainActor init(_ snapshot: SprintGoalSnapshot) {
+        id = snapshot.id
+        setEntryID = snapshot.setEntryID
+        exerciseID = snapshot.exerciseID
+        distance = snapshot.distance
+        distanceUnit = snapshot.distanceUnit
+        repetitionNumber = snapshot.repetitionNumber
+        repetitionCount = snapshot.repetitionCount
+        targetLowerSeconds = snapshot.targetLowerSeconds
+        targetUpperSeconds = snapshot.targetUpperSeconds
+        isInferred = snapshot.isInferred
+        createdAt = snapshot.createdAt
+    }
 }
 
 private nonisolated struct SprintPrescriptionRecord: Codable {

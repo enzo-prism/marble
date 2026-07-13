@@ -42,18 +42,45 @@ timer between repetitions, and changes the final action to Save Final Rep.
 When logging inside an active workout session, rep progress is derived from completed sets in
 that session. Outside a session, the Add Set sheet tracks the current sequence locally.
 
+## Review sprint results in Journal
+
+Every logged sprint shows its recorded distance and time plus a compact result line in the
+Journal and Quick Log preview:
+
+- **Goal hit** uses a green checkmark and includes the saved target.
+- **Goal missed** uses a red x-mark and includes the saved target.
+- **Not scored** is neutral when time or distance is missing, or the recorded distance does
+  not match the prescribed sprint.
+
+The symbol and words always carry the result, so color is never the only signal. Selecting
+the rep opens **Set Details**, where the Sprint Result card compares Recorded and Target,
+explains the exact boundary result, and identifies whether the goal was saved when the rep
+was logged or recovered for an older entry. Editing the recorded time or distance updates the
+result immediately against the same saved goal.
+
 ## Persistence and backup
 
 `SprintPrescription` is an additive SwiftData model in `MarbleSchemaV3`. It references an
 exercise by stable exercise ID rather than changing the shipped `Exercise` model checksum.
-The seed/recovery path removes orphaned prescriptions, and JSON backup/restore includes them
-with reference and target validation. Backups made before V3 remain decodable because the
-new top-level collection is optional.
+`SprintGoalSnapshot` is an additive model in `MarbleSchemaV4`. It freezes the distance, target
+bounds, planned rep count, and optional rep number for each logged result so later exercise
+edits never rewrite history. The V4 launch backfill freezes the current prescription onto
+eligible pre-V4 sprint entries and labels that provenance as recovered rather than claiming
+it was known at log time.
+
+The seed/recovery path removes orphaned prescriptions and goal snapshots. JSON backup/restore
+includes both collections with reference and target validation; older backups remain
+decodable because both top-level collections are optional.
 
 Key implementation files:
 
 - `marble/Models/SprintPrescription.swift`
+- `marble/Models/SprintGoalSnapshot.swift`
 - `marble/Features/Journal/SprintPrescriptionEditorView.swift`
 - `marble/Features/Journal/SprintGoalCardView.swift`
+- `marble/Components/SprintGoalResultView.swift`
 - `marble/Features/Journal/AddSetView.swift`
+- `marble/Features/Journal/JournalView.swift`
+- `marble/Features/Journal/SetDetailView.swift`
 - `Tests/Unit/SprintPrescriptionTests.swift`
+- `Tests/Unit/SprintGoalMigrationTests.swift`

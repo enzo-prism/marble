@@ -3,6 +3,7 @@ import SwiftUI
 struct QuickLogCardView: View {
     let entry: SetEntry?
     var prBadge: PersonalRecordBadge = []
+    var sprintGoal: SprintGoalSnapshot? = nil
     let onLogAgain: () -> Void
     let onEdit: () -> Void
     let onLogSet: () -> Void
@@ -31,7 +32,7 @@ struct QuickLogCardView: View {
         return VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             HStack(alignment: .top, spacing: MarbleSpacing.s) {
                 VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
-                    Text("Ready to log")
+                    Text(sprintGoal == nil ? "Ready to log" : "Ready to log again")
                         .font(MarbleTypography.smallLabel)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .textCase(.uppercase)
@@ -48,12 +49,19 @@ struct QuickLogCardView: View {
                         PRBadgeLabel(badge: prBadge)
                     }
 
-                    Text(summary)
+                    Text(sprintGoal == nil ? summary : "Last rep · \(summary)")
                         .font(MarbleTypography.rowSubtitle)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .monospacedDigit()
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    if let sprintGoal {
+                        SprintGoalStatusLine(
+                            evaluation: SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry),
+                            snapshot: sprintGoal
+                        )
+                    }
 
                 }
                 .accessibilityElement(children: .combine)
@@ -190,6 +198,10 @@ struct QuickLogCardView: View {
 
     private func accessibilityLabel(for entry: SetEntry, summary: String, lastLogged: String) -> String {
         let prefix = prBadge.isEmpty ? "" : "\(prBadge.accessibilityDescription). "
+        if let sprintGoal {
+            let evaluation = SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry)
+            return "\(prefix)\(entry.exercise.name), \(summary), \(evaluation.status.title), target \(evaluation.targetText), \(evaluation.reason), \(lastLogged)"
+        }
         return "\(prefix)\(entry.exercise.name), \(summary), \(lastLogged)"
     }
 }

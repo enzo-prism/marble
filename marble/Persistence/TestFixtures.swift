@@ -391,6 +391,7 @@ enum TestFixtures {
     }
 
     private static func clear(_ context: ModelContext) {
+        let sprintGoals = (try? context.fetch(FetchDescriptor<SprintGoalSnapshot>())) ?? []
         let sets = (try? context.fetch(FetchDescriptor<SetEntry>())) ?? []
         let supplements = (try? context.fetch(FetchDescriptor<SupplementEntry>())) ?? []
         let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
@@ -401,6 +402,7 @@ enum TestFixtures {
         let customNotifications = (try? context.fetch(FetchDescriptor<CustomNotification>())) ?? []
         let importedWorkouts = (try? context.fetch(FetchDescriptor<ImportedWorkout>())) ?? []
 
+        sprintGoals.forEach { context.delete($0) }
         importedWorkouts.forEach { context.delete($0) }
         sets.forEach { context.delete($0) }
         supplements.forEach { context.delete($0) }

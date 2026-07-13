@@ -50,6 +50,24 @@ struct LogLastSetAgainIntent: AppIntent {
 
         let duplicate = latest.duplicated(at: AppEnvironment.now)
         context.insert(duplicate)
+        let latestID = latest.id
+        let goalDescriptor = FetchDescriptor<SprintGoalSnapshot>(
+            predicate: #Predicate { $0.setEntryID == latestID }
+        )
+        if let goal = (try? context.fetch(goalDescriptor))?.first {
+            context.insert(SprintGoalSnapshot(
+                setEntryID: duplicate.id,
+                exerciseID: duplicate.exercise.id,
+                distance: goal.distance,
+                distanceUnit: goal.distanceUnit,
+                repetitionNumber: nil,
+                repetitionCount: goal.repetitionCount,
+                targetLowerSeconds: goal.targetLowerSeconds,
+                targetUpperSeconds: goal.targetUpperSeconds,
+                isInferred: goal.isInferred,
+                createdAt: duplicate.createdAt
+            ))
+        }
         do {
             try context.save()
         } catch {

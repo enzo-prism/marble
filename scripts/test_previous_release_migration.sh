@@ -5,7 +5,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASE_REF="${MIGRATION_BASE_REF:-25a1c52}"
 SIMULATOR_UDID="${SIMULATOR_UDID:-}"
-RUN_DIR="$(mktemp -d "$ROOT_DIR/work/release-migration.XXXXXX")"
+RUN_ROOT="${MIGRATION_RUN_ROOT:-$ROOT_DIR/work}"
+mkdir -p "$RUN_ROOT"
+RUN_DIR="$(mktemp -d "$RUN_ROOT/release-migration.XXXXXX")"
 BASE_DIR="$RUN_DIR/base"
 BASE_DERIVED_DATA="$RUN_DIR/base-derived-data"
 CANDIDATE_DERIVED_DATA="$RUN_DIR/candidate-derived-data"
@@ -41,6 +43,7 @@ xcodebuild build \
     -configuration Release \
     -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
     -derivedDataPath "$BASE_DERIVED_DATA" \
+    DEBUG_INFORMATION_FORMAT=dwarf \
     CODE_SIGNING_ALLOWED=NO \
     >"$RUN_DIR/base-build.log"
 
@@ -51,6 +54,7 @@ xcodebuild build \
     -configuration Release \
     -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
     -derivedDataPath "$CANDIDATE_DERIVED_DATA" \
+    DEBUG_INFORMATION_FORMAT=dwarf \
     CODE_SIGNING_ALLOWED=NO \
     >"$RUN_DIR/candidate-build.log"
 

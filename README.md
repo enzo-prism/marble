@@ -19,7 +19,9 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
   review recent sessions; the weekly split remains the editable plan behind the tab.
 - **Sprint workouts** — create reusable distance prescriptions with a repetition count,
   exact or ranged target time, and recovery; log every sprint with actual time, RPE, rest,
-  rep progress, and immediate goal feedback. See [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md).
+  rep progress, and immediate goal feedback. Journal previews show an accessible green hit,
+  red miss, or neutral unscored state; details explain the saved target and exact result.
+  See [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md).
 - **Trends** — a focused weekly goal, priority lift, and monthly report first; detailed
   consistency, volume, per-exercise, supplement, and PR charts remain one tap away.
 - **Data safety** — export and restore exercises, sets, supplements, sessions, and plans as
@@ -122,7 +124,8 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 - **Models** (`marble/Models/`) are SwiftData `@Model` types plus a rich domain core in
   `Enums.swift` (the configurable per-exercise metric profiles).
 - **Versioned schema.** `marble/Persistence/MarbleSchema.swift` declares V1, additive V2
-  workout-session storage, additive V3 sprint prescriptions, and `MarbleMigrationPlan`.
+  workout-session storage, additive V3 sprint prescriptions, additive V4 per-rep sprint
+  goal snapshots, and `MarbleMigrationPlan`.
   The container **self-recovers** from a failed migration without overwriting older recovery
   copies.
 - **Design system** (`marble/Theme/`, `marble/Components/`) — the monochrome "Marble" brand

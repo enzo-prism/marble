@@ -13,6 +13,9 @@ struct JournalView: View {
     @Query(sort: \ImportedWorkout.importedAt, order: .reverse)
     private var importedWorkouts: [ImportedWorkout]
 
+    @Query(sort: \SprintGoalSnapshot.createdAt)
+    private var sprintGoalSnapshots: [SprintGoalSnapshot]
+
     @Query(filter: #Predicate<SplitPlan> { $0.isActive == true }, sort: \SplitPlan.updatedAt, order: .reverse)
     private var activeSplitPlans: [SplitPlan]
 
@@ -40,6 +43,7 @@ struct JournalView: View {
                     QuickLogCardView(
                         entry: entries.first,
                         prBadge: entries.first.flatMap { derived.prBadges[$0.id] } ?? [],
+                        sprintGoal: entries.first.flatMap { derived.sprintGoals[$0.id] },
                         onLogAgain: { quickLogAgain() },
                         onEdit: { openEdit() },
                         onLogSet: { quickLog.open() }
@@ -68,6 +72,7 @@ struct JournalView: View {
                             JournalRow(
                                 entry: entry,
                                 prBadge: derived.prBadges[entry.id] ?? [],
+                                sprintGoal: derived.sprintGoals[entry.id],
                                 onDuplicate: { duplicate(entry) },
                                 onDelete: { delete(entry) }
                             )
@@ -164,7 +169,8 @@ struct JournalView: View {
     private var derived: JournalDerived {
         let signature = JournalSectionsSignature(
             count: entries.count,
-            latestUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast
+            latestUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast,
+            sprintGoalCount: sprintGoalSnapshots.count
         )
         return derivedMemo.value(for: signature) {
             // entries arrive sorted newest-first from the query, so grouping
@@ -176,12 +182,18 @@ struct JournalView: View {
                 JournalDaySection(day: day, entries: grouped[day] ?? [])
             }
             let prBadges = PersonalRecords.badges(for: entries)
-            return JournalDerived(sections: sections, prBadges: prBadges)
+            let sprintGoals = Dictionary(
+                sprintGoalSnapshots.map { ($0.setEntryID, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            return JournalDerived(sections: sections, prBadges: prBadges, sprintGoals: sprintGoals)
         }
     }
 
     private func delete(_ entry: SetEntry) {
-        let snapshot = SetEntrySnapshot(entry: entry)
+        let sprintGoal = sprintGoalSnapshots.first { $0.setEntryID == entry.id }
+        let snapshot = SetEntrySnapshot(entry: entry, sprintGoal: sprintGoal)
+        if let sprintGoal { modelContext.delete(sprintGoal) }
         modelContext.delete(entry)
         guard modelContext.saveOrRollback() else {
             toast = ToastData(message: "Couldn't delete set", actionTitle: nil, onAction: nil)
@@ -211,6 +223,7 @@ struct JournalView: View {
         guard let latest = entries.first else { return }
         let duplicate = latest.duplicated(at: AppEnvironment.now)
         modelContext.insert(duplicate)
+        copySprintGoal(from: latest, to: duplicate)
         guard modelContext.saveOrRollback() else {
             toast = ToastData(message: "Couldn't log set", actionTitle: nil, onAction: nil)
             return
@@ -228,6 +241,7 @@ struct JournalView: View {
         guard let id = quickLogUndoID else { return }
         let descriptor = FetchDescriptor<SetEntry>(predicate: #Predicate { $0.id == id })
         if let entry = (try? modelContext.fetch(descriptor))?.first {
+            deleteSprintGoal(for: entry.id)
             modelContext.delete(entry)
             if modelContext.saveOrRollback() {
                 MarbleHaptics.lightImpact()
@@ -255,11 +269,37 @@ struct JournalView: View {
     private func duplicate(_ entry: SetEntry) {
         let duplicate = entry.duplicated(at: AppEnvironment.now)
         modelContext.insert(duplicate)
+        copySprintGoal(from: entry, to: duplicate)
         if modelContext.saveOrRollback() {
             MarbleHaptics.success()
             RestActivityController.shared.startRest(for: duplicate)
         } else {
             toast = ToastData(message: "Couldn't duplicate set", actionTitle: nil, onAction: nil)
+        }
+    }
+
+    private func copySprintGoal(from source: SetEntry, to destination: SetEntry) {
+        guard let sourceGoal = sprintGoalSnapshots.first(where: { $0.setEntryID == source.id }) else { return }
+        modelContext.insert(SprintGoalSnapshot(
+            setEntryID: destination.id,
+            exerciseID: destination.exercise.id,
+            distance: sourceGoal.distance,
+            distanceUnit: sourceGoal.distanceUnit,
+            repetitionNumber: nil,
+            repetitionCount: sourceGoal.repetitionCount,
+            targetLowerSeconds: sourceGoal.targetLowerSeconds,
+            targetUpperSeconds: sourceGoal.targetUpperSeconds,
+            isInferred: sourceGoal.isInferred,
+            createdAt: destination.createdAt
+        ))
+    }
+
+    private func deleteSprintGoal(for entryID: UUID) {
+        let descriptor = FetchDescriptor<SprintGoalSnapshot>(
+            predicate: #Predicate { $0.setEntryID == entryID }
+        )
+        if let goal = try? modelContext.fetch(descriptor).first {
+            modelContext.delete(goal)
         }
     }
 }
@@ -276,6 +316,7 @@ private struct JournalDaySection: Identifiable {
 private struct JournalDerived {
     let sections: [JournalDaySection]
     let prBadges: [UUID: PersonalRecordBadge]
+    let sprintGoals: [UUID: SprintGoalSnapshot]
 }
 
 /// Cheap `Equatable` fingerprint for memoizing `daySections`: counts catch
@@ -283,11 +324,13 @@ private struct JournalDerived {
 private struct JournalSectionsSignature: Equatable {
     let count: Int
     let latestUpdate: Date
+    let sprintGoalCount: Int
 }
 
 private struct JournalRow: View {
     let entry: SetEntry
     let prBadge: PersonalRecordBadge
+    let sprintGoal: SprintGoalSnapshot?
     let onDuplicate: () -> Void
     let onDelete: () -> Void
 
@@ -298,13 +341,14 @@ private struct JournalRow: View {
             SetRowView(
                 entry: entry,
                 prBadge: prBadge,
+                sprintGoal: sprintGoal,
                 accessibilityIdentifier: "SetRow.\(entry.id.uuidString)"
             )
                 .foregroundColor(Theme.primaryTextColor(for: colorScheme))
                 .contentShape(Rectangle())
         }
             .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
-            .accessibilityLabel(SetRowView.accessibilitySummary(for: entry, prBadge: prBadge))
+            .accessibilityLabel(SetRowView.accessibilitySummary(for: entry, prBadge: prBadge, sprintGoal: sprintGoal))
             .accessibilityHint("Open set details")
             .listRowBackground(Theme.backgroundColor(for: colorScheme))
             .marbleRowInsets()
@@ -449,8 +493,9 @@ private struct SetEntrySnapshot {
     let notes: String?
     let createdAt: Date
     let updatedAt: Date
+    let sprintGoal: SprintGoalSnapshotValue?
 
-    init(entry: SetEntry) {
+    init(entry: SetEntry, sprintGoal: SprintGoalSnapshot?) {
         id = entry.id
         exercise = entry.exercise
         performedAt = entry.performedAt
@@ -465,6 +510,7 @@ private struct SetEntrySnapshot {
         notes = entry.notes
         createdAt = entry.createdAt
         updatedAt = entry.updatedAt
+        self.sprintGoal = sprintGoal.map(SprintGoalSnapshotValue.init)
     }
 
     func restore(in context: ModelContext) {
@@ -485,5 +531,48 @@ private struct SetEntrySnapshot {
             updatedAt: updatedAt
         )
         context.insert(restored)
+        sprintGoal?.restore(for: restored, in: context)
+    }
+}
+
+private nonisolated struct SprintGoalSnapshotValue {
+    let id: UUID
+    let exerciseID: UUID
+    let distance: Double
+    let distanceUnit: DistanceUnit
+    let repetitionNumber: Int?
+    let repetitionCount: Int
+    let targetLowerSeconds: Int
+    let targetUpperSeconds: Int
+    let isInferred: Bool
+    let createdAt: Date
+
+    init(_ snapshot: SprintGoalSnapshot) {
+        id = snapshot.id
+        exerciseID = snapshot.exerciseID
+        distance = snapshot.distance
+        distanceUnit = snapshot.distanceUnit
+        repetitionNumber = snapshot.repetitionNumber
+        repetitionCount = snapshot.repetitionCount
+        targetLowerSeconds = snapshot.targetLowerSeconds
+        targetUpperSeconds = snapshot.targetUpperSeconds
+        isInferred = snapshot.isInferred
+        createdAt = snapshot.createdAt
+    }
+
+    func restore(for entry: SetEntry, in context: ModelContext) {
+        context.insert(SprintGoalSnapshot(
+            id: id,
+            setEntryID: entry.id,
+            exerciseID: exerciseID,
+            distance: distance,
+            distanceUnit: distanceUnit,
+            repetitionNumber: repetitionNumber,
+            repetitionCount: repetitionCount,
+            targetLowerSeconds: targetLowerSeconds,
+            targetUpperSeconds: targetUpperSeconds,
+            isInferred: isInferred,
+            createdAt: createdAt
+        ))
     }
 }

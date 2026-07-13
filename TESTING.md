@@ -6,7 +6,8 @@
   `RenderMemo` cache, Strava credential resolution, and the **personal-records engine**
   `PersonalRecordsTests` — PR-badge trail, unit-normalized weight records, all-time bests,
   usual ranges, the live-PR projection, workout sessions, sprint-prescription target
-  boundaries/persistence/orphan cleanup, exercise-editor draft/type/validation/impact rules,
+  boundaries, frozen per-rep goal evaluation/persistence/orphan cleanup, V3-to-V4 migration,
+  exercise-editor draft/type/validation/impact rules,
   backup/restore validation, and recovery safety).
   Runs in CI. Last verified locally on 2026-07-12 with Xcode 26.5 /
   iOS 26.5 simulator: **254 passed, 0 failed**.
@@ -66,7 +67,10 @@ Preferred Makefile targets:
 - Sprint pass: create a 150 m sprint exercise with 4 repetitions, test a 19-second target
   and a 19–21-second range, log all four reps with RPE and recovery, confirm goal feedback
   at both range boundaries, and verify the final rep closes the sequence without a fifth
-  accidental repetition. Reopen the exercise and confirm its prescription persisted.
+  accidental repetition. Confirm Journal previews show target + check/x-mark + hit/miss text,
+  then open Set Details and verify Recorded, Target, the boundary explanation, and saved-goal
+  provenance. Reopen the exercise and confirm its prescription persisted; changing it must
+  not change the result on an already logged rep.
 - Exercise-library pass: verify duplicate-free recent/favorite/all ordering, create from a
   partial search, filter by category, edit appearance through Advanced, confirm dirty-draft
   protection, verify history/planned-workout impact prompts, and confirm used exercises

@@ -4,9 +4,11 @@ import SwiftData
 enum SeedData {
     private static let didSeedKey = "didSeedMarbleData"
     private static let didEnsureSplitPlanKey = "didEnsureMarbleSplitPlan"
+    private static let didBackfillSprintGoalsKey = "didBackfillSprintGoalsV4"
 
     static func seedIfNeeded(in context: ModelContext) {
         SprintPrescription.removeOrphans(in: context)
+        SprintGoalSnapshot.removeOrphans(in: context)
         if TestHooks.isUITesting {
             switch TestHooks.fixtureMode {
             case .empty:
@@ -16,6 +18,8 @@ enum SeedData {
             case .screenshots:
                 TestFixtures.seedScreenshots(in: context, now: AppEnvironment.now)
             }
+            SprintGoalSnapshot.backfillLegacyEntries(in: context)
+            context.saveOrRollback()
             return
         }
         let defaults = UserDefaults.standard
@@ -43,6 +47,13 @@ enum SeedData {
         if !defaults.bool(forKey: didEnsureSplitPlanKey) {
             ensureSplitPlan(in: context)
             defaults.set(true, forKey: didEnsureSplitPlanKey)
+        }
+
+        if !defaults.bool(forKey: didBackfillSprintGoalsKey) {
+            SprintGoalSnapshot.backfillLegacyEntries(in: context)
+            if context.saveOrRollback() {
+                defaults.set(true, forKey: didBackfillSprintGoalsKey)
+            }
         }
     }
 

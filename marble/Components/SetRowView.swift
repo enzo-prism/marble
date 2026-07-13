@@ -3,11 +3,16 @@ import SwiftUI
 struct SetRowView: View {
     let entry: SetEntry
     let prBadge: PersonalRecordBadge
+    let sprintGoal: SprintGoalSnapshot?
     let accessibilityIdentifier: String?
 
     @Environment(\.colorScheme) private var colorScheme
 
-    static func accessibilitySummary(for entry: SetEntry, prBadge: PersonalRecordBadge = []) -> String {
+    static func accessibilitySummary(
+        for entry: SetEntry,
+        prBadge: PersonalRecordBadge = [],
+        sprintGoal: SprintGoalSnapshot? = nil
+    ) -> String {
         var parts: [String] = []
         if let weight = entry.weight {
             let formattedWeight = entry.exercise.formattedWeightSummary(weight, unit: entry.weightUnit)
@@ -35,12 +40,22 @@ struct SetRowView: View {
         if let imported = entry.importedWorkout {
             prefix += "Imported from \(imported.displayOrigin). "
         }
+        if let sprintGoal {
+            let evaluation = SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry)
+            prefix += "\(evaluation.status.title). Target \(evaluation.targetText). \(evaluation.reason). "
+        }
         return "\(prefix)\(entry.exercise.name), \(summary), RPE \(entry.difficulty), Rest \(entry.restAfterSeconds) seconds"
     }
 
-    init(entry: SetEntry, prBadge: PersonalRecordBadge = [], accessibilityIdentifier: String? = nil) {
+    init(
+        entry: SetEntry,
+        prBadge: PersonalRecordBadge = [],
+        sprintGoal: SprintGoalSnapshot? = nil,
+        accessibilityIdentifier: String? = nil
+    ) {
         self.entry = entry
         self.prBadge = prBadge
+        self.sprintGoal = sprintGoal
         self.accessibilityIdentifier = accessibilityIdentifier
     }
 
@@ -69,6 +84,14 @@ struct SetRowView: View {
                     .font(MarbleTypography.rowSubtitle)
                     .monospacedDigit()
                     .foregroundColor(Theme.secondaryTextColor(for: resolvedScheme))
+
+                if let sprintGoal {
+                    SprintGoalStatusLine(
+                        evaluation: SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry),
+                        snapshot: sprintGoal
+                    )
+                    .environment(\.colorScheme, resolvedScheme)
+                }
 
                 Text(secondaryLine)
                     .font(MarbleTypography.rowMeta)
@@ -132,6 +155,6 @@ struct SetRowView: View {
     }
 
     private var accessibilitySummary: String {
-        Self.accessibilitySummary(for: entry, prBadge: prBadge)
+        Self.accessibilitySummary(for: entry, prBadge: prBadge, sprintGoal: sprintGoal)
     }
 }
