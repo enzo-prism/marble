@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
@@ -16,90 +16,31 @@ struct ExercisePickerView: View {
     @Query(sort: \SprintPrescription.createdAt)
     private var sprintPrescriptions: [SprintPrescription]
 
-    @State private var searchText: String = ""
-    @State private var createDraftName: String = ""
-    @State private var showCreateExercise = false
+    @State private var searchText = ""
     @State private var showManageExercises = false
-    @State private var pendingSavedExercise: Exercise?
+    @State private var editorDestination: PickerEditorDestination?
 
     var body: some View {
         List {
-            if canShowCreateShortcut {
-                Section {
-                    Button {
-                        createDraftName = trimmedSearchText
-                        showCreateExercise = true
-                    } label: {
-                        createExerciseRow
-                    }
-                    .buttonStyle(.plain)
-                    .marbleRowInsets()
-                    .accessibilityIdentifier(trimmedSearchText.isEmpty ? "ExercisePicker.Create" : "ExercisePicker.CreateFromSearch")
-                } header: {
-                    SectionHeaderView(title: "Add New")
+            if trimmedSearchText.isEmpty {
+                if exercises.isEmpty {
+                    firstExerciseSection
+                } else if !recents.isEmpty {
+                    exerciseSection(title: "Recent", exercises: recents)
                 }
-            }
-
-            if !recents.isEmpty {
-                Section {
-                    ForEach(recents) { exercise in
-                        exerciseRow(for: exercise)
-                    }
-                } header: {
-                    SectionHeaderView(title: "Recents")
+                if !favoriteRemainder.isEmpty {
+                    exerciseSection(title: "Favorites", exercises: favoriteRemainder)
                 }
-            }
-
-            if !favorites.isEmpty {
-                Section {
-                    ForEach(favorites) { exercise in
-                        exerciseRow(for: exercise)
-                    }
-                } header: {
-                    SectionHeaderView(title: "Favorites")
+                if !allRemainder.isEmpty {
+                    exerciseSection(title: "All Exercises", exercises: allRemainder)
                 }
-            }
-
-            if filteredExercises.isEmpty {
-                Section {
-                    VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
-                        Text("No exercises match that search yet.")
-                            .font(MarbleTypography.rowTitle)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                        Text("Create it here so the next time you log, it already behaves the way you want.")
-                            .font(MarbleTypography.rowSubtitle)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    }
-                    .padding(.vertical, MarbleSpacing.xs)
-                    .marbleRowInsets()
-                    .accessibilityIdentifier("ExercisePicker.EmptyState")
-                }
+            } else if filteredExercises.isEmpty {
+                noResultsSection
             } else {
-                ForEach(ExerciseCategory.allCases) { category in
-                    let categoryExercises = filteredExercises.filter { $0.category == category }
-                    if !categoryExercises.isEmpty {
-                        Section {
-                            ForEach(categoryExercises) { exercise in
-                                exerciseRow(for: exercise)
-                            }
-                        } header: {
-                            SectionHeaderView(title: category.displayName)
-                        }
-                    }
+                if !hasExactMatch {
+                    createSearchSection
                 }
-            }
-
-            Section {
-                Button {
-                    showManageExercises = true
-                } label: {
-                    Label("Manage all exercises", systemImage: "slider.horizontal.3")
-                        .font(MarbleTypography.rowTitle)
-                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                }
-                .buttonStyle(.plain)
-                .marbleRowInsets()
-                .accessibilityIdentifier("ExercisePicker.ManageRow")
+                exerciseSection(title: "Results", exercises: filteredExercises)
             }
         }
         .listStyle(.plain)
@@ -107,7 +48,7 @@ struct ExercisePickerView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme))
         .accessibilityIdentifier("ExercisePicker.List")
-        .navigationTitle("Exercises")
+        .navigationTitle("Choose Exercise")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarGlassBackground()
         .searchable(
@@ -117,37 +58,38 @@ struct ExercisePickerView: View {
         )
         .searchToolbarBehavior(.minimize)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
                 Button("Manage") {
                     showManageExercises = true
                 }
                 .accessibilityIdentifier("ExercisePicker.Manage")
+
+                Button {
+                    editorDestination = PickerEditorDestination(initialName: createSeedName)
+                } label: {
+                    Label("Add Exercise", systemImage: "plus")
+                }
+                .accessibilityIdentifier("ExercisePicker.Create")
             }
         }
         .navigationDestination(isPresented: $showManageExercises) {
-            ManageExercisesView(onExerciseSaved: handleSavedExerciseFromManage)
+            ManageExercisesView { exercise in
+                selectedExercise = exercise
+                showManageExercises = false
+                DispatchQueue.main.async { dismiss() }
+            }
         }
-        .navigationDestination(isPresented: $showCreateExercise) {
+        .sheet(item: $editorDestination) { destination in
             ExerciseEditorView(
                 exercise: nil,
-                initialName: createDraftName
+                initialName: destination.initialName
             ) { exercise in
                 selectedExercise = exercise
+                editorDestination = nil
+                DispatchQueue.main.async { dismiss() }
             }
-        }
-        .onChange(of: showManageExercises) { _, isShowingManageExercises in
-            guard !isShowingManageExercises, let pendingSavedExercise else { return }
-            self.pendingSavedExercise = nil
-            selectedExercise = pendingSavedExercise
-        }
-        .onChange(of: showCreateExercise) { _, isShowingCreateExercise in
-            guard !isShowingCreateExercise, selectedExercise != nil else { return }
-            dismiss()
-        }
-        .onChange(of: selectedExercise?.id) { _, newValue in
-            if newValue != nil, !showCreateExercise {
-                dismiss()
-            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -156,68 +98,104 @@ struct ExercisePickerView: View {
     }
 
     private var hasExactMatch: Bool {
-        filteredExercises.contains {
+        exercises.contains {
             $0.name.trimmingCharacters(in: .whitespacesAndNewlines)
                 .localizedCaseInsensitiveCompare(trimmedSearchText) == .orderedSame
         }
     }
 
-    private var canShowCreateShortcut: Bool {
-        trimmedSearchText.isEmpty || !hasExactMatch
+    private var createSeedName: String {
+        hasExactMatch ? "" : trimmedSearchText
     }
 
     private var filteredExercises: [Exercise] {
-        if trimmedSearchText.isEmpty {
-            return exercises
-        }
-        return exercises.filter { $0.name.localizedCaseInsensitiveContains(trimmedSearchText) }
-    }
-
-    private var favorites: [Exercise] {
-        filteredExercises.filter { $0.isFavorite }
+        exercises.filter { $0.name.localizedCaseInsensitiveContains(trimmedSearchText) }
     }
 
     private var recents: [Exercise] {
         var seen = Set<UUID>()
-        var unique: [Exercise] = []
-        for entry in recentEntries {
-            let exercise = entry.exercise
-            if seen.contains(exercise.id) {
-                continue
-            }
-            if !trimmedSearchText.isEmpty, !exercise.name.localizedCaseInsensitiveContains(trimmedSearchText) {
-                continue
-            }
-            seen.insert(exercise.id)
-            unique.append(exercise)
-            if unique.count >= 5 {
-                break
-            }
-        }
-        return unique
+        return recentEntries.compactMap { entry in
+            guard seen.insert(entry.exercise.id).inserted else { return nil }
+            return entry.exercise
+        }.prefix(5).map { $0 }
     }
 
-    private var createExerciseRow: some View {
-        HStack(alignment: .top, spacing: MarbleLayout.rowSpacing) {
-            ScaledSymbol(systemName: "plus.circle", size: 18, weight: .semibold, frameSize: MarbleLayout.rowIconSize)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+    private var favoriteRemainder: [Exercise] {
+        let recentIDs = Set(recents.map(\.id))
+        return exercises.filter { $0.isFavorite && !recentIDs.contains($0.id) }
+    }
 
-            VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
-                Text(trimmedSearchText.isEmpty ? "Create New Exercise" : "Create \"\(trimmedSearchText)\"")
+    private var allRemainder: [Exercise] {
+        let featuredIDs = Set((recents + favoriteRemainder).map(\.id))
+        return exercises.filter { !featuredIDs.contains($0.id) }
+    }
+
+    private var noResultsSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                Label("No Exercise Found", systemImage: "magnifyingglass")
                     .font(MarbleTypography.rowTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                Text("Name it, choose what you'll log, and jump straight back into the set logger.")
-                    .font(MarbleTypography.rowMeta)
+                Text("Create \"\(trimmedSearchText)\" and Marble will return it to this set.")
+                    .font(MarbleTypography.rowSubtitle)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             }
+            .listRowSeparator(.hidden)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("ExercisePicker.EmptyState")
 
-            Spacer(minLength: 8)
+            Button {
+                editorDestination = PickerEditorDestination(initialName: trimmedSearchText)
+            } label: {
+                Label("Create \"\(trimmedSearchText)\"", systemImage: "plus.circle.fill")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Theme.primaryTextColor(for: colorScheme))
+            .accessibilityIdentifier("ExercisePicker.CreateFromSearch")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func exerciseRow(for exercise: Exercise) -> some View {
+    private var firstExerciseSection: some View {
+        Section {
+            ContentUnavailableView {
+                Label("Build Your Exercise Library", systemImage: "figure.strengthtraining.traditional")
+            } description: {
+                Text("Create an exercise once, then reuse it whenever you log a workout.")
+            } actions: {
+                Button("Create Exercise") {
+                    editorDestination = PickerEditorDestination(initialName: "")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.primaryTextColor(for: colorScheme))
+                .accessibilityIdentifier("ExercisePicker.CreateFirst")
+            }
+            .listRowSeparator(.hidden)
+            .accessibilityIdentifier("ExercisePicker.FirstExerciseState")
+        }
+    }
+
+    private var createSearchSection: some View {
+        Section {
+            Button {
+                editorDestination = PickerEditorDestination(initialName: trimmedSearchText)
+            } label: {
+                Label("Create \"\(trimmedSearchText)\"", systemImage: "plus.circle.fill")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .accessibilityIdentifier("ExercisePicker.CreateFromSearch")
+        }
+    }
+
+    private func exerciseSection(title: String, exercises: [Exercise]) -> some View {
+        Section(title) {
+            ForEach(exercises) { exercise in
+                exerciseRow(exercise)
+            }
+        }
+    }
+
+    private func exerciseRow(_ exercise: Exercise) -> some View {
+        let summary = exercise.librarySummary(prescription: prescription(for: exercise))
         let sanitizedName = exercise.name.replacingOccurrences(of: " ", with: "")
         return Button {
             selectedExercise = exercise
@@ -230,16 +208,13 @@ struct ExercisePickerView: View {
                     HStack(spacing: MarbleSpacing.xs) {
                         Text(exercise.name)
                             .font(MarbleTypography.rowTitle)
-
                         if exercise.isFavorite {
                             Image(systemName: "star.fill")
                                 .font(MarbleTypography.rowMeta)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                                 .accessibilityHidden(true)
                         }
                     }
-
-                    Text(configurationSummary(for: exercise))
+                    Text("\(exercise.category.displayName) · \(summary)")
                         .font(MarbleTypography.rowMeta)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .fixedSize(horizontal: false, vertical: true)
@@ -247,25 +222,21 @@ struct ExercisePickerView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .marbleRowInsets()
         .accessibilityIdentifier("ExercisePicker.Row.\(sanitizedName)")
-        .accessibilityValue(configurationSummary(for: exercise))
+        .accessibilityLabel(exercise.name)
+        .accessibilityValue("\(exercise.category.displayName), \(summary)\(exercise.isFavorite ? ", favorite" : "")")
     }
 
-    private func configurationSummary(for exercise: Exercise) -> String {
-        guard let prescription = sprintPrescriptions.first(where: { $0.exerciseID == exercise.id }) else {
-            return exercise.configurationSummaryText
-        }
-        return prescription.summary(
-            distanceUnit: exercise.preferredDistanceUnit,
-            restSeconds: exercise.defaultRestSeconds
-        )
+    private func prescription(for exercise: Exercise) -> SprintPrescription? {
+        sprintPrescriptions.first { $0.exerciseID == exercise.id }
     }
+}
 
-    private func handleSavedExerciseFromManage(_ exercise: Exercise) {
-        searchText = exercise.name
-        pendingSavedExercise = exercise
-        showManageExercises = false
-    }
+private struct PickerEditorDestination: Identifiable {
+    let id = UUID()
+    let initialName: String
 }

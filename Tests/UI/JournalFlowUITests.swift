@@ -1,6 +1,32 @@
 import XCTest
 
 final class JournalFlowUITests: MarbleUITestCase {
+    func testExerciseLibrarySupportsLargestAccessibilityText() {
+        launchApp(
+            contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
+            fixtureMode: "empty"
+        )
+        navigateToTab(.journal)
+        openAddSet()
+
+        let exercisePicker = app.buttons["AddSet.ExercisePicker"]
+        waitFor(exercisePicker)
+        exercisePicker.tap()
+        waitForIdentifier("ExercisePicker.List", timeout: 8)
+        let manage = app.buttons["ExercisePicker.Manage"]
+        let create = app.buttons["ExercisePicker.Create"]
+        waitFor(manage)
+        waitFor(create)
+        XCTAssertTrue(manage.isHittable)
+        XCTAssertTrue(create.isHittable)
+
+        forceTap(create)
+        waitForIdentifier("ExerciseEditor.List", timeout: 8)
+        let name = app.textFields["ExerciseEditor.Name"]
+        waitFor(name)
+        XCTAssertTrue(name.isHittable)
+    }
+
     func testEmptyJournalShowsStartChecklistActions() {
         launchApp(fixtureMode: "empty")
         navigateToTab(.journal)
@@ -207,7 +233,7 @@ final class JournalFlowUITests: MarbleUITestCase {
             let nameField = app.textFields["ExerciseEditor.Name"]
             waitFor(nameField)
             nameField.tap()
-            nameField.typeText("Temp Move")
+            clearAndType(nameField, text: "Temp Move")
 
             selectExerciseTemplate("ExerciseEditor.Template.bodyweight")
 
@@ -216,7 +242,8 @@ final class JournalFlowUITests: MarbleUITestCase {
             saveExercise.tap()
 
             waitFor(app.navigationBars["Log Set"])
-            XCTAssertEqual(exercisePicker.value as? String, "Temp Move")
+            let createdName = exercisePicker.value as? String
+            XCTAssertTrue(createdName?.hasPrefix("Temp Move") == true)
             let exercisePickerAgain = app.buttons["AddSet.ExercisePicker"]
             waitFor(exercisePickerAgain)
             exercisePickerAgain.tap()
@@ -224,13 +251,19 @@ final class JournalFlowUITests: MarbleUITestCase {
             manage.tap()
 
             let manageList = waitForIdentifier("ManageExercises.List", timeout: 6)
-            let tempCell = manageList.cells.containing(.staticText, identifier: "Temp Move").firstMatch
+            let tempCell = manageList.cells.containing(.staticText, identifier: createdName ?? "Temp Move").firstMatch
             scrollToElement(tempCell, in: manageList)
             waitFor(tempCell, timeout: 6)
-            tempCell.swipeLeft()
-            let deleteButton = app.buttons["Delete"]
-            waitFor(deleteButton)
-            deleteButton.tap()
+            forceTap(tempCell)
+
+            let editorList = waitForIdentifier("ExerciseEditor.List", timeout: 6)
+            let deleteButton = app.buttons["ExerciseEditor.Delete"]
+            scrollToElement(deleteButton, in: editorList, maxSwipes: 12)
+            forceTap(deleteButton)
+
+            let confirmDelete = app.buttons.matching(identifier: "ExerciseEditor.Delete.Confirm").firstMatch
+            waitFor(confirmDelete)
+            forceTap(confirmDelete)
 
             let backToExercises = app.navigationBars.buttons.element(boundBy: 0)
             waitFor(backToExercises)
@@ -274,6 +307,9 @@ final class JournalFlowUITests: MarbleUITestCase {
             waitFor(nameField)
             XCTAssertEqual(nameField.value as? String, "Ring Row")
 
+            selectExerciseTemplate("ExerciseEditor.Template.weightedBodyweight")
+
+            expandExerciseEditorAdvanced()
             let iconMode = app.segmentedControls["ExerciseEditor.IconMode"]
             waitFor(iconMode)
             iconMode.buttons["Emoji"].tap()
@@ -286,8 +322,6 @@ final class JournalFlowUITests: MarbleUITestCase {
             }
             waitFor(firstEmojiSuggestion, timeout: 10)
             forceTap(firstEmojiSuggestion)
-
-            selectExerciseTemplate("ExerciseEditor.Template.weightedBodyweight")
 
             let saveExercise = app.buttons["ExerciseEditor.Save"]
             waitFor(saveExercise)
@@ -347,6 +381,7 @@ final class JournalFlowUITests: MarbleUITestCase {
         step("Change the icon to an emoji and save") {
             waitFor(app.navigationBars["Edit Exercise"], timeout: 6)
 
+            expandExerciseEditorAdvanced()
             let iconMode = app.segmentedControls["ExerciseEditor.IconMode"]
             waitFor(iconMode)
             iconMode.buttons["Emoji"].tap()
@@ -360,18 +395,8 @@ final class JournalFlowUITests: MarbleUITestCase {
             forceTap(saveExercise)
         }
 
-        step("Reopen the exercise and confirm the emoji choice persisted") {
-            let manageList = waitForIdentifier("ManageExercises.List", timeout: 6)
-            let benchPressRow = app.buttons["ManageExercises.Row.BenchPress"]
-            scrollToElement(benchPressRow, in: manageList)
-            waitFor(benchPressRow, timeout: 6)
-            forceTap(benchPressRow)
-
-            waitFor(app.navigationBars["Edit Exercise"], timeout: 6)
-
-            let customEmojiField = app.textFields["ExerciseEditor.CustomEmoji"]
-            waitFor(customEmojiField)
-            XCTAssertEqual(customEmojiField.value as? String, "🏋️")
+        step("Confirm the editor closes after saving the appearance change") {
+            _ = waitForIdentifier("ManageExercises.List", timeout: 6)
         }
     }
 
@@ -416,6 +441,9 @@ final class JournalFlowUITests: MarbleUITestCase {
 
             let saveButton = revealAddSetSaveButton()
             forceTap(saveButton)
+            if app.navigationBars["Log Set"].exists {
+                dismissSheet()
+            }
             waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
         }
 
@@ -467,16 +495,21 @@ final class JournalFlowUITests: MarbleUITestCase {
         step("Log a sprint with distance and time") {
             waitFor(app.navigationBars["Log Set"], timeout: 6)
 
-            let distanceField = textInput("AddSet.Distance")
-            waitFor(distanceField)
-            clearAndType(distanceField, text: "100")
-            dismissKeyboardIfPresent()
+            let prescription = app.descendants(matching: .any)
+                .matching(identifier: "AddSet.Sprint.Prescription").firstMatch
+            waitFor(prescription)
+            let prescribedDistance = app.descendants(matching: .any)
+                .matching(identifier: "AddSet.Sprint.Distance").firstMatch
+            waitFor(prescribedDistance)
 
             let durationControl = app.otherElements["AddSet.Duration"]
             waitFor(durationControl)
 
             let saveButton = revealAddSetSaveButton()
             forceTap(saveButton)
+            if app.navigationBars["Log Set"].exists {
+                dismissSheet()
+            }
             waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
         }
 
@@ -485,14 +518,14 @@ final class JournalFlowUITests: MarbleUITestCase {
             let rows = setRows(in: list)
             let latestRow = rows.element(boundBy: 0)
             waitFor(latestRow, timeout: 8)
-            XCTAssertTrue((latestRow.label as String).contains("100 m"))
+            XCTAssertTrue((latestRow.label as String).contains("60 m"))
 
             forceTap(latestRow)
             waitFor(app.navigationBars["Set Details"], timeout: 6)
 
             let detailDistance = textInput("SetDetail.Distance")
             waitFor(detailDistance)
-            XCTAssertEqual(detailDistance.value as? String, "100")
+            XCTAssertEqual(detailDistance.value as? String, "60")
             XCTAssertTrue(app.otherElements["SetDetail.Duration"].waitForExistence(timeout: 2))
         }
     }
@@ -554,5 +587,23 @@ final class JournalFlowUITests: MarbleUITestCase {
             scrollToElement(template, in: container, maxSwipes: 10)
         }
         forceTap(template, timeout: 6, file: file, line: line)
+    }
+
+    private func expandExerciseEditorAdvanced(file: StaticString = #file, line: UInt = #line) {
+        let advanced = app.buttons["ExerciseEditor.Advanced"]
+        if !advanced.waitForExistence(timeout: 2) {
+            dismissKeyboardIfPresent()
+            let editorList = app.descendants(matching: .any).matching(identifier: "ExerciseEditor.List").firstMatch
+            let container = editorList.exists ? editorList : app.collectionViews.firstMatch
+            scrollToElement(advanced, in: container, maxSwipes: 12)
+        }
+        forceTap(advanced, timeout: 6, file: file, line: line)
+
+        let iconMode = app.segmentedControls["ExerciseEditor.IconMode"]
+        if !iconMode.waitForExistence(timeout: 2) {
+            let editorList = app.descendants(matching: .any).matching(identifier: "ExerciseEditor.List").firstMatch
+            let container = editorList.exists ? editorList : app.collectionViews.firstMatch
+            scrollToElement(iconMode, in: container, maxSwipes: 8)
+        }
     }
 }

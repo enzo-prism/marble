@@ -17,11 +17,17 @@ actual recovery value are recorded on each completed set rather than on the pres
 
 ## Create or edit a sprint workout
 
-1. Open Manage Exercises and create or edit an exercise.
-2. Choose the Sprint template, or select a metric profile containing distance and duration.
-3. Turn on Sprint Workout.
-4. Set the distance, number of repetitions, target mode and target time, then choose rest.
-5. Save the exercise.
+1. Open **Manage** from the exercise picker, or open **Workout → Data & Backups → Exercise
+   Library**, then add or edit an exercise.
+2. Choose the explicit **Sprint** tracking type. Marble requires distance and time for every
+   repetition and keeps the exercise in the Run category.
+3. Set the distance, number of repetitions, and either one target time or an inclusive target
+   range.
+4. Choose the default recovery after each repetition, then save.
+
+Sprint setup is intentionally contextual: the editor hides strength-only controls and does
+not show a second enable switch. Switching away from Sprint removes the prescription only
+after the same planned-workout safety checks used by other behavior-changing edits.
 
 The prescription summary appears in exercise pickers, the weekly plan, and the active
 Workout screen so the target is visible before logging begins.

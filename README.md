@@ -10,6 +10,10 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
   celebrate record sets right in the history, and the logging screen shows your current PR
   (heaviest + most reps) and usual range so you can shoot to beat it — with a live "New PR!"
   cue the moment your entry passes your best.
+- **Exercise library** — a searchable, category-filterable home for creating, favoriting,
+  and safely editing reusable exercises. Explicit tracking types keep standard setup short,
+  while Custom exposes every metric requirement. See
+  [`EXERCISE_LIBRARY.md`](EXERCISE_LIBRARY.md).
 - **Calendar** — month view with workout-day markers, day detail, and progress photos/videos.
 - **Workout** — start and finish timed workout sessions, log planned sets in one tap, and
   review recent sessions; the weekly split remains the editable plan behind the tab.
@@ -130,6 +134,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 |---|---|
 | [`INTEGRATIONS.md`](INTEGRATIONS.md) | Workout import — how each source works and **why** |
 | [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md) | Sprint prescription attributes, logging flow, and persistence |
+| [`EXERCISE_LIBRARY.md`](EXERCISE_LIBRARY.md) | Exercise creation, attributes, discovery, editing, and deletion safety |
 | [`AGENTS.md`](AGENTS.md) | Coding, UI, testing, and release rules for contributors/agents |
 | [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) | Dated source of truth for release/version/signing state |
 | [`TESTING.md`](TESTING.md) | Test suites, deterministic launch hooks, snapshot rules |

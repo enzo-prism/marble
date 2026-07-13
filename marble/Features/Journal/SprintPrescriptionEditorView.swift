@@ -9,7 +9,7 @@ struct SprintPrescriptionEditorView: View {
     @Binding var targetSeconds: Int?
     @Binding var targetLowerSeconds: Int?
     @Binding var targetUpperSeconds: Int?
-    @Binding var restSeconds: Int
+    var showsEnableToggle: Bool = true
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -17,9 +17,11 @@ struct SprintPrescriptionEditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.m) {
-            Toggle("Use a sprint prescription", isOn: $isEnabled)
-                .tint(Theme.dividerColor(for: colorScheme))
-                .accessibilityIdentifier("ExerciseEditor.Sprint.Enabled")
+            if showsEnableToggle {
+                Toggle("Use a sprint prescription", isOn: $isEnabled)
+                    .tint(Theme.dividerColor(for: colorScheme))
+                    .accessibilityIdentifier("ExerciseEditor.Sprint.Enabled")
+            }
 
             Text("Set the distance, number of sprints, and the time you want to hit every rep.")
                 .font(MarbleTypography.rowSubtitle)
@@ -27,21 +29,14 @@ struct SprintPrescriptionEditorView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if isEnabled {
-                Divider()
+                if showsEnableToggle { Divider() }
                 sprintDistanceSection
                 Divider()
                 repeatSection
                 Divider()
                 targetSection
-                Divider()
-                RestPicker(
-                    restSeconds: $restSeconds,
-                    presets: [0, 30, 60, 90, 120, 180, 300, 480, 600]
-                )
-                .accessibilityIdentifier("ExerciseEditor.Sprint.Rest")
             }
         }
-        .accessibilityIdentifier("ExerciseEditor.SprintSetup")
     }
 
     private var sprintDistanceSection: some View {
@@ -142,9 +137,16 @@ struct SprintPrescriptionEditorView: View {
             Text(title)
                 .font(MarbleTypography.rowSubtitle)
             Spacer()
-            DurationPicker(durationSeconds: value, identifierPrefix: identifier)
+            OptionalIntegerField(
+                title: "Seconds",
+                value: value,
+                accessibilityIdentifier: identifier
+            )
+            .frame(width: 84)
+            Text("sec")
+                .font(MarbleTypography.rowMeta)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(identifier)
     }
 }

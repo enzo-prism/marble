@@ -35,6 +35,19 @@ struct DataManagementView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        ManageExercisesView()
+                    } label: {
+                        Label("Exercise Library", systemImage: "figure.strengthtraining.traditional")
+                    }
+                    .accessibilityIdentifier("Data.ExerciseLibrary")
+                } header: {
+                    SectionHeaderView(title: "Library")
+                } footer: {
+                    Text("Create, search, and safely edit the exercises you use throughout Marble.")
+                }
+
+                Section {
                     Button("Export Marble Backup", systemImage: "square.and.arrow.up", action: prepareExport)
                         .accessibilityIdentifier("Data.Export")
                     Button("Restore From Backup", systemImage: "square.and.arrow.down", action: { showingImporter = true })

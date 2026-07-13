@@ -1,10 +1,11 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct ExerciseEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @Query(sort: \Exercise.name)
     private var exercises: [Exercise]
@@ -12,898 +13,667 @@ struct ExerciseEditorView: View {
     @Query(sort: \SetEntry.performedAt, order: .reverse)
     private var entries: [SetEntry]
 
+    @Query(sort: \PlannedSet.createdAt)
+    private var plannedSets: [PlannedSet]
+
     @Query(sort: \SprintPrescription.createdAt)
     private var sprintPrescriptions: [SprintPrescription]
 
     let exercise: Exercise?
     let initialName: String
     let onSave: ((Exercise) -> Void)?
+    let onDelete: (() -> Void)?
     let dismissAfterSave: Bool
 
-    @FocusState private var focusedField: Field?
-    @ScaledMetric(relativeTo: .body) private var emojiSuggestionSize: CGFloat = 24
-
-    @State private var name: String = ""
-    @State private var category: ExerciseCategory = .other
-    @State private var iconSource: ExerciseIconSource = .category
-    @State private var customIconEmoji: String = ""
-    @State private var resistanceTrackingStyle: ResistanceTrackingStyle = .totalLoad
-    @State private var weightRequirement: MetricRequirement = .none
-    @State private var repsRequirement: MetricRequirement = .none
-    @State private var distanceRequirement: MetricRequirement = .none
-    @State private var preferredDistanceUnit: DistanceUnit = .meters
-    @State private var durationRequirement: MetricRequirement = .none
-    @State private var defaultRestSeconds: Int = 60
-    @State private var isFavorite: Bool = false
-    @State private var sprintPrescriptionEnabled = false
-    @State private var sprintDistance: Double? = 60
-    @State private var sprintRepetitionCount = 4
-    @State private var sprintTargetMode: SprintTargetMode = .time
-    @State private var sprintTargetSeconds: Int? = 8
-    @State private var sprintTargetLowerSeconds: Int? = 19
-    @State private var sprintTargetUpperSeconds: Int? = 21
-    @State private var showSaveError = false
+    @State private var draft = ExerciseEditorDraft.new()
+    @State private var originalDraft = ExerciseEditorDraft.new()
     @State private var didInitialize = false
+    @State private var didAttemptSave = false
+    @State private var showAdvanced = false
+    @State private var showSaveError = false
+    @State private var showDeleteError = false
+    @State private var showHistoryConfirmation = false
+    @State private var showDeleteConfirmation = false
+    @State private var showDeleteBlocked = false
+    @State private var showDiscardConfirmation = false
+    @State private var validationScrollRequest = 0
+    @FocusState private var focusedField: Field?
 
     init(
         exercise: Exercise?,
         initialName: String = "",
         dismissAfterSave: Bool = true,
-        onSave: ((Exercise) -> Void)? = nil
+        onSave: ((Exercise) -> Void)? = nil,
+        onDelete: (() -> Void)? = nil
     ) {
         self.exercise = exercise
         self.initialName = initialName
         self.dismissAfterSave = dismissAfterSave
         self.onSave = onSave
+        self.onDelete = onDelete
     }
 
     var body: some View {
-        List {
-            Section {
-                Text(introText)
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .padding(.vertical, MarbleSpacing.xs)
-                    .accessibilityIdentifier("ExerciseEditor.Intro")
-            }
-
-            Section {
-                editorFieldBlock(
-                    title: "Exercise name",
-                    description: "Use the name you'll want to search for and recognize instantly while logging."
-                ) {
-                    TextField("e.g. Bench Press", text: $name)
-                        .focused($focusedField, equals: .name)
-                        .marbleFieldStyle(nameValidationState)
-                        .accessibilityIdentifier("ExerciseEditor.Name")
-                }
-
-                editorFieldBlock(
-                    title: "Category",
-                    description: "This keeps the exercise grouped correctly in the picker and sets the default system icon when you're not using a custom emoji."
-                ) {
-                    Picker("Category", selection: $category) {
-                        ForEach(ExerciseCategory.allCases) { category in
-                            Text(category.displayName).tag(category)
-                        }
+        NavigationStack {
+            ScrollViewReader { proxy in
+                Form {
+                    if didAttemptSave, !validationErrors.isEmpty {
+                        validationSection
+                            .id("ExerciseEditor.Validation")
                     }
-                    .accessibilityIdentifier("ExerciseEditor.Category")
-                }
 
-                editorFieldBlock(
-                    title: "Exercise icon",
-                    description: "Use the category icon or pick one emoji that makes this exercise instantly recognizable."
-                ) {
-                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                        HStack(spacing: MarbleSpacing.s) {
-                            ExerciseIconView(icon: draftDisplayIcon, fontSize: 28, frameSize: 44)
-                                .accessibilityHidden(true)
+                    basicsSection
+                    typeSection
 
-                            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-                                Text(iconSource == .emoji ? "Custom emoji icon" : "Category icon")
-                                    .font(MarbleTypography.rowTitle)
-                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    if existingHistoryCount > 0 || plannedSetCount > 0 {
+                        historySection
+                    }
 
-                                Text(iconPreviewDescription)
-                                    .font(MarbleTypography.caption)
-                                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        .accessibilityIdentifier("ExerciseEditor.IconPreview")
+                    typeSpecificSections
+                    defaultsSection
+                    advancedSection
 
-                        Picker("Icon style", selection: $iconSource) {
-                            ForEach(ExerciseIconSource.allCases) { source in
-                                Text(source.title).tag(source)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .tint(Theme.dividerColor(for: colorScheme))
-                        .accessibilityIdentifier("ExerciseEditor.IconMode")
-
-                        if iconSource == .emoji {
-                            TextField("e.g. 💪", text: $customIconEmoji)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .marbleFieldStyle(emojiValidationState)
-                                .accessibilityIdentifier("ExerciseEditor.CustomEmoji")
-
-                            Text("Use one emoji. If you paste several, Marble keeps the first valid one.")
-                                .font(MarbleTypography.caption)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: MarbleSpacing.xs) {
-                                    ForEach(Array(category.emojiSuggestions.enumerated()), id: \.offset) { index, emoji in
-                                        Button {
-                                            selectSuggestedEmoji(emoji)
-                                        } label: {
-                                            Text(emoji)
-                                                .font(.system(size: emojiSuggestionSize))
-                                                .frame(minWidth: 44, minHeight: 44)
-                                                .background(
-                                                    RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                                                        .fill(Theme.backgroundColor(for: colorScheme))
-                                                )
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                                                        .stroke(
-                                                            resolvedCustomIconEmoji == emoji
-                                                                ? Theme.primaryTextColor(for: colorScheme)
-                                                                : Theme.dividerColor(for: colorScheme),
-                                                            lineWidth: 1
-                                                        )
-                                                )
-                                        }
-                                        .buttonStyle(.plain)
-                                        .simultaneousGesture(TapGesture().onEnded {
-                                            selectSuggestedEmoji(emoji)
-                                        })
-                                        .accessibilityIdentifier("ExerciseEditor.EmojiSuggestion.\(index)")
-                                    }
-                                }
-                                .padding(.vertical, 1)
-                            }
-                        }
+                    if exercise != nil {
+                        deleteSection
                     }
                 }
+                .formStyle(.grouped)
+                .scrollContentBackground(.hidden)
+                .background(Theme.backgroundColor(for: colorScheme))
+                .scrollDismissesKeyboard(.interactively)
+                .accessibilityIdentifier("ExerciseEditor.List")
+                .navigationTitle(exercise == nil ? "New Exercise" : "Edit Exercise")
+                .navigationBarTitleDisplayMode(.inline)
+                .navigationBarGlassBackground()
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel", action: requestDismiss)
+                            .accessibilityIdentifier("ExerciseEditor.Cancel")
+                    }
 
-                editorFieldBlock(
-                    title: "Favorites",
-                    description: "Favorites float up in the exercise picker so repeat logging is faster."
-                ) {
-                    Toggle("Show in favorites", isOn: $isFavorite)
-                        .tint(Theme.dividerColor(for: colorScheme))
-                        .accessibilityIdentifier("ExerciseEditor.Favorite")
-                }
-            } header: {
-                SectionHeaderView(title: "Basics")
-            }
-
-            Section {
-                metricRequirementGuideCard
-                    .accessibilityIdentifier("ExerciseEditor.RequirementGuide")
-
-                editorCard {
-                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                        Text("Start from a common setup")
-                            .font(MarbleTypography.rowTitle)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                        Text("Start with the closest mold for this exercise, then fine-tune any field below.")
-                            .font(MarbleTypography.rowSubtitle)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                        LazyVGrid(columns: templateColumns, spacing: MarbleSpacing.s) {
-                            ForEach(ExerciseLoggingTemplate.allCases) { template in
-                                Button {
-                                    applyTemplateSelection(template)
-                                } label: {
-                                    ExerciseTemplateCard(
-                                        template: template,
-                                        isSelected: selectedTemplate == template
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                                .simultaneousGesture(TapGesture().onEnded {
-                                    applyTemplateSelection(template)
-                                })
-                                .accessibilityIdentifier("ExerciseEditor.Template.\(template.id)")
-                            }
-                        }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save", action: requestSave)
+                            .fontWeight(.semibold)
+                            .accessibilityIdentifier("ExerciseEditor.Save")
                     }
                 }
-                .accessibilityIdentifier("ExerciseEditor.Templates")
-
-                ForEach(ExerciseMetricKind.allCases) { kind in
-                    metricConfigurationCard(kind: kind, selection: requirementBinding(for: kind))
-                        .accessibilityIdentifier("ExerciseEditor.Metric.\(kind.id)")
-                }
-
-                if !validationMessages.isEmpty {
-                    editorCard {
-                        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                            Text(exercise == nil ? "Finish setup" : "Fix before saving")
-                                .font(MarbleTypography.rowTitle)
-                                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                            ForEach(validationMessages, id: \.self) { message in
-                                HStack(alignment: .top, spacing: MarbleSpacing.xs) {
-                                    Text("•")
-                                        .font(MarbleTypography.rowSubtitle)
-                                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                    Text(message)
-                                        .font(MarbleTypography.rowSubtitle)
-                                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                        }
-                    }
-                    .accessibilityIdentifier("ExerciseEditor.Validation")
-                }
-            } header: {
-                SectionHeaderView(title: "How You Log It")
-            }
-
-            if canConfigureSprint {
-                Section {
-                    editorCard {
-                        SprintPrescriptionEditorView(
-                            isEnabled: $sprintPrescriptionEnabled,
-                            distance: $sprintDistance,
-                            distanceUnit: $preferredDistanceUnit,
-                            repetitionCount: $sprintRepetitionCount,
-                            targetMode: $sprintTargetMode,
-                            targetSeconds: $sprintTargetSeconds,
-                            targetLowerSeconds: $sprintTargetLowerSeconds,
-                            targetUpperSeconds: $sprintTargetUpperSeconds,
-                            restSeconds: $defaultRestSeconds
-                        )
-                    }
-                } header: {
-                    SectionHeaderView(title: "Sprint Workout")
-                }
-            }
-
-            Section {
-                editorCard {
-                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                        Text(metricsProfile.previewTitle)
-                            .font(MarbleTypography.rowTitle)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                        Text(metricsProfile.previewDescription)
-                            .font(MarbleTypography.rowSubtitle)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                        Divider()
-
-                        VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
-                            Text("Exercise summary")
-                                .font(MarbleTypography.smallLabel)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                            Text(previewSummaryText)
-                                .font(MarbleTypography.rowSubtitle)
-                                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                        }
-
-                        if !previewBehaviorNotes.isEmpty {
-                            Divider()
-
-                            VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
-                                Text("How Marble will interpret your logs")
-                                    .font(MarbleTypography.smallLabel)
-                                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                                ForEach(previewBehaviorNotes, id: \.self) { note in
-                                    Text(note)
-                                        .font(MarbleTypography.rowSubtitle)
-                                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                        }
-                    }
-                }
-                .accessibilityIdentifier("ExerciseEditor.Preview")
-            } header: {
-                SectionHeaderView(title: "Logging Preview")
-            }
-
-            if existingHistoryCount > 0 {
-                Section {
-                    editorCard {
-                        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                            Text("\(existingHistoryCount) logged \(existingHistoryCount == 1 ? "set" : "sets") already use this exercise")
-                                .font(MarbleTypography.rowTitle)
-                                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                            Text("Changing the logging setup updates how those saved sets are interpreted across the app. Double-check metric changes before saving.")
-                                .font(MarbleTypography.rowSubtitle)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        }
-                    }
-                    .accessibilityIdentifier("ExerciseEditor.HistoryImpact")
-                } header: {
-                    SectionHeaderView(title: "History Impact")
-                }
-            }
-
-            if !sprintPrescriptionEnabled {
-                Section {
-                    editorCard {
-                        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                            Text("Default rest")
-                                .font(MarbleTypography.rowTitle)
-                                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                            Text("This prefills the rest timer whenever you start a new log for this exercise.")
-                                .font(MarbleTypography.rowSubtitle)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                            RestPicker(restSeconds: $defaultRestSeconds)
-                                .accessibilityIdentifier("ExerciseEditor.DefaultRest")
-                        }
-                    }
-                } header: {
-                    SectionHeaderView(title: "Defaults")
+                .onChange(of: validationScrollRequest) { _, _ in
+                    withAnimation { proxy.scrollTo("ExerciseEditor.Validation", anchor: .top) }
                 }
             }
         }
-        .listStyle(.plain)
-        .listRowSeparatorTint(Theme.dividerColor(for: colorScheme))
-        .scrollContentBackground(.hidden)
-        .background(Theme.backgroundColor(for: colorScheme))
-        .scrollDismissesKeyboard(.immediately)
-        .accessibilityIdentifier("ExerciseEditor.List")
-        .navigationTitle(exercise == nil ? "Create Exercise" : "Edit Exercise")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarGlassBackground()
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Save") {
-                    save()
-                }
-                .disabled(!validationMessages.isEmpty)
-                .accessibilityIdentifier("ExerciseEditor.Save")
-            }
-        }
-        .onAppear {
-            guard !didInitialize else { return }
-            configureInitialState()
-            didInitialize = true
-        }
-        .onChange(of: customIconEmoji) { _, newValue in
+        .interactiveDismissDisabled(isDirty)
+        .onAppear(perform: configureInitialState)
+        .onChange(of: draft.customIconEmoji) { _, newValue in
             let sanitized = newValue.firstExerciseEmoji ?? ""
-            if sanitized != newValue {
-                customIconEmoji = sanitized
-            }
+            if sanitized != newValue { draft.customIconEmoji = sanitized }
         }
-        .onChange(of: iconSource) { _, _ in
-            ensureDefaultEmojiSelection()
+        .confirmationDialog("Save changes that affect workouts?", isPresented: $showHistoryConfirmation) {
+            Button("Save Changes") { save() }
+                .accessibilityIdentifier("ExerciseEditor.HistoryConfirm")
+            Button("Keep Editing", role: .cancel) {}
+                .accessibilityIdentifier("ExerciseEditor.HistoryCancel")
+        } message: {
+            Text(impactConfirmationMessage)
         }
-        .onChange(of: category) { _, _ in
-            ensureDefaultEmojiSelection()
+        .confirmationDialog("Delete \(exercise?.name ?? "this exercise")?", isPresented: $showDeleteConfirmation) {
+            Button("Delete Exercise", role: .destructive, action: deleteExercise)
+                .accessibilityIdentifier("ExerciseEditor.Delete.Confirm")
+            Button("Cancel", role: .cancel) {}
+                .accessibilityIdentifier("ExerciseEditor.Delete.Cancel")
+        } message: {
+            Text("This removes the exercise from Marble. This can't be undone.")
+        }
+        .confirmationDialog("Discard your changes?", isPresented: $showDiscardConfirmation) {
+            Button("Discard Changes", role: .destructive) { dismiss() }
+                .accessibilityIdentifier("ExerciseEditor.Discard.Confirm")
+            Button("Keep Editing", role: .cancel) {}
+                .accessibilityIdentifier("ExerciseEditor.Discard.Cancel")
+        }
+        .alert("Exercise Is In Use", isPresented: $showDeleteBlocked) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteBlockedMessage)
         }
         .alert("Unable to Save", isPresented: $showSaveError) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Couldn't save this exercise. Please try again.")
+            Text("Marble couldn't save this exercise. Please try again.")
+        }
+        .alert("Unable to Delete", isPresented: $showDeleteError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Marble couldn't delete this exercise. Please try again.")
         }
     }
 
-    private var metricsProfile: ExerciseMetricsProfile {
-        ExerciseMetricsProfile(
-            weight: weightRequirement,
-            reps: repsRequirement,
-            distance: distanceRequirement,
-            durationSeconds: durationRequirement
-        )
+    private var basicsSection: some View {
+        Section("Basics") {
+            VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                TextField("Exercise name", text: $draft.name, prompt: Text("e.g. Bench Press"))
+                    .textInputAutocapitalization(.words)
+                    .submitLabel(.done)
+                    .focused($focusedField, equals: .name)
+                    .accessibilityIdentifier("ExerciseEditor.Name")
+
+                if shouldShowNameError, let nameError {
+                    Label(nameError, systemImage: "exclamationmark.circle")
+                        .font(MarbleTypography.caption)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .accessibilityIdentifier("ExerciseEditor.NameError")
+                }
+            }
+
+            HStack(spacing: MarbleSpacing.s) {
+                ExerciseIconView(icon: draftDisplayIcon, fontSize: 22, frameSize: 36)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                    Text(draft.category.displayName)
+                    Text(draft.kind.subtitle)
+                        .font(MarbleTypography.rowMeta)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("ExerciseEditor.Summary")
+
+            Picker("Category", selection: $draft.category) {
+                ForEach(ExerciseCategory.allCases) { category in
+                    Text(category.displayName).tag(category)
+                }
+            }
+            .accessibilityIdentifier("ExerciseEditor.Category")
+        }
     }
 
-    private var trimmedName: String {
-        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    private var typeSection: some View {
+        Section {
+            LazyVGrid(columns: typeColumns, spacing: MarbleSpacing.s) {
+                ForEach(ExerciseKind.allCases) { kind in
+                    Button {
+                        select(kind)
+                    } label: {
+                        ExerciseKindCard(kind: kind, isSelected: draft.kind == kind)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("ExerciseEditor.Template.\(kind.id)")
+                }
+            }
+            .padding(.vertical, MarbleSpacing.xs)
+            .accessibilityIdentifier("ExerciseEditor.Templates")
+        } header: {
+            Text("How You Track It")
+        } footer: {
+            Text("Choose the closest match. Marble sets up the fields you need and hides the rest.")
+        }
     }
 
-    private var resolvedCustomIconEmoji: String? {
-        customIconEmoji.firstExerciseEmoji
+    @ViewBuilder
+    private var typeSpecificSections: some View {
+        if draft.kind == .strength || draft.kind == .dualDumbbell || draft.kind == .weightedBodyweight {
+            Section("Weight Entry") {
+                Picker("Enter weight as", selection: $draft.resistanceTrackingStyle) {
+                    ForEach(ResistanceTrackingStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+                .accessibilityIdentifier("ExerciseEditor.WeightTrackingStyle")
+
+                Text(draft.resistanceTrackingStyle.editorDescription)
+                    .font(MarbleTypography.rowMeta)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            }
+        }
+
+        if draft.kind == .run {
+            Section("Distance") {
+                Picker("Default unit", selection: $draft.preferredDistanceUnit) {
+                    ForEach(DistanceUnit.allCases) { unit in
+                        Text(unit.title).tag(unit)
+                    }
+                }
+                .accessibilityIdentifier("ExerciseEditor.DistanceUnit")
+            }
+        }
+
+        if draft.kind == .sprint {
+            Section("Sprint Goal") {
+                SprintPrescriptionEditorView(
+                    isEnabled: .constant(true),
+                    distance: $draft.sprintDistance,
+                    distanceUnit: $draft.preferredDistanceUnit,
+                    repetitionCount: $draft.sprintRepetitionCount,
+                    targetMode: $draft.sprintTargetMode,
+                    targetSeconds: $draft.sprintTargetSeconds,
+                    targetLowerSeconds: $draft.sprintTargetLowerSeconds,
+                    targetUpperSeconds: $draft.sprintTargetUpperSeconds,
+                    showsEnableToggle: false
+                )
+
+                if didAttemptSave, !draft.sprintErrors.isEmpty {
+                    ForEach(draft.sprintErrors, id: \.self) { error in
+                        Label(error, systemImage: "exclamationmark.circle")
+                            .font(MarbleTypography.caption)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    }
+                }
+            }
+        }
+
+        if draft.kind == .custom {
+            Section("Fields To Track") {
+                ForEach(ExerciseMetricKind.allCases) { metric in
+                    Picker(metricLabel(metric), selection: requirementBinding(for: metric)) {
+                        Text("Off").tag(MetricRequirement.none)
+                        Text("Optional").tag(MetricRequirement.optional)
+                        Text("Every set").tag(MetricRequirement.required)
+                    }
+                    .accessibilityIdentifier("ExerciseEditor.Metric.\(metric.id)")
+                }
+
+                if didAttemptSave, let trackingError = draft.trackingError {
+                    Label(trackingError, systemImage: "exclamationmark.circle")
+                        .font(MarbleTypography.caption)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+
+                if draft.metrics.usesWeight {
+                    Picker("Enter weight as", selection: $draft.resistanceTrackingStyle) {
+                        ForEach(ResistanceTrackingStyle.allCases) { style in
+                            Text(style.title).tag(style)
+                        }
+                    }
+                    .accessibilityIdentifier("ExerciseEditor.WeightTrackingStyle")
+                }
+
+                if draft.metrics.usesDistance {
+                    Picker("Distance unit", selection: $draft.preferredDistanceUnit) {
+                        ForEach(DistanceUnit.allCases) { unit in
+                            Text(unit.title).tag(unit)
+                        }
+                    }
+                    .accessibilityIdentifier("ExerciseEditor.DistanceUnit")
+                }
+            }
+        }
+    }
+
+    private var defaultsSection: some View {
+        Section("Workout Default") {
+            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                HStack {
+                    Text("Rest after each set")
+                    Spacer()
+                    Text(DateHelper.formattedDuration(seconds: draft.defaultRestSeconds))
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .monospacedDigit()
+                }
+
+                RestPicker(
+                    restSeconds: $draft.defaultRestSeconds,
+                    presets: draft.kind == .sprint ? [0, 30, 60, 90, 120, 180, 300, 480, 600] : [30, 45, 60, 75, 90, 120, 180]
+                )
+                .accessibilityIdentifier(draft.kind == .sprint ? "ExerciseEditor.Sprint.Rest" : "ExerciseEditor.DefaultRest")
+            }
+        }
+    }
+
+    private var advancedSection: some View {
+        Section {
+            Button {
+                withAnimation { showAdvanced.toggle() }
+            } label: {
+                HStack {
+                    Label("Appearance & Advanced", systemImage: "slider.horizontal.3")
+                        .font(MarbleTypography.rowTitle)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(MarbleTypography.rowMeta)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .rotationEffect(.degrees(showAdvanced ? 90 : 0))
+                        .accessibilityHidden(true)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("ExerciseEditor.Advanced")
+
+            if showAdvanced {
+                Toggle("Favorite", isOn: $draft.isFavorite)
+                    .accessibilityIdentifier("ExerciseEditor.Favorite")
+
+                Picker("Icon", selection: $draft.iconSource) {
+                    Text("Category icon").tag(ExerciseIconSource.category)
+                    Text("Emoji").tag(ExerciseIconSource.emoji)
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("ExerciseEditor.IconMode")
+
+                if draft.iconSource == .emoji {
+                    TextField("Emoji", text: $draft.customIconEmoji, prompt: Text("e.g. 💪"))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .accessibilityIdentifier("ExerciseEditor.CustomEmoji")
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: MarbleSpacing.xs) {
+                            ForEach(Array(draft.category.emojiSuggestions.enumerated()), id: \.offset) { index, emoji in
+                                Button {
+                                    draft.customIconEmoji = emoji
+                                } label: {
+                                    Text(emoji)
+                                        .font(.title2)
+                                        .frame(minWidth: 44, minHeight: 44)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
+                                                .fill(Theme.chipFillColor(for: colorScheme))
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Use \(emoji) icon")
+                                .accessibilityIdentifier("ExerciseEditor.EmojiSuggestion.\(index)")
+                            }
+                        }
+                    }
+
+                    if didAttemptSave, let iconError = draft.iconError {
+                        Label(iconError, systemImage: "exclamationmark.circle")
+                            .font(MarbleTypography.caption)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    }
+                }
+
+                if draft.kind != .custom && draft.kind != .sprint {
+                    Button("Customize Tracked Fields") {
+                        draft.apply(.custom)
+                    }
+                    .accessibilityIdentifier("ExerciseEditor.CustomizeTracking")
+                }
+            }
+        }
+    }
+
+    private var historySection: some View {
+        Section {
+            Label {
+                VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                    Text(usageSummary)
+                        .font(MarbleTypography.rowTitle)
+                    Text(historyImpactText)
+                        .font(MarbleTypography.rowMeta)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            } icon: {
+                Image(systemName: changesUsedWorkouts ? "exclamationmark.triangle" : "clock.arrow.circlepath")
+            }
+            .accessibilityIdentifier("ExerciseEditor.HistoryImpact")
+        }
+    }
+
+    private var deleteSection: some View {
+        Section {
+            Button(role: .destructive, action: requestDelete) {
+                Label("Delete Exercise", systemImage: "trash")
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .accessibilityIdentifier("ExerciseEditor.Delete")
+        } footer: {
+            if loggedSetCount > 0 || plannedSetCount > 0 {
+                Text(deleteBlockedMessage)
+            } else {
+                Text("Only exercises with no logged sets or planned workouts can be deleted.")
+            }
+        }
+    }
+
+    private var validationSection: some View {
+        Section {
+            Label {
+                VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                    Text("Finish these details")
+                        .font(MarbleTypography.rowTitle)
+                    ForEach(validationErrors, id: \.self) { error in
+                        Text(error)
+                            .font(MarbleTypography.rowMeta)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    }
+                }
+            } icon: {
+                Image(systemName: "exclamationmark.circle")
+            }
+            .accessibilityIdentifier("ExerciseEditor.Validation")
+        }
+    }
+
+    private var typeColumns: [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize {
+            return [GridItem(.flexible())]
+        }
+        return [GridItem(.flexible(), spacing: MarbleSpacing.s), GridItem(.flexible())]
+    }
+
+    private var currentPrescription: SprintPrescription? {
+        guard let exercise else { return nil }
+        return sprintPrescriptions.first { $0.exerciseID == exercise.id }
     }
 
     private var draftDisplayIcon: ExerciseDisplayIcon {
-        if iconSource == .emoji, let emoji = resolvedCustomIconEmoji {
+        if draft.iconSource == .emoji, let emoji = draft.resolvedCustomIconEmoji {
             return .emoji(emoji)
         }
-        return .symbol(category.symbolName)
+        return .symbol(draft.category.symbolName)
     }
 
-    private var iconPreviewDescription: String {
-        if iconSource == .emoji {
-            return resolvedCustomIconEmoji == nil
-                ? "Choose one emoji and Marble will use it everywhere this exercise appears."
-                : "Your emoji will appear anywhere this exercise is shown."
-        }
-        return "Uses the \(category.displayName) system icon automatically until you switch to a custom emoji."
+    private var nameError: String? {
+        draft.nameError(existingExercises: exercises, excluding: exercise?.id)
     }
 
-    private var introText: String {
-        if exercise == nil {
-            return "Set this exercise up once so future logging is obvious, fast, and tailored to how you actually train."
-        }
-        return "Refine how this exercise behaves in the logger so future sets are easy to enter and easy to trust."
+    private var shouldShowNameError: Bool {
+        didAttemptSave || (!draft.trimmedName.isEmpty && nameError != nil)
     }
 
-    private var existingHistoryCount: Int {
-        guard let exerciseID = exercise?.id else { return 0 }
-        return entries.filter { $0.exercise.id == exerciseID }.count
+    private var validationErrors: [String] {
+        draft.validationErrors(existingExercises: exercises, excluding: exercise?.id)
     }
 
-    private var duplicateExercise: Exercise? {
-        exercises.first { candidate in
-            candidate.id != exercise?.id &&
-            candidate.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                .localizedCaseInsensitiveCompare(trimmedName) == .orderedSame
+    private var existingHistoryCount: Int { loggedSetCount }
+
+    private var loggedSetCount: Int {
+        guard let id = exercise?.id else { return 0 }
+        return entries.lazy.filter { $0.exercise.id == id }.count
+    }
+
+    private var plannedSetCount: Int {
+        guard let id = exercise?.id else { return 0 }
+        return plannedSets.lazy.filter { $0.exercise.id == id }.count
+    }
+
+    private var draftChangesHistory: Bool {
+        guard let exercise else { return false }
+        return draft.changesHistoricalInterpretation(from: exercise)
+    }
+
+    private var draftChangesPlannedWorkouts: Bool {
+        exercise != nil && draft.changesPlannedWorkoutBehavior(from: originalDraft)
+    }
+
+    private var changesUsedWorkouts: Bool {
+        (loggedSetCount > 0 && draftChangesHistory) ||
+        (plannedSetCount > 0 && draftChangesPlannedWorkouts)
+    }
+
+    private var usageSummary: String {
+        var uses: [String] = []
+        if loggedSetCount > 0 {
+            uses.append("\(loggedSetCount) logged \(loggedSetCount == 1 ? "set" : "sets")")
+        }
+        if plannedSetCount > 0 {
+            uses.append("\(plannedSetCount) planned workout \(plannedSetCount == 1 ? "slot" : "slots")")
+        }
+        return "Used by \(uses.joined(separator: " and "))"
+    }
+
+    private var impactConfirmationMessage: String {
+        var impacts: [String] = []
+        if loggedSetCount > 0, draftChangesHistory {
+            impacts.append("how \(loggedSetCount) logged \(loggedSetCount == 1 ? "set is" : "sets are") interpreted")
+        }
+        if plannedSetCount > 0, draftChangesPlannedWorkouts {
+            impacts.append("\(plannedSetCount) planned workout \(plannedSetCount == 1 ? "slot" : "slots")")
+        }
+        return "These changes affect \(impacts.joined(separator: " and "))."
+    }
+
+    private var historyImpactText: String {
+        if changesUsedWorkouts {
+            return "These changes affect saved workout data. Marble will ask before saving."
+        }
+        return "Name, category, icon, favorite, and rest changes are safe for existing history."
+    }
+
+    private var isDirty: Bool {
+        didInitialize && draft != originalDraft
+    }
+
+    private var deleteBlockedMessage: String {
+        var uses: [String] = []
+        if loggedSetCount > 0 {
+            uses.append("\(loggedSetCount) logged \(loggedSetCount == 1 ? "set" : "sets")")
+        }
+        if plannedSetCount > 0 {
+            uses.append("\(plannedSetCount) planned workout \(plannedSetCount == 1 ? "slot" : "slots")")
+        }
+        guard !uses.isEmpty else { return "This exercise isn't used by any saved sets or plans." }
+        return "Remove it from \(uses.joined(separator: " and ")) before deleting it."
+    }
+
+    private func metricLabel(_ metric: ExerciseMetricKind) -> String {
+        switch metric {
+        case .weight: "Weight"
+        case .reps: "Repetitions"
+        case .distance: "Distance"
+        case .duration: "Time"
         }
     }
 
-    private var validationMessages: [String] {
-        var messages: [String] = []
-
-        if trimmedName.isEmpty {
-            messages.append("Add a clear exercise name so it's easy to find later.")
-        }
-
-        if let duplicateExercise {
-            messages.append("\"\(duplicateExercise.name)\" already exists. Edit that exercise instead or choose a more specific name.")
-        }
-
-        if iconSource == .emoji && resolvedCustomIconEmoji == nil {
-            messages.append("Choose one emoji for the custom icon, or switch back to the category icon.")
-        }
-
-        if !metricsProfile.hasAnyMetric {
-            messages.append("Turn on at least one metric so this exercise has something meaningful to log.")
-        }
-
-        if sprintPrescriptionEnabled {
-            if !metricsProfile.distanceIsRequired || !metricsProfile.durationIsRequired {
-                messages.append("Sprint workouts require distance and duration on every rep.")
-            }
-            if (sprintDistance ?? 0) <= 0 {
-                messages.append("Add a sprint distance greater than zero.")
-            }
-            if !(1...50).contains(sprintRepetitionCount) {
-                messages.append("Choose between 1 and 50 sprint reps.")
-            }
-            switch sprintTargetMode {
-            case .time:
-                if (sprintTargetSeconds ?? 0) <= 0 {
-                    messages.append("Add a goal time greater than zero.")
-                }
-            case .range:
-                let lower = sprintTargetLowerSeconds ?? 0
-                let upper = sprintTargetUpperSeconds ?? 0
-                if lower <= 0 {
-                    messages.append("Add a fast-end time greater than zero.")
-                }
-                if upper < lower {
-                    messages.append("The slow end must be equal to or slower than the fast end.")
-                }
-            }
-        }
-
-        return messages
-    }
-
-    private var previewSummaryText: String {
-        let title = trimmedName.isEmpty ? "This exercise" : trimmedName
-        return "\(title) · \(metricsProfile.summaryText(defaultRestSeconds: defaultRestSeconds, loadTrackingStyle: resistanceTrackingStyle, distanceUnit: preferredDistanceUnit))"
-    }
-
-    private var previewBehaviorNotes: [String] {
-        var notes: [String] = []
-
-        if metricsProfile.usesWeight {
-            notes.append(resistanceTrackingStyle.editorDescription)
-        }
-
-        if metricsProfile.usesDistance {
-            notes.append("Distance uses \(preferredDistanceUnit.title.lowercased()) by default when you log this exercise.")
-        }
-
-        if metricsProfile.usesDistance && metricsProfile.usesDuration {
-            notes.append("This setup works well for sprints and intervals where both distance and time matter.")
-        }
-
-        if let preview = sprintPrescriptionPreview {
-            notes.append(preview)
-        }
-
-        return notes
-    }
-
-    private var nameValidationState: MarbleFieldState {
-        (trimmedName.isEmpty || duplicateExercise != nil) ? .error : .normal
-    }
-
-    private var emojiValidationState: MarbleFieldState {
-        iconSource == .emoji && resolvedCustomIconEmoji == nil ? .error : .normal
-    }
-
-    private var templateColumns: [GridItem] {
-        [
-            GridItem(.flexible(), spacing: MarbleSpacing.s),
-            GridItem(.flexible(), spacing: MarbleSpacing.s)
-        ]
-    }
-
-    private var canConfigureSprint: Bool {
-        metricsProfile.usesDistance && metricsProfile.usesDuration
-    }
-
-    private var sprintPrescriptionPreview: String? {
-        guard sprintPrescriptionEnabled,
-              let distance = sprintDistance,
-              distance > 0 else { return nil }
-        let lower: Int
-        let upper: Int
-        switch sprintTargetMode {
-        case .time:
-            guard let target = sprintTargetSeconds, target > 0 else { return nil }
-            lower = target
-            upper = target
-        case .range:
-            guard let fast = sprintTargetLowerSeconds,
-                  let slow = sprintTargetUpperSeconds,
-                  fast > 0,
-                  slow >= fast else { return nil }
-            lower = fast
-            upper = slow
-        }
-        let draft = SprintPrescriptionPlan(
-            distance: distance,
-            repetitionCount: sprintRepetitionCount,
-            targetLowerSeconds: lower,
-            targetUpperSeconds: upper
-        )
-        return "Sprint plan: \(draft.summary(distanceUnit: preferredDistanceUnit, restSeconds: defaultRestSeconds))."
-    }
-
-    private var selectedTemplate: ExerciseLoggingTemplate? {
-        if metricsProfile == .durationOnlyRequired {
-            return .timed
-        }
-
-        if metricsProfile == .distanceAndDurationRequired {
-            return category == .run ? .run : .sprint
-        }
-
-        if metricsProfile == .weightAndRepsRequired {
-            return resistanceTrackingStyle == .singleDumbbellPair ? .dualDumbbell : .strength
-        }
-
-        if metricsProfile == ExerciseMetricsProfile(weight: .optional, reps: .required, distance: .none, durationSeconds: .none) {
-            return .weightedBodyweight
-        }
-
-        if metricsProfile == .repsOnlyRequired {
-            switch category {
-            case .power, .legs, .quads, .hamstrings, .calves:
-                return .plyometric
-            default:
-                return .bodyweight
-            }
-        }
-
-        return nil
-    }
-
-    private func requirementBinding(for kind: ExerciseMetricKind) -> Binding<MetricRequirement> {
+    private func requirementBinding(for metric: ExerciseMetricKind) -> Binding<MetricRequirement> {
         Binding(
-            get: { metricsProfile.requirement(for: kind) },
-            set: { newValue in
-                switch kind {
-                case .weight:
-                    weightRequirement = newValue
-                case .reps:
-                    repsRequirement = newValue
-                case .distance:
-                    distanceRequirement = newValue
-                case .duration:
-                    durationRequirement = newValue
-                }
-            }
+            get: { draft.metrics.requirement(for: metric) },
+            set: { draft.metrics.setRequirement($0, for: metric) }
         )
     }
 
     private func configureInitialState() {
+        guard !didInitialize else { return }
+        let configuredDraft: ExerciseEditorDraft
         if let exercise {
-            load(from: exercise)
+            configuredDraft = ExerciseEditorDraft(exercise: exercise, prescription: currentPrescription)
         } else {
-            name = initialName.trimmingCharacters(in: .whitespacesAndNewlines)
-            DispatchQueue.main.async {
-                focusedField = .name
-            }
+            configuredDraft = .new(initialName: initialName)
+        }
+        draft = configuredDraft
+        originalDraft = configuredDraft
+        didInitialize = true
+        if exercise == nil, configuredDraft.trimmedName.isEmpty {
+            DispatchQueue.main.async { focusedField = .name }
         }
     }
 
-    private func apply(template: ExerciseLoggingTemplate) {
-        weightRequirement = template.profile.weight
-        repsRequirement = template.profile.reps
-        distanceRequirement = template.profile.distance
-        durationRequirement = template.profile.durationSeconds
-        resistanceTrackingStyle = template.resistanceTrackingStyle
-        preferredDistanceUnit = template.distanceUnit
-        if let impliedCategory = template.impliedCategory {
-            category = impliedCategory
-        }
-        if template == .sprint {
-            sprintPrescriptionEnabled = true
-            sprintDistance = sprintDistance ?? 60
-            sprintRepetitionCount = max(sprintRepetitionCount, 1)
-        } else if template == .run || template.profile != .distanceAndDurationRequired {
-            sprintPrescriptionEnabled = false
-        }
-    }
-
-    private func applyTemplateSelection(_ template: ExerciseLoggingTemplate) {
+    private func select(_ kind: ExerciseKind) {
         focusedField = nil
-        apply(template: template)
+        draft.apply(kind)
+        MarbleHaptics.selection()
     }
 
-    private func selectSuggestedEmoji(_ emoji: String) {
+    private func requestDismiss() {
         focusedField = nil
-        customIconEmoji = emoji
-    }
-
-    private func ensureDefaultEmojiSelection() {
-        guard iconSource == .emoji, resolvedCustomIconEmoji == nil else { return }
-        customIconEmoji = category.emojiSuggestions.first ?? ""
-    }
-
-    private func editorFieldBlock<Content: View>(
-        title: String,
-        description: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            Text(title)
-                .font(MarbleTypography.rowTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-            Text(description)
-                .font(MarbleTypography.rowSubtitle)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-            content()
-        }
-        .padding(.vertical, MarbleSpacing.xs)
-    }
-
-    private var metricRequirementGuideCard: some View {
-        editorCard {
-            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                Text("Choose what each set should capture")
-                    .font(MarbleTypography.rowTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                Text("Off means the logger never shows that field. Optional adds a per-set toggle. Required shows it every time.")
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                    requirementGuideRow(
-                        title: "Off",
-                        description: "Hide this field entirely for the exercise."
-                    )
-                    requirementGuideRow(
-                        title: "Optional",
-                        description: "Show a toggle in the logger so you can include it only when needed."
-                    )
-                    requirementGuideRow(
-                        title: "Required",
-                        description: "Ask for it on every set so logging stays consistent."
-                    )
-                }
-            }
+        if isDirty {
+            showDiscardConfirmation = true
+        } else {
+            dismiss()
         }
     }
 
-    private func requirementGuideRow(title: String, description: String) -> some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-            Text(title)
-                .font(MarbleTypography.smallLabel)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-            Text(description)
-                .font(MarbleTypography.caption)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .fixedSize(horizontal: false, vertical: true)
+    private func requestSave() {
+        focusedField = nil
+        didAttemptSave = true
+        guard validationErrors.isEmpty else {
+            if nameError != nil { focusedField = .name }
+            validationScrollRequest += 1
+            MarbleHaptics.warning()
+            return
         }
-    }
-
-    private func metricConfigurationCard(kind: ExerciseMetricKind, selection: Binding<MetricRequirement>) -> some View {
-        editorCard {
-            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                Text(kind.editorTitle)
-                    .font(MarbleTypography.rowTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                Text(kind.editorDescription)
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                Picker(kind.editorTitle, selection: selection) {
-                    Text("Off").tag(MetricRequirement.none)
-                    Text("Optional").tag(MetricRequirement.optional)
-                    Text("Required").tag(MetricRequirement.required)
-                }
-                .pickerStyle(.segmented)
-                .tint(Theme.dividerColor(for: colorScheme))
-
-                Text(kind.helperText(for: selection.wrappedValue))
-                    .font(MarbleTypography.caption)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                if kind == .weight, selection.wrappedValue != .none {
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                        Text("How you enter load")
-                            .font(MarbleTypography.smallLabel)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                        Picker("How you enter load", selection: $resistanceTrackingStyle) {
-                            ForEach(ResistanceTrackingStyle.allCases) { style in
-                                Text(style.title).tag(style)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .tint(Theme.dividerColor(for: colorScheme))
-                        .accessibilityIdentifier("ExerciseEditor.WeightTrackingStyle")
-
-                        Text(resistanceTrackingStyle.editorDescription)
-                            .font(MarbleTypography.caption)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-
-                if kind == .distance, selection.wrappedValue != .none {
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                        Text("Distance unit")
-                            .font(MarbleTypography.smallLabel)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                        Picker("Distance unit", selection: $preferredDistanceUnit) {
-                            ForEach(DistanceUnit.allCases) { unit in
-                                Text(unit.symbol.uppercased()).tag(unit)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .tint(Theme.dividerColor(for: colorScheme))
-                        .accessibilityIdentifier("ExerciseEditor.DistanceUnit")
-
-                        Text("Marble will default this exercise to \(preferredDistanceUnit.title.lowercased()) when you log each set.")
-                            .font(MarbleTypography.caption)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
+        if changesUsedWorkouts {
+            showHistoryConfirmation = true
+            return
         }
-    }
-
-    private func editorCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-            content()
-        }
-        .padding(MarbleSpacing.m)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                .fill(Theme.chipFillColor(for: colorScheme))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
-        )
-        .listRowInsets(MarbleLayout.rowInsets)
-        .listRowBackground(Theme.backgroundColor(for: colorScheme))
-    }
-
-    private func load(from exercise: Exercise) {
-        name = exercise.name
-        category = exercise.category
-        customIconEmoji = exercise.sanitizedCustomIconEmoji ?? ""
-        iconSource = exercise.sanitizedCustomIconEmoji == nil ? .category : .emoji
-        resistanceTrackingStyle = exercise.resistanceTrackingStyle
-        weightRequirement = exercise.metrics.weight
-        repsRequirement = exercise.metrics.reps
-        distanceRequirement = exercise.metrics.distance
-        preferredDistanceUnit = exercise.preferredDistanceUnit
-        durationRequirement = exercise.metrics.durationSeconds
-        defaultRestSeconds = exercise.defaultRestSeconds
-        isFavorite = exercise.isFavorite
-        if let prescription = sprintPrescriptions.first(where: { $0.exerciseID == exercise.id }) {
-            sprintPrescriptionEnabled = true
-            sprintDistance = prescription.distance
-            sprintRepetitionCount = prescription.repetitionCount
-            sprintTargetMode = prescription.targetMode
-            if prescription.targetMode == .time {
-                sprintTargetSeconds = prescription.targetLowerSeconds
-            } else {
-                sprintTargetLowerSeconds = prescription.targetLowerSeconds
-                sprintTargetUpperSeconds = prescription.targetUpperSeconds
-            }
-        }
+        save()
     }
 
     private func save() {
-        guard validationMessages.isEmpty else { return }
-
         let savedExercise: Exercise
-
         if let exercise {
-            exercise.name = trimmedName
-            exercise.category = category
-            exercise.setCustomIconEmoji(iconSource == .emoji ? resolvedCustomIconEmoji : nil)
-            exercise.setResistanceTrackingStyle(resistanceTrackingStyle)
-            exercise.setPreferredDistanceUnit(preferredDistanceUnit)
-            exercise.metrics = metricsProfile
-            exercise.defaultRestSeconds = defaultRestSeconds
-            exercise.isFavorite = isFavorite
+            applyDraft(to: exercise)
             savedExercise = exercise
         } else {
             let newExercise = Exercise(
-                name: trimmedName,
-                category: category,
-                customIconEmoji: iconSource == .emoji ? resolvedCustomIconEmoji : nil,
-                resistanceTrackingStyle: resistanceTrackingStyle,
-                preferredDistanceUnit: preferredDistanceUnit,
-                metrics: metricsProfile,
-                defaultRestSeconds: defaultRestSeconds,
-                isFavorite: isFavorite
+                name: draft.trimmedName,
+                category: draft.category,
+                customIconEmoji: draft.iconSource == .emoji ? draft.resolvedCustomIconEmoji : nil,
+                resistanceTrackingStyle: draft.resistanceTrackingStyle,
+                preferredDistanceUnit: draft.preferredDistanceUnit,
+                metrics: draft.metrics,
+                defaultRestSeconds: draft.defaultRestSeconds,
+                isFavorite: draft.isFavorite
             )
             modelContext.insert(newExercise)
             savedExercise = newExercise
         }
 
         persistSprintPrescription(for: savedExercise)
-
         do {
             try modelContext.save()
         } catch {
-            #if DEBUG
-            print("Save exercise failed: \(error)")
-            #endif
             modelContext.rollback()
             showSaveError = true
             return
         }
 
+        originalDraft = draft
+        MarbleHaptics.success()
         onSave?(savedExercise)
-        if dismissAfterSave {
-            dismiss()
-        }
+        if dismissAfterSave { dismiss() }
+    }
+
+    private func applyDraft(to exercise: Exercise) {
+        exercise.name = draft.trimmedName
+        exercise.category = draft.category
+        exercise.setCustomIconEmoji(draft.iconSource == .emoji ? draft.resolvedCustomIconEmoji : nil)
+        exercise.setResistanceTrackingStyle(draft.resistanceTrackingStyle)
+        exercise.setPreferredDistanceUnit(draft.preferredDistanceUnit)
+        exercise.metrics = draft.metrics
+        exercise.defaultRestSeconds = draft.defaultRestSeconds
+        exercise.isFavorite = draft.isFavorite
     }
 
     private func persistSprintPrescription(for exercise: Exercise) {
         let existing = sprintPrescriptions.first { $0.exerciseID == exercise.id }
-        guard sprintPrescriptionEnabled else {
+        guard draft.usesSprintPrescription else {
             if let existing { modelContext.delete(existing) }
             return
         }
 
-        guard let distance = sprintDistance else { return }
+        guard let distance = draft.sprintDistance else { return }
         let lower: Int
         let upper: Int
-        switch sprintTargetMode {
+        switch draft.sprintTargetMode {
         case .time:
-            guard let target = sprintTargetSeconds else { return }
+            guard let target = draft.sprintTargetSeconds else { return }
             lower = target
             upper = target
         case .range:
-            guard let fast = sprintTargetLowerSeconds,
-                  let slow = sprintTargetUpperSeconds else { return }
+            guard let fast = draft.sprintTargetLowerSeconds,
+                  let slow = draft.sprintTargetUpperSeconds else { return }
             lower = fast
             upper = slow
         }
@@ -911,7 +681,7 @@ struct ExerciseEditorView: View {
         let now = AppEnvironment.now
         if let existing {
             existing.distance = distance
-            existing.repetitionCount = sprintRepetitionCount
+            existing.repetitionCount = draft.sprintRepetitionCount
             existing.targetLowerSeconds = lower
             existing.targetUpperSeconds = upper
             existing.updatedAt = now
@@ -919,7 +689,7 @@ struct ExerciseEditorView: View {
             modelContext.insert(SprintPrescription(
                 exerciseID: exercise.id,
                 distance: distance,
-                repetitionCount: sprintRepetitionCount,
+                repetitionCount: draft.sprintRepetitionCount,
                 targetLowerSeconds: lower,
                 targetUpperSeconds: upper,
                 createdAt: now,
@@ -927,147 +697,89 @@ struct ExerciseEditorView: View {
             ))
         }
     }
-}
 
-fileprivate extension ExerciseEditorView {
-    enum Field: Hashable {
-        case name
+    private func requestDelete() {
+        if loggedSetCount > 0 || plannedSetCount > 0 {
+            showDeleteBlocked = true
+        } else {
+            showDeleteConfirmation = true
+        }
     }
 
-    enum ExerciseLoggingTemplate: String, CaseIterable, Identifiable {
-        case strength
-        case dualDumbbell
-        case bodyweight
-        case weightedBodyweight
-        case run
-        case sprint
-        case plyometric
-        case timed
-
-        var id: String { rawValue }
-
-        var title: String {
-        switch self {
-            case .strength:
-                return "Weight"
-            case .dualDumbbell:
-                return "2 Dumbbells"
-            case .bodyweight:
-                return "Bodyweight"
-            case .weightedBodyweight:
-                return "Weighted BW"
-            case .run:
-                return "Run"
-            case .sprint:
-                return "Sprint"
-            case .plyometric:
-                return "Plyometric"
-            case .timed:
-                return "Timed"
-            }
+    private func deleteExercise() {
+        guard let exercise else { return }
+        guard loggedSetCount == 0, plannedSetCount == 0 else {
+            showDeleteBlocked = true
+            return
         }
-
-        var subtitle: String {
-            switch self {
-            case .strength:
-                return "Single load + reps"
-            case .dualDumbbell:
-                return "One dumbbell + reps"
-            case .bodyweight:
-                return "Reps only"
-            case .weightedBodyweight:
-                return "Reps, optional load"
-            case .run:
-                return "Distance + time in km or miles"
-            case .sprint:
-                return "Distance + time"
-            case .plyometric:
-                return "Explosive reps"
-            case .timed:
-                return "Duration only"
-            }
+        sprintPrescriptions
+            .filter { $0.exerciseID == exercise.id }
+            .forEach(modelContext.delete)
+        modelContext.delete(exercise)
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            showDeleteError = true
+            return
         }
-
-        var profile: ExerciseMetricsProfile {
-            switch self {
-            case .strength:
-                return .weightAndRepsRequired
-            case .dualDumbbell:
-                return .weightAndRepsRequired
-            case .bodyweight:
-                return .repsOnlyRequired
-            case .weightedBodyweight:
-                return ExerciseMetricsProfile(weight: .optional, reps: .required, distance: .none, durationSeconds: .none)
-            case .run, .sprint:
-                return .distanceAndDurationRequired
-            case .plyometric:
-                return .repsOnlyRequired
-            case .timed:
-                return .durationOnlyRequired
-            }
-        }
-
-        var resistanceTrackingStyle: ResistanceTrackingStyle {
-            switch self {
-            case .dualDumbbell:
-                return .singleDumbbellPair
-            default:
-                return .totalLoad
-            }
-        }
-
-        var distanceUnit: DistanceUnit {
-            switch self {
-            case .run:
-                return .kilometers
-            default:
-                return .meters
-            }
-        }
-
-        /// Templates that imply a category apply it so grouping and the icon
-        /// follow automatically; the user can still change it afterward.
-        var impliedCategory: ExerciseCategory? {
-            switch self {
-            case .run:
-                return .run
-            case .sprint:
-                return .run
-            default:
-                return nil
-            }
-        }
+        MarbleHaptics.warning()
+        onDelete?()
+        dismiss()
     }
 }
 
-private struct ExerciseTemplateCard: View {
-    let template: ExerciseEditorView.ExerciseLoggingTemplate
+private extension ExerciseEditorView {
+    enum Field: Hashable { case name }
+}
+
+private struct ExerciseKindCard: View {
+    let kind: ExerciseKind
     let isSelected: Bool
 
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
-            Text(template.title)
-                .font(MarbleTypography.sectionTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-            Text(template.subtitle)
-                .font(MarbleTypography.caption)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .fixedSize(horizontal: false, vertical: true)
+        HStack(alignment: .top, spacing: MarbleSpacing.xs) {
+            Image(systemName: kind.symbolName)
+                .font(.body.weight(.semibold))
+                .frame(width: 24, height: 24)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                Text(kind.title)
+                    .font(MarbleTypography.rowTitle)
+                Text(kind.subtitle)
+                    .font(MarbleTypography.caption)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+
+            if isSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.body)
+                    .accessibilityHidden(true)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
         .padding(MarbleSpacing.s)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                .fill(Theme.backgroundColor(for: colorScheme))
+                .fill(isSelected ? Theme.chipFillColor(for: colorScheme) : Theme.backgroundColor(for: colorScheme))
         )
         .overlay(
             RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
                 .stroke(
                     isSelected ? Theme.primaryTextColor(for: colorScheme) : Theme.dividerColor(for: colorScheme),
-                    lineWidth: 1
+                    lineWidth: isSelected ? 1.5 : 1
                 )
         )
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(kind.title), \(kind.subtitle)")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }

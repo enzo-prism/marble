@@ -6,15 +6,16 @@
   `RenderMemo` cache, Strava credential resolution, and the **personal-records engine**
   `PersonalRecordsTests` — PR-badge trail, unit-normalized weight records, all-time bests,
   usual ranges, the live-PR projection, workout sessions, sprint-prescription target
-  boundaries/persistence/orphan cleanup, backup/restore validation, and recovery safety).
-  Runs in CI. Last verified locally on 2026-07-09 with Xcode 26.5 /
-  iOS 26.5 simulator: **238 passed, 0 failed**.
+  boundaries/persistence/orphan cleanup, exercise-editor draft/type/validation/impact rules,
+  backup/restore validation, and recovery safety).
+  Runs in CI. Last verified locally on 2026-07-12 with Xcode 26.5 /
+  iOS 26.5 simulator: **254 passed, 0 failed**.
 - Snapshot tests: `MarbleSnapshotTests` (SwiftUI rendering with SnapshotTesting).
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
-## Latest local verification (2026-07-09)
-- `MarbleTests`: **238 passed, 0 failed** (`make unit`).
+## Latest local verification (2026-07-12)
+- `MarbleTests`: **254 passed, 0 failed** (`make unit`).
 - `MarbleUITests`: **35 flows passed, 0 failed** (`make ui`), including workout start/log/
   finish, Data management, focused Trends, plan logging, and XXXL interaction coverage.
 - `AccessibilityAuditUITests`: default audit passed; the iOS 26.5 runtime skips its
@@ -61,6 +62,10 @@ Preferred Makefile targets:
   and a 19–21-second range, log all four reps with RPE and recovery, confirm goal feedback
   at both range boundaries, and verify the final rep closes the sequence without a fifth
   accidental repetition. Reopen the exercise and confirm its prescription persisted.
+- Exercise-library pass: verify duplicate-free recent/favorite/all ordering, create from a
+  partial search, filter by category, edit appearance through Advanced, confirm dirty-draft
+  protection, verify history/planned-workout impact prompts, and confirm used exercises
+  cannot be deleted.
 
 Simulator prerequisite:
 - The Make targets use `scripts/sim_destination.sh` to find an iPhone simulator.
