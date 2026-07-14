@@ -95,13 +95,23 @@ always re-run the **Live state checks** (bottom of this file) before acting.
   (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds and automatic tester
   notifications enabled. External beta remains `READY_FOR_BETA_SUBMISSION` and was not
   submitted.
-- **Current working project version:** **2.0 (build 39)**;
-  `MARKETING_VERSION = 2.0`, `CURRENT_PROJECT_VERSION = 39` in
-  `marble.xcodeproj/project.pbxproj`.
-- **Build/test health:** Xcode 26.5 / iOS 26.5 simulator; **254 unit tests**, all **35 UI
-  flows**, the default accessibility audit, and explicit XXXL exercise-library interactions
-  pass. One chart-coordinate UI test needed an immediate isolated retry after the full-suite
-  run; it passed unchanged. The Release migration gate installed the previous baseline,
+- **Current working project version:** **2.1**;
+  `MARKETING_VERSION = 2.1`, `CURRENT_PROJECT_VERSION = 39` in
+  `marble.xcodeproj/project.pbxproj`. The next upload bumps the build via
+  `make asc-next-build` (expect **40**).
+- ⚠️ **Why 2.1 (read before any release work):** App Store **2.0 is attached to build 34**,
+  and its `whatsNew` describes exactly build 34's Trends coaching layer — that submission is
+  coherent and was deliberately left alone. Builds **35–39** (workout sessions, sprint
+  prescriptions, Exercise Library redesign, JSON backups) are **not** described by those notes
+  and cannot ship under a version string 2.0 is about to consume. They ship as **2.1**.
+  Uploading builds 35–39 did not alter, cancel, or resubmit the 2.0 review.
+- **Build/test health:** Xcode 26.5 / iOS 26.5 simulator; **264 unit tests pass, 0 failures**
+  (`make unit`, re-run 2026-07-14). The previously recorded **254** was stale — `3e6d4b6` took
+  the suite to 263 and the follow-up docs commit carried the old number forward; +1 is the
+  rescued populated-store migration test. The **35 UI flows**, default accessibility audit,
+  and explicit XXXL exercise-library interactions last passed **2026-07-12** and have not been
+  re-run since. One chart-coordinate UI test needed an immediate isolated retry after the
+  full-suite run; it passed unchanged. The Release migration gate installed the previous baseline,
   preserved all 40 seeded exercises, overlaid build 39, and launched successfully. Build 39
   also passed 19 focused sprint/schema/backup tests and the end-to-end sprint Journal UI
   flow (range hit, detail explanation, and edited miss). The
@@ -310,9 +320,15 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel the current App Store review by default.
-- `origin/main` is the canonical release baseline for **2.0 (39)**. The latest internal
-  TestFlight build is **2.0 (39)**; App Store 2.0 remains `WAITING_FOR_REVIEW` and was not
-  mutated.
+- `origin/main` is the canonical release baseline, now on the **2.1** train. The latest
+  internal TestFlight build is **2.0 (39)**; App Store **2.0 (build 34)** remains
+  `WAITING_FOR_REVIEW` and was not mutated. Released to users: **1.9 (build 29)**.
+- **Never delete a branch without pushing it first.** Every local-only branch was archived to
+  `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
+  holds the Empire source — the branches named `empire-gamification` and
+  `backup/empire-gamification-dirty-*` contain **zero** Empire files (commit `4e68df5`
+  deleted the feature). A cleanup that keeps the "backup" and drops the "refresh" branch
+  destroys the feature while appearing to preserve it.
 - Do not bump builds, upload binaries, or submit for review without explicit user approval.
 - Never reuse stale `.asc` archives/IPAs — `make asc-publish-*` regenerates them.
 - Keep signing/export files and generated artifacts under ignored `.asc/`.

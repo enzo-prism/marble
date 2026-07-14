@@ -34,8 +34,18 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-12)
+## Current state (2026-07-14)
 
+- **Version trains:** App Store **2.0 is pinned to build 34** (the Trends coaching layer) and
+  its release notes describe exactly that build. Builds 35–39 — workout sessions, sprint
+  prescriptions, the Exercise Library redesign, and JSON backups — are **not** in those notes,
+  so the working project version is now **2.1**; that work ships on the 2.1 train.
+- **2.0 (build 39)** surfaces sprint goals in the Journal: every rep shows its saved exact or
+  ranged target with accessible green-hit / red-miss / neutral-unscored feedback, and Set
+  Details compares the recorded result against the frozen per-rep goal and explains the
+  outcome. Additive `MarbleSchemaV4` plus legacy-backfill provenance, backup/restore
+  validation, and duplicate/undo/intent support preserve history when an exercise goal
+  changes. Build 39 is valid in internal TestFlight.
 - **2.0 (build 38)** redesigns exercise creation and management end to end: a searchable,
   category-filterable Exercise Library; explicit tracking types; contextual fields; safe
   draft editing; duplicate-name validation; unsaved-change protection; history/planned-plan
@@ -96,8 +106,8 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   best" target card + live "New PR!" cue while logging (see `marble/Components/
   PersonalRecords.swift`). `origin/release/1.9` may still point at the older 1.9 build 20
   release baseline unless explicitly updated.
-- Latest TestFlight upload: **2.0 (build 38)** is `VALID` and `IN_BETA_TESTING` internally
-  (build id `d014fc86-cd82-4aef-95f0-53a82418028c`). External beta remains unsubmitted.
+- Latest TestFlight upload: **2.0 (build 39)** is `VALID` and `IN_BETA_TESTING` internally
+  (build id `f61c2343-850c-42ad-9783-87eb013f308d`). External beta remains unsubmitted.
 - Builds 27–28 add, on top of build 26: a **performance + iOS 26 pass** (the
   Trends/Calendar/Journal screens memoize their derived data via `RenderMemo` instead of
   re-deriving on every render/scrub; all view models moved to `@Observable`;
@@ -108,7 +118,8 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 - `MarbleWidgets` target is wired into the app build and its `Info.plist` is checked by
   Makefile test targets.
 - Live App Store: **2.0 is `WAITING_FOR_REVIEW`** under submission
-  `a89a2e97-369e-4f80-a658-2cab40d79b19`. Uploading build 38 did not change that submission.
+  `a89a2e97-369e-4f80-a658-2cab40d79b19`, attached to **build 34**. Uploading builds 35–39 did
+  not change that submission. The currently released version remains **1.9 (build 29)**.
 - **[`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) is the authoritative, dated source of truth
   for release state** — read it before any release/signing work.
 

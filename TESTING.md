@@ -9,22 +9,30 @@
   boundaries, frozen per-rep goal evaluation/persistence/orphan cleanup, V3-to-V4 migration,
   exercise-editor draft/type/validation/impact rules,
   backup/restore validation, and recovery safety).
-  Runs in CI. Last verified locally on 2026-07-12 with Xcode 26.5 /
-  iOS 26.5 simulator: **254 passed, 0 failed**.
+  Runs in CI. Last verified locally on 2026-07-14 with Xcode 26.5 /
+  iOS 26.5 simulator: **264 passed, 0 failed**.
 - Snapshot tests: `MarbleSnapshotTests` (SwiftUI rendering with SnapshotTesting).
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
-## Latest local verification (2026-07-12)
-- `MarbleTests`: **254 passed, 0 failed** (`make unit`).
-- `MarbleUITests`: **35 flows passed, 0 failed** (`make ui`), including workout start/log/
-  finish, Data management, focused Trends, plan logging, exercise creation/management,
-  sprint prescription logging, and XXXL interaction coverage. One known Trends chart
-  coordinate case required an immediate isolated retry and passed unchanged.
-- `AccessibilityAuditUITests`: default audit passed; the iOS 26.5 runtime skips its
-  unsupported Dynamic Type audit, covered by dedicated XXXL tests for Workout, Trends,
-  Exercise Picker, Exercise Library, and New Exercise.
-- Previous-release Release migration: passed; all 40 seeded exercises survived the overlay.
+## Latest local verification (2026-07-14)
+- `MarbleTests`: **264 passed, 0 failed** (`make unit`), verified 2026-07-14.
+  The previously recorded 254 was stale: commit `3e6d4b6` took the suite to 263 and the
+  follow-up docs commit carried the old number forward. Counts here are derived from an
+  actual run — do not hand-edit them forward.
+- `MarbleUITests` (**verified 2026-07-12, not re-run since**): **35 flows passed, 0 failed**
+  (`make ui`), including workout start/log/finish, Data management, focused Trends, plan
+  logging, exercise creation/management, sprint prescription logging, and XXXL interaction
+  coverage. One known Trends chart coordinate case required an immediate isolated retry and
+  passed unchanged. Note `make ui` runs **36** of the 38 `Tests/UI` cases — it skips
+  `AccessibilityAuditUITests`' 2 cases via `-skip-testing`, which `make audit` runs instead.
+- `AccessibilityAuditUITests` (**verified 2026-07-12**): default audit passed; the iOS 26.5
+  runtime skips its unsupported Dynamic Type audit, covered by dedicated XXXL tests for
+  Workout, Trends, Exercise Picker, Exercise Library, and New Exercise.
+- Previous-release Release migration (**verified 2026-07-12**): passed; the gate asserts the
+  exercise count is unchanged across the overlay. Caveat: it asserts only `before == after`
+  and never that the count is non-zero, so it passes vacuously if the base app's launch has
+  not finished seeding — see `scripts/test_previous_release_migration.sh`.
 - Signed build 39 Release archive/export: passed for `Prism.marble` and
   `Prism.marble.MarbleWidgets`; App Store Connect processing is `VALID` and internal state
   is `IN_BETA_TESTING`.
