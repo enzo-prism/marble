@@ -9,3 +9,16 @@ xcuserdata/
 *.xccheckout
 .swiftpm/
 .asc/
+
+# Node deps for the marketing composition
+node_modules/
+
+# Marketing composition caches — regenerable render/preview artifacts
+marketing/**/.thumbnails/
+marketing/**/.waveform-cache/
+marketing/**/.hyperframes/
+marketing/**/snapshots/
+
+# Local scratch: verification screenshots, PR drafts, throwaway notes.
+# Durable findings belong in WORKFLOW_PAPERCUTS.md, not here.
+work/
