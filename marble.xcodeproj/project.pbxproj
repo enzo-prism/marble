@@ -680,7 +680,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0;
+				MARKETING_VERSION = 2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble;
 				CODE_SIGN_ENTITLEMENTS = marble.entitlements;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Marble uses the camera to scan a handwritten workout so it can be read on-device and added to your journal.";
@@ -721,7 +721,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0;
+				MARKETING_VERSION = 2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble;
 				CODE_SIGN_ENTITLEMENTS = marble.entitlements;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Marble uses the camera to scan a handwritten workout so it can be read on-device and added to your journal.";
@@ -756,7 +756,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.0;
+				MARKETING_VERSION = 2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble.MarbleWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -789,7 +789,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.0;
+				MARKETING_VERSION = 2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble.MarbleWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "Prism marble MarbleWidgets App Store 2026-06-22 build 23";
