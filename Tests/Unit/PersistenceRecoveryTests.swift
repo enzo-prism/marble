@@ -120,6 +120,40 @@ final class PersistenceRecoveryTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.appendingPathExtension("corrupt").path))
     }
 
+    func testMigratesRealisticPopulatedV1StoreToV2() throws {
+        let fixedNow = Date(timeIntervalSince1970: 1_750_000_000)
+        var expectedExercises = 0
+        var expectedSets = 0
+        var expectedSupplements = 0
+        var expectedPlans = 0
+        var expectedImports = 0
+
+        try autoreleasepool {
+            let v1Schema = Schema(versionedSchema: MarbleSchemaV1.self)
+            let configuration = ModelConfiguration(schema: v1Schema, url: storeURL)
+            let container = try ModelContainer(for: v1Schema, configurations: [configuration])
+            let context = ModelContext(container)
+            TestFixtures.seed(in: context, now: fixedNow)
+            try context.save()
+            expectedExercises = try context.fetchCount(FetchDescriptor<Exercise>())
+            expectedSets = try context.fetchCount(FetchDescriptor<SetEntry>())
+            expectedSupplements = try context.fetchCount(FetchDescriptor<SupplementEntry>())
+            expectedPlans = try context.fetchCount(FetchDescriptor<SplitPlan>())
+            expectedImports = try context.fetchCount(FetchDescriptor<ImportedWorkout>())
+        }
+
+        let migrated = PersistenceController.makeRecoveringContainer(at: storeURL)
+        let context = ModelContext(migrated)
+
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Exercise>()), expectedExercises)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<SetEntry>()), expectedSets)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<SupplementEntry>()), expectedSupplements)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<SplitPlan>()), expectedPlans)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ImportedWorkout>()), expectedImports)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<WorkoutSession>()), 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.appendingPathExtension("corrupt").path))
+    }
+
     func testRepeatedRecoveryNeverOverwritesOlderBackup() throws {
         let olderBytes = Data(repeating: 0xA1, count: 8192)
         try olderBytes.write(to: storeURL)
