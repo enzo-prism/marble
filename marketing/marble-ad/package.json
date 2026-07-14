@@ -1,0 +1,13 @@
+{
+  "name": "marble-ad",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/composition-contract.test.mjs",
+    "hf:lint": "npx hyperframes lint",
+    "hf:inspect": "npx hyperframes inspect --json --samples 15",
+    "hf:snapshot": "npx hyperframes snapshot . --at 2.8,9.1,15.4,21.7,28.6",
+    "hf:render:draft": "node scripts/render-to-ssd.mjs draft",
+    "hf:render:final": "node scripts/render-to-ssd.mjs final"
+  }
+}

@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Marble 9:16 Ad</title>
+    <style>
+      :root {
+        --black: #000000;
+        --white: #ffffff;
+        --dark-surface: #090909;
+        --dark-control: #1f1f1f;
+        --dark-divider: #808080;
+        --dark-subtle-divider: #474747;
+        --dark-secondary: #cccccc;
+        --light-surface: #fbfbfb;
+        --light-control: #f2f2f2;
+        --light-chip: #eaeaea;
+        --light-divider: #4d4d4d;
+        --light-subtle-divider: #d1d1d1;
+        --light-secondary: #333333;
+        --consistency: #8594ff;
+        --volume-weighted: #ff9442;
+        --volume-reps: #ffc74d;
+        --volume-duration: #f08a75;
+        --supplements: #40ccb8;
+        --progress: #b58cff;
+        --pr: #f7c242;
+        --texture-opacity: 0.42;
+        --vein-alpha: 0.36;
+        --ghost-alpha: 0.07;
+        --sheen-alpha: 0.18;
+        --glow-alpha: 0.08;
+        --device-glow: 18px;
+        --rail-opacity: 0.18;
+        --rail-scale: 0.24;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000000;
+        font-family: "SF Pro Display", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      }
+
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        color: #ffffff;
+        background: #000000;
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        opacity: 0;
+        background: #000000;
+      }
+
+      .scene-content {
+        position: relative;
+        z-index: 4;
+        width: 100%;
+        height: 100%;
+        padding: 130px 78px 152px;
+        display: flex;
+        flex-direction: column;
+        gap: 36px;
+      }
+
+      .texture {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        opacity: var(--texture-opacity);
+        background-image:
+          linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, rgba(255, 255, 255, 0) 1px),
+          linear-gradient(0deg, rgba(255, 255, 255, 0.055) 1px, rgba(255, 255, 255, 0) 1px);
+        background-size: 96px 96px;
+      }
+
+      .marble-vein {
+        position: absolute;
+        z-index: 1;
+        left: -120px;
+        right: -120px;
+        height: 3px;
+        opacity: var(--vein-alpha);
+        background: #808080;
+        transform-origin: left center;
+      }
+
+      .vein-a {
+        top: 410px;
+        transform: rotate(-8deg);
+      }
+
+      .vein-b {
+        bottom: 384px;
+        transform: rotate(7deg);
+      }
+
+      .ghost-word {
+        position: absolute;
+        z-index: 1;
+        left: -56px;
+        bottom: 108px;
+        color: #ffffff;
+        opacity: var(--ghost-alpha);
+        font-size: 178px;
+        line-height: 0.82;
+        font-weight: 950;
+        letter-spacing: -0.075em;
+        white-space: nowrap;
+      }
+
+      .top-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 54px;
+        color: #cccccc;
+        font-family: "SF Mono", Menlo, monospace;
+        font-size: 23px;
+        font-weight: 680;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .top-rule {
+        width: 100%;
+        height: 3px;
+        background: #808080;
+        opacity: 0.74;
+        transform-origin: left center;
+      }
+
+      .headline {
+        margin: 0;
+        max-width: 928px;
+        color: #ffffff;
+        font-size: 114px;
+        line-height: 0.9;
+        font-weight: 950;
+        letter-spacing: -0.07em;
+      }
+
+      .headline.xl {
+        font-size: 136px;
+      }
+
+      .headline.compact {
+        max-width: 546px;
+        font-size: 86px;
+        line-height: 0.94;
+      }
+
+      .subhead {
+        margin: 0;
+        max-width: 764px;
+        color: #cccccc;
+        font-size: 37px;
+        line-height: 1.13;
+        font-weight: 540;
+        letter-spacing: -0.025em;
+      }
+
+      .subhead.tight {
+        max-width: 494px;
+        font-size: 30px;
+      }
+
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+      }
+
+      .tag {
+        min-height: 56px;
+        display: grid;
+        place-items: center;
+        padding: 0 20px;
+        border-radius: 999px;
+        color: #ffffff;
+        background: #1f1f1f;
+        border: 2px solid #474747;
+        font-size: 24px;
+        line-height: 1;
+        font-weight: 820;
+        letter-spacing: -0.018em;
+      }
+
+      .layout-hero {
+        flex: 1;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        align-items: end;
+      }
+
+      .layout-split {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 0.92fr 1.08fr;
+        align-items: center;
+        gap: 30px;
+      }
+
+      .layout-split.reverse {
+        grid-template-columns: 1.12fr 0.88fr;
+      }
+
+      .claim-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+
+      .device {
+        position: relative;
+        z-index: 5;
+        width: 492px;
+        height: 1068px;
+        border-radius: 78px;
+        padding: 18px;
+        background: #1f1f1f;
+        border: 3px solid #474747;
+        box-shadow:
+          0 54px 110px rgba(0, 0, 0, 0.62),
+          0 0 var(--device-glow) rgba(255, 255, 255, var(--glow-alpha));
+      }
+
+      .device::after {
+        content: "";
+        position: absolute;
+        inset: -8px;
+        z-index: -1;
+        border-radius: inherit;
+        border: 2px solid rgba(255, 255, 255, var(--glow-alpha));
+        opacity: 0.75;
+      }
+
+      .device.hero {
+        width: 500px;
+        height: 1086px;
+        justify-self: center;
+        margin-top: 20px;
+      }
+
+      .device.trends {
+        width: 516px;
+        height: 1120px;
+      }
+
+      .screen {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        border-radius: 60px;
+        background: #000000;
+      }
+
+      .device.hero .screen {
+        border-radius: 66px;
+      }
+
+      .screen-shot {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center top;
+      }
+
+      .screen-sheen {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: var(--sheen-alpha);
+        background:
+          linear-gradient(120deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 36%),
+          linear-gradient(0deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.12));
+      }
+
+      .callout {
+        position: absolute;
+        z-index: 8;
+        min-width: 282px;
+        padding: 22px 25px;
+        border-radius: 30px;
+        color: #ffffff;
+        background: #090909;
+        border: 2px solid #474747;
+        box-shadow: 0 28px 74px rgba(0, 0, 0, 0.34);
+      }
+
+      .callout-label {
+        color: #cccccc;
+        font-family: "SF Mono", Menlo, monospace;
+        font-size: 16px;
+        font-weight: 760;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .callout-value {
+        margin-top: 9px;
+        font-size: 34px;
+        line-height: 1;
+        font-weight: 920;
+        letter-spacing: -0.055em;
+      }
+
+      .metric-lane {
+        display: grid;
+        gap: 16px;
+      }
+
+      .metric-card {
+        min-height: 118px;
+        padding: 22px 24px;
+        border-radius: 28px;
+        background: #090909;
+        border: 2px solid #474747;
+      }
+
+      .metric-card.accent {
+        border-color: #f7c242;
+      }
+
+      .metric-number {
+        color: #ffffff;
+        font-family: "SF Mono", Menlo, monospace;
+        font-size: 56px;
+        line-height: 0.96;
+        font-weight: 920;
+        letter-spacing: -0.07em;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .metric-caption {
+        margin-top: 10px;
+        color: #cccccc;
+        font-size: 22px;
+        line-height: 1.12;
+        font-weight: 700;
+      }
+
+      .provider-panel {
+        display: grid;
+        gap: 14px;
+        padding: 24px;
+        border-radius: 34px;
+        background: #090909;
+        border: 2px solid #474747;
+      }
+
+      .provider-row {
+        min-height: 90px;
+        display: grid;
+        grid-template-columns: 58px 1fr;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 17px;
+        border-radius: 24px;
+        background: #1f1f1f;
+        border: 2px solid #474747;
+      }
+
+      .provider-mark {
+        width: 58px;
+        height: 58px;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 18px;
+        background: #090909;
+        border: 2px solid #474747;
+        padding: 8px;
+      }
+
+      .provider-mark.health {
+        padding: 5px;
+        background: #ffffff;
+        border-color: #d1d1d1;
+      }
+
+      .provider-logo {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .provider-logo.apple-health {
+        border-radius: 14px;
+      }
+
+      .provider-title {
+        color: #ffffff;
+        font-size: 24px;
+        line-height: 1;
+        font-weight: 880;
+        letter-spacing: -0.03em;
+      }
+
+      .provider-subtitle {
+        margin-top: 5px;
+        color: #cccccc;
+        font-size: 17px;
+        line-height: 1.15;
+        font-weight: 620;
+      }
+
+      .privacy-strip {
+        display: grid;
+        gap: 14px;
+      }
+
+      .privacy-line {
+        min-height: 68px;
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        align-items: center;
+        gap: 14px;
+        padding: 15px 18px;
+        border-radius: 22px;
+        color: #ffffff;
+        background: #090909;
+        border: 2px solid #474747;
+        font-size: 24px;
+        line-height: 1.08;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+      }
+
+      .check {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        color: #ffffff;
+        background: #1f1f1f;
+        border: 2px solid #474747;
+        font-size: 22px;
+        font-weight: 950;
+      }
+
+      .final-layout {
+        flex: 1;
+        display: grid;
+        align-content: center;
+        gap: 42px;
+      }
+
+      .brand-card {
+        display: grid;
+        grid-template-columns: 152px 1fr;
+        align-items: center;
+        gap: 30px;
+      }
+
+      .app-icon {
+        width: 152px;
+        height: 152px;
+        overflow: hidden;
+        border-radius: 42px;
+        background: #ffffff;
+        border: 2px solid #d1d1d1;
+      }
+
+      .app-icon img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+      }
+
+      .wordmark {
+        color: #ffffff;
+        font-size: 72px;
+        line-height: 0.9;
+        font-weight: 950;
+        letter-spacing: -0.07em;
+      }
+
+      .cta-title {
+        margin: 0;
+        max-width: 930px;
+        color: #ffffff;
+        font-size: 118px;
+        line-height: 0.92;
+        font-weight: 950;
+        letter-spacing: -0.07em;
+      }
+
+      .cta-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #cccccc;
+        font-size: 25px;
+        font-weight: 720;
+        letter-spacing: -0.02em;
+      }
+
+      .transition-slab {
+        position: absolute;
+        z-index: 20;
+        left: -18%;
+        top: 0;
+        width: 136%;
+        height: 100%;
+        background: #ffffff;
+        transform: translateY(110%) skewY(-8deg);
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .beat-rail {
+        position: absolute;
+        z-index: 18;
+        left: 78px;
+        right: 78px;
+        bottom: 72px;
+        height: 4px;
+        background: #ffffff;
+        opacity: var(--rail-opacity);
+        transform: scaleX(var(--rail-scale));
+        transform-origin: left center;
+        pointer-events: none;
+      }
+
+      #scene-1 .device {
+        margin-bottom: -146px;
+      }
+
+      #scene-2 .callout {
+        right: 56px;
+        top: 1184px;
+      }
+
+      #scene-3 .provider-panel {
+        margin-top: 18px;
+      }
+
+      #scene-4 .headline {
+        max-width: 492px;
+      }
+
+      #scene-5 .privacy-strip {
+        max-width: 846px;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-ahdx" id="root" data-composition-id="main" data-start="0" data-duration="31.25" data-width="1080" data-height="1920">
+      <audio data-hf-id="hf-i9kp" id="music-bed" data-start="0" data-duration="31.25" data-track-index="20" src="assets/music/time-flies-marble-cut.m4a" data-volume="0.86"></audio>
+
+      <section data-hf-id="hf-zs3w" id="scene-1" class="scene clip" data-start="0" data-duration="6.5" data-track-index="1">
+        <div data-hf-id="hf-4sys" class="texture" data-layout-ignore=""></div>
+        <div data-hf-id="hf-bpb3" class="marble-vein vein-a" data-layout-ignore=""></div>
+        <div data-hf-id="hf-6xbo" class="marble-vein vein-b" data-layout-ignore=""></div>
+        <div data-hf-id="hf-rhrd" class="ghost-word" data-layout-ignore="">LOCAL LOGBOOK</div>
+        <div data-hf-id="hf-cn5c" class="scene-content">
+          <div data-hf-id="hf-noog" class="top-label"><span data-hf-id="hf-0nbw">Marble for iPhone</span><span data-hf-id="hf-bm1k">Private by default</span></div>
+          <div data-hf-id="hf-tw5w" class="top-rule"></div>
+          <div data-hf-id="hf-8edz" class="layout-hero">
+            <div data-hf-id="hf-5zpb" class="claim-stack">
+              <h1 data-hf-id="hf-99l4" class="headline xl">Your training history, privately.</h1>
+              <p data-hf-id="hf-s6bj" class="subhead">Sets. Supplements. Progress.</p>
+              <div data-hf-id="hf-dpvb" class="tag-row">
+                <div data-hf-id="hf-ukkk" class="tag">Log fast</div>
+                <div data-hf-id="hf-gitk" class="tag">Stay local</div>
+              </div>
+            </div>
+            <div data-hf-id="hf-rkjr" class="device hero" id="hero-device">
+              <div data-hf-id="hf-cdmk" class="screen">
+                <img data-hf-id="hf-9r6x" class="screen-shot" src="assets/screens/journal-dark.png" alt="">
+                <div data-hf-id="hf-l27t" class="screen-sheen" data-layout-ignore=""></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-d2dl" id="scene-2" class="scene clip" data-start="6.25" data-duration="6.5" data-track-index="2">
+        <div data-hf-id="hf-yhy4" class="texture" data-layout-ignore=""></div>
+        <div data-hf-id="hf-0wv3" class="marble-vein vein-a" data-layout-ignore=""></div>
+        <div data-hf-id="hf-4irm" class="ghost-word" data-layout-ignore="">SAVE SET</div>
+        <div data-hf-id="hf-o0eg" class="scene-content">
+          <div data-hf-id="hf-ktqg" class="top-label"><span data-hf-id="hf-6ola">Fast set logging</span><span data-hf-id="hf-123h">8 beats</span></div>
+          <div data-hf-id="hf-p9gs" class="top-rule"></div>
+          <div data-hf-id="hf-fm39" class="layout-split">
+            <div data-hf-id="hf-m03j" class="claim-stack">
+              <h2 data-hf-id="hf-9fey" class="headline compact">Log the set. Keep moving.</h2>
+              <p data-hf-id="hf-i6vb" class="subhead tight">Last time, RPE, rest, PR targets.</p>
+              <div data-hf-id="hf-bdkr" class="metric-lane">
+                <div data-hf-id="hf-swxr" class="metric-card"><div data-hf-id="hf-x948" class="metric-number">185 lb</div><div data-hf-id="hf-4l93" class="metric-caption">last bench</div></div>
+                <div data-hf-id="hf-zghz" class="metric-card accent"><div data-hf-id="hf-yg5s" class="metric-number">PR</div><div data-hf-id="hf-cb0g" class="metric-caption">new best</div></div>
+              </div>
+            </div>
+            <div data-hf-id="hf-jhl1" class="device" id="log-device">
+              <div data-hf-id="hf-0hv8" class="screen">
+                <img data-hf-id="hf-y7mv" class="screen-shot" src="assets/screens/addset-dark.png" alt="">
+                <div data-hf-id="hf-qk3x" class="screen-sheen" data-layout-ignore=""></div>
+              </div>
+            </div>
+          </div>
+          <div data-hf-id="hf-wpou" class="callout" id="save-callout"><div data-hf-id="hf-iucs" class="callout-label">One clean action</div><div data-hf-id="hf-h9i5" class="callout-value">Save Set</div></div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-1msp" id="scene-3" class="scene clip" data-start="12.5" data-duration="6.5" data-track-index="3">
+        <div data-hf-id="hf-xb11" class="texture" data-layout-ignore=""></div>
+        <div data-hf-id="hf-9u18" class="marble-vein vein-b" data-layout-ignore=""></div>
+        <div data-hf-id="hf-rkd5" class="ghost-word" data-layout-ignore="">IMPORT ON PURPOSE</div>
+        <div data-hf-id="hf-mthd" class="scene-content">
+          <div data-hf-id="hf-jmtd" class="top-label"><span data-hf-id="hf-dxxr">Intentional import</span><span data-hf-id="hf-5agm">No silent sync</span></div>
+          <div data-hf-id="hf-o2jp" class="top-rule"></div>
+          <div data-hf-id="hf-dkpr" class="layout-split reverse">
+            <div data-hf-id="hf-dj0p" class="device" id="calendar-device">
+              <div data-hf-id="hf-zay5" class="screen">
+                <img data-hf-id="hf-85jo" class="screen-shot" src="assets/screens/calendar-dark.png" alt="">
+                <div data-hf-id="hf-rr10" class="screen-sheen" data-layout-ignore=""></div>
+              </div>
+            </div>
+            <div data-hf-id="hf-llsi" class="claim-stack">
+              <h2 data-hf-id="hf-sv6p" class="headline compact">Import on purpose.</h2>
+              <p data-hf-id="hf-2dx9" class="subhead tight">Health, Garmin via Health, Strava.</p>
+              <div data-hf-id="hf-s182" class="provider-panel">
+                <div data-hf-id="hf-vs8c" class="provider-row"><div data-hf-id="hf-hcqh" class="provider-mark health"><img data-hf-id="hf-health-logo" class="provider-logo apple-health" src="assets/logos/apple-health.svg" alt="Apple Health logo"></div><div data-hf-id="hf-yeow"><div data-hf-id="hf-pw2g" class="provider-title">Apple Health</div><div data-hf-id="hf-tqnh" class="provider-subtitle">Watch + bridge data</div></div></div>
+                <div data-hf-id="hf-lmpw" class="provider-row"><div data-hf-id="hf-drz8" class="provider-mark"><img data-hf-id="hf-garmin-logo" class="provider-logo" src="assets/logos/garmin.svg" alt="Garmin logo"></div><div data-hf-id="hf-y7yw"><div data-hf-id="hf-xuya" class="provider-title">Garmin via Health</div><div data-hf-id="hf-y50k" class="provider-subtitle">No Garmin login</div></div></div>
+                <div data-hf-id="hf-kfst" class="provider-row"><div data-hf-id="hf-90aw" class="provider-mark"><img data-hf-id="hf-strava-logo" class="provider-logo" src="assets/logos/strava.svg" alt="Strava logo"></div><div data-hf-id="hf-x11t"><div data-hf-id="hf-szil" class="provider-title">Strava</div><div data-hf-id="hf-ir26" class="provider-subtitle">OAuth summaries</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-0zpf" id="scene-4" class="scene clip" data-start="18.75" data-duration="6.5" data-track-index="4">
+        <div data-hf-id="hf-xpc2" class="texture" data-layout-ignore=""></div>
+        <div data-hf-id="hf-0ik2" class="marble-vein vein-a" data-layout-ignore=""></div>
+        <div data-hf-id="hf-sntq" class="ghost-word" data-layout-ignore="">CONSISTENCY VOLUME PRS</div>
+        <div data-hf-id="hf-n7se" class="scene-content">
+          <div data-hf-id="hf-k14e" class="top-label"><span data-hf-id="hf-od8l">Trends</span><span data-hf-id="hf-yjy2">Progress surfaces</span></div>
+          <div data-hf-id="hf-oguq" class="top-rule"></div>
+          <div data-hf-id="hf-jd1l" class="layout-split">
+            <div data-hf-id="hf-l7hh" class="claim-stack">
+              <h2 data-hf-id="hf-mhua" class="headline compact">See progress clearly.</h2>
+              <p data-hf-id="hf-m7f6" class="subhead tight">Volume, PRs, supplements, consistency.</p>
+              <div data-hf-id="hf-ovuf" class="tag-row">
+                <div data-hf-id="hf-c32k" class="tag">Consistency</div>
+                <div data-hf-id="hf-fyzu" class="tag">Volume</div>
+                <div data-hf-id="hf-cip3" class="tag">PRs</div>
+              </div>
+            </div>
+            <div data-hf-id="hf-gomr" class="device trends" id="trends-device">
+              <div data-hf-id="hf-zp96" class="screen">
+                <img data-hf-id="hf-uwz1" class="screen-shot" src="assets/screens/trends-dark.png" alt="" data-layout-allow-overflow="">
+                <div data-hf-id="hf-rcpz" class="screen-sheen" data-layout-ignore=""></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-liz6" id="scene-5" class="scene clip" data-start="25" data-duration="6.25" data-track-index="5">
+        <div data-hf-id="hf-zov7" class="texture" data-layout-ignore=""></div>
+        <div data-hf-id="hf-0491" class="marble-vein vein-a" data-layout-ignore=""></div>
+        <div data-hf-id="hf-8n45" class="marble-vein vein-b" data-layout-ignore=""></div>
+        <div data-hf-id="hf-n2xc" class="ghost-word" data-layout-ignore="">NO MARBLE SERVER</div>
+        <div data-hf-id="hf-m0vb" class="scene-content">
+          <div data-hf-id="hf-iu7b" class="top-label"><span data-hf-id="hf-l3zo">Marble</span><span data-hf-id="hf-hng5">Local-only</span></div>
+          <div data-hf-id="hf-qgdv" class="top-rule"></div>
+          <div data-hf-id="hf-pk5j" class="final-layout">
+            <div data-hf-id="hf-ay8i" class="brand-card">
+              <div data-hf-id="hf-6k4d" class="app-icon"><img data-hf-id="hf-grh4" src="assets/screens/app-icon.png" alt=""></div>
+              <div data-hf-id="hf-revy" class="wordmark">Marble for iPhone</div>
+            </div>
+            <h2 data-hf-id="hf-1myy" class="cta-title">Private training journal.</h2>
+            <div data-hf-id="hf-xezp" class="privacy-strip">
+              <div data-hf-id="hf-1kof" class="privacy-line"><div data-hf-id="hf-d02p" class="check">✓</div><div data-hf-id="hf-9l36">Log. Import. Progress.</div></div>
+              <div data-hf-id="hf-5r0v" class="privacy-line"><div data-hf-id="hf-rbg5" class="check">✓</div><div data-hf-id="hf-k1mu">Stored on iPhone.</div></div>
+              <div data-hf-id="hf-5cpu" class="privacy-line"><div data-hf-id="hf-sid8" class="check">✓</div><div data-hf-id="hf-dcwn">No Marble server.</div></div>
+            </div>
+            <div data-hf-id="hf-vbli" class="cta-footer"><span data-hf-id="hf-v74r">Built for calm training history</span><span data-hf-id="hf-4q3o">marble.fit</span></div>
+          </div>
+        </div>
+      </section>
+
+      <div data-hf-id="hf-al42" id="transition-slab" class="transition-slab"></div>
+      <div data-hf-id="hf-1kfj" id="beat-rail" class="beat-rail" data-layout-ignore=""></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script src="assets/music/marble-audio-data.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+
+      const tl = gsap.timeline({ paused: true, defaults: { overwrite: "auto" } });
+      const audio = window.MARBLE_AUDIO;
+      const root = document.getElementById("root");
+
+      tl.set("#scene-1", { opacity: 1 }, 0);
+      tl.set("#scene-2, #scene-3, #scene-4, #scene-5", { opacity: 0 }, 0);
+
+      function setAudioVars(frame) {
+        const kick = Math.max(frame.k, frame.o * 0.62);
+        const spark = Math.max(frame.h, frame.k * 0.72);
+        root.style.setProperty("--texture-opacity", (0.31 + frame.a * 0.16).toFixed(3));
+        root.style.setProperty("--vein-alpha", (0.28 + kick * 0.22).toFixed(3));
+        root.style.setProperty("--ghost-alpha", (0.05 + frame.m * 0.055).toFixed(3));
+        root.style.setProperty("--sheen-alpha", (0.12 + spark * 0.16).toFixed(3));
+        root.style.setProperty("--glow-alpha", (0.055 + kick * 0.20).toFixed(3));
+        root.style.setProperty("--device-glow", (14 + Math.round(kick * 78)) + "px");
+        root.style.setProperty("--rail-opacity", (0.12 + kick * 0.44).toFixed(3));
+        root.style.setProperty("--rail-scale", (0.24 + frame.a * 0.36 + kick * 0.36).toFixed(3));
+      }
+
+      for (let i = 0; i < audio.frames.length; i += 1) {
+        tl.call(((frame) => () => setAudioVars(frame))(audio.frames[i]), [], i / audio.fps);
+      }
+
+      function enterScene1(at) {
+        tl.fromTo("#scene-1 .top-label", { y: -34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.46, ease: "expo.out" }, at + 0.12);
+        tl.fromTo("#scene-1 .top-rule", { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 0.74, duration: 0.58, ease: "power4.out" }, at + 0.22);
+        tl.fromTo("#scene-1 .headline", { x: -76, opacity: 0 }, { x: 0, opacity: 1, duration: 0.7, ease: "circ.out" }, at + 0.25);
+        tl.fromTo("#scene-1 .subhead", { y: 38, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, at + 0.58);
+        tl.fromTo("#scene-1 .tag", { y: 28, opacity: 0, scale: 0.92 }, { y: 0, opacity: 1, scale: 1, duration: 0.35, ease: "back.out(1.45)", stagger: 0.055 }, at + 0.88);
+        tl.to("#scene-1 .marble-vein", { x: 72, scaleX: 1.08, duration: 2.7, ease: "sine.inOut" }, at);
+        tl.to("#scene-1 .texture", { x: -34, y: 26, duration: 2.8, ease: "sine.inOut" }, at);
+      }
+
+      function enterScene2(at) {
+        tl.fromTo("#scene-2 .top-label", { y: -34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.46, ease: "expo.out" }, at + 0.12);
+        tl.fromTo("#scene-2 .top-rule", { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 0.74, duration: 0.58, ease: "power4.out" }, at + 0.22);
+        tl.fromTo("#scene-2 .headline", { x: -76, opacity: 0 }, { x: 0, opacity: 1, duration: 0.7, ease: "circ.out" }, at + 0.25);
+        tl.fromTo("#scene-2 .subhead", { y: 38, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, at + 0.58);
+        tl.to("#scene-2 .marble-vein", { x: 72, scaleX: 1.08, duration: 2.7, ease: "sine.inOut" }, at);
+        tl.to("#scene-2 .texture", { x: -34, y: 26, duration: 2.8, ease: "sine.inOut" }, at);
+      }
+
+      function enterScene3(at) {
+        tl.fromTo("#scene-3 .top-label", { y: -34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.46, ease: "expo.out" }, at + 0.12);
+        tl.fromTo("#scene-3 .top-rule", { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 0.74, duration: 0.58, ease: "power4.out" }, at + 0.22);
+        tl.fromTo("#scene-3 .headline", { x: -76, opacity: 0 }, { x: 0, opacity: 1, duration: 0.7, ease: "circ.out" }, at + 0.25);
+        tl.fromTo("#scene-3 .subhead", { y: 38, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, at + 0.58);
+        tl.to("#scene-3 .marble-vein", { x: 72, scaleX: 1.08, duration: 2.7, ease: "sine.inOut" }, at);
+        tl.to("#scene-3 .texture", { x: -34, y: 26, duration: 2.8, ease: "sine.inOut" }, at);
+      }
+
+      function enterScene4(at) {
+        tl.fromTo("#scene-4 .top-label", { y: -34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.46, ease: "expo.out" }, at + 0.12);
+        tl.fromTo("#scene-4 .top-rule", { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 0.74, duration: 0.58, ease: "power4.out" }, at + 0.22);
+        tl.fromTo("#scene-4 .headline", { x: -76, opacity: 0 }, { x: 0, opacity: 1, duration: 0.7, ease: "circ.out" }, at + 0.25);
+        tl.fromTo("#scene-4 .subhead", { y: 38, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, at + 0.58);
+        tl.fromTo("#scene-4 .tag", { y: 28, opacity: 0, scale: 0.92 }, { y: 0, opacity: 1, scale: 1, duration: 0.35, ease: "back.out(1.45)", stagger: 0.055 }, at + 0.88);
+        tl.to("#scene-4 .marble-vein", { x: 72, scaleX: 1.08, duration: 2.7, ease: "sine.inOut" }, at);
+        tl.to("#scene-4 .texture", { x: -34, y: 26, duration: 2.8, ease: "sine.inOut" }, at);
+      }
+
+      function enterScene5(at) {
+        tl.fromTo("#scene-5 .top-label", { y: -34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.46, ease: "expo.out" }, at + 0.12);
+        tl.fromTo("#scene-5 .top-rule", { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 0.74, duration: 0.58, ease: "power4.out" }, at + 0.22);
+        tl.to("#scene-5 .marble-vein", { x: 72, scaleX: 1.08, duration: 2.7, ease: "sine.inOut" }, at);
+        tl.to("#scene-5 .texture", { x: -34, y: 26, duration: 2.8, ease: "sine.inOut" }, at);
+      }
+
+      function reveal(previousSelector, nextSelector, beatTime, direction) {
+        tl.fromTo("#transition-slab", { y: direction * 1120, opacity: 0 }, { y: 0, opacity: 0.24, duration: 0.18, ease: "power4.inOut" }, beatTime - 0.18);
+        tl.set(previousSelector, { opacity: 0 }, beatTime);
+        tl.set(nextSelector, { opacity: 1 }, beatTime);
+        tl.to("#transition-slab", { y: direction * -1120, opacity: 0, duration: 0.38, ease: "power4.inOut" }, beatTime + 0.04);
+      }
+
+      enterScene1(0);
+      tl.fromTo("#hero-device", { y: 126, opacity: 0, scale: 0.92, rotation: -2.2 }, { y: 0, opacity: 1, scale: 1, rotation: 0, duration: 1.05, ease: "expo.out" }, 1.02);
+      tl.to("#hero-device", { y: -24, duration: 4.29, ease: "sine.inOut" }, 2.08);
+
+      reveal("#scene-1", "#scene-2", 6.25, 1);
+      enterScene2(6.44);
+      tl.fromTo("#log-device", { x: 76, y: 92, opacity: 0, scale: 0.92, rotation: 2.2 }, { x: 0, y: 0, opacity: 1, scale: 1, rotation: 0, duration: 0.95, ease: "expo.out" }, 7.03);
+      tl.fromTo("#scene-2 .metric-card", { y: 28, opacity: 0, scale: 0.95 }, { y: 0, opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.2)", stagger: 0.13 }, 7.82);
+      tl.fromTo("#save-callout", { y: 42, opacity: 0, scale: 0.9 }, { y: 0, opacity: 1, scale: 1, duration: 0.48, ease: "back.out(1.35)" }, 8.6);
+      tl.to("#log-device", { y: -24, duration: 4.62, ease: "sine.inOut" }, 8.04);
+
+      reveal("#scene-2", "#scene-3", 12.5, -1);
+      enterScene3(12.7);
+      tl.fromTo("#calendar-device", { x: -88, y: 88, opacity: 0, scale: 0.92, rotation: -2.5 }, { x: 0, y: 0, opacity: 1, scale: 1, rotation: 0, duration: 0.95, ease: "expo.out" }, 13.28);
+      tl.fromTo("#scene-3 .provider-panel", { y: 38, opacity: 0, scale: 0.94 }, { y: 0, opacity: 1, scale: 1, duration: 0.58, ease: "power3.out" }, 14.06);
+      tl.fromTo("#scene-3 .provider-row", { x: 52, opacity: 0 }, { x: 0, opacity: 1, duration: 0.46, ease: "power3.out", stagger: 0.13 }, 14.54);
+      tl.fromTo("#scene-3 .provider-logo", { scale: 0.72, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.34, ease: "back.out(1.65)", stagger: 0.13 }, 14.66);
+      tl.to("#calendar-device", { y: -26, duration: 4.2, ease: "sine.inOut" }, 14.24);
+
+      reveal("#scene-3", "#scene-4", 18.75, 1);
+      enterScene4(18.94);
+      tl.fromTo("#trends-device", { x: 82, y: 94, opacity: 0, scale: 0.92, rotation: 2.5 }, { x: 0, y: 0, opacity: 1, scale: 1, rotation: 0, duration: 0.95, ease: "expo.out" }, 19.54);
+      tl.to("#trends-device .screen-shot", { y: -130, duration: 4.6, ease: "sine.inOut" }, 20.92);
+      tl.to("#trends-device", { y: -22, duration: 3.82, ease: "sine.inOut" }, 20.5);
+
+      reveal("#scene-4", "#scene-5", 25, -1);
+      enterScene5(25.18);
+      tl.fromTo("#scene-5 .brand-card", { y: 50, opacity: 0, scale: 0.94 }, { y: 0, opacity: 1, scale: 1, duration: 0.62, ease: "back.out(1.25)" }, 25.72);
+      tl.fromTo("#scene-5 .cta-title", { x: -84, opacity: 0 }, { x: 0, opacity: 1, duration: 0.78, ease: "circ.out" }, 26.32);
+      tl.fromTo("#scene-5 .privacy-line", { x: -42, opacity: 0 }, { x: 0, opacity: 1, duration: 0.42, ease: "power2.out", stagger: 0.15 }, 27.38);
+      tl.fromTo("#scene-5 .cta-footer", { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 0.48, ease: "sine.out" }, 29.1);
+      tl.to("#scene-5 .app-icon", { scale: 1.045, duration: 1.56, yoyo: true, repeat: 2, ease: "sine.inOut" }, 28.12);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
