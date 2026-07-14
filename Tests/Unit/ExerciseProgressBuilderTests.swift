@@ -251,4 +251,122 @@ final class ExerciseProgressBuilderTests: MarbleTestCase {
         XCTAssertEqual(bests?.heaviestEntry?.weightUnit, .kg)
     }
 
+    /// The progress line must not invert on mixed lb/kg history.
+    ///
+    /// Importing from Apple Health stamps every set `.kg` while manual logging
+    /// defaults to `.lb`, so mixed units are the *default* state for a US lifter
+    /// who does both. Scoring raw weight drew 100 kg -> 185 lb as a rise from
+    /// 100 to 185 (+85%) when the lifter had actually gone 220.5 lb -> 185 lb.
+    func testWeightedProgressDoesNotInvertAcrossMixedUnits() {
+        let exercise = Exercise(
+            name: "Bench",
+            category: .chest,
+            metrics: .weightAndRepsRequired,
+            defaultRestSeconds: 90
+        )
+        let importedInKilograms = SetEntry(
+            exercise: exercise,
+            performedAt: date(daysFromNow: -1, hour: 9, minute: 0),
+            weight: 100,
+            weightUnit: .kg,
+            reps: 5,
+            durationSeconds: nil,
+            difficulty: 8,
+            restAfterSeconds: 90
+        )
+        let loggedInPounds = SetEntry(
+            exercise: exercise,
+            performedAt: date(daysFromNow: 0, hour: 9, minute: 0),
+            weight: 185,
+            weightUnit: .lb,
+            reps: 5,
+            durationSeconds: nil,
+            difficulty: 8,
+            restAfterSeconds: 90
+        )
+
+        let points = ExerciseProgressBuilder.buildPoints(
+            entries: [importedInKilograms, loggedInPounds],
+            exercise: exercise,
+            range: .all,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(points.count, 2)
+        // Most recent set is in pounds, so the series is plotted in pounds.
+        XCTAssertEqual(points[0].score, 220.46226218487757, accuracy: 0.001, "100 kg shown as lb")
+        XCTAssertEqual(points[1].score, 185.0, accuracy: 0.001)
+        XCTAssertLessThan(points[1].score, points[0].score, "185 lb is lighter than 100 kg — the line must fall")
+    }
+
+    /// Within a single day, the heaviest set wins on true weight, not on the
+    /// larger raw number: 100 kg must beat 185 lb even though 185 > 100.
+    func testWeightedBestSetComparesAcrossUnitsWithinADay() {
+        let exercise = Exercise(
+            name: "Bench",
+            category: .chest,
+            metrics: .weightAndRepsRequired,
+            defaultRestSeconds: 90
+        )
+        let heavierInKilograms = SetEntry(
+            exercise: exercise,
+            performedAt: date(daysFromNow: 0, hour: 9, minute: 0),
+            weight: 100,
+            weightUnit: .kg,
+            reps: 5,
+            durationSeconds: nil,
+            difficulty: 8,
+            restAfterSeconds: 90
+        )
+        let lighterInPounds = SetEntry(
+            exercise: exercise,
+            performedAt: date(daysFromNow: 0, hour: 9, minute: 30),
+            weight: 185,
+            weightUnit: .lb,
+            reps: 5,
+            durationSeconds: nil,
+            difficulty: 8,
+            restAfterSeconds: 90
+        )
+
+        let points = ExerciseProgressBuilder.buildPoints(
+            entries: [heavierInKilograms, lighterInPounds],
+            exercise: exercise,
+            range: .all,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(points.count, 1)
+        XCTAssertEqual(points.first?.bestSetSummary, "100 kg \(timesSymbol) 5", "the 100 kg set is the day's best")
+    }
+
+    /// A single-unit history must survive verbatim — no kg round-trip noise.
+    /// (185 lb -> kg -> lb yields 185.00000000000003.)
+    func testSingleUnitProgressKeepsExactLoggedWeight() {
+        let exercise = Exercise(
+            name: "Bench",
+            category: .chest,
+            metrics: .weightAndRepsRequired,
+            defaultRestSeconds: 90
+        )
+        let entry = SetEntry(
+            exercise: exercise,
+            performedAt: date(daysFromNow: 0, hour: 9, minute: 0),
+            weight: 185,
+            weightUnit: .lb,
+            reps: 5,
+            durationSeconds: nil,
+            difficulty: 8,
+            restAfterSeconds: 90
+        )
+
+        let points = ExerciseProgressBuilder.buildPoints(
+            entries: [entry],
+            exercise: exercise,
+            range: .all,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(points.first?.score, 185.0)
+    }
 }

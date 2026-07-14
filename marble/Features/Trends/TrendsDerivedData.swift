@@ -147,7 +147,10 @@ struct TrendsDerivedData {
 
             for item in items {
                 if let weight = item.weight, let reps = item.reps {
-                    weightedVolume += weight * Double(reps)
+                    // Sum in kilograms. Adding raw lb to raw kg makes a 200 lb week
+                    // (90.7 kg) outrank a 100 kg week and hands it the volume PR dot —
+                    // the same normalization MonthlyReport.volume already applies.
+                    weightedVolume += PersonalRecords.kilograms(weight, unit: item.weightUnit) * Double(reps)
                 } else if let reps = item.reps {
                     repsVolume += reps
                 }

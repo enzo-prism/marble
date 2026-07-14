@@ -41,6 +41,12 @@ enum ExerciseProgressBuilder {
             calendar.startOfDay(for: entry.performedAt)
         }
 
+        // Weighted series are scored in kilograms so mixed lb/kg history compares
+        // correctly. Plot them back in whatever unit the lifter used most recently,
+        // so an all-lb user still reads their own numbers on the axis — the same
+        // display contract LifterAnalytics.oneRepMaxSeries uses.
+        let displayUnit = metric == .weighted ? latestWeightUnit(in: filtered) : nil
+
         return grouped.keys.sorted().compactMap { day in
             guard let dayEntries = grouped[day],
                   let best = bestSet(in: dayEntries, metric: metric) else {
@@ -48,12 +54,39 @@ enum ExerciseProgressBuilder {
             }
             return ExerciseProgressPoint(
                 date: day,
-                score: best.score,
+                score: displayScore(for: best, displayUnit: displayUnit),
                 bestSetSummary: best.bestSetSummary,
                 scoreSummary: best.scoreSummary,
                 entry: best.entry
             )
         }
+    }
+
+    /// The kilogram-scored `best` expressed in `displayUnit`.
+    ///
+    /// Returns the logged weight verbatim when it was already recorded in the display
+    /// unit — the overwhelmingly common single-unit case. Round-tripping it through
+    /// kilograms is lossy (185 lb → kg → lb yields 185.00000000000003), and a lifter
+    /// who logged 185 should get back exactly 185.
+    private static func displayScore(for best: BestSet, displayUnit: WeightUnit?) -> Double {
+        guard let displayUnit else { return best.score }
+        if let weight = best.entry.weight, best.entry.weightUnit == displayUnit {
+            return weight
+        }
+        return LifterAnalytics.displayWeight(fromKilograms: best.score, in: displayUnit)
+    }
+
+    /// The weight unit of the most recently performed set that actually has a weight.
+    private static func latestWeightUnit(in entries: [SetEntry]) -> WeightUnit? {
+        var unit: WeightUnit?
+        var latest = Date.distantPast
+        for entry in entries where entry.weight != nil {
+            if entry.performedAt >= latest {
+                latest = entry.performedAt
+                unit = entry.weightUnit
+            }
+        }
+        return unit
     }
 
     static func buildLiftBests(
@@ -151,15 +184,20 @@ enum ExerciseProgressBuilder {
         return candidates.max(by: { $0.score < $1.score })
     }
 
+    /// Scores in **kilograms**, like `distanceBestSet` scores in meters. Raw weights
+    /// can't be compared across units: 185 lb (83.9 kg) would outrank a 100 kg set,
+    /// inverting both the day's "best set" and the chart's trend line. `buildPoints`
+    /// converts the finished series back into the lifter's own unit for display.
     private static func weightedBestSet(for entry: SetEntry) -> BestSet? {
         guard let weight = entry.weight else { return nil }
+        let kilograms = PersonalRecords.kilograms(weight, unit: entry.weightUnit)
         let weightText = entry.exercise.formattedWeightSummary(weight, unit: entry.weightUnit)
         if let reps = entry.reps {
             let bestSetSummary = "\(weightText) \(timesSymbol) \(reps)"
             let scoreSummary = "\(reps) reps"
-            return BestSet(entry: entry, score: weight, bestSetSummary: bestSetSummary, scoreSummary: scoreSummary)
+            return BestSet(entry: entry, score: kilograms, bestSetSummary: bestSetSummary, scoreSummary: scoreSummary)
         }
-        return BestSet(entry: entry, score: weight, bestSetSummary: weightText, scoreSummary: nil)
+        return BestSet(entry: entry, score: kilograms, bestSetSummary: weightText, scoreSummary: nil)
     }
 
     private static func repsBestSet(for entry: SetEntry) -> BestSet? {
