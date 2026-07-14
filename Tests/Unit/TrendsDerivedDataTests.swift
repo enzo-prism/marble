@@ -16,6 +16,38 @@ final class TrendsDerivedDataTests: MarbleTestCase {
         return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
     }
 
+    /// Weekly volume must sum in kilograms. Raw `weight * reps` adds pounds to
+    /// kilograms, which inflates a pound-logged week by ~2.2x — enough to make a
+    /// *lighter* week render as the taller bar and steal the volume PR dot.
+    /// `MonthlyReport.volume` already normalizes; this pins the same rule here.
+    func testWeeklyVolumeNormalizesUnitsBeforeSumming() {
+        let exercise = bench()
+        // Same real volume expressed two ways: 100 kg x 5 == 500 kg.
+        // 220.462 lb x 5 is the same 500 kg, so both weeks must score equally.
+        let kgWeek = SetEntry(exercise: exercise, performedAt: date(daysFromNow: -8, hour: 9, minute: 0), weight: 100, weightUnit: .kg, reps: 5, restAfterSeconds: 90)
+        let lbWeek = SetEntry(exercise: exercise, performedAt: date(daysFromNow: 0, hour: 9, minute: 0), weight: 220.46226218487757, weightUnit: .lb, reps: 5, restAfterSeconds: 90)
+
+        let derived = TrendsDerivedData.build(
+            entries: [kgWeek, lbWeek],
+            supplementEntries: [],
+            historyEntries: [kgWeek, lbWeek],
+            selectedExercise: nil,
+            selectedSupplementType: nil,
+            range: .all,
+            calendar: calendar,
+            now: now
+        )
+
+        let volumes = derived.volumeData.map(\.value)
+        XCTAssertEqual(volumes.count, 2, "expected one bar per week")
+        for volume in volumes {
+            XCTAssertEqual(volume, 500.0, accuracy: 0.001, "each week is 500 kg of work")
+        }
+        // Without normalization the lb week scores 1102.3 and the kg week 500 —
+        // a 2.2x phantom gain from re-logging identical work in another unit.
+        XCTAssertEqual(volumes[0], volumes[1], accuracy: 0.001)
+    }
+
     func testBuildsWeightAndRepsBestsFromFilteredEntries() {
         let exercise = bench()
         let lighter = SetEntry(exercise: exercise, performedAt: date(daysFromNow: -1, hour: 9, minute: 0), weight: 135, weightUnit: .lb, reps: 5, restAfterSeconds: 90)
