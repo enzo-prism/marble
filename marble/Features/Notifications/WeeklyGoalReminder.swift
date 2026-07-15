@@ -57,7 +57,8 @@ enum WeeklyGoalReminder {
     /// Recomputes and replaces the pending nudge. Call on app foreground and
     /// background — cheap (one indexed fetch) and idempotent.
     @MainActor
-    static func sync(modelContext: ModelContext, now: Date = AppEnvironment.now) async {
+    static func sync(modelContext: ModelContext, now suppliedNow: Date? = nil) async {
+        let now = suppliedNow ?? AppEnvironment.now
         guard !TestHooks.isUITesting else { return }
         guard UserDefaults.standard.object(forKey: enabledDefaultsKey) as? Bool ?? true else {
             removePending()

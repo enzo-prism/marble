@@ -41,11 +41,11 @@ final class HealthAutoImportService {
 
     init(
         defaults: UserDefaults = .standard,
-        now: @escaping () -> Date = { AppEnvironment.now },
+        now: (() -> Date)? = nil,
         fetchNewRecords: FetchNewRecords? = nil
     ) {
         self.defaults = defaults
-        self.now = now
+        self.now = now ?? { AppEnvironment.now }
         self.fetchNewRecords = fetchNewRecords ?? { anchor, notBefore in
             try await HealthKitWorkoutProvider().fetchNewWorkouts(sinceAnchor: anchor, notBefore: notBefore)
         }

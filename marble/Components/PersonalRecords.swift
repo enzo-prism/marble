@@ -64,14 +64,14 @@ struct ExercisePersonalRecords {
 /// Pure, unit-testable engine for personal-record detection.
 enum PersonalRecords {
     /// Float tolerance so re-logging an identical weight isn't counted as a new record.
-    static let weightEpsilon = 0.0001
+    nonisolated static let weightEpsilon = 0.0001
     /// How many recent sets define the "usual" range.
     static let usualWindow = 10
     /// Pounds → kilograms (exact NIST factor) for unit-agnostic comparison.
-    private static let poundsToKilograms = 0.45359237
+    nonisolated private static let poundsToKilograms = 0.45359237
 
     /// Normalizes a weight to kilograms so records compare correctly across lb/kg.
-    static func kilograms(_ weight: Double, unit: WeightUnit) -> Double {
+    nonisolated static func kilograms(_ weight: Double, unit: WeightUnit) -> Double {
         switch unit {
         case .kg: return weight
         case .lb: return weight * poundsToKilograms
@@ -287,13 +287,13 @@ enum PersonalRecords {
 
     // MARK: - Ordering helpers
 
-    private static func isChronologicallyBefore(_ lhs: SetEntry, _ rhs: SetEntry) -> Bool {
+    nonisolated private static func isChronologicallyBefore(_ lhs: SetEntry, _ rhs: SetEntry) -> Bool {
         if lhs.performedAt != rhs.performedAt { return lhs.performedAt < rhs.performedAt }
         if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
         return lhs.id.uuidString < rhs.id.uuidString
     }
 
-    private static func heaviestIsLessThan(_ lhs: SetEntry, _ rhs: SetEntry) -> Bool {
+    nonisolated private static func heaviestIsLessThan(_ lhs: SetEntry, _ rhs: SetEntry) -> Bool {
         let lk = kilograms(lhs.weight ?? 0, unit: lhs.weightUnit)
         let rk = kilograms(rhs.weight ?? 0, unit: rhs.weightUnit)
         if abs(lk - rk) > weightEpsilon { return lk < rk }
@@ -301,7 +301,7 @@ enum PersonalRecords {
         return lhs.performedAt < rhs.performedAt
     }
 
-    private static func mostRepsIsLessThan(_ lhs: SetEntry, _ rhs: SetEntry) -> Bool {
+    nonisolated private static func mostRepsIsLessThan(_ lhs: SetEntry, _ rhs: SetEntry) -> Bool {
         let lr = lhs.reps ?? 0
         let rr = rhs.reps ?? 0
         if lr != rr { return lr < rr }

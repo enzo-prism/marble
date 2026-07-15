@@ -63,7 +63,8 @@ final class HealthSessionExporter {
 
     /// Exports any completed, not-yet-exported training days. Cheap no-op when
     /// disabled; safe to call on every foreground/background transition.
-    func exportIfEnabled(from modelContext: ModelContext, now: Date = AppEnvironment.now) async {
+    func exportIfEnabled(from modelContext: ModelContext, now suppliedNow: Date? = nil) async {
+        let now = suppliedNow ?? AppEnvironment.now
         guard isEnabled, !TestHooks.isUITesting else { return }
         guard HKHealthStore.isHealthDataAvailable() else { return }
         guard healthStore.authorizationStatus(for: HKObjectType.workoutType()) == .sharingAuthorized else { return }

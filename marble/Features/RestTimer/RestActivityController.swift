@@ -72,7 +72,8 @@ final class RestActivityController {
 
     /// Clears a rest that expired while the auto-end task couldn't run (the app
     /// was suspended mid-rest). Called when the scene becomes active again.
-    func pruneExpiredRest(now: Date = AppEnvironment.now) {
+    func pruneExpiredRest(now suppliedNow: Date? = nil) {
+        let now = suppliedNow ?? AppEnvironment.now
         guard let activeRest, activeRest.endsAt <= now else { return }
         endTask?.cancel()
         self.activeRest = nil

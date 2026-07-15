@@ -316,7 +316,7 @@ struct DoubleProgressionHintView: View {
 
     var body: some View {
         Label {
-            (Text(hint.evidence).fontWeight(.semibold) + Text(" — \(hint.suggestion)."))
+            Text("\(Text(hint.evidence).fontWeight(.semibold)) — \(hint.suggestion).")
                 .font(MarbleTypography.rowMeta)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
