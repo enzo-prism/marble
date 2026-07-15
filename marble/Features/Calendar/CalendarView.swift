@@ -6,6 +6,7 @@ struct CalendarView: View {
     @Environment(QuickLogCoordinator.self) private var quickLog
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.marbleActiveDay) private var activeDay
 
     @Query(sort: \SetEntry.performedAt, order: .reverse)
@@ -40,7 +41,7 @@ struct CalendarView: View {
                 ScrollView {
                     let derived = deriveCalendarData()
                     VStack(alignment: .leading, spacing: MarbleSpacing.m) {
-                        if TestHooks.isUITesting && !TestHooks.isAccessibilityAudit {
+                        if TestHooks.isUITesting && !TestHooks.isAccessibilityAudit && !TestHooks.isAppStoreScreenshotting {
                             testControlsRow
                         }
 
@@ -392,23 +393,35 @@ struct CalendarView: View {
                 .accessibilityHidden(true)
 
             ZStack {
-                CalendarRepresentable(
-                    activeDays: activeDays,
-                    visibleMonth: visibleMonth,
-                    onSelect: { components in
-                        guard let components, let date = calendar.date(from: components) else {
-                            selectedDay = nil
-                            selectedDate = nil
-                            return
+                if horizontalSizeClass == .regular {
+                    RegularWidthCalendarGrid(
+                        activeDays: activeDays,
+                        visibleMonth: $visibleMonth,
+                        onSelect: { components in
+                            guard let date = calendar.date(from: components) else { return }
+                            selectedDate = date
+                            presentDaySheet(for: date)
                         }
-                        selectedDate = date
-                        presentDaySheet(for: date)
-                    },
-                    onVisibleMonthChange: { components in
-                        visibleMonth = components
-                    }
-                )
-                .frame(maxWidth: .infinity)
+                    )
+                    .frame(maxWidth: 620)
+                } else {
+                    CalendarRepresentable(
+                        activeDays: activeDays,
+                        visibleMonth: visibleMonth,
+                        onSelect: { components in
+                            guard let components, let date = calendar.date(from: components) else {
+                                selectedDay = nil
+                                selectedDate = nil
+                                return
+                            }
+                            selectedDate = date
+                            presentDaySheet(for: date)
+                        },
+                        onVisibleMonthChange: { components in
+                            visibleMonth = components
+                        }
+                    )
+                }
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("Calendar.View")
@@ -434,6 +447,132 @@ struct CalendarView: View {
         )
     }
 
+}
+
+private struct RegularWidthCalendarGrid: View {
+    let activeDays: Set<CalendarDayKey>
+    @Binding var visibleMonth: DateComponents
+    let onSelect: (DateComponents) -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let calendar = Calendar.current
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: MarbleSpacing.xs), count: 7)
+
+    var body: some View {
+        VStack(spacing: MarbleSpacing.m) {
+            HStack {
+                Text(monthTitle)
+                    .font(MarbleTypography.rowTitle)
+                    .accessibilityIdentifier("Calendar.MonthTitle")
+                Spacer()
+                Button("Previous month", systemImage: "chevron.left") {
+                    moveMonth(by: -1)
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("Calendar.PreviousMonth")
+                Button("Next month", systemImage: "chevron.right") {
+                    moveMonth(by: 1)
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("Calendar.NextMonth")
+            }
+
+            LazyVGrid(columns: columns, spacing: MarbleSpacing.xs) {
+                ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
+                    Text(symbol.uppercased())
+                        .font(MarbleTypography.smallLabel)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .frame(maxWidth: .infinity)
+                }
+
+                ForEach(0..<leadingBlankCount, id: \.self) { _ in
+                    Color.clear
+                        .frame(height: 50)
+                        .accessibilityHidden(true)
+                }
+
+                ForEach(days, id: \.self) { day in
+                    Button {
+                        onSelect(components(for: day))
+                    } label: {
+                        VStack(spacing: MarbleSpacing.xxxs) {
+                            Text("\(day)")
+                                .font(MarbleTypography.rowSubtitle.monospacedDigit())
+                                .frame(width: 34, height: 34)
+                                .foregroundStyle(isToday(day) ? Theme.backgroundColor(for: colorScheme) : Theme.primaryTextColor(for: colorScheme))
+                                .background {
+                                    if isToday(day) {
+                                        Circle().fill(Theme.primaryTextColor(for: colorScheme))
+                                    }
+                                }
+                            Circle()
+                                .fill(Theme.secondaryTextColor(for: colorScheme))
+                                .frame(width: 5, height: 5)
+                                .opacity(isActive(day) ? 1 : 0)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(accessibilityLabel(for: day))
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("Calendar.View")
+    }
+
+    private var monthDate: Date {
+        calendar.date(from: visibleMonth) ?? AppEnvironment.now
+    }
+
+    private var monthTitle: String {
+        monthDate.formatted(.dateTime.month(.wide).year())
+    }
+
+    private var days: [Int] {
+        guard let range = calendar.range(of: .day, in: .month, for: monthDate) else { return [] }
+        return Array(range)
+    }
+
+    private var leadingBlankCount: Int {
+        guard let interval = calendar.dateInterval(of: .month, for: monthDate) else { return 0 }
+        let weekday = calendar.component(.weekday, from: interval.start)
+        return (weekday - calendar.firstWeekday + 7) % 7
+    }
+
+    private var weekdaySymbols: [String] {
+        let symbols = calendar.veryShortStandaloneWeekdaySymbols
+        let offset = max(0, min(symbols.count - 1, calendar.firstWeekday - 1))
+        return Array(symbols[offset...] + symbols[..<offset])
+    }
+
+    private func components(for day: Int) -> DateComponents {
+        DateComponents(year: visibleMonth.year, month: visibleMonth.month, day: day)
+    }
+
+    private func isActive(_ day: Int) -> Bool {
+        CalendarDayKey(dateComponents: components(for: day)).map(activeDays.contains) ?? false
+    }
+
+    private func isToday(_ day: Int) -> Bool {
+        guard let date = calendar.date(from: components(for: day)) else { return false }
+        return calendar.isDate(date, inSameDayAs: AppEnvironment.now)
+    }
+
+    private func accessibilityLabel(for day: Int) -> String {
+        guard let date = calendar.date(from: components(for: day)) else { return "Day \(day)" }
+        let active = isActive(day) ? ", workout logged" : ""
+        return date.formatted(.dateTime.weekday(.wide).month(.wide).day().year()) + active
+    }
+
+    private func moveMonth(by offset: Int) {
+        guard let date = calendar.date(byAdding: .month, value: offset, to: monthDate) else { return }
+        visibleMonth = calendar.dateComponents([.year, .month], from: date)
+    }
 }
 
 private struct CalendarSelection: Identifiable {

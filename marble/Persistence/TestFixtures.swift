@@ -201,6 +201,27 @@ enum TestFixtures {
         let exerciseByName = Dictionary(uniqueKeysWithValues: exercises.map { ($0.name, $0) })
         let calendar = Calendar.current
 
+        // App Store captures deliberately demonstrate Marble's user-selectable
+        // emoji icons. Keep this screenshot-only so the default library still
+        // starts with the system symbols a new user expects.
+        let screenshotEmojiByExercise: [String: String] = [
+            "Bench Press": "🏋️", "Push Ups": "🤸", "DB Pec Fly": "🪽",
+            "Cable Pec Fly": "🪽", "Dips": "🦾", "Shoulder Press": "💪",
+            "Rear Delt Fly": "🪽", "Cable Face Pull": "🎯", "Squat": "🦵",
+            "Single Leg Squat": "🦵", "Good Morning": "🌅", "Calf Raises": "🦵",
+            "Calf Raises (Seated)": "🦵", "Glute Bridge": "🌉", "Jump Squat": "🦘",
+            "Hang Clean": "🏋️", "Power Clean": "🏋️", "Hang Snatch": "🏋️",
+            "Power Snatch": "🏋️", "Sprint": "💨", "Pogo Hops": "🦘", "Run": "🏃",
+            "Deadlift": "🏋️", "Bent Over DB Row": "🚣", "Cable Row": "🚣",
+            "Lat Pulldown": "🧗", "Lat Pushdown": "💪", "Toe Touches": "🦶",
+            "Leg Lifts": "🦵", "Crunches": "🔥", "Side Flex": "↔️", "Back Flex": "🧘",
+            "Bicycles": "🚲", "Scissors": "✂️", "Plank": "🧱", "Pull Ups": "🧗",
+            "True Bubka": "🤸", "Wipers": "🧹", "Down Pressure": "⬇️", "Sauna": "🧖"
+        ]
+        for exercise in exercises {
+            exercise.setCustomIconEmoji(screenshotEmojiByExercise[exercise.name])
+        }
+
         func at(daysAgo: Int, hour: Int, minute: Int) -> Date {
             let start = calendar.startOfDay(for: now)
             let day = calendar.date(byAdding: .day, value: -daysAgo, to: start) ?? start
@@ -219,11 +240,12 @@ enum TestFixtures {
         }
 
         var minuteCursor = 0
+        var seededEntries: [SetEntry] = []
         func insert(_ set: ScreenshotSet, daysAgo: Int) {
             guard let exercise = exerciseByName[set.exercise] else { return }
             let performedAt = at(daysAgo: daysAgo, hour: 7 + minuteCursor / 60, minute: 30 + minuteCursor % 60)
             minuteCursor += 4
-            context.insert(SetEntry(
+            let entry = SetEntry(
                 exercise: exercise,
                 performedAt: performedAt,
                 weight: set.weight,
@@ -237,7 +259,9 @@ enum TestFixtures {
                 notes: set.notes,
                 createdAt: performedAt,
                 updatedAt: performedAt
-            ))
+            )
+            context.insert(entry)
+            seededEntries.append(entry)
         }
 
         for daysAgo in 0...34 {
@@ -292,8 +316,10 @@ enum TestFixtures {
         // Most recent entry is a run so the quick-log card and set logger
         // showcase distance + time logging.
         if let run = exerciseByName["Run"] {
-            let performedAt = at(daysAgo: 0, hour: 10, minute: 5)
-            context.insert(SetEntry(
+            // Keep the newest entry before the fixed 9:41 App Store status-bar
+            // time so the fictional journal never appears to log the future.
+            let performedAt = at(daysAgo: 0, hour: 9, minute: 5)
+            let entry = SetEntry(
                 exercise: run,
                 performedAt: performedAt,
                 weight: nil,
@@ -307,8 +333,80 @@ enum TestFixtures {
                 notes: "Easy 5K",
                 createdAt: performedAt,
                 updatedAt: performedAt
-            ))
+            )
+            context.insert(entry)
+            seededEntries.append(entry)
         }
+
+        // A frozen sprint plan and completed reps make the sprint logger and
+        // historical goal badges truthful, deterministic marketing surfaces.
+        if let sprint = exerciseByName["Sprint"] {
+            let prescription = SprintPrescription(
+                exerciseID: sprint.id,
+                distance: 100,
+                repetitionCount: 4,
+                targetLowerSeconds: 14,
+                targetUpperSeconds: 16,
+                createdAt: at(daysAgo: 6, hour: 7, minute: 0),
+                updatedAt: at(daysAgo: 0, hour: 6, minute: 45)
+            )
+            context.insert(prescription)
+
+            // Two completed reps from the prior session demonstrate immutable
+            // goal snapshots in history; today's logger starts a fresh 4-rep
+            // prescription sequence.
+            for repetition in 1...2 {
+                let performedAt = at(daysAgo: 1, hour: 7, minute: 30 + repetition * 4)
+                let entry = SetEntry(
+                    exercise: sprint,
+                    performedAt: performedAt,
+                    distance: 100,
+                    distanceUnit: .meters,
+                    durationSeconds: [15, 15, 16, 15][repetition - 1],
+                    difficulty: 8,
+                    restAfterSeconds: 60,
+                    notes: repetition == 4 ? "Strong finish" : nil,
+                    createdAt: performedAt,
+                    updatedAt: performedAt
+                )
+                context.insert(entry)
+                seededEntries.append(entry)
+                context.insert(SprintGoalSnapshot(
+                    setEntryID: entry.id,
+                    exerciseID: sprint.id,
+                    distance: 100,
+                    distanceUnit: .meters,
+                    repetitionNumber: repetition,
+                    repetitionCount: 4,
+                    targetLowerSeconds: 14,
+                    targetUpperSeconds: 16,
+                    createdAt: performedAt
+                ))
+            }
+        }
+
+        // Show the session-led Workout tab in action without changing Journal
+        // chronology. The chosen exercises match the Wednesday sample plan.
+        let sessionEntries = seededEntries.filter {
+            calendar.isDate($0.performedAt, inSameDayAs: now) &&
+                ["Squat", "Calf Raises", "Plank"].contains($0.exercise.name)
+        }.prefix(4)
+        context.insert(WorkoutSession(
+            title: "Leg Day",
+            startedAt: at(daysAgo: 0, hour: 8, minute: 40),
+            notes: "Strength + core",
+            createdAt: at(daysAgo: 0, hour: 8, minute: 40),
+            updatedAt: at(daysAgo: 0, hour: 9, minute: 0),
+            entries: Array(sessionEntries)
+        ))
+
+        // Seed a real import receipt so the import hub demonstrates Garmin via
+        // Apple Health using fictional data instead of an empty connection UI.
+        seedImportedWorkout(
+            in: context,
+            at: at(daysAgo: 2, hour: 6, minute: 45),
+            customIconEmoji: "🏃"
+        )
 
         let supplements = (try? context.fetch(FetchDescriptor<SupplementType>())) ?? []
         let supplementsByName = Dictionary(uniqueKeysWithValues: supplements.map { ($0.name, $0) })
@@ -347,10 +445,15 @@ enum TestFixtures {
     /// Health) with its linked journal entry, so UI tests and audits can walk
     /// the journal's imported badge, the set detail's imported section, and
     /// the import hub's history + detail sheet.
-    private static func seedImportedWorkout(in context: ModelContext, at date: Date) {
+    private static func seedImportedWorkout(
+        in context: ModelContext,
+        at date: Date,
+        customIconEmoji: String? = nil
+    ) {
         let running = Exercise(
             name: "Running",
             category: .run,
+            customIconEmoji: customIconEmoji,
             metrics: .distanceAndDurationRequired,
             defaultRestSeconds: 0
         )
@@ -391,6 +494,8 @@ enum TestFixtures {
     }
 
     private static func clear(_ context: ModelContext) {
+        let sessions = (try? context.fetch(FetchDescriptor<WorkoutSession>())) ?? []
+        let sprintPrescriptions = (try? context.fetch(FetchDescriptor<SprintPrescription>())) ?? []
         let sprintGoals = (try? context.fetch(FetchDescriptor<SprintGoalSnapshot>())) ?? []
         let sets = (try? context.fetch(FetchDescriptor<SetEntry>())) ?? []
         let supplements = (try? context.fetch(FetchDescriptor<SupplementEntry>())) ?? []
@@ -402,7 +507,9 @@ enum TestFixtures {
         let customNotifications = (try? context.fetch(FetchDescriptor<CustomNotification>())) ?? []
         let importedWorkouts = (try? context.fetch(FetchDescriptor<ImportedWorkout>())) ?? []
 
+        sessions.forEach { context.delete($0) }
         sprintGoals.forEach { context.delete($0) }
+        sprintPrescriptions.forEach { context.delete($0) }
         importedWorkouts.forEach { context.delete($0) }
         sets.forEach { context.delete($0) }
         supplements.forEach { context.delete($0) }

@@ -62,7 +62,7 @@ struct TrendTooltipView: View {
         .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
         .simultaneousGesture(
             TapGesture().onEnded {
-                guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
+                guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, !TestHooks.isAppStoreScreenshotting else { return }
                 onViewSets()
             }
         )

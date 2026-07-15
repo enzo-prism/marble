@@ -75,7 +75,7 @@ struct ProgressMediaSection: View {
                     .marbleRowInsets()
             }
 
-            if TestHooks.isUITesting && !TestHooks.isAccessibilityAudit {
+            if TestHooks.isUITesting && !TestHooks.isAccessibilityAudit && !TestHooks.isAppStoreScreenshotting {
                 ProgressMediaTestControls(
                     addPhoto: { addTestMedia(.photo) },
                     addVideo: { addTestMedia(.video) }

@@ -291,7 +291,7 @@ struct TrendsContentView: View {
             }
             .scrollDisabled(isScrubbingChart)
             .accessibilityIdentifier("Trends.Scroll")
-            .background(Theme.backgroundColor(for: colorScheme))
+            .background(Theme.backgroundColor(for: colorScheme).ignoresSafeArea())
             .navigationTitle("Trends")
             .navigationSubtitle(selectedExerciseName)
             .navigationBarTitleDisplayMode(.inline)
@@ -306,6 +306,7 @@ struct TrendsContentView: View {
                 }
             }
         }
+        .background(Theme.backgroundColor(for: colorScheme).ignoresSafeArea())
         .sheet(item: $sheetDestination) { destination in
             Group {
                 switch destination {
@@ -357,19 +358,19 @@ struct TrendsContentView: View {
             clearSelections()
         }
         .onChange(of: selectedDay) { _, newValue in
-            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
+            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, !TestHooks.isAppStoreScreenshotting else { return }
             if let day = newValue {
                 openConsistencyDrilldown(for: day)
             }
         }
         .onChange(of: selectedWeekStart) { _, newValue in
-            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
+            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, !TestHooks.isAppStoreScreenshotting else { return }
             if let weekStart = newValue {
                 sheetDestination = .week(weekStart)
             }
         }
         .onChange(of: selectedSupplementDay) { _, newValue in
-            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit else { return }
+            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, !TestHooks.isAppStoreScreenshotting else { return }
             if let day = newValue {
                 openSupplementDrilldown(for: day)
             }
@@ -1156,7 +1157,7 @@ struct TrendsContentView: View {
         selectedDay = nil
         selectedWeekStart = nil
         selectedSupplementDay = selectedDate
-        if TestHooks.isUITesting, !TestHooks.isAccessibilityAudit {
+        if TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, !TestHooks.isAppStoreScreenshotting {
             openSupplementDrilldown(for: selectedDate)
         }
     }

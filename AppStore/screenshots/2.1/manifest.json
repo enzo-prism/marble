@@ -1,0 +1,71 @@
+{
+  "version": "2.1",
+  "locale": "en-US",
+  "fixture": {
+    "mode": "screenshots",
+    "now": "2026-07-15T16:30:00.000Z",
+    "iconPolicy": "Every seeded exercise uses a matching iOS emoji selected through Marble's custom icon feature."
+  },
+  "deviceMasters": [
+    { "displayType": "APP_IPHONE_69", "width": 1320, "height": 2868 },
+    { "displayType": "APP_IPAD_PRO_3GEN_129", "width": 2064, "height": 2752 }
+  ],
+  "screenshots": [
+    {
+      "order": 1,
+      "rawName": "01-journal",
+      "headline": "Every workout. Beautifully organized.",
+      "supportingText": "Log sets, runs, notes, rest, and effort in one private journal.",
+      "feature": "Journal"
+    },
+    {
+      "order": 2,
+      "rawName": "02-fast-set-logger",
+      "headline": "Log fast. Beat your best.",
+      "supportingText": "See the last set, live PR targets, and Save + Next without losing your flow.",
+      "feature": "Fast set logging"
+    },
+    {
+      "order": 3,
+      "rawName": "03-strength-trends",
+      "headline": "See your strength grow.",
+      "supportingText": "Private, on-device trends turn your history into clear next steps.",
+      "feature": "Trends"
+    },
+    {
+      "order": 4,
+      "rawName": "04-active-workout",
+      "headline": "Train with a plan.",
+      "supportingText": "Run a focused workout session while every set still lands in your Journal.",
+      "feature": "Workout sessions"
+    },
+    {
+      "order": 5,
+      "rawName": "05-sprint-prescription",
+      "headline": "Every sprint has a target.",
+      "supportingText": "Set distance, reps, pace range, and rest—then score each rep against its saved goal.",
+      "feature": "Sprint prescriptions"
+    },
+    {
+      "order": 6,
+      "rawName": "06-emoji-exercise-library",
+      "headline": "Make every exercise yours.",
+      "supportingText": "Search and favorite your library, then choose an emoji or SF Symbol for every movement.",
+      "feature": "Exercise Library"
+    },
+    {
+      "order": 7,
+      "rawName": "07-training-calendar",
+      "headline": "Your rhythm, at a glance.",
+      "supportingText": "Review training days, streaks, recovery, and progress from one calendar.",
+      "feature": "Calendar"
+    },
+    {
+      "order": 8,
+      "rawName": "08-private-backup",
+      "headline": "Your data stays yours.",
+      "supportingText": "Export or restore a portable JSON backup—no account, ads, or app tracking.",
+      "feature": "Data and backups"
+    }
+  ]
+}

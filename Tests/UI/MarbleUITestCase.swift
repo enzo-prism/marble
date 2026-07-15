@@ -37,7 +37,10 @@ class MarbleUITestCase: XCTestCase {
     }
 
     override func tearDown() {
-        if let run = testRun, !run.hasSucceeded {
+        // `hasSucceeded` is still false while tearDown is running, even for a
+        // passing test, which used to attach a full failure hierarchy to every
+        // App Store capture. Failure count is already final at this point.
+        if let run = testRun, run.failureCount > 0 {
             attachFailureArtifacts()
         }
         app?.terminate()

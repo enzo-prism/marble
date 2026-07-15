@@ -30,7 +30,11 @@ struct WorkoutView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            ZStack {
+                Theme.backgroundColor(for: colorScheme)
+                    .ignoresSafeArea()
+
+                List {
                 if let activeSession {
                     ActiveWorkoutSection(
                         session: activeSession,
@@ -59,38 +63,39 @@ struct WorkoutView: View {
                     }
                 }
             }
-            .listStyle(.plain)
-            .listRowSeparatorTint(Theme.subtleDividerColor(for: colorScheme))
-            .scrollContentBackground(.hidden)
-            .background(Theme.backgroundColor(for: colorScheme))
-            .accessibilityIdentifier("Workout.List")
-            .navigationTitle("Workout")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarGlassBackground()
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showingPlan = true
-                    } label: {
-                        Image(systemName: "list.bullet.clipboard")
+                .listStyle(.plain)
+                .listRowSeparatorTint(Theme.subtleDividerColor(for: colorScheme))
+                .scrollContentBackground(.hidden)
+                .background(Theme.backgroundColor(for: colorScheme))
+                .accessibilityIdentifier("Workout.List")
+                .navigationTitle("Workout")
+                .navigationBarTitleDisplayMode(.inline)
+                .navigationBarGlassBackground()
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            showingPlan = true
+                        } label: {
+                            Image(systemName: "list.bullet.clipboard")
+                        }
+                        .accessibilityLabel("Workout plan")
+                        .accessibilityIdentifier("Workout.Plan")
                     }
-                    .accessibilityLabel("Workout plan")
-                    .accessibilityIdentifier("Workout.Plan")
-                }
 
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingData = true
-                    } label: {
-                        Image(systemName: "externaldrive")
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showingData = true
+                        } label: {
+                            Image(systemName: "externaldrive")
+                        }
+                        .accessibilityLabel("Data and backups")
+                        .accessibilityIdentifier("Workout.Data")
                     }
-                    .accessibilityLabel("Data and backups")
-                    .accessibilityIdentifier("Workout.Data")
-                }
 
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                ToolbarItem(placement: .topBarTrailing) {
-                    AddSetToolbarButton()
+                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                    ToolbarItem(placement: .topBarTrailing) {
+                        AddSetToolbarButton()
+                    }
                 }
             }
         }
@@ -123,6 +128,7 @@ struct WorkoutView: View {
         } message: {
             Text(errorMessage ?? "Please try again.")
         }
+        .background(Theme.backgroundColor(for: colorScheme).ignoresSafeArea())
     }
 
     private var activePlan: SplitPlan? { plans.first }
@@ -208,9 +214,15 @@ private struct ActiveWorkoutSection: View {
                     VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
                         Text(session.title)
                             .font(MarbleTypography.rowTitle)
-                        Text(session.startedAt, style: .timer)
-                            .font(MarbleTypography.rowSubtitle.monospacedDigit())
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        if TestHooks.isAppStoreScreenshotting {
+                            Text("48:12")
+                                .font(MarbleTypography.rowSubtitle.monospacedDigit())
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        } else {
+                            Text(session.startedAt, style: .timer)
+                                .font(MarbleTypography.rowSubtitle.monospacedDigit())
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        }
                     }
                     Spacer()
                     Text("LIVE")

@@ -21,6 +21,9 @@ enum TestHooks {
     static let forcedDynamicType: ContentSizeCategory? = TestHooks.parseContentSize(environmentValue("MARBLE_FORCE_DYNAMIC_TYPE"))
     static let forceReduceTransparency: Bool = environmentFlag("MARBLE_FORCE_REDUCE_TRANSPARENCY")
     static let isAccessibilityAudit: Bool = environmentFlag("MARBLE_A11Y_AUDIT")
+    /// Keeps deterministic UI-test seeding while hiding controls that exist
+    /// only to drive automated tests from App Store screenshot captures.
+    static let isAppStoreScreenshotting: Bool = environmentFlag("MARBLE_APP_STORE_SCREENSHOTS")
     static let fixtureMode: FixtureMode = FixtureMode(rawValue: (environmentValue("MARBLE_FIXTURE_MODE") ?? "populated").lowercased()) ?? .populated
 
     /// Bridges the system Reduce Motion accessibility setting with a test hook.

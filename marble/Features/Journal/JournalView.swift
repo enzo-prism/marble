@@ -152,7 +152,7 @@ struct JournalView: View {
                 }
             }
             .overlay(alignment: .topLeading) {
-                if TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, let latest = entries.first {
+                if TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, !TestHooks.isAppStoreScreenshotting, let latest = entries.first {
                     Button {
                         navPath.append(latest.id)
                     } label: {

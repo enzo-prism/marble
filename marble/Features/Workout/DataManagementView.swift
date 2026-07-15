@@ -31,7 +31,7 @@ struct DataManagementView: View {
                 Section {
                     dataSummary
                 } header: {
-                    SectionHeaderView(title: "On This iPhone")
+                    SectionHeaderView(title: "On This Device")
                 }
 
                 Section {
