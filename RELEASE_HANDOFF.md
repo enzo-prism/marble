@@ -78,8 +78,13 @@ test touches the real keychain.
 ## Release state (2026-07-20)
 
 - **2.0** — live on the App Store (`READY_FOR_DISTRIBUTION`).
-- **2.1 (build 40)** — **approved and waiting on you**: `PENDING_DEVELOPER_RELEASE` since
-  2026-07-15, release type MANUAL. Press release in App Store Connect; no build work needed.
+- **2.1 (build 40)** — **RELEASED 2026-07-21** via
+  `asc versions release --version-id 59f2e4c7-1c4b-49b3-a5d3-265ca6da74b1 --confirm`;
+  state moved `PENDING_DEVELOPER_RELEASE` → `READY_FOR_DISTRIBUTION`. It carries the
+  sessions / sprint-prescription / Exercise-Library / JSON-backup work from builds 35-39.
+  **No phased release was configured** (`appStoreVersionPhasedRelease` was null), so it went
+  to 100% of users at once — worth creating one *before* releasing next time, since 2.1 is
+  the first production build to run the V2→V4 migrations.
 - **2.2 (build 41)** — in development on `main`. Widgets, interactive rest timer, Control
   Center control, onboarding, Settings, Siri/Spotlight intents, bodyweight + schema **V5**.
   No longer blocked on portal work — see the resolved section above.

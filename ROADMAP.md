@@ -6,7 +6,7 @@
 >
 > | Phase | State |
 > |---|---|
-> | 0 — ship & tidy | Repo work **done** (version bump, PRs #2/#11 closed). **2.1 still needs its manual App Store release — that is Enzo's button.** |
+> | 0 — ship & tidy | Repo work **done** (version bump, PRs #2/#11 closed). **2.1 released to the App Store 2026-07-21** via `asc versions release`. |
 > | 1 — 2.2 Ambient | **Done.** Weekly Goal widget, interactive rest Live Activity, Control Center control, onboarding, Settings, TipKit defined. |
 > | 2 — 2.3 Siri & Spotlight | **Done.** `ExerciseEntity`+`IndexedEntity`, `LogSetIntent`, start/finish workout intents, 5 App Shortcuts. |
 > | 3 — 2.4 Body | **Done.** Schema V5 `BodyMetricEntry`, Health bodyweight import, DOTS, Trends section. |
@@ -35,7 +35,8 @@
 
 Source of truth for the five-workstream roadmap pitched 2026-07-20: Watch app, widget surface,
 App Intents depth, body metrics, onboarding/settings. Sequenced into releases 2.2 → 2.3 → 2.4 → 3.0.
-Baseline: main = 2.1 build 40; App Store 2.0 LIVE; 2.1 approved, `PENDING_DEVELOPER_RELEASE`.
+Baseline when written: main = 2.1 build 40; App Store 2.0 LIVE; 2.1 approved and pending release.
+(2.1 went live 2026-07-21; 2.2 build 41 is on TestFlight.)
 
 Conventions: every phase ends with `make unit` green in CI, `make migration-release` when schema
 changes, TestFlight via `make asc-*`, PR to main (no direct pushes). Never `git add -A`

@@ -36,8 +36,9 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-07-20)
 
-- **Shipped:** **2.2 (build 41) is on TestFlight** (`VALID`, uploaded 2026-07-21). **2.0 is live** on the App Store. **2.1 (build 40) is approved and sitting in
-  `PENDING_DEVELOPER_RELEASE`** — it needs a manual release in App Store Connect, no build work.
+- **Shipped:** **2.1 (build 40) was released to the App Store 2026-07-21** — sessions, sprint
+  prescriptions, the Exercise Library redesign and JSON backups are now live
+  (`READY_FOR_DISTRIBUTION`). **2.2 (build 41) is on TestFlight** (`VALID`, uploaded 2026-07-21).
 - **In progress: 2.2 (build 41)**, the "ambient" release, which closes the gap between how much
   Marble knows and how little of it is reachable from outside the app:
   - **Weekly Goal widget** — Home Screen (small/medium) and Lock Screen (circular/rectangular/
