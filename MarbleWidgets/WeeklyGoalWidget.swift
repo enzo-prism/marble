@@ -2,9 +2,12 @@ import SwiftUI
 import WidgetKit
 
 // NOTE: This file belongs to the **MarbleWidgets widget-extension target**.
-// `SharedDefaults.swift` and `WeeklyGoalWidgetState.swift` (both under
-// `marble/Shared/`) must be added to this target's membership too — see
-// SETUP.md and the RestTimerAttributes.swift precedent.
+// `SharedDefaults.swift` (which also defines `SharedKeychain`, the transport
+// this file reads) and `WeeklyGoalWidgetState.swift` — both under
+// `marble/Shared/` — must be added to this target's membership too; see
+// SETUP.md and the RestTimerAttributes.swift precedent. The extension needs
+// the `keychain-access-groups` entitlement in MarbleWidgets.entitlements to
+// read the snapshot at all.
 //
 // Brand rules that apply here: monochrome, no Liquid Glass on content, no
 // emoji, leaf-level accessibility identifiers only.
@@ -61,8 +64,12 @@ nonisolated struct WeeklyGoalProvider: TimelineProvider {
         completion(Timeline(entries: entries, policy: .after(refreshAt)))
     }
 
+    /// Nil covers every "nothing trustworthy to show" case identically:
+    /// nothing published yet, a snapshot older than a rolled-over week, or an
+    /// unreadable keychain (no entitlement on the simulator, first-unlock not
+    /// yet reached). All three render the neutral "Open Marble" card.
     private func currentState(now: Date) -> WeeklyGoalWidgetState? {
-        guard let loaded = WeeklyGoalWidgetState.load(from: SharedDefaults.suite),
+        guard let loaded = WeeklyGoalWidgetState.loadPublished(),
               !loaded.isStale(now: now) else { return nil }
         return loaded
     }

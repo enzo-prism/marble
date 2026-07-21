@@ -1,7 +1,9 @@
 import Foundation
 
-/// The weekly-goal snapshot the app hands to the widget extension through the
-/// shared App Group suite.
+/// The weekly-goal snapshot the app hands to the widget extension through
+/// `SharedKeychain` — a generic-password item in the team-prefixed keychain
+/// access group both targets are entitled to. (It travelled through an App
+/// Group suite in 2.2; see `SharedDefaults` for why that group is gone.)
 ///
 /// Compiled into BOTH targets, so Foundation only. `stateRaw` is a String
 /// rather than `TrainingConsistency.GoalState` precisely because the widget
@@ -49,13 +51,42 @@ nonisolated struct WeeklyGoalWidgetState: Codable, Hashable, Sendable {
         return min(1, max(0, Double(thisWeekSessions) / Double(target)))
     }
 
-    static func load(from defaults: UserDefaults) -> WeeklyGoalWidgetState? {
-        guard let data = defaults.data(forKey: SharedDefaults.Key.weeklyGoalSnapshot) else { return nil }
+    // MARK: - Wire format (pure — no keychain, no defaults)
+
+    /// The bytes that go on the wire, or nil if this value somehow can't be
+    /// encoded. Split out from `publish()` so tests can pin the wire format
+    /// without a keychain in the loop.
+    func encoded() -> Data? {
+        let encoder = JSONEncoder()
+        // Sorted keys make equal states encode to identical bytes. Without it
+        // JSON key order varies between encodes, so an unchanged week would
+        // still rewrite the keychain item on every scene transition.
+        encoder.outputFormatting = .sortedKeys
+        return try? encoder.encode(self)
+    }
+
+    /// The inverse of `encoded()`. Tolerates nil (nothing published) and
+    /// garbage (a truncated or foreign payload) identically: no snapshot,
+    /// which the widget renders as the neutral "Open Marble" card.
+    static func decoded(from data: Data?) -> WeeklyGoalWidgetState? {
+        guard let data else { return nil }
         return try? JSONDecoder().decode(WeeklyGoalWidgetState.self, from: data)
     }
 
-    func save(to defaults: UserDefaults) {
-        guard let data = try? JSONEncoder().encode(self) else { return }
-        defaults.set(data, forKey: SharedDefaults.Key.weeklyGoalSnapshot)
+    // MARK: - Transport (thin wrapper over SharedKeychain)
+
+    /// Reads whatever the app last published. Nil when nothing has been
+    /// published yet *or* the keychain is unreadable — the widget treats both
+    /// the same way on purpose.
+    static func loadPublished() -> WeeklyGoalWidgetState? {
+        decoded(from: SharedKeychain.loadSnapshot())
+    }
+
+    /// Publishes this snapshot for the widget extension. Silently does nothing
+    /// if encoding or the keychain write fails; the widget then keeps showing
+    /// the previous snapshot until it goes stale.
+    func publish() {
+        guard let data = encoded() else { return }
+        SharedKeychain.saveSnapshot(data)
     }
 }

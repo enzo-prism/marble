@@ -6,22 +6,11 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
-## 🚨 BLOCKING — two manual steps before 2.2 can archive or ship (added 2026-07-20)
+## ✅ RESOLVED — the App Group archiving blocker is gone (2026-07-21)
 
-2.2 adds an **App Group** so the widget extension can read what the app publishes. Both
-steps are portal-only; there is no public App Store Connect API for either.
-
-1. **Create the App Group.** developer.apple.com → Certificates, Identifiers & Profiles →
-   Identifiers → App Groups → **`group.Prism.marble`**. Then edit both App IDs
-   (`Prism.marble` and `Prism.marble.MarbleWidgets`), enable the App Groups capability, and
-   assign that group to each.
-2. **Regenerate both App Store distribution profiles** (enabling a capability invalidates
-   them) and update the two pinned names in `marble.xcodeproj/project.pbxproj`:
-   - app Release → `PROVISIONING_PROFILE_SPECIFIER = "Prism marble App Store HealthKit 2026-06-18-2015"`
-   - widget Release → `PROVISIONING_PROFILE_SPECIFIER = "Prism marble MarbleWidgets App Store 2026-06-22 build 23"`
-
-**Verified 2026-07-20** — `make asc-archive` was run and fails at `GatherProvisioningInputs`
-with exactly this (both targets):
+**The two portal steps are no longer required.** 2.2 originally shared the widget snapshot
+through an App Group (`group.Prism.marble`), which failed `GatherProvisioningInputs` on both
+targets:
 
 ```
 error: Provisioning profile "Prism marble App Store HealthKit 2026-06-18-2015"
@@ -30,41 +19,61 @@ error: Provisioning profile "Prism marble MarbleWidgets App Store 2026-06-22 bui
        doesn't support the group.Prism.marble App Group. (in target 'MarbleWidgets')
 ```
 
-This also means **no 2.2 TestFlight build can be uploaded until step 1 and 2 are done.**
-The `asc` CLI cannot do it: App Group creation is not in the App Store Connect API, and
-`asc web bundle-ids capabilities` only supports App Clips (and `asc web auth` needs an
-interactive Apple ID + 2FA login).
+That group could not be created programmatically — there is no App Groups resource in the
+App Store Connect API (`GET /v1/appGroups` → 404 `NOT_FOUND`), `bundleIdCapabilities` has no
+setting key for naming a group, and `asc web auth` needs an interactive Apple ID + 2FA.
 
-*If you want a TestFlight build before doing the portal work*, the only way is to remove the
-`com.apple.security.application-groups` key from both entitlement files — but that ships a
-build where **the Weekly Goal widget silently shows its placeholder forever** on device,
-because `SharedDefaults.suite` falls back to `.standard` and the extension reads a different
-container. Prefer doing the portal work; it is ~30 minutes.
+**The snapshot now travels through a keychain access group instead.** Both existing App Store
+profiles already grant a team-wide keychain wildcard — decoded from the live API:
 
-### After the portal work — the exact sequence to get 2.2 on TestFlight
+- `Prism marble App Store HealthKit 2026-06-18-2015` → `keychain-access-groups = ['L49MKXGVM4.*', 'com.apple.token']`
+- `Prism marble MarbleWidgets App Store 2026-06-22 build 23` → `keychain-access-groups = ['L49MKXGVM4.*', 'com.apple.token']`
 
-Everything else is verified ready: the **Release configuration compiles clean**
-(`xcodebuild -configuration Release … CODE_SIGNING_ALLOWED=NO` succeeds, widget included),
-and `ExportOptions.plist` now exists in the repo root (it did not before — `make asc-export`
-would have failed on the missing file even after signing was fixed).
+So the group `L49MKXGVM4.Prism.marble.shared` is already covered: **no portal capability, no
+profile regeneration, no change to the two pinned `PROVISIONING_PROFILE_SPECIFIER` names.**
+
+What changed in the repo:
+
+- `marble.entitlements` — dropped `com.apple.security.application-groups`, added
+  `keychain-access-groups = ["$(AppIdentifierPrefix)Prism.marble.shared"]`; HealthKit kept.
+- `MarbleWidgets/MarbleWidgets.entitlements` — same swap (that key is now its only content).
+- `marble/Shared/SharedDefaults.swift` — `SharedDefaults.suite` is `UserDefaults.standard`
+  again, plus a new `SharedKeychain` type that owns the snapshot item
+  (`kSecClassGenericPassword`, service `marble.widget.weeklyGoalSnapshot`, accessible
+  `AfterFirstUnlockThisDeviceOnly` so Lock Screen families still render).
+- `marble/Shared/WeeklyGoalWidgetState.swift` — `publish()` / `loadPublished()` replace
+  `save(to:)` / `load(from:)`; staleness and placeholder behaviour are unchanged.
+
+The preferences that used to live in the suite (weekly target, reminder flag, weight unit,
+onboarding flag) never needed cross-process sharing: the widget reads only the snapshot, and
+the weekly target is baked into that snapshot by `WeeklyGoalWidgetPublisher`. Do not restore
+the App Group without a new requirement the keychain snapshot genuinely cannot satisfy.
+
+> ✅ **Verified end to end 2026-07-21: 2.2 (build 41) is on TestFlight, `VALID`**
+> (buildId `e7b6d9cb-6ea7-401b-9bab-b42b6be26cac`, uploaded 08:12, landed attempt 1).
+> `make asc-archive` → **ARCHIVE SUCCEEDED** with the pinned profiles untouched.
+
+### The sequence that produced build 41
+
+Use the **existing** `.asc/ExportOptions.plist` — it already maps both bundle IDs to the two
+pinned profiles and sets `signingCertificate = Apple Distribution`. A bare export options file
+without a `provisioningProfiles` map fails with *"requires a provisioning profile with the
+HealthKit feature"*, because manual signing will not infer profiles from the archive.
 
 ```sh
-# 0. after creating group.Prism.marble + regenerating BOTH distribution profiles,
-#    download them (Xcode > Settings > Accounts > Download Manual Profiles) and update
-#    the two PROVISIONING_PROFILE_SPECIFIER names in project.pbxproj if they changed.
 make asc-archive
-ASC_EXPORT_OPTIONS=$PWD/ExportOptions.plist make asc-export
-# betaGroups flaps; retry this line until it lands (build 28 took 4 attempts)
-asc publish testflight --ipa <exported.ipa> --app 6757725234 --group "test group A" --wait
+ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export
+asc publish testflight --ipa "$PWD/.asc/artifacts/marble.ipa" --app 6757725234 --group "test group A" --wait
 ```
 
-**Until both are done:** `make asc-archive` fails at signing. Debug, simulator, CI and
-`make unit` are all unaffected — the entitlement is not enforced on the simulator, which is
-why the suites are green. On a device without the group, `SharedDefaults.suite` falls back
-to `.standard`, so **the widget would show its placeholder forever rather than crash**.
+Shipped entitlements, read back off the signed archive with `codesign -d --entitlements`:
+`marble.app` → `['L49MKXGVM4.Prism.marble', 'L49MKXGVM4.Prism.marble.shared']`,
+`MarbleWidgets.appex` → `['L49MKXGVM4.Prism.marble.shared']`, no app-groups key anywhere.
 
-Entitlement files are already committed: `marble.entitlements` and
-`MarbleWidgets/MarbleWidgets.entitlements` both declare `group.Prism.marble`.
+On the **simulator**, keychain access groups are not enforced and `SecItem*` can return
+`errSecMissingEntitlement`; every call degrades to "no snapshot", so the widget shows its
+neutral "Open Marble" card rather than crashing. CI and `make unit` are unaffected — no unit
+test touches the real keychain.
 
 ## Release state (2026-07-20)
 
@@ -73,7 +82,7 @@ Entitlement files are already committed: `marble.entitlements` and
   2026-07-15, release type MANUAL. Press release in App Store Connect; no build work needed.
 - **2.2 (build 41)** — in development on `main`. Widgets, interactive rest timer, Control
   Center control, onboarding, Settings, Siri/Spotlight intents, bodyweight + schema **V5**.
-  Blocked on the two portal steps above before archiving.
+  No longer blocked on portal work — see the resolved section above.
 
 ---
 

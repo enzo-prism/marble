@@ -1,10 +1,10 @@
+import Security
 import XCTest
 @testable import marble
 
-/// Pins the one-time legacy-defaults migration into the App Group suite.
-/// Every case drives throwaway suites — `.standard` is never mutated, because
-/// a test that dirtied it would leak into the simulator and into every other
-/// test in the run.
+/// Pins the one-time legacy-defaults migration. Every case drives throwaway
+/// suites — `.standard` is never mutated, because a test that dirtied it would
+/// leak into the simulator and into every other test in the run.
 ///
 /// `@MainActor` because the app target compiles with
 /// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so app enums like
@@ -90,13 +90,130 @@ final class SharedDefaultsTests: XCTestCase {
         XCTAssertEqual(SharedDefaults.Key.weeklyGoalReminderEnabled, "weeklyGoalReminderEnabled")
         XCTAssertEqual(SharedDefaults.Key.preferredWeightUnit, "preferredWeightUnit")
         XCTAssertEqual(SharedDefaults.Key.didCompleteOnboarding, "didCompleteOnboarding")
-        XCTAssertEqual(SharedDefaults.suiteName, "group.Prism.marble")
         XCTAssertEqual(WeeklyGoalReminder.enabledDefaultsKey, "weeklyGoalReminderEnabled")
     }
 
-    func testSuiteIsStableAndNonNil() {
-        // Falls back to `.standard` when the group container is unavailable,
-        // so this must never be nil and must never change identity mid-run.
+    func testSuiteIsStandardAndStable() {
+        // The App Group is gone: these preferences are per-process by design
+        // (see `SharedDefaults.suite`). Must never be nil and must never
+        // change identity mid-run.
+        XCTAssertTrue(SharedDefaults.suite === UserDefaults.standard)
         XCTAssertTrue(SharedDefaults.suite === SharedDefaults.suite)
+    }
+
+    func testMigrateLeavesValuesAloneWhenBothSidesAreTheSameStore() {
+        // This is the shape `migrateIfNeeded()` now always has: `suite` *is*
+        // `.standard`, so there is nowhere to copy from and nothing to copy —
+        // it only stamps the flag. Driven on a throwaway suite so `.standard`
+        // stays clean.
+        suite.set(9, forKey: SharedDefaults.Key.weeklySessionTarget)
+
+        SharedDefaults.migrate(from: suite, to: suite)
+
+        XCTAssertEqual(suite.object(forKey: SharedDefaults.Key.weeklySessionTarget) as? Int, 9)
+        XCTAssertTrue(suite.bool(forKey: SharedDefaults.Key.didMigrateV1))
+    }
+}
+
+// MARK: - SharedKeychain
+
+/// Pins the *pure* half of `SharedKeychain`: the literals and the query
+/// dictionaries it hands to `SecItem*`.
+///
+/// **No case here calls `SecItemAdd`/`SecItemCopyMatching`/`SecItemUpdate`/
+/// `SecItemDelete`.** A unit test must never read or write the real login
+/// keychain — it would prompt, leak between runs, and fail differently on CI
+/// than on a developer machine. The thin `saveSnapshot`/`loadSnapshot`/
+/// `removeSnapshot` wrappers are deliberately left untested; everything they
+/// could get wrong lives in the dictionaries below.
+final class SharedKeychainQueryTests: XCTestCase {
+    func testAccessGroupMatchesTheEntitlement() {
+        // `marble.entitlements` and `MarbleWidgets.entitlements` both declare
+        // `$(AppIdentifierPrefix)Prism.marble.shared`. `$(AppIdentifierPrefix)`
+        // is a build-time expansion Swift cannot see, so the team prefix is
+        // hardcoded — change one, change all three.
+        XCTAssertEqual(SharedKeychain.accessGroup, "L49MKXGVM4.Prism.marble.shared")
+        XCTAssertTrue(SharedKeychain.accessGroup.hasSuffix("Prism.marble.shared"))
+        XCTAssertTrue(SharedKeychain.accessGroup.hasPrefix("L49MKXGVM4."))
+    }
+
+    func testAccessibilitySurvivesALockedScreen() {
+        // Load-bearing: Lock Screen widget families render while locked, so
+        // `WhenUnlocked` would blank the accessory widgets. `ThisDeviceOnly`
+        // keeps this regenerable cache out of iCloud Keychain sync.
+        XCTAssertEqual(
+            SharedKeychain.accessibility as String,
+            kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String
+        )
+        XCTAssertNotEqual(
+            SharedKeychain.accessibility as String,
+            kSecAttrAccessibleWhenUnlocked as String
+        )
+    }
+
+    func testIdentityQueryNamesExactlyOneItem() {
+        let query = SharedKeychain.identityQuery()
+
+        XCTAssertEqual(query[kSecClass as String] as? String, kSecClassGenericPassword as String)
+        XCTAssertEqual(query[kSecAttrService as String] as? String, "marble.widget.weeklyGoalSnapshot")
+        XCTAssertEqual(query[kSecAttrAccount as String] as? String, SharedKeychain.account)
+        XCTAssertEqual(query[kSecAttrAccessGroup as String] as? String, SharedKeychain.accessGroup)
+        // Identity only — a value here would break `SecItemUpdate`'s query half.
+        XCTAssertNil(query[kSecValueData as String])
+        XCTAssertNil(query[kSecReturnData as String])
+    }
+
+    func testLoadQueryAsksForOneItemsBytes() {
+        let query = SharedKeychain.loadQuery()
+
+        XCTAssertEqual(query[kSecReturnData as String] as? Bool, true)
+        XCTAssertEqual(query[kSecMatchLimit as String] as? String, kSecMatchLimitOne as String)
+        // Still scoped to the one item.
+        XCTAssertEqual(query[kSecAttrService as String] as? String, SharedKeychain.service)
+        XCTAssertEqual(query[kSecAttrAccessGroup as String] as? String, SharedKeychain.accessGroup)
+    }
+
+    func testAddQueryCarriesTheValueAndAccessibility() {
+        let payload = Data("snapshot".utf8)
+        let query = SharedKeychain.addQuery(data: payload)
+
+        XCTAssertEqual(query[kSecValueData as String] as? Data, payload)
+        XCTAssertEqual(
+            query[kSecAttrAccessible as String] as? String,
+            kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String
+        )
+        XCTAssertEqual(query[kSecClass as String] as? String, kSecClassGenericPassword as String)
+        XCTAssertEqual(query[kSecAttrAccessGroup as String] as? String, SharedKeychain.accessGroup)
+    }
+
+    func testUpdateAttributesCarryNoIdentityAttributes() {
+        let payload = Data("snapshot".utf8)
+        let attributes = SharedKeychain.updateAttributes(data: payload)
+
+        XCTAssertEqual(attributes[kSecValueData as String] as? Data, payload)
+        XCTAssertEqual(
+            attributes[kSecAttrAccessible as String] as? String,
+            kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String
+        )
+        // `SecItemUpdate`'s changes half must describe only what changes.
+        XCTAssertNil(attributes[kSecClass as String])
+        XCTAssertNil(attributes[kSecAttrService as String])
+        XCTAssertNil(attributes[kSecAttrAccount as String])
+        XCTAssertNil(attributes[kSecAttrAccessGroup as String])
+    }
+
+    func testQueriesAreStableAcrossCalls() {
+        // The upsert issues `SecItemUpdate` then `SecItemDelete`/`SecItemAdd`
+        // against separately built dictionaries — if they ever disagreed about
+        // identity, a repeated publish would accumulate duplicate items.
+        let first = SharedKeychain.identityQuery()
+        let second = SharedKeychain.identityQuery()
+        let fromAdd = SharedKeychain.addQuery(data: Data([0x01]))
+
+        for key in [kSecClass, kSecAttrService, kSecAttrAccount, kSecAttrAccessGroup] {
+            let name = key as String
+            XCTAssertEqual(first[name] as? String, second[name] as? String)
+            XCTAssertEqual(first[name] as? String, fromAdd[name] as? String)
+        }
     }
 }

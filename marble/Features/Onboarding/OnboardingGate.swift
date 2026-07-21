@@ -15,7 +15,8 @@ import Foundation
 ///    caller stamps completion so the question is never asked again.
 enum OnboardingGate {
     /// Written by `SeedData` on the first real (non-UI-test) launch. Lives in
-    /// `UserDefaults.standard`, not the App Group suite — it was never migrated.
+    /// `UserDefaults.standard` and is read directly, never through
+    /// `SharedDefaults` — it is not one of the migrated keys.
     nonisolated static let legacySeedDefaultsKey = "didSeedMarbleData"
 
     /// The full answer: whether to present, and whether to silently record
@@ -77,8 +78,10 @@ enum OnboardingGate {
         return Decision(presentsOnboarding: presents, marksCompleteSilently: marksComplete)
     }
 
-    /// Live evaluation against the real defaults. `didCompleteOnboarding` lives
-    /// in the shared App Group suite; the legacy seed flag does not.
+    /// Live evaluation against the real defaults. `didCompleteOnboarding` goes
+    /// through `SharedDefaults`; the legacy seed flag is read straight from
+    /// `.standard`. The two arguments stay separate so the injection points
+    /// survive even though both now resolve to the same store.
     static func currentDecision(
         shared: UserDefaults = SharedDefaults.suite,
         legacy: UserDefaults = .standard

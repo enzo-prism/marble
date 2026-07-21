@@ -4,9 +4,15 @@
 <dict>
 	<key>com.apple.developer.healthkit</key>
 	<true/>
-	<key>com.apple.security.application-groups</key>
+	<!-- Order matters: the FIRST entry is the default access group for keychain
+	     writes that don't name one. KeychainTokenStore (Strava OAuth) doesn't,
+	     so Prism.marble must stay first or those tokens would silently start
+	     landing in the shared group. The .shared group carries only the widget
+	     snapshot, which always names its group explicitly. -->
+	<key>keychain-access-groups</key>
 	<array>
-		<string>group.Prism.marble</string>
+		<string>$(AppIdentifierPrefix)Prism.marble</string>
+		<string>$(AppIdentifierPrefix)Prism.marble.shared</string>
 	</array>
 </dict>
 </plist>

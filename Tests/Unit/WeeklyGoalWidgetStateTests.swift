@@ -4,26 +4,15 @@ import XCTest
 /// Pins the app/widget wire format: round-tripping, the staleness cliff, and
 /// the clamped progress fraction the ring renders.
 ///
+/// The snapshot now travels through `SharedKeychain`, so these cases exercise
+/// the **pure** `encoded()`/`decoded(from:)` pair rather than a store. Nothing
+/// here touches the real keychain (nor `UserDefaults`) — see
+/// `SharedKeychainQueryTests` for why.
+///
 /// `@MainActor` because `WeeklyGoalWidgetPublisher` is main-actor isolated.
 @MainActor
 final class WeeklyGoalWidgetStateTests: XCTestCase {
-    private var suiteName = ""
-    private var suite: UserDefaults!
-
     private let reference = Date(timeIntervalSince1970: 1_736_899_200) // 2025-01-15 00:00 UTC
-
-    override func setUp() {
-        super.setUp()
-        suiteName = "marble.tests.widgetstate.\(UUID().uuidString)"
-        suite = UserDefaults(suiteName: suiteName)
-        XCTAssertNotNil(suite)
-    }
-
-    override func tearDown() {
-        suite?.removePersistentDomain(forName: suiteName)
-        suite = nil
-        super.tearDown()
-    }
 
     private func state(
         target: Int = 3,
@@ -44,32 +33,63 @@ final class WeeklyGoalWidgetStateTests: XCTestCase {
         )
     }
 
-    // MARK: Persistence
+    // MARK: Wire format
 
-    func testSaveLoadRoundTrip() {
+    func testEncodeDecodeRoundTrip() {
         let original = state()
-        original.save(to: suite)
 
-        let loaded = WeeklyGoalWidgetState.load(from: suite)
+        let decoded = WeeklyGoalWidgetState.decoded(from: original.encoded())
 
-        XCTAssertEqual(loaded, original)
+        XCTAssertEqual(decoded, original)
     }
 
-    func testLoadReturnsNilWhenNothingPublished() {
-        XCTAssertNil(WeeklyGoalWidgetState.load(from: suite))
+    func testEncodePreservesEveryField() {
+        let original = state(target: 5, sessions: 4, streak: 11, flex: 2, stateRaw: "atRisk")
+
+        let decoded = WeeklyGoalWidgetState.decoded(from: original.encoded())
+
+        XCTAssertEqual(decoded?.target, 5)
+        XCTAssertEqual(decoded?.thisWeekSessions, 4)
+        XCTAssertEqual(decoded?.streakWeeks, 11)
+        XCTAssertEqual(decoded?.flexTokens, 2)
+        XCTAssertEqual(decoded?.stateRaw, "atRisk")
+        XCTAssertEqual(decoded?.weekStart, reference)
+        XCTAssertEqual(decoded?.generatedAt, reference)
     }
 
-    func testLoadReturnsNilOnCorruptPayload() {
-        suite.set(Data("not json".utf8), forKey: SharedDefaults.Key.weeklyGoalSnapshot)
-
-        XCTAssertNil(WeeklyGoalWidgetState.load(from: suite))
+    func testDecodeReturnsNilWhenNothingPublished() {
+        // What an unreadable keychain hands back: no bytes at all.
+        XCTAssertNil(WeeklyGoalWidgetState.decoded(from: nil))
     }
 
-    func testSaveOverwritesPreviousSnapshot() {
-        state(sessions: 1).save(to: suite)
-        state(sessions: 3).save(to: suite)
+    func testDecodeReturnsNilOnEmptyPayload() {
+        XCTAssertNil(WeeklyGoalWidgetState.decoded(from: Data()))
+    }
 
-        XCTAssertEqual(WeeklyGoalWidgetState.load(from: suite)?.thisWeekSessions, 3)
+    func testDecodeReturnsNilOnCorruptPayload() {
+        // Garbage must degrade to the neutral card, never trap.
+        XCTAssertNil(WeeklyGoalWidgetState.decoded(from: Data("not json".utf8)))
+        XCTAssertNil(WeeklyGoalWidgetState.decoded(from: Data([0x00, 0xFF, 0x10, 0x83])))
+    }
+
+    func testDecodeReturnsNilOnWellFormedJSONOfTheWrongShape() {
+        let foreign = Data(#"{"target":3,"unrelated":true}"#.utf8)
+
+        XCTAssertNil(WeeklyGoalWidgetState.decoded(from: foreign))
+    }
+
+    func testDecodeReturnsNilOnTruncatedPayload() throws {
+        let full = try XCTUnwrap(state().encoded())
+        let truncated = Data(full.prefix(full.count / 2))
+
+        XCTAssertNil(WeeklyGoalWidgetState.decoded(from: truncated))
+    }
+
+    func testEncodingIsDeterministicForEqualStates() {
+        // Two publishes of the same week must produce the same bytes, so the
+        // upsert can't be fooled into churning the keychain item.
+        XCTAssertEqual(state(sessions: 2).encoded(), state(sessions: 2).encoded())
+        XCTAssertNotEqual(state(sessions: 1).encoded(), state(sessions: 3).encoded())
     }
 
     // MARK: Staleness

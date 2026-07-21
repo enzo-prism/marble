@@ -7,8 +7,10 @@ struct MarbleApp: App {
 
     init() {
         TestHooks.applyGlobalSettings()
-        // Must run before anything reads the shared suite: the weekly target and
-        // reminder flag shipped in `.standard` before the App Group existed.
+        // Must run before anything reads the shared suite. Effectively a no-op
+        // now that the suite is `.standard` again (see `SharedDefaults.suite`),
+        // but it still stamps the migration flag and is the one hook if these
+        // keys ever move stores.
         SharedDefaults.migrateIfNeeded()
         // No-op under UI testing; tips floating over the UI break flows + audits.
         MarbleTips.configure()

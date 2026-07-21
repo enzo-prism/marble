@@ -54,9 +54,9 @@ struct TrendsContentView: View {
     @Environment(\.marbleActiveDay) private var activeDay
 
     /// Sessions per week that count as a hit week (see TrainingConsistency).
-    /// Stored in the shared App Group suite so the widget extension reads the
-    /// same target (`SharedDefaults.Key.weeklySessionTarget` is still the
-    /// literal "weeklySessionTarget", so existing values migrate).
+    /// Stored in `SharedDefaults.suite`. The widget does not read this key —
+    /// `WeeklyGoalWidgetPublisher` bakes the resolved target into the snapshot
+    /// it publishes, which is why no cross-process store is needed.
     @AppStorage(SharedDefaults.Key.weeklySessionTarget, store: SharedDefaults.suite)
     private var weeklyTarget = TrainingConsistency.defaultWeeklyTarget
 

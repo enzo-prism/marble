@@ -12,8 +12,12 @@
 > | 3 — 2.4 Body | **Done.** Schema V5 `BodyMetricEntry`, Health bodyweight import, DOTS, Trends section. |
 > | 4 — 3.0 Watch | **Not built — deliberately.** See "Why Phase 4 was not built" below. |
 >
-> **Two portal steps gate archiving** (`RELEASE_HANDOFF.md` has the detail): create the
-> App Group `group.Prism.marble` and regenerate both distribution profiles.
+> ~~**Two portal steps gate archiving**: create the App Group `group.Prism.marble` and
+> regenerate both distribution profiles.~~ **Resolved 2026-07-21** — the widget snapshot moved
+> to the keychain access group `L49MKXGVM4.Prism.marble.shared`, which both existing App Store
+> profiles already grant via their `L49MKXGVM4.*` wildcard. No portal work, no profile
+> regeneration. **Verified end to end: build 41 archived, exported and is on TestFlight `VALID`.**
+> `RELEASE_HANDOFF.md` has the detail.
 >
 > Phases 1–3 were collapsed into a single 2.2 train rather than three releases. That was a
 > deliberate call to get one TestFlight build covering all of it; the phase structure below
@@ -60,19 +64,24 @@ changes, TestFlight via `make asc-*`, PR to main (no direct pushes). Never `git 
 
 Widgets, interactive rest timer, Control Center, onboarding, Settings, TipKit.
 
-### 1A. One-time manual portal work (Enzo, ~30 min — blocks everything else)
+### 1A. ~~One-time manual portal work~~ — **abandoned 2026-07-21, no portal work needed**
 
-1. developer.apple.com → Identifiers → App Groups → create **`group.Prism.marble`**.
-2. Edit both App IDs (`Prism.marble`, `Prism.marble.MarbleWidgets`): enable App Groups
-   capability, assign the group.
-3. Regenerate BOTH App Store distribution profiles (regeneration invalidates the pinned ones):
-   note the new names — they replace the hardcoded `PROVISIONING_PROFILE_SPECIFIER` strings in
-   pbxproj (app Release L731 `Prism marble App Store HealthKit 2026-06-18-2015`; widget Release
-   L795 `Prism marble MarbleWidgets App Store 2026-06-22 build 23`). Download/install both.
-4. Xcode side (agent can do): add `com.apple.security.application-groups` =
-   `[group.Prism.marble]` to `marble.entitlements`; create `MarbleWidgets/MarbleWidgets.entitlements`
-   with the same key; set `CODE_SIGN_ENTITLEMENTS` on the widget target; update both Release
-   profile specifiers. Debug configs are Automatic and self-heal.
+The original plan was: create App Group `group.Prism.marble`, enable the capability on both
+App IDs, regenerate BOTH distribution profiles, and repoint the two pinned
+`PROVISIONING_PROFILE_SPECIFIER` strings in pbxproj (app Release L731
+`Prism marble App Store HealthKit 2026-06-18-2015`; widget Release L795
+`Prism marble MarbleWidgets App Store 2026-06-22 build 23`).
+
+That group cannot be created programmatically (no App Groups resource in the App Store
+Connect API; no portal session available), and its entitlement failed Release archiving.
+**Replaced by a keychain access group**, which needs neither:
+
+- both entitlement files declare `keychain-access-groups =
+  ["$(AppIdentifierPrefix)Prism.marble.shared"]` — no `com.apple.security.application-groups`;
+- both existing App Store profiles already grant `L49MKXGVM4.*`, so the pinned profile names
+  stay exactly as they are and nothing needs regenerating;
+- the widget target still needs its `CODE_SIGN_ENTITLEMENTS` set (already done). Debug configs
+  are Automatic and self-heal.
 
 ### 1B. Shared state plumbing (no store move — deliberate)
 
@@ -80,11 +89,15 @@ Widgets, interactive rest timer, Control Center, onboarding, Settings, TipKit.
   (`makeRecoveringContainer`, corrupt-store rename, `PersistenceRecoveryNotice`) is pathed to
   `applicationSupportDirectory/Marble/Marble.store` and a store relocation is pure risk with zero
   2.2 benefit. Widgets consume an **app-pushed snapshot**, not live queries.
-- New `marble/Components/SharedDefaults.swift`: `enum SharedDefaults` wrapping
-  `UserDefaults(suiteName: "group.Prism.marble")` with a one-time migration (guarded by a
-  `didMigrateSharedDefaultsV1` key) of `weeklySessionTarget` + `weeklyGoalReminderEnabled` from
-  `.standard`. Keep `@AppStorage` call sites working via
-  `@AppStorage("weeklySessionTarget", store: SharedDefaults.suite)`.
+- ~~New `marble/Components/SharedDefaults.swift` wrapping
+  `UserDefaults(suiteName: "group.Prism.marble")`~~ → shipped as `marble/Shared/SharedDefaults.swift`,
+  and as of 2026-07-21 `SharedDefaults.suite` is `UserDefaults.standard`: none of these
+  preferences need cross-process sharing, because the widget reads only the snapshot and the
+  weekly target is baked into it. `migrateIfNeeded()` (guarded by `didMigrateSharedDefaultsV1`)
+  and every `@AppStorage(..., store: SharedDefaults.suite)` call site are unchanged.
+- The snapshot itself goes through `SharedKeychain` (same file): a `kSecClassGenericPassword`
+  item in `L49MKXGVM4.Prism.marble.shared`, accessible `AfterFirstUnlockThisDeviceOnly` so
+  Lock Screen families can still read it while the device is locked.
 - New `marble/Features/Trends/WeeklyGoalWidgetState.swift` (member of BOTH app + widget targets,
   like `RestTimerAttributes`): small `Codable` struct — target, thisWeekSessions, streakWeeks,
   flexTokens, `GoalState` raw value, weekStart date, generatedAt. Pure

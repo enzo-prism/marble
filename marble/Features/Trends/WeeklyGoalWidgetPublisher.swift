@@ -2,9 +2,12 @@ import Foundation
 import SwiftData
 import WidgetKit
 
-/// Writes the weekly-goal snapshot into the shared App Group suite and pokes
-/// WidgetKit. App-only: the extension never touches SwiftData, it only reads
-/// the published `WeeklyGoalWidgetState`.
+/// Writes the weekly-goal snapshot into the shared keychain access group (see
+/// `SharedKeychain`) and pokes WidgetKit. App-only: the extension never touches
+/// SwiftData, it only reads the published `WeeklyGoalWidgetState`.
+///
+/// Note the snapshot carries `target` — that is why the extension needs no
+/// access to `SharedDefaults` preferences at all.
 ///
 /// Call it wherever `WeeklyGoalReminder.sync` is called — the two answer the
 /// same question ("how does this week stand?") off the same store.
@@ -56,7 +59,7 @@ enum WeeklyGoalWidgetPublisher {
             generatedAt: now
         )
 
-        state.save(to: SharedDefaults.suite)
+        state.publish()
         WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
     }
 

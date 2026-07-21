@@ -15,8 +15,8 @@ import UserNotifications
 ///   already granted for their own reminders, and stays silent otherwise.
 enum WeeklyGoalReminder {
     static let requestIdentifier = "marble.weeklyGoal.atRisk"
-    /// Same literal key as before — it now lives in the shared App Group
-    /// suite (see `SharedDefaults`) so the widget extension can read it.
+    /// Same literal key it has always had, in `SharedDefaults.suite` (which is
+    /// `.standard`). App-only: the widget never reads this flag.
     static let enabledDefaultsKey = SharedDefaults.Key.weeklyGoalReminderEnabled
     /// Evening hour the nudge fires at.
     static let fireHour = 18

@@ -162,9 +162,17 @@ Use these commands (preferred):
   Use `.map { $0.versionIdentifier }`. This was the only compile error in the 2.2 test suite
   and `xcodebuild` reports it as an opaque `Command SwiftCompile failed` with no diagnostic
   in the log — bisect by which `.dia` files are missing under `MarbleTests.build/Objects-normal/`.
-- Adding the App Group entitlement **breaks Release archiving until the portal work is done**
-  (the two `PROVISIONING_PROFILE_SPECIFIER` strings are pinned by name). Debug/simulator and
-  CI are unaffected, which is why `make unit` stays green.
+- **The App Group is gone (2026-07-21) — do not add one back.** `group.Prism.marble` broke
+  Release archiving (the two `PROVISIONING_PROFILE_SPECIFIER` strings are pinned by name) and
+  could not be created programmatically: the App Store Connect API has no App Groups resource.
+  App↔widget sharing now runs through the keychain access group
+  `L49MKXGVM4.Prism.marble.shared` (`SharedKeychain` in `marble/Shared/SharedDefaults.swift`),
+  which both existing App Store profiles already grant via their `L49MKXGVM4.*` wildcard — so
+  no portal capability and no profile regeneration. The literal team prefix in Swift must stay
+  in sync with `$(AppIdentifierPrefix)Prism.marble.shared` in **both** entitlement files.
+  On the simulator, keychain access groups are not enforced and `SecItem*` can return
+  `errSecMissingEntitlement`; every call degrades to "no snapshot" (neutral widget card),
+  which is why Debug/simulator and CI stay green.
 - SwiftData schema is versioned in `Persistence/MarbleSchema.swift`. For a breaking model
   change, add a `MarbleSchemaV2` + a `MigrationStage` — do not just edit models.
 - The target sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so any Codable value type
