@@ -39,6 +39,10 @@ enum TestHooks {
     /// Rest surfaces (the tab-bar rest pill) stay hidden during UI tests so they
     /// can't overlay unrelated flows; the dedicated rest-pill test opts back in.
     static let enableRestPillInUITests: Bool = environmentFlag("MARBLE_ENABLE_REST_PILL")
+    /// First-run onboarding never presents under UI testing (it would block all
+    /// 36 existing flows, which launch against a fresh store); the dedicated
+    /// onboarding test opts back in.
+    static let forceOnboarding: Bool = environmentFlag("MARBLE_FORCE_ONBOARDING")
 
     static var now: Date {
         if let overrideNow { return overrideNow }

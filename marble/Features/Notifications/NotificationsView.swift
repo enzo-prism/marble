@@ -12,7 +12,8 @@ struct NotificationsView: View {
 
     @State private var authorizationStatus: CustomNotificationAuthorizationStatus = .notDetermined
     @State private var showingNewNotification = false
-    @AppStorage(WeeklyGoalReminder.enabledDefaultsKey) private var weeklyGoalReminderEnabled = true
+    @AppStorage(WeeklyGoalReminder.enabledDefaultsKey, store: SharedDefaults.suite)
+    private var weeklyGoalReminderEnabled = true
     @State private var editingNotification: CustomNotification?
 
     private let scheduler: CustomNotificationScheduler

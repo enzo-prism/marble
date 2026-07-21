@@ -52,6 +52,8 @@ final class WorkoutFlowUITests: MarbleUITestCase {
         navigateToTab(.split)
 
         forceTap(waitForIdentifier("Workout.Data"))
+        // 2.2 moved Data & Backups behind the new Settings screen.
+        forceTap(waitForIdentifier("Settings.Data", timeout: 10))
         waitForIdentifier("Data.Summary", timeout: 15)
         waitForIdentifier("Data.Export")
         waitForIdentifier("Data.Restore")

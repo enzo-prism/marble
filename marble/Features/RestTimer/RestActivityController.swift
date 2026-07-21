@@ -59,6 +59,23 @@ final class RestActivityController {
         scheduleAutoEnd(at: endsAt)
     }
 
+    /// Adds `seconds` to the rest already counting down (the Live Activity's "+30s" button).
+    ///
+    /// A no-op when nothing is resting — the button can outlive the timer on a stale
+    /// Lock Screen render, and extending a rest that already ended would be surprising.
+    func extend(by seconds: TimeInterval) {
+        extend(by: seconds, now: AppEnvironment.now)
+    }
+
+    func extend(by seconds: TimeInterval, now: Date) {
+        guard let activeRest else { return }
+        // Extend from the *current* end, not from now, so repeated taps accumulate
+        // (+30 then +30 = a full extra minute, not 30 seconds from the second tap).
+        let endsAt = Self.extendedEnd(from: activeRest.endsAt, by: seconds, now: now)
+        beginRestSession(exerciseName: activeRest.exerciseName, endsAt: endsAt)
+        updateLiveActivity(endsAt: endsAt)
+    }
+
     /// Ends the current rest timer immediately (e.g. the user logs the next set
     /// early, or taps End on the in-app pill).
     func cancelRest() {
@@ -111,6 +128,17 @@ final class RestActivityController {
         }
     }
 
+    /// Pushes a new end date into the running activity so the Lock Screen / Dynamic Island
+    /// countdown re-targets. Safe when no activity is live (Live Activities disabled, UI test).
+    private func updateLiveActivity(endsAt: Date) {
+        guard let activity = currentActivity else { return }
+        let content = ActivityContent(
+            state: RestTimerAttributes.ContentState(restEndsAt: endsAt),
+            staleDate: endsAt
+        )
+        Task { await activity.update(content) }
+    }
+
     private func scheduleAutoEnd(at endsAt: Date) {
         endTask = Task { [weak self] in
             let delay = max(0, endsAt.timeIntervalSinceNow)
@@ -139,6 +167,16 @@ final class RestActivityController {
     /// The wall-clock moment the rest period ends.
     nonisolated static func restEndDate(restSeconds: Int, now: Date) -> Date {
         now.addingTimeInterval(TimeInterval(restSeconds))
+    }
+
+    /// The end date after adding `seconds` to a rest that ends at `currentEnd`.
+    ///
+    /// Extending from `currentEnd` (not from `now`) is what makes repeated "+30s" taps
+    /// accumulate. The `max` clamp covers the stale-render case: if the rest already elapsed,
+    /// the extension starts from `now` so the result is never in the past — otherwise a tap on
+    /// a lagging Lock Screen would produce an already-expired timer that vanishes instantly.
+    nonisolated static func extendedEnd(from currentEnd: Date, by seconds: TimeInterval, now: Date) -> Date {
+        max(currentEnd, now).addingTimeInterval(seconds)
     }
 
     /// Rest surfaces stay out of UI-test runs (they'd overlay unrelated flows)

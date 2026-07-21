@@ -17,7 +17,13 @@ struct AddSetView: View {
     @State private var selectedExerciseSnapshot: ExerciseSnapshot?
     @State private var performedAt: Date
     @State private var weight: Double?
-    @State private var weightUnit: WeightUnit = .lb
+    /// Seeded from the user's onboarding/Settings preference. A previous entry
+    /// for the selected exercise still overrides this in `applyDefaults` — the
+    /// preference only decides where a brand-new exercise starts.
+    @State private var weightUnit: WeightUnit = AddSetView.initialWeightUnit(
+        preference: AddSetView.preferredWeightUnit,
+        lastEntryUnit: nil
+    )
     @State private var reps: Int?
     @State private var distance: Double?
     @State private var distanceUnit: DistanceUnit = .meters
@@ -54,6 +60,33 @@ struct AddSetView: View {
         self.context = context
         self.activeSession = activeSession
         _isPresented = isPresented
+    }
+
+    /// The default weight unit chosen during onboarding or in Settings.
+    /// `nil` when the user has never expressed a preference (everyone who
+    /// upgraded from 2.1 without onboarding), which keeps the historical `.lb`
+    /// default intact.
+    static var preferredWeightUnit: WeightUnit? {
+        guard let raw = SharedDefaults.suite.string(forKey: SharedDefaults.Key.preferredWeightUnit) else {
+            return nil
+        }
+        return WeightUnit(rawValue: raw)
+    }
+
+    /// Which unit a fresh set starts in.
+    ///
+    /// Precedence is deliberate and has bitten this repo before: the unit the
+    /// user *last actually logged for this exercise* is the strongest signal and
+    /// always wins. The stored preference is only the starting point when there
+    /// is no prior entry, and `.lb` is the last resort so behaviour is unchanged
+    /// for anyone who never set a preference.
+    nonisolated static func initialWeightUnit(
+        preference: WeightUnit?,
+        lastEntryUnit: WeightUnit?
+    ) -> WeightUnit {
+        if let lastEntryUnit { return lastEntryUnit }
+        if let preference { return preference }
+        return .lb
     }
 
     var body: some View {
@@ -867,7 +900,11 @@ struct AddSetView: View {
 
         if let lastEntry {
             weight = exercise.displayedWeightInput(fromStoredWeight: lastEntry.weight)
-            weightUnit = lastEntry.weightUnit
+            // The previous entry's unit still wins over the stored preference.
+            weightUnit = Self.initialWeightUnit(
+                preference: Self.preferredWeightUnit,
+                lastEntryUnit: lastEntry.weightUnit
+            )
             addedLoad = exercise.metrics.weightIsRequired || lastEntry.weight != nil
             if exercise.metrics.usesReps {
                 if exercise.metrics.reps == .required {

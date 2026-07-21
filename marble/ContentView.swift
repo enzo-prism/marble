@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var tabSelection = TabSelection()
     @State private var activeDay = DateHelper.startOfDay(for: AppEnvironment.now)
     @State private var persistenceIssues = PersistenceIssueCenter.shared
+    @State private var showingOnboarding = false
 
     private let restTimer = RestActivityController.shared
 
@@ -86,6 +87,10 @@ struct ContentView: View {
                 Task { await WeeklyGoalReminder.sync(modelContext: modelContext) }
                 // Refresh Apple Health session export (no-op unless enabled).
                 Task { await HealthSessionExporter.shared.exportIfEnabled(from: modelContext) }
+                // Push the same consistency numbers out to the Home/Lock Screen
+                // widget. Backgrounding is the important half: it is the last
+                // moment we can refresh before the user looks at the widget.
+                WeeklyGoalWidgetPublisher.publish(modelContext: modelContext)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
@@ -93,6 +98,13 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .marbleOpenQuickLog)) { _ in
             quickLog.open()
+        }
+        .onOpenURL { url in
+            // Widget deep links (`marble://trends`). Widget URLs are delivered
+            // straight to the owning app, so the scheme needs no Info.plist
+            // registration — but we still check it before acting on a host.
+            guard url.scheme == "marble", let tab = Self.tab(for: url.host) else { return }
+            tabSelection.selected = tab
         }
         .sheet(isPresented: $quickLog.isPresentingAddSet, onDismiss: {
             quickLog.clearPresentationContext()
@@ -110,6 +122,11 @@ struct ContentView: View {
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()
         }
+        .fullScreenCover(isPresented: $showingOnboarding) {
+            OnboardingView {
+                showingOnboarding = false
+            }
+        }
         .background(Theme.backgroundColor(for: colorScheme))
         .alert("Unable to Save", isPresented: Binding(
             get: { persistenceIssues.message != nil },
@@ -125,6 +142,14 @@ struct ContentView: View {
             // Routes the system undo gestures (shake, three-finger swipe)
             // through SwiftData's change tracking.
             modelContext.undoManager = undoManager
+            // Gate is pure and tested (OnboardingGateTests). Existing users
+            // upgrading to 2.2 are skipped AND stamped complete, so the flow
+            // can never surface for them on a later launch.
+            let onboarding = OnboardingGate.currentDecision()
+            if onboarding.marksCompleteSilently {
+                OnboardingGate.markComplete()
+            }
+            showingOnboarding = onboarding.presentsOnboarding
             if TestHooks.isUITesting {
                 if let tab = Self.tab(for: TestHooks.initialTab) {
                     tabSelection.selected = tab

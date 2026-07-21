@@ -54,7 +54,11 @@ struct TrendsContentView: View {
     @Environment(\.marbleActiveDay) private var activeDay
 
     /// Sessions per week that count as a hit week (see TrainingConsistency).
-    @AppStorage("weeklySessionTarget") private var weeklyTarget = TrainingConsistency.defaultWeeklyTarget
+    /// Stored in the shared App Group suite so the widget extension reads the
+    /// same target (`SharedDefaults.Key.weeklySessionTarget` is still the
+    /// literal "weeklySessionTarget", so existing values migrate).
+    @AppStorage(SharedDefaults.Key.weeklySessionTarget, store: SharedDefaults.suite)
+    private var weeklyTarget = TrainingConsistency.defaultWeeklyTarget
 
     /// Scoped to the selected range at init (see `TrendsView`): only rows the
     /// charts can actually show are fetched and kept live. "All" keeps the

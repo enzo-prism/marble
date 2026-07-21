@@ -1,11 +1,13 @@
 import SwiftUI
 import WidgetKit
 
-// Entry point for the MarbleWidgets widget-extension target. Add more widgets (Home Screen,
-// Lock Screen, Control) to `body` over time; today it hosts the rest-timer Live Activity.
+// Entry point for the MarbleWidgets widget-extension target: the rest-timer Live Activity,
+// the Home/Lock Screen weekly-goal widget, and the Control Center quick-log control.
 @main
 struct MarbleWidgetsBundle: WidgetBundle {
     var body: some Widget {
         RestTimerLiveActivity()
+        WeeklyGoalWidget()
+        QuickLogControl()
     }
 }

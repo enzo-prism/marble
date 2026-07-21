@@ -15,7 +15,9 @@ import UserNotifications
 ///   already granted for their own reminders, and stays silent otherwise.
 enum WeeklyGoalReminder {
     static let requestIdentifier = "marble.weeklyGoal.atRisk"
-    static let enabledDefaultsKey = "weeklyGoalReminderEnabled"
+    /// Same literal key as before — it now lives in the shared App Group
+    /// suite (see `SharedDefaults`) so the widget extension can read it.
+    static let enabledDefaultsKey = SharedDefaults.Key.weeklyGoalReminderEnabled
     /// Evening hour the nudge fires at.
     static let fireHour = 18
 
@@ -60,7 +62,7 @@ enum WeeklyGoalReminder {
     static func sync(modelContext: ModelContext, now suppliedNow: Date? = nil) async {
         let now = suppliedNow ?? AppEnvironment.now
         guard !TestHooks.isUITesting else { return }
-        guard UserDefaults.standard.object(forKey: enabledDefaultsKey) as? Bool ?? true else {
+        guard SharedDefaults.suite.object(forKey: enabledDefaultsKey) as? Bool ?? true else {
             removePending()
             return
         }
@@ -71,7 +73,7 @@ enum WeeklyGoalReminder {
             return
         }
 
-        let target = UserDefaults.standard.object(forKey: "weeklySessionTarget") as? Int
+        let target = SharedDefaults.suite.object(forKey: SharedDefaults.Key.weeklySessionTarget) as? Int
             ?? TrainingConsistency.defaultWeeklyTarget
         // The engine only needs day-level activity; scoping the fetch to the
         // current week keeps this sync O(week) — streak math isn't needed to

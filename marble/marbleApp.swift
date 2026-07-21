@@ -7,6 +7,11 @@ struct MarbleApp: App {
 
     init() {
         TestHooks.applyGlobalSettings()
+        // Must run before anything reads the shared suite: the weekly target and
+        // reminder flag shipped in `.standard` before the App Group existed.
+        SharedDefaults.migrateIfNeeded()
+        // No-op under UI testing; tips floating over the UI break flows + audits.
+        MarbleTips.configure()
         modelContainer = PersistenceController.makeContainer(useInMemory: TestHooks.useInMemoryStore)
         AppIntentsSupport.container = modelContainer
         if TestHooks.isUITesting {

@@ -16,7 +16,7 @@ struct WorkoutView: View {
     private var sprintPrescriptions: [SprintPrescription]
 
     @State private var showingPlan = false
-    @State private var showingData = false
+    @State private var showingSettings = false
     @State private var showingFinishConfirmation = false
     @State private var errorMessage: String?
 
@@ -84,11 +84,15 @@ struct WorkoutView: View {
 
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
-                            showingData = true
+                            showingSettings = true
                         } label: {
-                            Image(systemName: "externaldrive")
+                            Image(systemName: "gearshape")
                         }
-                        .accessibilityLabel("Data and backups")
+                        .accessibilityLabel("Settings")
+                        // Identifier intentionally unchanged: WorkoutFlowUITests
+                        // and AppStoreScreenshotUITests both drive this button by
+                        // "Workout.Data". Only the destination moved — Data &
+                        // Backups now lives one level in, under Settings.
                         .accessibilityIdentifier("Workout.Data")
                     }
 
@@ -105,8 +109,8 @@ struct WorkoutView: View {
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()
         }
-        .sheet(isPresented: $showingData) {
-            DataManagementView()
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()
