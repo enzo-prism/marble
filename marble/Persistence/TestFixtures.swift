@@ -506,8 +506,12 @@ enum TestFixtures {
         let plannedSets = (try? context.fetch(FetchDescriptor<PlannedSet>())) ?? []
         let customNotifications = (try? context.fetch(FetchDescriptor<CustomNotification>())) ?? []
         let importedWorkouts = (try? context.fetch(FetchDescriptor<ImportedWorkout>())) ?? []
+        // Nothing seeds a body metric today, but leaving it out means the first
+        // fixture that does would leak weigh-ins into the next test's store.
+        let bodyMetrics = (try? context.fetch(FetchDescriptor<BodyMetricEntry>())) ?? []
 
         sessions.forEach { context.delete($0) }
+        bodyMetrics.forEach { context.delete($0) }
         sprintGoals.forEach { context.delete($0) }
         sprintPrescriptions.forEach { context.delete($0) }
         importedWorkouts.forEach { context.delete($0) }

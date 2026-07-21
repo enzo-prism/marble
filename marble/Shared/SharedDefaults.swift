@@ -34,6 +34,12 @@ nonisolated enum SharedDefaults {
         static let weeklyGoalReminderEnabled = "weeklyGoalReminderEnabled"
         static let preferredWeightUnit = "preferredWeightUnit"
         static let didCompleteOnboarding = "didCompleteOnboarding"
+        /// Written the first time the onboarding flow is actually presented.
+        /// Without it, a user who force-quits midway through onboarding is
+        /// indistinguishable on the next launch from someone upgrading from
+        /// 2.1 — both have `didSeedMarbleData` set and no completion flag —
+        /// and the gate would skip them permanently. See `OnboardingGate`.
+        static let didBeginOnboarding = "didBeginOnboarding"
         /// Retained for continuity only. The snapshot no longer lives in
         /// `UserDefaults` — `SharedKeychain.service` reuses this same string as
         /// its `kSecAttrService`. Nothing reads this key any more; the app may

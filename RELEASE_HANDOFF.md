@@ -1,6 +1,6 @@
 # Marble Release Handoff
 
-**Last verified: 2026-07-20.** This file is the single source of truth for "where the
+**Last verified: 2026-07-21.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
@@ -34,9 +34,21 @@ profile regeneration, no change to the two pinned `PROVISIONING_PROFILE_SPECIFIE
 
 What changed in the repo:
 
-- `marble.entitlements` — dropped `com.apple.security.application-groups`, added
-  `keychain-access-groups = ["$(AppIdentifierPrefix)Prism.marble.shared"]`; HealthKit kept.
-- `MarbleWidgets/MarbleWidgets.entitlements` — same swap (that key is now its only content).
+- `marble.entitlements` — dropped `com.apple.security.application-groups`; HealthKit kept;
+  `keychain-access-groups` is a **two-element array whose order is load-bearing**:
+  ```xml
+  <array>
+      <string>$(AppIdentifierPrefix)Prism.marble</string>
+      <string>$(AppIdentifierPrefix)Prism.marble.shared</string>
+  </array>
+  ```
+  ⚠️ The **first** entry is the default access group for any keychain write that does not
+  name one. `KeychainTokenStore` (Strava OAuth) does not name one, so `Prism.marble` must
+  stay first — reordering the array or dropping the first entry silently relocates existing
+  users' Strava tokens and logs them out. The `.shared` group carries only the widget
+  snapshot, which always names its group explicitly.
+- `MarbleWidgets/MarbleWidgets.entitlements` — `keychain-access-groups` is its only content,
+  and there it *is* a single entry: `$(AppIdentifierPrefix)Prism.marble.shared`.
 - `marble/Shared/SharedDefaults.swift` — `SharedDefaults.suite` is `UserDefaults.standard`
   again, plus a new `SharedKeychain` type that owns the snapshot item
   (`kSecClassGenericPassword`, service `marble.widget.weeklyGoalSnapshot`, accessible
@@ -75,45 +87,48 @@ On the **simulator**, keychain access groups are not enforced and `SecItem*` can
 neutral "Open Marble" card rather than crashing. CI and `make unit` are unaffected — no unit
 test touches the real keychain.
 
-## Release state (2026-07-20)
+## Release state (2026-07-21)
 
-- **2.0** — live on the App Store (`READY_FOR_DISTRIBUTION`).
-- **2.1 (build 40)** — **RELEASED 2026-07-21** via
+- **2.1 (build 40)** — **LIVE on the App Store**, released 2026-07-21 via
   `asc versions release --version-id 59f2e4c7-1c4b-49b3-a5d3-265ca6da74b1 --confirm`;
   state moved `PENDING_DEVELOPER_RELEASE` → `READY_FOR_DISTRIBUTION`. It carries the
   sessions / sprint-prescription / Exercise-Library / JSON-backup work from builds 35-39.
   **No phased release was configured** (`appStoreVersionPhasedRelease` was null), so it went
-  to 100% of users at once — worth creating one *before* releasing next time, since 2.1 is
+  to 100% of users at once — worth creating one *before* releasing next time, since 2.1 was
   the first production build to run the V2→V4 migrations.
-- **2.2 (build 41)** — in development on `main`. Widgets, interactive rest timer, Control
-  Center control, onboarding, Settings, Siri/Spotlight intents, bodyweight + schema **V5**.
-  No longer blocked on portal work — see the resolved section above.
+- **2.2 (build 41)** — **on TestFlight, `VALID`** (buildId
+  `e7b6d9cb-6ea7-401b-9bab-b42b6be26cac`, uploaded 2026-07-21). **Not submitted to App
+  Review.** Widgets, interactive rest timer, Control Center control, onboarding, Settings,
+  Siri/Spotlight intents, bodyweight + schema **V5**. Not blocked on portal work — see the
+  resolved section above. Several of its surfaces are defined but not fully wired; see
+  **Known gaps / next up** in `ROADMAP.md` before writing release notes for it.
+- **2.0 (build 34)** — superseded by 2.1. Its review is closed; nothing about it is live
+  state any more.
+- **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 41`.**
+  The next upload bumps the build via `make asc-next-build` (expect **42**).
 
 ---
 
-## TL;DR — what "up-to-date" means today (2026-07-12)
+## Build history (what each build carried)
 
-- **Build 39:** Journal and Quick Log now show every sprint rep's saved exact/ranged target
+- **Build 39:** Journal and Quick Log show every sprint rep's saved exact/ranged target
   with accessible green check / red x / neutral unscored feedback. Set Details compares the
   recorded result with the frozen per-rep goal and explains the outcome. Additive
   `MarbleSchemaV4`, legacy backfill provenance, backup/restore validation, duplicate/undo/
   intent support, and migration coverage preserve history when an exercise goal changes.
-  Commit `3e6d4b6` is live on `origin/main`; build 39 is valid in internal TestFlight.
+  Commit `3e6d4b6`. Shipped to users in 2.1.
 - **Build 38:** the Exercise Library and editor are redesigned end to end. Search, category
   filters, favorites, stable compact summaries, create-from-search, and first-library empty
   states make discovery clear. Explicit tracking types reveal only relevant fields; edits
   remain drafts until Save; validation, dirty-dismissal protection, logged/planned-workout
   impact warnings, and final delete dependency checks protect user data. Sprint is a direct
-  type with distance, repeats, exact/ranged target time, and one recovery control. The
-  Release archive/export is signed and build 38 is valid in internal TestFlight.
+  type with distance, repeats, exact/ranged target time, and one recovery control.
 - **Build 37:** reusable sprint prescriptions add fixed distance, 1–50 repeats,
   an exact or ranged whole-second target time, prescribed recovery, per-rep RPE/rest logging,
   live goal feedback, and summaries across exercise selection and workout planning. The new
   `SprintPrescription` model is additive `MarbleSchemaV3`; backup/restore supports it while
-  retaining compatibility with older JSON. App and all test targets compile locally; the
-  signed archive/export succeeded and the build is valid in internal TestFlight. The runtime
-  migration and simulator suites still require a compatible booted iOS Simulator.
-- **Code baseline:** **2.0 (build 36)** fixes the build-35 launch crash for stores created
+  retaining compatibility with older JSON.
+- **Build 36** fixed the build-35 launch crash for stores created
   by earlier releases. The additive V2 schema now uses SwiftData's automatic lightweight
   migration instead of the redundant explicit stage that resolved both endpoints to the
   V2 checksum. It retains first-class workout sessions, focused Trends, JSON backup/restore,
@@ -174,45 +189,25 @@ test touches the real keychain.
   (`MarbleHaptics.celebrate()`). Weight records are unit-normalized (lb/kg) before comparison.
   Build 28 (perf/iOS 26 pass, `RenderMemo`, `@Observable` migration, handwritten workout scan)
   remains underneath. `origin/release/1.9` may still point at the older 1.9 build 20 baseline.
-- **Latest TestFlight build:** **2.0 (build 39)** uploaded 2026-07-12; processing is
-  **`VALID`**, internal state is **`IN_BETA_TESTING`**, and build id is
-  `f61c2343-850c-42ad-9783-87eb013f308d`. Internal group `test group A`
-  (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds and automatic tester
-  notifications enabled. External beta remains `READY_FOR_BETA_SUBMISSION` and was not
-  submitted.
-- **Current working project version:** **2.1**;
-  `MARKETING_VERSION = 2.1`, `CURRENT_PROJECT_VERSION = 39` in
-  `marble.xcodeproj/project.pbxproj`. The next upload bumps the build via
-  `make asc-next-build` (expect **40**).
-- ⚠️ **Why 2.1 (read before any release work):** App Store **2.0 is attached to build 34**,
-  and its `whatsNew` describes exactly build 34's Trends coaching layer — that submission is
-  coherent and was deliberately left alone. Builds **35–39** (workout sessions, sprint
-  prescriptions, Exercise Library redesign, JSON backups) are **not** described by those notes
-  and cannot ship under a version string 2.0 is about to consume. They ship as **2.1**.
-  Uploading builds 35–39 did not alter, cancel, or resubmit the 2.0 review.
-- **Build/test health:** Xcode 26.5 / iOS 26.5 simulator; **264 unit tests pass, 0 failures**
-  (`make unit`, re-run 2026-07-14). The previously recorded **254** was stale — `3e6d4b6` took
-  the suite to 263 and the follow-up docs commit carried the old number forward; +1 is the
-  rescued populated-store migration test. The **35 UI flows**, default accessibility audit,
-  and explicit XXXL exercise-library interactions last passed **2026-07-12** and have not been
-  re-run since. One chart-coordinate UI test needed an immediate isolated retry after the
-  full-suite run; it passed unchanged. The Release migration gate installed the previous baseline,
-  preserved all 40 seeded exercises, overlaid build 39, and launched successfully. Build 39
-  also passed 19 focused sprint/schema/backup tests and the end-to-end sprint Journal UI
-  flow (range hit, detail explanation, and edited miss). The
-  runtime's unsupported Dynamic Type audit is an expected skip covered by dedicated XXXL
-  tests. The signed app + widget archive/export succeeded. Snapshot baselines remain
+- **Why the 2.1 train existed (historical, resolved):** App Store 2.0 was attached to build
+  34 and its `whatsNew` described exactly that build's Trends coaching layer, so builds 35–39
+  could not ship under the 2.0 string. They shipped as **2.1**, which released 2026-07-21.
+  The question is closed; the current train is 2.2.
+- **Build/test health (2026-07-21):** Xcode 26.5 / iOS 26.5 simulator. `make unit` **passed**
+  and `make audit` **passed**. `make ui` was **39 passed / 1 failed**; the failure,
+  `AppStoreScreenshotUITests.test07TrainingCalendar`, is **proven pre-existing** — it fails
+  identically on a clean `origin/main` worktree on this host (`UICalendarView` render timing)
+  and is not a release gate. Suite sizes counted from source: `Tests/Unit/` = 47 files / 49
+  classes / **401 test methods**; `Tests/UI/` = 17 files / **46 test methods**. Do not
+  hand-edit these numbers forward — see `TESTING.md`. Snapshot baselines remain
   host-sensitive; the unchanged Journal surface still produces the known local mismatch.
 - **Live Activity wiring:** `MarbleWidgets` is now a real app-extension target embedded in
   the app, `NSSupportsLiveActivities = YES` is set on the app target, and
   `RestTimerAttributes.swift` is shared into the widget target.
-- **Live App Store:** version **2.0 is `WAITING_FOR_REVIEW`** under submission
-  `a89a2e97-369e-4f80-a658-2cab40d79b19`. The build 39 TestFlight upload did not alter,
-  cancel, or resubmit that App Store review.
 
 ---
 
-## What 1.9 contains (vs shipped 1.8)
+## What 1.9 contained (vs shipped 1.8) — historical
 
 Features:
 - Workout import hub (`marble/Features/Import/`) — Marble as a UI layer over fragmented
@@ -272,7 +267,8 @@ Marble is positioned as a UI layer over fragmented workout sources. All paths ar
     indie compromise; for production consider a tiny token-exchange proxy and point
     `StravaRedirectURI` / exchange at it.
 
-What's verified: app + 152 unit tests build green on Xcode 26.5 / iOS 26.5; Strava mapping,
+What's verified: the app and the full unit suite build green on Xcode 26.5 / iOS 26.5 (see
+`TESTING.md` for current counts); Strava mapping,
 sport-type classification, date parsing, HealthKit origin detection, Strava credential
 resolution (env vars → Info.plist), import re-entry, failure handling, and duplicate-batch
 skipping are unit-tested; the handwritten-scan parser/importer plus a real Vision-OCR
@@ -346,8 +342,8 @@ profile for `Prism.marble.MarbleWidgets`.
 - `.asc/ExportOptions.plist` maps both `Prism.marble` and `Prism.marble.MarbleWidgets`.
 - Release signing is pinned per target in `marble.xcodeproj/project.pbxproj`.
 
-For the next upload after build 29, re-run `make asc-next-build`; it should report `30`
-while build 29 remains the latest processed/uploaded 1.9 build.
+For the next upload, re-run `make asc-next-build`; with build 41 the latest processed upload
+it should report **42**. Never guess a build number locally.
 
 Historical planned command, kept for context:
 
@@ -371,22 +367,39 @@ Notes:
 ---
 
 ## Open release decisions
-- Decide whether/when to submit the prepared 1.9 App Store review. TestFlight build 29 is
-  ready, App Store version 1.9 is `READY_FOR_REVIEW`, and 1.8 is complete / ready for
-  distribution. Do not submit 1.9 without explicit approval.
-- **Strava posture for 1.9 (recommended): ship with Strava _unconfigured_.** Leave
+
+**The only live decision: when to submit 2.2 to App Review.** Build 41 is on TestFlight and
+`VALID`; nothing is submitted. Before submitting, resolve these:
+
+- **Do the device pass first.** Most of 2.2 — widgets, Live Activity buttons, the Control
+  Center control, Siri, Spotlight, and the keychain snapshot itself — is untestable on the
+  simulator. Walk the 2.2 checklist in `TESTING.md` on a real phone.
+- **Decide what to do about the known gaps** (`ROADMAP.md` → Known gaps / next up). Some are
+  fine to ship (TipKit inert, no bodyweight edit); others shape the release notes. In
+  particular: do **not** advertise Siri set-logging alongside the widget, because a
+  Siri-logged set does not refresh the widget or the weekly-goal reminder. Either fix that or
+  keep the notes to widgets + onboarding.
+- **Configure a phased release before releasing this time.** 2.1 shipped to 100% at once
+  because `appStoreVersionPhasedRelease` was null. 2.2 carries the V5 migration and the first
+  widget surface — both are exactly what phased rollout exists for.
+- **Strava posture is unchanged: ship with Strava _unconfigured_.** Leave
   `StravaClientID` / `StravaClientSecret` / `StravaRedirectURI` out of the build so only the
   fully-verified **Apple Health + Garmin-via-Health** paths go out. Strava stays hidden
-  unless keys are set, so this is the default — **no code change required**. Promote Strava
-  in **1.10** after (a) a live OAuth round-trip with real keys and (b) a decision on the
-  in-binary `client_secret` (see "Workout import"). Rationale: Strava is the only import path
-  that is network-facing, ships a secret, and is unverified end-to-end.
-- Keep 1.9 App Review submission as a separate explicit step. Before submitting, re-run:
-  `make asc-review`, `make asc-validate`, and `asc review submit --help` with the current
-  CLI.
+  unless keys are set, so this is the default — **no code change required**. Promote it only
+  after (a) a live OAuth round-trip with real keys and (b) a decision on the in-binary
+  `client_secret` (see "Workout import"). Rationale: Strava is the only import path that is
+  network-facing, ships a secret, and is unverified end-to-end.
+- Keep App Review submission a separate, explicitly approved step. Before submitting, re-run
+  `make asc-review`, `make asc-validate`, and `asc review submit --help` — the installed CLI
+  drifts.
 
-After validation is clean, use the CLI's current submit path for the prepared 1.9
-version. Re-check `asc review submit --help` first because the installed CLI can drift.
+To release an **approved** version (the step that was missing from the docs until 2.1):
+
+```sh
+asc versions release --version-id <appStoreVersion id> --confirm
+```
+
+That is what moved 2.1 from `PENDING_DEVELOPER_RELEASE` to `READY_FOR_DISTRIBUTION`.
 
 ---
 
@@ -404,10 +417,10 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 ---
 
 ## Release rules
-- Do not cancel the current App Store review by default.
-- `origin/main` is the canonical release baseline, now on the **2.1** train. The latest
-  internal TestFlight build is **2.0 (39)**; App Store **2.0 (build 34)** remains
-  `WAITING_FOR_REVIEW` and was not mutated. Released to users: **1.9 (build 29)**.
+- Do not cancel an in-flight App Store review by default.
+- `origin/main` is the canonical release baseline, now on the **2.2** train. The latest
+  TestFlight build is **2.2 (41)**, not submitted for review. Released to users:
+  **2.1 (build 40)**.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
   holds the Empire source — the branches named `empire-gamification` and
@@ -416,7 +429,10 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
   destroys the feature while appearing to preserve it.
 - Do not bump builds, upload binaries, or submit for review without explicit user approval.
 - Never reuse stale `.asc` archives/IPAs — `make asc-publish-*` regenerates them.
-- Keep signing/export files and generated artifacts under ignored `.asc/`.
+- Keep generated artifacts under `.asc/`, which is ignored — **except**
+  `.asc/ExportOptions.plist` and `.asc/UploadExportOptions.plist`, which are deliberately
+  tracked (`.gitignore` ignores `.asc/*` and negates those two). They carry the
+  `provisioningProfiles` map without which export fails on a fresh clone.
 
 ---
 
@@ -426,8 +442,8 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # expect MARKETING_VERSION 2.0
+make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 41
 make asc-status
 make asc-builds
-make asc-next-build
+make asc-next-build   # expect 42
 ```

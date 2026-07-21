@@ -4,7 +4,8 @@
 1) Identify which UI area you are changing (e.g., navigation, forms, charts, glass surfaces).
 2) Open the matching Apple doc(s) below.
 3) Extract 3–5 actionable rules before coding.
-4) Validate with `scripts/design-check.sh`.
+4) Validate with `make audit` — the accessibility audit suite (contrast, Dynamic Type, hit
+   regions, labels, clipped text). Add `make test` if you changed layout or theme.
 
 ---
 

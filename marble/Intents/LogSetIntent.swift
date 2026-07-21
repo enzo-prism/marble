@@ -113,7 +113,7 @@ struct LogSetIntent: AppIntent {
         let storedWeight: Double? = metrics.usesWeight ? model.storedWeight(from: resolvedInputWeight) : nil
 
         let resolvedReps: Int? = metrics.usesReps ? (reps ?? lastEntry?.reps) : nil
-        // Distance/duration have no spoken parameter in 2.3, so they can only be
+        // Distance/duration have no spoken parameter in 2.2, so they can only be
         // inherited — which is what keeps sprint and timed work loggable by voice.
         let resolvedDistance: Double? = metrics.usesDistance ? lastEntry?.distance : nil
         let resolvedDistanceUnit: DistanceUnit = lastEntry?.distanceUnit ?? model.preferredDistanceUnit

@@ -236,7 +236,7 @@ enum LifterAnalytics {
 
     // MARK: - Relative strength (DOTS)
     //
-    // Added in 2.4 "Body". Everything below is additive: no existing analytic
+    // Added in 2.2 "Body". Everything below is additive: no existing analytic
     // changed shape, and every entry point returns nil/empty when there is no
     // bodyweight data, so the UI omits the metric rather than guessing.
 

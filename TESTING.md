@@ -8,27 +8,47 @@
   usual ranges, the live-PR projection, workout sessions, sprint-prescription target
   boundaries, frozen per-rep goal evaluation/persistence/orphan cleanup, V3-to-V4 migration,
   exercise-editor draft/type/validation/impact rules,
-  backup/restore validation, and recovery safety).
-  Runs in CI. Last verified locally on 2026-07-14 with Xcode 26.5 /
-  iOS 26.5 simulator: **264 passed, 0 failed**.
+  backup/restore validation, and recovery safety). Runs in CI.
 - Snapshot tests: `MarbleSnapshotTests` (SwiftUI rendering with SnapshotTesting).
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
-## Latest local verification (2026-07-20, 2.2 build 41)
-- `MarbleTests`: **all passed, 0 failed** (`make unit`). 2.2 added ten suites:
+## Suite inventory (counted from source, 2026-07-21)
+- `Tests/Unit/` — **47 files, 49 classes, 401 test methods**.
+- `Tests/UI/` — **17 files, 46 test methods**: **44 flow cases** plus
+  `AccessibilityAuditUITests`' 2. `make ui` runs the 44 and skips the audit pair via
+  `-skip-testing`; `make audit` runs that pair instead.
+- Counts here are derived by counting source, not by hand-editing the previous number
+  forward. The long-stale "264" and "254" both came from carrying an old number through a
+  docs commit.
+
+## Latest local verification (2026-07-21, 2.2 build 41)
+- `MarbleTests`: **passed, 0 failed** (`make unit`). 2.2 added ten suites:
   `SharedDefaultsTests`, `WeeklyGoalWidgetStateTests`, `OnboardingGateTests`,
   `PreferredWeightUnitTests`, extended `RestActivityControllerTests`,
   `AppIntentEntityTests`, `LogSetIntentTests`, `BodyMetricEntryTests`,
   `RelativeStrengthTests`, `SchemaV5MigrationTests`.
-- `MarbleUITests`: **43 passed, 1 failed** (`make ui`). The failure is
+- `MarbleUITests`: **all 44 flow cases executed — 43 passed, 1 failed** (`make ui`,
+  2026-07-21, after the 2.2 defect fixes). The failure is
   `AppStoreScreenshotUITests.test07TrainingCalendar` waiting on `Calendar.MonthTitle`;
   **verified pre-existing, not a 2.2 regression**: the same test fails identically on a
   clean `origin/main` worktree on this host (`UICalendarView` render timing). Re-verify the
   same way before blaming a change — `git worktree add <dir> origin/main` then
   `make only TEST=MarbleUITests/AppStoreScreenshotUITests/test07TrainingCalendar`.
-- `AccessibilityAuditUITests` (2026-07-20): **passed** against the new Settings, Onboarding,
-  and bodyweight surfaces.
+- `AccessibilityAuditUITests` (`make audit`): **passed** against the new Settings, Onboarding
+  and bodyweight surfaces on the simulator it was first run on.
+- ⚠️ **The contrast audit is simulator-dependent — verify against a baseline before believing
+  a failure.** On a freshly created simulator the same suite fails
+  `testAccessibilityAudit_DefaultText` with *"Contrast **nearly passed** — Contrast is not high
+  enough … unless font size is larger"* on the `ExercisePickerView` section headers ("Recent",
+  "All Exercises"). This was proven environmental on 2026-07-21: a clean `origin/main`
+  worktree fails **identically, same two labels, same simulator**, while the same commit
+  passed on a different simulator minutes earlier. Real contrast is pinned by
+  `ThemeContrastTests` in the unit suite, which is the authority. Reproduce a baseline the
+  same way before blaming a change:
+  ```sh
+  git worktree add <dir> origin/main && cd <dir> && MARBLE_SIMULATOR_ID=<udid> make audit
+  ```
 - **Run UI tests on a dedicated simulator.** This Mac is shared with other agent sessions,
   and a second session's app running on the same simulator makes XCUITest treat it as an
   interrupting element — the symptom is a storm of "Activation point invalid" failures
@@ -40,28 +60,29 @@
   ```
   Never `xcrun simctl shutdown all` and never `pkill CoreSimulatorService` — both destroy
   the other session's simulators (the latter wiped the whole device registry once).
+- Signed **build 41** Release archive/export: passed for `Prism.marble` and
+  `Prism.marble.MarbleWidgets`; App Store Connect processing is `VALID`.
+- **Counting caveat (resolved 2026-07-21):** count *unique* case names, not
+  `Test Case ... passed/failed` lines. XCTest re-runs a case after a simulator crash, so the
+  raw line count both double-counts and under-reports; an earlier run looked like "39 of 44"
+  purely from that. To reconcile a run:
+  ```sh
+  grep -oE "Test Case '-\[MarbleUITests\.[A-Za-z]+ [a-zA-Z0-9_]+\]' (passed|failed)" <log> \
+    | sort -u | wc -l    # expect 44
+  ```
+  Note `AccessibilityAuditUITests`' two cases share the `testAccessibilityAudit_` prefix — a
+  regex that stops at the underscore collapses them into one and skews the arithmetic.
 
-## Previous verification (2026-07-14)
-- `MarbleTests`: **264 passed, 0 failed** (`make unit`), verified 2026-07-14.
-  The previously recorded 254 was stale: commit `3e6d4b6` took the suite to 263 and the
-  follow-up docs commit carried the old number forward. Counts here are derived from an
-  actual run — do not hand-edit them forward.
-- `MarbleUITests` (**verified 2026-07-12, not re-run since**): **35 flows passed, 0 failed**
-  (`make ui`), including workout start/log/finish, Data management, focused Trends, plan
-  logging, exercise creation/management, sprint prescription logging, and XXXL interaction
-  coverage. One known Trends chart coordinate case required an immediate isolated retry and
-  passed unchanged. Note `make ui` runs **36** of the 38 `Tests/UI` cases — it skips
-  `AccessibilityAuditUITests`' 2 cases via `-skip-testing`, which `make audit` runs instead.
-- `AccessibilityAuditUITests` (**verified 2026-07-12**): default audit passed; the iOS 26.5
-  runtime skips its unsupported Dynamic Type audit, covered by dedicated XXXL tests for
-  Workout, Trends, Exercise Picker, Exercise Library, and New Exercise.
-- Previous-release Release migration (**verified 2026-07-12**): passed; the gate asserts the
-  exercise count is unchanged across the overlay. Caveat: it asserts only `before == after`
-  and never that the count is non-zero, so it passes vacuously if the base app's launch has
-  not finished seeding — see `scripts/test_previous_release_migration.sh`.
-- Signed build 39 Release archive/export: passed for `Prism.marble` and
-  `Prism.marble.MarbleWidgets`; App Store Connect processing is `VALID` and internal state
-  is `IN_BETA_TESTING`.
+## Standing caveats (carried forward)
+- `AccessibilityAuditUITests`: the iOS 26.5 runtime skips its unsupported Dynamic Type audit,
+  which is covered instead by dedicated XXXL tests for Workout, Trends, Exercise Picker,
+  Exercise Library, and New Exercise.
+- Previous-release Release migration gate: it asserts the exercise count is unchanged across
+  the overlay. Caveat: it asserts only `before == after` and never that the count is non-zero,
+  so it passes vacuously if the base app's launch has not finished seeding — see
+  `scripts/test_previous_release_migration.sh`.
+- One Trends chart-coordinate UI case has historically needed an immediate isolated retry
+  after a full-suite run; it has always passed unchanged on retry.
 - Feature-verification pass on the Apple Health / Watch / Garmin import path and the AI
   photo-scan pipeline. The real Vision OCR step is proven by
   `WorkoutTextRecognizerIntegrationTests`; the FoundationModels LLM parser is availability-
@@ -92,13 +113,55 @@ Preferred Makefile targets:
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **2.0 (38)**, build ID
-  `d014fc86-cd82-4aef-95f0-53a82418028c`; `VALID` and `IN_BETA_TESTING` internally.
-- ASC state checked on 2026-07-12: internal group `test group A` receives all builds;
-  external beta remains unsubmitted.
-- What to test on device: start and finish a workout session, log planned and repeated
-  sets, review recent workouts, check weekly-goal/priority-lift/monthly-report Trends, and
-  export + restore a JSON backup. Confirm the backup disclosure that media is excluded.
+- Current phone-test build: **2.2 (41)**, build ID
+  `e7b6d9cb-6ea7-401b-9bab-b42b6be26cac`; `VALID`, uploaded 2026-07-21.
+- Internal group `test group A` receives all builds; external beta remains unsubmitted.
+- **Most of 2.2 is device-only.** Widgets, Live Activity buttons, Control Center controls,
+  Siri, and Spotlight cannot be verified on the simulator — the keychain access group is not
+  enforced there, so every snapshot read degrades to "no snapshot". The checklist below is
+  the only coverage those surfaces get; do not sign off 2.2 without walking it.
+
+### 2.2 payload (what's new on this build)
+- **Weekly Goal widget** — add it in all five families: Home Screen small and medium, and
+  Lock Screen circular, rectangular, and inline. Check each shows real progress, not the
+  neutral "Open Marble" placeholder. **Lock the phone and confirm the Lock Screen families
+  still render** — the snapshot is stored `AfterFirstUnlockThisDeviceOnly`, so this is the
+  one check that proves the accessibility level is right. Tap through and confirm the
+  `marble://trends` deep link lands on Trends.
+  - Known gap to expect: logging a set **via Siri** does not refresh the widget (see
+    ROADMAP "Known gaps"). Log via Siri, then confirm the widget is stale — that is current
+    behaviour, not a new bug.
+- **Rest timer Live Activity** — log a set with rest > 0, then use the **`+30s`** and
+  **`End`** buttons on both the Lock Screen and the Dynamic Island expanded view. Confirm
+  `+30s` actually extends the countdown and `End` dismisses the activity.
+- **Control Center** — add the "Log a Set" control in Control Center, and confirm it opens
+  Marble to quick log. Also try it from the Lock Screen and the Action button.
+- **Onboarding** — install fresh (delete the app first) and walk all three pages: what
+  Marble is, weekly goal, default weight unit. Confirm the chosen unit is what Add Set
+  defaults to. Then confirm an **upgrading** user never sees onboarding.
+- **Settings** — open Workout → Settings and exercise every row: units, weekly goal,
+  notifications, Health auto-import and session-export toggles, Data & Backups, privacy
+  explainer, version footer. Confirm the Import screen's toggles and the Settings toggles
+  stay in sync (same `@AppStorage` keys).
+- **Siri & Spotlight** — say "Log a set in Marble", and try the parameterized form with an
+  exercise name. Search an exercise name in Spotlight and confirm it appears and opens.
+  Try start-workout and finish-workout phrases. Confirm a dumbbell-pair exercise logged via
+  intent records the same weight the in-app form would.
+- **Bodyweight + DOTS** — enable Health bodyweight import and confirm entries arrive
+  deduplicated; add a manual weigh-in; check the Trends bodyweight chart and the DOTS line
+  on the e1RM section. Confirm the men/women coefficient picker in the Log Weight sheet
+  changes the score.
+  - Known gaps to expect: a bodyweight entry **cannot be edited or deleted** once saved, and
+    the DOTS coefficient picker exists **only** in the Log Weight sheet — a user whose
+    weigh-ins all arrive from Health never sees it.
+- **Restore from backup** — restore a JSON backup and confirm the data lands. Known gap:
+  the widget does not refresh after a restore.
+
+### Carried-forward regression pass (2.1 payload)
+- Start and finish a workout session, log planned and repeated sets, review recent workouts,
+  check weekly-goal/priority-lift/monthly-report Trends, and export + restore a JSON backup.
+  Confirm the backup disclosure that media is excluded. Note `BodyMetricEntry` is **not yet
+  included in backups** — a restore will not carry bodyweight history.
 - Sprint pass: create a 150 m sprint exercise with 4 repetitions, test a 19-second target
   and a 19–21-second range, log all four reps with RPE and recovery, confirm goal feedback
   at both range boundaries, and verify the final rep closes the sequence without a fifth
@@ -155,3 +218,17 @@ UI tests rely on these environment variables:
   default under UI testing so it can't overlay unrelated flows). The pill's
   countdown runs on the wall clock, so pass a *real* `MARBLE_NOW_ISO8601` when
   using it (see `RestTimerPillUITests`).
+- `MARBLE_FORCE_ONBOARDING=1` — forces the onboarding flow regardless of the
+  `didCompleteOnboarding` gate (`TestHooks.forceOnboarding` → `OnboardingGate`).
+  ⚠️ **The hook is implemented in the app but has zero references in `Tests/`** — the
+  onboarding UI test the roadmap called for was never written. Onboarding is currently
+  covered only by the manual device checklist above.
+
+## Known test gaps
+Recorded honestly so nobody assumes coverage that isn't there. Tracked in `ROADMAP.md`
+under **Known gaps / next up**:
+- No onboarding UI test (`MARBLE_FORCE_ONBOARDING` is unused — see above).
+- No Settings smoke test, despite Settings being a new 2.2 surface.
+- No widget snapshot suite; `WeeklyGoalWidget`'s five families are unverified by any
+  automated test.
+- No V4→V5 case in `PersistenceRecoveryTests`, even though V5 is the shipping schema.

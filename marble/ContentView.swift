@@ -146,13 +146,20 @@ struct ContentView: View {
             modelContext.undoManager = undoManager
             // Gate is pure and tested (OnboardingGateTests). Existing users
             // upgrading to 2.2 are skipped AND stamped complete, so the flow
-            // can never surface for them on a later launch.
+            // can never surface for them on a later launch. The seed flag it
+            // reads is the one captured in `MarbleApp.init()`, so this task no
+            // longer races the seeding task in `marbleApp`.
             // Puts the exercise library in Spotlight's semantic index, which is
             // how the rebuilt Siri reaches app content.
             Task { await ExerciseSpotlightIndex.reindexAll() }
             let onboarding = OnboardingGate.currentDecision()
             if onboarding.marksCompleteSilently {
                 OnboardingGate.markComplete()
+            }
+            // Stamped before the cover appears, so force-quitting on page 2
+            // resumes onboarding next launch instead of losing it forever.
+            if onboarding.recordsOnboardingStarted {
+                OnboardingGate.markBegun()
             }
             showingOnboarding = onboarding.presentsOnboarding
             if TestHooks.isUITesting {

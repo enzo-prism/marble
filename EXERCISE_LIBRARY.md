@@ -10,7 +10,8 @@ stores how a set should be entered; each completed attempt is still stored separ
   favorites, then the rest of the library.
 - Search filters as you type. When there is no exact match, **Create “Name”** opens a new
   exercise with that name already filled in.
-- Open **Manage** from the picker, or **Workout → Data & Backups → Exercise Library**, to
+- Open **Manage** from the picker, or **Workout → Settings → Data & Backups → Exercise
+  Library**, to
   search, filter by category, favorite, edit, or add exercises.
 
 ## Create an exercise

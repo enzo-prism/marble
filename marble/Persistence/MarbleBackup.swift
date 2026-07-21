@@ -53,6 +53,9 @@ struct MarbleBackupSummary: Equatable {
     let supplementLogs: Int
     let sessions: Int
     let plans: Int
+    /// Bodyweight / body-fat measurements. Surfaced because a silent zero here
+    /// is exactly how months of weigh-ins went missing without anyone noticing.
+    let bodyMetrics: Int
 }
 
 @MainActor
@@ -69,6 +72,10 @@ enum MarbleBackupService {
         let plans = try context.fetch(FetchDescriptor<SplitPlan>())
         let sprintPrescriptions = try context.fetch(FetchDescriptor<SprintPrescription>())
         let sprintGoalSnapshots = try context.fetch(FetchDescriptor<SprintGoalSnapshot>())
+        // Schema V5. Omitting this is what silently threw away every weigh-in
+        // on a phone-to-phone restore — the same class of bug as the dropped
+        // `ImportedWorkout`. Any new @Model type belongs in this list.
+        let bodyMetrics = try context.fetch(FetchDescriptor<BodyMetricEntry>())
 
         let payload = Payload(
             formatVersion: currentVersion,
@@ -80,7 +87,8 @@ enum MarbleBackupService {
             sessions: sessions.map(SessionRecord.init),
             plans: plans.map(PlanRecord.init),
             sprintPrescriptions: sprintPrescriptions.map(SprintPrescriptionRecord.init),
-            sprintGoalSnapshots: sprintGoalSnapshots.map(SprintGoalSnapshotRecord.init)
+            sprintGoalSnapshots: sprintGoalSnapshots.map(SprintGoalSnapshotRecord.init),
+            bodyMetrics: bodyMetrics.map(BodyMetricRecord.init)
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -95,7 +103,8 @@ enum MarbleBackupService {
             sets: payload.sets.count,
             supplementLogs: payload.supplementEntries.count,
             sessions: payload.sessions.count,
-            plans: payload.plans.count
+            plans: payload.plans.count,
+            bodyMetrics: (payload.bodyMetrics ?? []).count
         )
     }
 
@@ -109,6 +118,7 @@ enum MarbleBackupService {
         var insertedSupplementEntries = 0
         var insertedSessions = 0
         var insertedPlans = 0
+        var insertedBodyMetrics = 0
 
         var exercises = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<Exercise>()).map { ($0.id, $0) })
         for record in payload.exercises where exercises[record.id] == nil {
@@ -284,6 +294,26 @@ enum MarbleBackupService {
             insertedPlans += 1
         }
 
+        // Standalone by design — no relationship to resolve, so this only needs
+        // the same id-based dedup as `existingSetIDs`. `id` is
+        // `@Attribute(.unique)`, so skipping the check would upsert over a row
+        // the user already has rather than merging alongside it.
+        let existingBodyMetricIDs = Set(try context.fetch(FetchDescriptor<BodyMetricEntry>()).map(\.id))
+        for record in payload.bodyMetrics ?? [] where !existingBodyMetricIDs.contains(record.id) {
+            context.insert(BodyMetricEntry(
+                id: record.id,
+                measuredAt: record.measuredAt,
+                weightKilograms: record.weightKilograms,
+                bodyFatPercent: record.bodyFatPercent,
+                source: record.source,
+                healthKitUUID: record.healthKitUUID,
+                notes: record.notes,
+                createdAt: record.createdAt,
+                updatedAt: record.updatedAt
+            ))
+            insertedBodyMetrics += 1
+        }
+
         do {
             try context.save()
         } catch {
@@ -296,7 +326,8 @@ enum MarbleBackupService {
             sets: insertedSets,
             supplementLogs: insertedSupplementEntries,
             sessions: insertedSessions,
-            plans: insertedPlans
+            plans: insertedPlans,
+            bodyMetrics: insertedBodyMetrics
         )
     }
 
@@ -327,8 +358,22 @@ enum MarbleBackupService {
               hasUniqueIDs(payload.sessions, id: \.id),
               hasUniqueIDs(payload.plans, id: \.id),
               hasUniqueIDs(payload.sprintPrescriptions ?? [], id: \.id),
-              hasUniqueIDs(payload.sprintGoalSnapshots ?? [], id: \.id)
+              hasUniqueIDs(payload.sprintGoalSnapshots ?? [], id: \.id),
+              hasUniqueIDs(payload.bodyMetrics ?? [], id: \.id)
         else {
+            throw MarbleBackupError.invalidPayload
+        }
+
+        // Deliberately narrow. A NaN or non-positive bodyweight would poison
+        // the Trends chart and divide DOTS by zero, so it is rejected before
+        // anything is written; body fat is only checked for finiteness, never
+        // for a plausible range — refusing an entire restore over one odd
+        // Health sample would be the data loss this fix exists to prevent.
+        guard (payload.bodyMetrics ?? []).allSatisfy({ metric in
+            metric.weightKilograms.isFinite
+                && metric.weightKilograms > 0
+                && metric.bodyFatPercent.map(\.isFinite) != false
+        }) else {
             throw MarbleBackupError.invalidPayload
         }
 
@@ -390,6 +435,36 @@ private nonisolated struct Payload: Codable {
     let plans: [PlanRecord]
     let sprintPrescriptions: [SprintPrescriptionRecord]?
     let sprintGoalSnapshots: [SprintGoalSnapshotRecord]?
+    /// Optional for the same reason as the two above: a 2.1-era backup has no
+    /// such key, and it must still restore. That is what lets `formatVersion`
+    /// stay at 1 instead of orphaning every existing backup file.
+    let bodyMetrics: [BodyMetricRecord]?
+}
+
+private nonisolated struct BodyMetricRecord: Codable {
+    let id: UUID
+    let measuredAt: Date
+    /// Canonical kilograms, exactly as stored — no unit lives beside it and
+    /// nothing converts on the way through the file. See `BodyMetricEntry`.
+    let weightKilograms: Double
+    let bodyFatPercent: Double?
+    let source: BodyMetricSource
+    let healthKitUUID: UUID?
+    let notes: String?
+    let createdAt: Date
+    let updatedAt: Date
+
+    @MainActor init(_ entry: BodyMetricEntry) {
+        id = entry.id
+        measuredAt = entry.measuredAt
+        weightKilograms = entry.weightKilograms
+        bodyFatPercent = entry.bodyFatPercent
+        source = entry.source
+        healthKitUUID = entry.healthKitUUID
+        notes = entry.notes
+        createdAt = entry.createdAt
+        updatedAt = entry.updatedAt
+    }
 }
 
 private nonisolated struct SprintGoalSnapshotRecord: Codable {

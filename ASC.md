@@ -29,20 +29,18 @@ project-local notes.
 - Archive path: `.asc/artifacts/marble.xcarchive`
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
-- Current App Store review version: `2.0` (submitted 2026-07-07, `WAITING_FOR_REVIEW`)
+- Live App Store version: `2.1` (build 40), released 2026-07-21
+- Working project version: `2.2` (build 41) — the version review/validation checks should use
 
 ## Release Safety
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
-  release branches.
-- The working project version is now `2.0 (build 37)`; `origin/release/1.9`
-  may still point at the older `1.9 (build 20)` release baseline unless explicitly
-  updated.
-- The live App Store version is `1.9` (READY_FOR_SALE). Version `2.0` (build 34,
-  buildId `4da0a6d6-d542-4c07-814f-47e4e9987a47`) was submitted for review on
-  2026-07-07 (submission `a89a2e97-369e-4f80-a658-2cab40d79b19`) with refreshed
-  metadata (`.asc/metadata-2.0/`) and a new 04-trends screenshot in all three
-  sets. Review/validation checks should use `2.0`.
+  release branches. It is the dated source of truth; this file is the command reference.
+- **State as of 2026-07-21:** `2.1` (build 40) is live on the App Store
+  (`READY_FOR_DISTRIBUTION`). `2.2` (build 41, buildId
+  `e7b6d9cb-6ea7-401b-9bab-b42b6be26cac`) is on TestFlight, `VALID`, and **not submitted to
+  App Review**. There is no in-flight review. `origin/release/1.9` may still point at the
+  older `1.9 (build 20)` baseline unless explicitly updated.
 - Always run `make asc-version` before acting — the CLI can report a blank generated
   marketing version, so the Makefile prints a reliable fallback.
 - Do not cancel an in-flight review, upload a replacement build, or submit to
@@ -90,16 +88,16 @@ make asc-next-build
 Those targets already know the Marble app ID, scheme, project path, artifact
 paths, the required archive destination wiring, and the marketing-version
 fallback for this Xcode setup. `make asc-review` and `make asc-validate` use
-`ASC_APPSTORE_VERSION` (currently `2.0`); `make asc-next-build` and
+`ASC_APPSTORE_VERSION` (should be `2.2`); `make asc-next-build` and
 `make asc-publish-testflight` use `ASC_TESTFLIGHT_VERSION` (defaulting to the local
-marketing version, currently `2.0`) for the next upload number.
+marketing version, currently `2.2`) for the next upload number.
 
 ## New Machine Checklist
 
 1. Upgrade `asc`.
 2. Confirm auth storage and network validation.
 3. Confirm Xcode has the required iOS platform installed.
-4. Confirm a usable `ExportOptions.plist` exists before export/upload.
+4. Confirm `.asc/ExportOptions.plist` is present (it is tracked in git, so a clean clone has it).
 5. Confirm Apple agreements are current.
 6. Confirm signing/provisioning exists for the containing app and widget extension.
 
@@ -193,19 +191,20 @@ Direct equivalents:
 
 ```bash
 asc status --app "6757725234" --output table
-asc review status --app "6757725234" --version "2.0" --platform IOS --output table
-asc review doctor --app "6757725234" --version "2.0" --platform IOS --output table
-asc validate --app "6757725234" --version "2.0" --platform IOS --output table
-asc builds next-build-number --app "6757725234" --version "2.0" --platform IOS --output table
+asc review status --app "6757725234" --version "2.2" --platform IOS --output table
+asc review doctor --app "6757725234" --version "2.2" --platform IOS --output table
+asc validate --app "6757725234" --version "2.2" --platform IOS --output table
+asc builds next-build-number --app "6757725234" --version "2.2" --platform IOS --output table
 ```
 
 `asc validate` is the canonical App Store submission readiness report in the
 current CLI. `asc review status` and `asc review doctor` are better for review
 state and blocker diagnosis.
 
-For the next TestFlight build on the 2.0 train, use `make asc-next-build`; it reads
-`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. Build
-35 is already uploaded, so always use the freshly reported next number before another build.
+For the next TestFlight build on the 2.2 train, use `make asc-next-build`; it reads
+`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. Build 41
+is already uploaded, so expect **42** — but always use the freshly reported number rather
+than a local guess.
 
 ### Create A Deterministic Archive
 
@@ -234,13 +233,21 @@ Why the extra destination flags matter:
 
 ## Export, TestFlight, And App Store Publishing
 
-No `ExportOptions.plist` is committed in this repo on purpose. Keep
-machine-specific signing/export files under `.asc/`, which is ignored.
+**`.asc/ExportOptions.plist` is tracked in git** (as is `.asc/UploadExportOptions.plist`).
+`.gitignore` ignores `.asc/*` and negates those two, because without them `make asc-export`
+fails on a fresh clone. Everything else under `.asc/` — archives, IPAs, metadata — stays
+ignored.
+
+Use the committed file; do not hand-roll one. It maps both `Prism.marble` and
+`Prism.marble.MarbleWidgets` to the two pinned profiles and sets
+`signingCertificate = Apple Distribution`. An options file **without** a `provisioningProfiles`
+map fails with *"requires a provisioning profile with the HealthKit feature"*, because manual
+signing will not infer profiles from the archive.
 
 ### Low-Level Export
 
 ```bash
-make asc-export ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist
+ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export
 ```
 
 Direct equivalent:
@@ -248,10 +255,25 @@ Direct equivalent:
 ```bash
 asc xcode export \
   --archive-path .asc/artifacts/marble.xcarchive \
-  --export-options /absolute/path/to/ExportOptions.plist \
+  --export-options .asc/ExportOptions.plist \
   --ipa-path .asc/artifacts/marble.ipa \
   --overwrite \
   --output json --pretty
+```
+
+### The Sequence That Produced Build 41
+
+This is the path that actually works on this project — prefer it over
+`make asc-publish-testflight`, whose betaGroups step flaps:
+
+```bash
+make asc-archive
+ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export
+asc publish testflight \
+  --ipa "$PWD/.asc/artifacts/marble.ipa" \
+  --app 6757725234 \
+  --group "test group A" \
+  --wait
 ```
 
 ### Canonical TestFlight Publish
@@ -261,25 +283,23 @@ export, upload, wait for processing, and add the build to a group:
 
 ```bash
 make asc-publish-testflight \
-  ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist \
-  ASC_TESTFLIGHT_GROUP="Internal Testers"
+  ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist \
+  ASC_TESTFLIGHT_GROUP="test group A"
 ```
 
-Current phone-test state as of 2026-07-12:
+Current phone-test state as of 2026-07-21:
 
-- Build `2.0 (37)` is valid in TestFlight:
-  `a8b05f0c-a748-4005-8472-d87c33ea75c4`.
-- Build beta detail reports `internalBuildState = IN_BETA_TESTING`.
+- Build `2.2 (41)` is `VALID` in TestFlight:
+  `e7b6d9cb-6ea7-401b-9bab-b42b6be26cac`.
 - Internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has
-  `hasAccessToAllBuilds = true`.
-- Build `37` has `autoNotifyEnabled = true`; the group already receives all builds, so no
-  explicit per-group add is required.
+  `hasAccessToAllBuilds = true`, so no explicit per-group add is required.
+- External beta remains unsubmitted.
 
 Useful verification commands:
 
 ```bash
 asc builds build-beta-detail view \
-  --build-id "a8b05f0c-a748-4005-8472-d87c33ea75c4" \
+  --build-id "e7b6d9cb-6ea7-401b-9bab-b42b6be26cac" \
   --output json --pretty
 
 asc testflight groups list \
@@ -297,7 +317,7 @@ For external beta review submission:
 
 ```bash
 make asc-publish-testflight \
-  ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist \
+  ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist \
   ASC_TESTFLIGHT_GROUP="External Testers" \
   ASC_TESTFLIGHT_FLAGS="--submit --confirm"
 ```
@@ -309,16 +329,16 @@ target without explicit approval and a clean release branch. The target intentio
 requires `ASC_APPSTORE_PUBLISH_VERSION` so it cannot silently publish the local marketing
 version.
 
-As of 2026-07-10, App Store version `2.0` is `WAITING_FOR_REVIEW` under submission
-`a89a2e97-369e-4f80-a658-2cab40d79b19`. Build `2.0 (36)` is uploaded and valid for
-TestFlight, but this run did not attach it to or resubmit App Review.
+As of 2026-07-21 there is **no in-flight review**. `2.1` (build 40) is released; `2.2`
+(build 41) is on TestFlight and has not been submitted. Submitting 2.2 needs explicit
+approval — see "Open release decisions" in `RELEASE_HANDOFF.md`.
 
 Dry-run first when possible:
 
 ```bash
 make asc-publish-appstore \
-  ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist \
-  ASC_APPSTORE_PUBLISH_VERSION=2.0 \
+  ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist \
+  ASC_APPSTORE_PUBLISH_VERSION=2.2 \
   ASC_APPSTORE_SUBMIT_FLAGS="--dry-run"
 ```
 
@@ -326,16 +346,16 @@ Build/upload/attach without submission:
 
 ```bash
 make asc-publish-appstore \
-  ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist \
-  ASC_APPSTORE_PUBLISH_VERSION=2.0
+  ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist \
+  ASC_APPSTORE_PUBLISH_VERSION=2.2
 ```
 
 Submit for App Review after validation:
 
 ```bash
 make asc-publish-appstore \
-  ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist \
-  ASC_APPSTORE_PUBLISH_VERSION=1.9 \
+  ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist \
+  ASC_APPSTORE_PUBLISH_VERSION=2.2 \
   ASC_APPSTORE_SUBMIT_FLAGS="--submit --confirm"
 ```
 
@@ -343,6 +363,23 @@ make asc-publish-appstore \
 for the current CLI. Use `asc release stage` for metadata/build preparation
 without submission, and `asc review submit` only when a version is already
 prepared and a processed build ID is known.
+
+### Release An Approved Version
+
+Approval is not release. A version that clears review with manual release configured sits at
+`PENDING_DEVELOPER_RELEASE` until you push it live:
+
+```bash
+asc versions list --app "6757725234" --output json --pretty   # find the version id
+asc versions release --version-id <appStoreVersion id> --confirm
+```
+
+That is exactly how `2.1` went live on 2026-07-21 (version id
+`59f2e4c7-1c4b-49b3-a5d3-265ca6da74b1`), moving it to `READY_FOR_DISTRIBUTION`.
+
+⚠️ **Check for a phased release *before* you run this.** 2.1 had
+`appStoreVersionPhasedRelease = null`, so it went to 100% of users instantly. If you want a
+staged rollout, create it before releasing — you cannot retrofit one afterwards.
 
 ## Helpful Low-Level Commands
 
@@ -356,13 +393,14 @@ asc builds upload --help
 asc publish testflight --help
 asc publish appstore --help
 asc review submit --help
+asc versions release --help
 asc validate --help
 ```
 
 Useful direct commands:
 
 ```bash
-asc builds list --app "6757725234" --version "1.9"
+asc builds list --app "6757725234" --version "2.2"
 asc testflight groups list --app "6757725234"
 asc status --app "6757725234"
 ```

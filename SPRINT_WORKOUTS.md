@@ -17,8 +17,8 @@ actual recovery value are recorded on each completed set rather than on the pres
 
 ## Create or edit a sprint workout
 
-1. Open **Manage** from the exercise picker, or open **Workout → Data & Backups → Exercise
-   Library**, then add or edit an exercise.
+1. Open **Manage** from the exercise picker, or open **Workout → Settings → Data & Backups →
+   Exercise Library**, then add or edit an exercise.
 2. Choose the explicit **Sprint** tracking type. Marble requires distance and time for every
    repetition and keeps the exercise in the Run category.
 3. Set the distance, number of repetitions, and either one target time or an inclusive target

@@ -1,15 +1,17 @@
 # Marble — H2 2026 Implementation Plan (written 2026-07-20)
 
-> **STATUS 2026-07-20 — Phases 0–3 are implemented and on `main` as 2.2 (build 41).**
-> Unit suite green, accessibility audit green, UI suite 43/44 (the one failure,
+> **STATUS 2026-07-21 — Phases 0–3 are implemented and on `main` as 2.2 (build 41).**
+> Unit suite green, accessibility audit green, UI suite 39/40 (the one failure,
 > `test07TrainingCalendar`, reproduces on clean `origin/main` — see TESTING.md).
+> **Implemented is not the same as finished** — read **Known gaps / next up** below before
+> treating any 2.2 feature as complete.
 >
 > | Phase | State |
 > |---|---|
-> | 0 — ship & tidy | Repo work **done** (version bump, PRs #2/#11 closed). **2.1 released to the App Store 2026-07-21** via `asc versions release`. |
-> | 1 — 2.2 Ambient | **Done.** Weekly Goal widget, interactive rest Live Activity, Control Center control, onboarding, Settings, TipKit defined. |
+> | 0 — ship & tidy | **2.1 released to the App Store 2026-07-21** via `asc versions release`; version bump and PRs #2/#11 done. ⚠️ `ASC_APPSTORE_VERSION` in the Makefile was **never set to 2.2** — being fixed now. |
+> | 1 — 2.2 Ambient | **Mostly done.** Weekly Goal widget, interactive rest Live Activity, Control Center control, onboarding, Settings all ship. **TipKit is defined but inert** — see Known gaps. |
 > | 2 — 2.3 Siri & Spotlight | **Done.** `ExerciseEntity`+`IndexedEntity`, `LogSetIntent`, start/finish workout intents, 5 App Shortcuts. |
-> | 3 — 2.4 Body | **Done.** Schema V5 `BodyMetricEntry`, Health bodyweight import, DOTS, Trends section. |
+> | 3 — 2.4 Body | **Partly done.** Schema V5 `BodyMetricEntry`, Health bodyweight import, DOTS, Trends section ship. Calendar weight-on-day, `MonthlyReport` bodyweight deltas, and quick weight entry from Settings **were not built** — see Known gaps. |
 > | 4 — 3.0 Watch | **Not built — deliberately.** See "Why Phase 4 was not built" below. |
 >
 > ~~**Two portal steps gate archiving**: create the App Group `group.Prism.marble` and
@@ -44,12 +46,62 @@ changes, TestFlight via `make asc-*`, PR to main (no direct pushes). Never `git 
 
 ---
 
+## Known gaps / next up
+
+**Verified 2026-07-21 against the 2.2 (build 41) source.** These are things the roadmap below
+describes as designed or done that are **not actually working end to end**. Do not claim any
+of them works, and do not put them in release notes.
+
+### Wired up but inert
+- **TipKit shows nothing.** `ScanWorkoutTip`, `CoachingCardsTip` and `PRFeedTip` are defined
+  and `MarbleTips.configure()` runs at launch, but **no view presents any of them** and
+  nothing calls `invalidate(reason:)`. The intended attach points are the Import scan button,
+  the Trends coaching cards, and the Trends PR feed. Until a view carries `.popoverTip(…)`,
+  the whole feature is dead code.
+- **Siri-logged sets don't refresh the widget or the weekly-goal reminder.**
+  `WeeklyGoalWidgetPublisher.publish` is only called on scene-phase change, and Siri runs
+  intents **without one**. A voice-logged third session leaves the widget reading "2 of 3"
+  and still fires the at-risk notification. The publisher needs to be called from the intent
+  perform paths too.
+- **Restore from backup doesn't refresh the widget** — same missing `publish` call.
+- **Exercise deletes and renames leave stale Spotlight entries.** `reindexAll()` runs once
+  per launch; `removeAll()` has **no callers**. A deleted exercise stays searchable until the
+  next cold launch.
+
+### Missing user-facing affordances
+- **A bodyweight entry cannot be edited or deleted.** `BodyMetricEntryView` has a complete
+  edit path, but it is only ever presented with `nil` — i.e. create-only. A typo'd weigh-in
+  is permanent, and it skews both the bodyweight chart and every DOTS score.
+- **The DOTS men/women coefficient picker exists only inside the Log Weight sheet**, not in
+  Settings. A user whose weigh-ins arrive via Health import may never open that sheet, and is
+  then silently scored on men's coefficients.
+- **`BodyMetricEntry` is missing from JSON backup/restore** — bodyweight history does not
+  survive a backup round-trip. (Being fixed.)
+
+### Roadmap 2.4 items that were not shipped
+- Calendar day-summary weight-on-day (Phase 3 item 3).
+- `MonthlyReport` bodyweight delta facts (Phase 3 item 4).
+- Quick weight entry from Settings (Phase 3 item 3 — the Trends-header entry point shipped).
+
+### Missing tests this roadmap called for
+- **No onboarding UI test.** The `MARBLE_FORCE_ONBOARDING` hook is implemented in the app and
+  has **zero references in `Tests/`** (Phase 1E promised one).
+- **No Settings smoke test** (Phase 1E).
+- **No widget snapshot suite** (Phase 1F) — the five widget families have no automated
+  coverage at all.
+- **No V4→V5 case in `PersistenceRecoveryTests`** (Phase 3 gate), even though V5 is the
+  shipping schema.
+
+---
+
 ## Phase 0 — Ship & tidy (this week, no build work)
 
 1. **Release 2.1** in App Store Connect (manual release button; consider phased release ON since
    2.1 carries the sessions data-model surface).
-2. After release: bump `MARKETING_VERSION` → 2.2, `CURRENT_PROJECT_VERSION` → 41 on main;
-   update `RELEASE_HANDOFF.md`; set `ASC_APPSTORE_VERSION` default in Makefile.
+2. After release: bump `MARKETING_VERSION` → 2.2, `CURRENT_PROJECT_VERSION` → 41 on main
+   (**done**); update `RELEASE_HANDOFF.md` (**done**); set `ASC_APPSTORE_VERSION` default in
+   Makefile (**was missed — in progress now**; until it lands, `make asc-review` /
+   `make asc-validate` target the wrong version).
 3. **Close PR #11** — its fix is already on main as `7d41217` (verify `gh pr diff 11` is empty
    vs main first). **Close PR #2** (the mistitled Empire-removal trap; its one useful commit is
    already on main as `e1ace7b`).
@@ -77,8 +129,12 @@ That group cannot be created programmatically (no App Groups resource in the App
 Connect API; no portal session available), and its entitlement failed Release archiving.
 **Replaced by a keychain access group**, which needs neither:
 
-- both entitlement files declare `keychain-access-groups =
-  ["$(AppIdentifierPrefix)Prism.marble.shared"]` — no `com.apple.security.application-groups`;
+- both entitlement files declare `keychain-access-groups` and neither declares
+  `com.apple.security.application-groups`. **The app's array has two entries in a
+  load-bearing order** — `$(AppIdentifierPrefix)Prism.marble` first, then
+  `$(AppIdentifierPrefix)Prism.marble.shared`; the first is the default group for keychain
+  writes that don't name one, and `KeychainTokenStore` (Strava OAuth) doesn't. Only
+  `MarbleWidgets/MarbleWidgets.entitlements` is the single `.shared` entry;
 - both existing App Store profiles already grant `L49MKXGVM4.*`, so the pinned profile names
   stay exactly as they are and nothing needs regenerating;
 - the widget target still needs its `CODE_SIGN_ENTITLEMENTS` set (already done). Debug configs
@@ -99,7 +155,8 @@ Connect API; no portal session available), and its entitlement failed Release ar
 - The snapshot itself goes through `SharedKeychain` (same file): a `kSecClassGenericPassword`
   item in `L49MKXGVM4.Prism.marble.shared`, accessible `AfterFirstUnlockThisDeviceOnly` so
   Lock Screen families can still read it while the device is locked.
-- New `marble/Features/Trends/WeeklyGoalWidgetState.swift` (member of BOTH app + widget targets,
+- ~~New `marble/Features/Trends/WeeklyGoalWidgetState.swift`~~ → shipped as
+  **`marble/Shared/WeeklyGoalWidgetState.swift`** (member of BOTH app + widget targets,
   like `RestTimerAttributes`): small `Codable` struct — target, thisWeekSessions, streakWeeks,
   flexTokens, `GoalState` raw value, weekStart date, generatedAt. Pure
   `init(snapshot: TrainingConsistency.Snapshot, weekStart: Date)`.
@@ -124,8 +181,10 @@ Connect API; no portal session available), and its entitlement failed Release ar
 ### 1D. Interactive rest Live Activity + Control Center
 
 - New intents in the **app target** (LiveActivityIntents execute in the app's process):
-  `ExtendRestIntent` (+30 s) and `EndRestIntent` in `marble/Intents/RestIntents.swift`,
-  calling `RestActivityController.shared.extend(by: 30)` / `.cancelRest()`.
+  `ExtendRestIntent` (+30 s) and `EndRestIntent` — ~~`marble/Intents/RestIntents.swift`~~,
+  shipped instead in **`marble/Shared/MarbleSharedIntents.swift`** (that file is a member of
+  both targets, which the Live Activity buttons need). Calling
+  `RestActivityController.shared.extend(by: 30)` / `.cancelRest()`.
 - `RestActivityController`: add `func extend(by seconds: TimeInterval)` — recompute
   `activeRest.endsAt`, update the Activity content, reschedule `endTask`. Unit tests alongside
   the existing pure helpers (`shouldStart`, `restEndDate`).
@@ -160,12 +219,15 @@ Connect API; no portal session available), and its entitlement failed Release ar
   + new `MARBLE_FORCE_ONBOARDING=1` TestHook).
 - TipKit: `Tips.configure()` in `marbleApp` (skip when `TestHooks.isUITesting`); three tips —
   scan button (Import), coaching cards (Trends), PR feed. Invalidate each on first interaction.
+  ⚠️ **Only half-shipped:** the tips and `MarbleTips.configure()` exist; no view presents them
+  and nothing invalidates them. See Known gaps.
 
 ### 1F. Ship
 
 - New unit tests: shared-defaults migration, `WeeklyGoalWidgetState` mapping, `extend(by:)`,
-  onboarding gating, preferred-unit default. Snapshot: widget views through `SnapshotMatrix`
-  at widget sizes (new suite; remember baselines are recorded on the canonical host only).
+  onboarding gating, preferred-unit default — **all shipped**. Snapshot: widget views through
+  `SnapshotMatrix` at widget sizes — **not built**; the widget has no automated coverage.
+  The onboarding and Settings UI tests were also not written. See Known gaps.
 - `make unit` + `make ui` + `make audit` locally; screenshots refresh (widget + onboarding
   frames) via the `MARBLE_FIXTURE_MODE=screenshots` rig; TestFlight
   `make asc-archive asc-export` then `asc publish testflight --ipa … --app 6757725234 --group …`
@@ -178,7 +240,7 @@ Connect API; no portal session available), and its entitlement failed Release ar
 
 App Intents depth. All work in `marble/Intents/`, sharing `AppIntentsSupport.resolvedContainer()`.
 
-1. **`ExerciseEntity: AppEntity`** (`ExerciseEntities.swift`): id = Exercise UUID,
+1. **`ExerciseEntity: AppEntity`** (shipped as `marble/Intents/ExerciseEntity.swift`): id = Exercise UUID,
    `DisplayRepresentation` = name + category subtitle, `ExerciseQuery: EntityStringQuery`
    (name-contains fetch; `suggestedEntities()` = favorites first, then recent by last
    `performedAt`). Conform to `IndexedEntity` so exercises enter Spotlight's semantic index

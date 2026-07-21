@@ -53,7 +53,7 @@ enum WorkoutSessionIntentSupport {
 // TODO(iOS 27): adopt `LongRunningIntent` here, with the session's progress surfaced
 // as a Live Activity for the whole life of the workout, so the system can represent
 // a running workout instead of the intent finishing the moment it opens the app.
-// The 26.2 SDK ships no `LongRunningIntent`, so 2.3 stays `openAppWhenRun` — do not
+// The 26.2 SDK ships no `LongRunningIntent`, so 2.2 stays `openAppWhenRun` — do not
 // add an `#available` branch for it until the app builds against the 27 SDK.
 struct StartWorkoutIntent: AppIntent {
     static let title: LocalizedStringResource = "Start Workout"

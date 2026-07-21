@@ -7,6 +7,13 @@ struct MarbleApp: App {
 
     init() {
         TestHooks.applyGlobalSettings()
+        // FIRST, and before the model container exists: `SeedData` writes
+        // `didSeedMarbleData` during first-run seeding, so the onboarding gate
+        // must snapshot that flag while it still answers "did this app run
+        // before?" rather than "has this launch seeded yet?". Reading it later
+        // races the seeding below (and the `.task` seeding in `body`, which
+        // SwiftUI does not order against `ContentView`'s own `.task`).
+        OnboardingGate.captureLaunchState()
         // Must run before anything reads the shared suite. Effectively a no-op
         // now that the suite is `.standard` again (see `SharedDefaults.suite`),
         // but it still stamps the migration flag and is the one hook if these

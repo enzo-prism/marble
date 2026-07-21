@@ -55,7 +55,7 @@ struct DataManagementView: View {
                 } header: {
                     SectionHeaderView(title: "Backup")
                 } footer: {
-                    Text("Backups contain exercises, sets, supplements, workout sessions, and your split. Progress photos and videos stay on this device.")
+                    Text("Backups contain exercises, sets, supplements, workout sessions, weigh-ins, and your split. Progress photos and videos stay on this device.")
                 }
 
                 if let statusMessage {
@@ -101,7 +101,10 @@ struct DataManagementView: View {
                 .accessibilityIdentifier("Data.Restore.Cancel")
         } message: {
             if let pendingSummary {
-                Text("This adds missing data without deleting anything: \(pendingSummary.sets) sets, \(pendingSummary.sessions) sessions, and \(pendingSummary.supplementLogs) supplement logs.")
+                // Weigh-ins are called out explicitly: they used to be dropped
+                // entirely, and a count is the only way the user can tell
+                // whether their bodyweight history came back.
+                Text("This adds missing data without deleting anything: \(pendingSummary.sets) sets, \(pendingSummary.sessions) sessions, \(pendingSummary.supplementLogs) supplement logs, and \(pendingSummary.bodyMetrics) weigh-ins.")
             }
         }
         .alert("Data Error", isPresented: Binding(
@@ -185,7 +188,7 @@ struct DataManagementView: View {
         guard let pendingImportData else { return }
         do {
             let summary = try MarbleBackupService.restore(data: pendingImportData, into: modelContext)
-            statusMessage = "Restored \(summary.sets) sets and \(summary.sessions) sessions."
+            statusMessage = "Restored \(summary.sets) sets, \(summary.sessions) sessions, and \(summary.bodyMetrics) weigh-ins."
             clearPendingImport()
             MarbleHaptics.success()
         } catch {

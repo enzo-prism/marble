@@ -697,8 +697,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble;
 				CODE_SIGN_ENTITLEMENTS = marble.entitlements;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Marble uses the camera to scan a handwritten workout so it can be read on-device and added to your journal.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Marble reads workouts from Apple Health to add them to your journal.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Marble requests HealthKit access only to import workouts into your journal.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Marble reads your workouts and body measurements, such as weight and body fat, from Apple Health to add them to your journal and trends.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Marble saves your completed training sessions to Apple Health as strength workouts, with their effort score, so they count toward your Training Load.";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -738,8 +738,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble;
 				CODE_SIGN_ENTITLEMENTS = marble.entitlements;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Marble uses the camera to scan a handwritten workout so it can be read on-device and added to your journal.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Marble reads workouts from Apple Health to add them to your journal.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Marble requests HealthKit access only to import workouts into your journal.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Marble reads your workouts and body measurements, such as weight and body fat, from Apple Health to add them to your journal and trends.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Marble saves your completed training sessions to Apple Health as strength workouts, with their effort score, so they count toward your Training Load.";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "Prism marble App Store HealthKit 2026-06-18-2015";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

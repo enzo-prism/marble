@@ -6,7 +6,7 @@
 - Keep Liquid Glass limited to navigation surfaces (tab bars, toolbars, sheets). Avoid glass-on-glass. Keep content layer solid.
 
 ## Apple design + dev standards (strict)
-Always start with `AdditionalDocumentation/INDEX.md` to identify relevant docs and extract 3–5 actionable rules before coding. If `scripts/design-check.sh` exists, run it after UI changes.
+Always start with `AdditionalDocumentation/INDEX.md` to identify relevant docs and extract 3–5 actionable rules before coding. After UI changes, run `make audit` — it is the mechanical check for contrast, Dynamic Type, hit regions, labels, and clipped text.
 
 ### Liquid Glass
 Follow:
@@ -65,7 +65,10 @@ Rules:
   - Only if explicitly requested; check availability, use sessions, honor context limits, and prefer on-device privacy.
 
 ## Setup
-- Required: Xcode 15+ (recommended latest).
+- Required: **Xcode 26.x with the iOS 26.2 platform installed** (the app target deploys to
+  iOS 26.2 and the code uses iOS 26 APIs — older Xcode cannot build this project). If
+  `xcodebuild`/`asc` reports "no destinations", install the runtime via Xcode > Settings >
+  Components or `xcodebuild -downloadPlatform iOS`.
 - Build: iOS Simulator.
 
 ## Agent startup + source of truth
@@ -128,21 +131,28 @@ Use these commands (preferred):
   plan), `SeedData`, `ProgressMediaStore`, `Queries/`.
 - `marble/Theme/` — theme + design tokens.
 - `marble/Components/` — shared UI components and formatters.
-- `marble/Features/` — `Journal`, `Calendar`, `Supplements`, `Trends`, `Split`,
-  `Notifications`, `Import` (`HealthKit/`, `Strava/`, `OAuth/`). The import feature is a
-  `WorkoutImportProvider` abstraction over Apple Health, Garmin (via Health), and Strava
-  (official OAuth). **See `INTEGRATIONS.md` for the full design and rationale.**
-- `marble/Intents/`, `marble/Testing/` (`TestHooks`), `marble/PrivacyInfo.xcprivacy`.
+- `marble/Features/` — `Body`, `Calendar`, `Import` (`HealthKit/`, `Strava/`, `OAuth/`),
+  `Journal`, `Notifications`, `Onboarding`, `RestTimer`, `Settings`, `Split`, `Supplements`,
+  `Trends`, `Workout`. The import feature is a `WorkoutImportProvider` abstraction over Apple
+  Health, Garmin (via Health), and Strava (official OAuth). **See `INTEGRATIONS.md` for the
+  full design and rationale.**
+- `marble/Shared/` — code that is a member of **both** the app and widget targets:
+  `SharedDefaults.swift` (+ `SharedKeychain`), `WeeklyGoalWidgetState.swift`,
+  `MarbleSharedIntents.swift` (the rest-timer `+30s`/`End` and quick-log intents).
+- `marble/Intents/` — `ExerciseEntity.swift`, `LogSetIntent.swift`, `MarbleAppIntents.swift`,
+  `WorkoutSessionIntents.swift`.
+- `marble/Testing/` (`TestHooks`), `marble/PrivacyInfo.xcprivacy`.
 - `Tests/` — `Unit/`, `Snapshots/`, `UI/`, `TestSupport/`.
 - `.github/workflows/ci.yml` — runs `make unit` on PRs and `main`/`release/**` pushes.
 
 ## Current state + gotchas (read first)
 - **`RELEASE_HANDOFF.md` is the dated source of truth for release/version/signing state.**
   Read it before any release work; it is kept current (last verified date at the top).
-- **`ROADMAP.md` holds the H2 2026 plan** — what 2.2 shipped, what is deliberately deferred,
-  and the two portal steps that gate archiving. Read it before starting new feature work.
+- **`ROADMAP.md` holds the H2 2026 plan** — what 2.2 shipped, the **known gaps** (surfaces
+  that exist but are not wired up), and why the Watch app was deliberately deferred. Read it
+  before starting new feature work, and before claiming any 2.2 feature is finished.
 
-### 2.2 lessons (2026-07-20) — do not rediscover
+### 2.2 lessons (2026-07-20 / 07-21) — do not rediscover
 - **A container's `.accessibilityIdentifier` overrides its children. This has now bitten
   four times** (`Import.Scan`, `Import.GarminBridge`, and in 2.2 a `Settings.List` on the
   Settings `List` that hid every `Settings.*` row from the tests). Identify leaf controls
@@ -170,11 +180,28 @@ Use these commands (preferred):
   which both existing App Store profiles already grant via their `L49MKXGVM4.*` wildcard — so
   no portal capability and no profile regeneration. The literal team prefix in Swift must stay
   in sync with `$(AppIdentifierPrefix)Prism.marble.shared` in **both** entitlement files.
-  On the simulator, keychain access groups are not enforced and `SecItem*` can return
+- **`marble.entitlements` lists two keychain groups and the order is load-bearing.**
+  `$(AppIdentifierPrefix)Prism.marble` is **first**, `$(AppIdentifierPrefix)Prism.marble.shared`
+  second. iOS uses the *first* entry as the default access group for any keychain write that
+  does not name one, and `KeychainTokenStore` (Strava OAuth) does not name one — reordering or
+  dropping the first entry silently moves existing users' Strava tokens into a different group
+  and logs them out. `MarbleWidgets/MarbleWidgets.entitlements` is the single-entry one
+  (`.shared` only). Do not "simplify" either file.
+- On the simulator, keychain access groups are not enforced and `SecItem*` can return
   `errSecMissingEntitlement`; every call degrades to "no snapshot" (neutral widget card),
   which is why Debug/simulator and CI stay green.
-- SwiftData schema is versioned in `Persistence/MarbleSchema.swift`. For a breaking model
-  change, add a `MarbleSchemaV2` + a `MigrationStage` — do not just edit models.
+- **SwiftData schema is versioned in `Persistence/MarbleSchema.swift` and is currently V5.**
+  Never edit a shipped schema version's models in place — add a new `MarbleSchemaVN`, append
+  it to `MarbleMigrationPlan.schemas`, and bump the single `Schema(versionedSchema:)` line in
+  `ModelContainer.swift`.
+  **For an additive change (a new `@Model`, a new optional property) do NOT add a
+  `MigrationStage`.** SwiftData's automatic lightweight migration handles it, and an explicit
+  stage resolves both endpoints to the same checksum — that is exactly what crashed build 35
+  on launch for every existing user. `MarbleMigrationPlan.stages` is `[]` today and must stay
+  `[]` unless a change is genuinely destructive (a renamed or removed property, a type change),
+  which is the only case that warrants a custom stage.
+  Also never convert `SprintPrescription`/`SprintGoalSnapshot` raw-UUID references into
+  `@Relationship`s — relationship churn resurrects the same checksum trap.
 - The target sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so any Codable value type
   SwiftData serializes (e.g. `ExerciseMetricsProfile`) must be marked `nonisolated` or it
   warns (a hard error under the Swift 6 language mode).
@@ -191,7 +218,11 @@ Prefer the repo-level `asc` wiring over ad hoc commands.
 - Xcode project + scheme: `marble.xcodeproj` + `marble`
 - Deterministic release artifacts: `.asc/artifacts/marble.xcarchive` and `.asc/artifacts/marble.ipa`
 - Start a new machine/session with: `make asc-auth`, `make asc-doctor`, `make asc-version`
-- Use: `make asc-builds`, `make asc-archive`, and `make asc-export ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist`
+- Use: `make asc-builds`, `make asc-archive`, and
+  `ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export`. That plist **is tracked
+  in git** (`.gitignore` ignores `.asc/*` with an explicit negation for it) because it carries
+  the `provisioningProfiles` map for both bundle IDs; an options file without that map fails
+  export with *"requires a provisioning profile with the HealthKit feature"*.
 - Prefer `make asc-version` over raw `asc xcode version view`, because this project uses generated Info.plists and the helper prints a reliable `MARKETING_VERSION` fallback
 - `make asc-archive` already bakes in the required `generic/platform=iOS` destination for this project
 - The current app target requires the iOS `26.2` platform. If `xcodebuild`/`asc` reports “no destinations” or says iOS `26.2` is not installed, install that platform/runtime from Xcode > Settings > Components before debugging further.

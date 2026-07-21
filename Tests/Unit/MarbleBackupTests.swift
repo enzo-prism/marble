@@ -80,6 +80,136 @@ final class MarbleBackupTests: MarbleTestCase {
         XCTAssertEqual(try destination.fetchCount(FetchDescriptor<SprintGoalSnapshot>()), 1)
     }
 
+    // MARK: - Bodyweight history
+
+    /// Months of weigh-ins used to vanish on a phone-to-phone restore:
+    /// `BodyMetricEntry` was never fetched, never in the payload, never
+    /// restored. The Trends bodyweight chart fell back to its empty state and
+    /// DOTS relative strength disappeared, with nothing on screen to say why.
+    func testBackupRoundTripPreservesBodyMetrics() throws {
+        let source = makeInMemoryContext()
+        let older = BodyMetricEntry(
+            measuredAt: now.addingTimeInterval(-30 * 24 * 60 * 60),
+            weightKilograms: 84.5,
+            bodyFatPercent: 18.2,
+            source: .manual,
+            notes: "Morning, fasted"
+        )
+        let healthKitUUID = UUID()
+        let newer = BodyMetricEntry(
+            measuredAt: now,
+            weightKilograms: 82.1,
+            source: .healthKit,
+            healthKitUUID: healthKitUUID
+        )
+        source.insert(older)
+        source.insert(newer)
+        try source.save()
+
+        let document = try MarbleBackupService.makeDocument(in: source, now: now)
+        XCTAssertEqual(try MarbleBackupService.inspect(data: document.data).bodyMetrics, 2)
+
+        let destination = makeInMemoryContext()
+        let restored = try MarbleBackupService.restore(data: document.data, into: destination)
+        XCTAssertEqual(restored.bodyMetrics, 2)
+        XCTAssertEqual(try destination.fetchCount(FetchDescriptor<BodyMetricEntry>()), 2)
+
+        let entries = try destination.fetch(FetchDescriptor<BodyMetricEntry>())
+            .sorted { $0.measuredAt < $1.measuredAt }
+        // Kilograms are canonical and must survive the file untouched.
+        XCTAssertEqual(entries[0].weightKilograms, 84.5, accuracy: 0.0001)
+        XCTAssertEqual(entries[0].bodyFatPercent ?? .nan, 18.2, accuracy: 0.0001)
+        XCTAssertEqual(entries[0].source, .manual)
+        XCTAssertEqual(entries[0].notes, "Morning, fasted")
+        XCTAssertNil(entries[0].healthKitUUID)
+        XCTAssertEqual(entries[1].weightKilograms, 82.1, accuracy: 0.0001)
+        XCTAssertNil(entries[1].bodyFatPercent)
+        XCTAssertEqual(entries[1].source, .healthKit)
+        // Kept so a re-import from Health can still dedup after a restore.
+        XCTAssertEqual(entries[1].healthKitUUID, healthKitUUID)
+        XCTAssertEqual(entries[0].id, older.id)
+        XCTAssertEqual(entries[1].id, newer.id)
+    }
+
+    func testRestoringBodyMetricsTwiceIsIdempotent() throws {
+        let source = makeInMemoryContext()
+        source.insert(BodyMetricEntry(measuredAt: now, weightKilograms: 80))
+        try source.save()
+        let document = try MarbleBackupService.makeDocument(in: source, now: now)
+
+        let destination = makeInMemoryContext()
+        XCTAssertEqual(try MarbleBackupService.restore(data: document.data, into: destination).bodyMetrics, 1)
+
+        let second = try MarbleBackupService.restore(data: document.data, into: destination)
+
+        XCTAssertEqual(second.bodyMetrics, 0)
+        XCTAssertEqual(
+            try destination.fetchCount(FetchDescriptor<BodyMetricEntry>()),
+            1,
+            "id is @Attribute(.unique) — a second restore must merge, not upsert"
+        )
+    }
+
+    /// `bodyMetrics` is optional precisely so `formatVersion` can stay at 1:
+    /// every backup file exported before 2.2 must still restore.
+    func testLegacyBackupWithoutBodyMetricsStillRestores() throws {
+        let source = makeInMemoryContext()
+        let exercise = Exercise(name: "Legacy Squat", category: .legs, metrics: .weightAndRepsRequired, defaultRestSeconds: 120)
+        source.insert(exercise)
+        source.insert(SetEntry(exercise: exercise, performedAt: now, weight: 100, reps: 5, restAfterSeconds: 120))
+        source.insert(BodyMetricEntry(measuredAt: now, weightKilograms: 80))
+        try source.save()
+        let document = try MarbleBackupService.makeDocument(in: source, now: now)
+
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: document.data) as? [String: Any])
+        json.removeValue(forKey: "bodyMetrics")
+        let legacyData = try JSONSerialization.data(withJSONObject: json)
+
+        XCTAssertEqual(try MarbleBackupService.inspect(data: legacyData).bodyMetrics, 0)
+
+        let destination = makeInMemoryContext()
+        let summary = try MarbleBackupService.restore(data: legacyData, into: destination)
+        XCTAssertEqual(summary.sets, 1)
+        XCTAssertEqual(summary.bodyMetrics, 0)
+        XCTAssertEqual(try destination.fetchCount(FetchDescriptor<BodyMetricEntry>()), 0)
+    }
+
+    func testRestoreRejectsNonPositiveBodyweightBeforeMutation() throws {
+        let source = makeInMemoryContext()
+        let exercise = Exercise(name: "Squat", category: .legs, metrics: .weightAndRepsRequired, defaultRestSeconds: 120)
+        source.insert(exercise)
+        source.insert(BodyMetricEntry(measuredAt: now, weightKilograms: 80))
+        try source.save()
+        let document = try MarbleBackupService.makeDocument(in: source, now: now)
+
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: document.data) as? [String: Any])
+        var records = try XCTUnwrap(json["bodyMetrics"] as? [[String: Any]])
+        records[0]["weightKilograms"] = 0
+        json["bodyMetrics"] = records
+        let invalidData = try JSONSerialization.data(withJSONObject: json)
+
+        let destination = makeInMemoryContext()
+        XCTAssertThrowsError(try MarbleBackupService.restore(data: invalidData, into: destination))
+        XCTAssertEqual(try destination.fetchCount(FetchDescriptor<Exercise>()), 0)
+        XCTAssertEqual(try destination.fetchCount(FetchDescriptor<BodyMetricEntry>()), 0)
+    }
+
+    func testRestoreRejectsDuplicateBodyMetricIDsBeforeMutation() throws {
+        let source = makeInMemoryContext()
+        source.insert(BodyMetricEntry(measuredAt: now, weightKilograms: 80))
+        try source.save()
+        let document = try MarbleBackupService.makeDocument(in: source, now: now)
+
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: document.data) as? [String: Any])
+        let records = try XCTUnwrap(json["bodyMetrics"] as? [[String: Any]])
+        json["bodyMetrics"] = records + records
+        let invalidData = try JSONSerialization.data(withJSONObject: json)
+
+        let destination = makeInMemoryContext()
+        XCTAssertThrowsError(try MarbleBackupService.restore(data: invalidData, into: destination))
+        XCTAssertEqual(try destination.fetchCount(FetchDescriptor<BodyMetricEntry>()), 0)
+    }
+
     func testRestoreRepairsMissingSetRelationshipOnExistingSession() throws {
         let source = makeInMemoryContext()
         let exercise = Exercise(name: "Squat", category: .legs, metrics: .weightAndRepsRequired, defaultRestSeconds: 120)

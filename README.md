@@ -34,13 +34,15 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-20)
+## Current state (2026-07-21)
 
-- **Shipped:** **2.1 (build 40) was released to the App Store 2026-07-21** — sessions, sprint
-  prescriptions, the Exercise Library redesign and JSON backups are now live
-  (`READY_FOR_DISTRIBUTION`). **2.2 (build 41) is on TestFlight** (`VALID`, uploaded 2026-07-21).
-- **In progress: 2.2 (build 41)**, the "ambient" release, which closes the gap between how much
-  Marble knows and how little of it is reachable from outside the app:
+- **Live on the App Store: 2.1 (build 40)**, released 2026-07-21 (`READY_FOR_DISTRIBUTION`).
+  It carries builds 35–39 — workout sessions, sprint prescriptions, the Exercise Library
+  redesign, and JSON backups. No phased release was configured, so it went to 100% at once.
+- **On TestFlight: 2.2 (build 41)** — `VALID`, uploaded 2026-07-21 (build id
+  `e7b6d9cb-6ea7-401b-9bab-b42b6be26cac`). **Not yet submitted to App Review.** 2.2 is the
+  "ambient" release, which closes the gap between how much Marble knows and how little of it
+  is reachable from outside the app:
   - **Weekly Goal widget** — Home Screen (small/medium) and Lock Screen (circular/rectangular/
     inline), fed by a snapshot the app publishes into a shared keychain access group
     (`SharedKeychain`). The widget never opens the SwiftData store, so the crash-recovery
@@ -57,36 +59,36 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md). The widget snapshot moved to a keychain access
   group (`L49MKXGVM4.Prism.marble.shared`) that the existing App Store profiles already grant,
   so **no portal capability and no profile regeneration are needed**.
-- **Version trains:** App Store **2.0 is pinned to build 34** (the Trends coaching layer) and
-  its release notes describe exactly that build. Builds 35–39 — workout sessions, sprint
-  prescriptions, the Exercise Library redesign, and JSON backups — are **not** in those notes,
-  so the working project version is now **2.1**; that work ships on the 2.1 train.
-- **2.0 (build 39)** surfaces sprint goals in the Journal: every rep shows its saved exact or
+- **Known gaps:** several 2.2 surfaces are defined but not fully wired (TipKit tips never
+  present, Siri-logged sets don't refresh the widget, bodyweight entries can't be edited or
+  deleted). See **Known gaps / next up** in [`ROADMAP.md`](ROADMAP.md) before promising any
+  of them works.
+- **[`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) is the authoritative, dated source of truth
+  for release state** — read it before any release/signing work.
+
+### Release history
+
+- **2.1 (build 39)** surfaced sprint goals in the Journal: every rep shows its saved exact or
   ranged target with accessible green-hit / red-miss / neutral-unscored feedback, and Set
   Details compares the recorded result against the frozen per-rep goal and explains the
   outcome. Additive `MarbleSchemaV4` plus legacy-backfill provenance, backup/restore
   validation, and duplicate/undo/intent support preserve history when an exercise goal
-  changes. Build 39 is valid in internal TestFlight.
-- **2.0 (build 38)** redesigns exercise creation and management end to end: a searchable,
+  changes.
+- **2.1 (build 38)** redesigned exercise creation and management end to end: a searchable,
   category-filterable Exercise Library; explicit tracking types; contextual fields; safe
   draft editing; duplicate-name validation; unsaved-change protection; history/planned-plan
-  impact warnings; and guarded deletion. Sprint setup is now a direct type with distance,
-  repeats, exact/ranged target time, and one recovery control. Verified with 254 unit tests,
-  all 35 UI flows, default accessibility audit, XXXL interaction coverage, and a real
-  previous-release migration. Build 38 is valid in internal TestFlight.
-- **2.0 (build 37)** adds reusable sprint prescriptions: fixed distance and
+  impact warnings; and guarded deletion. Sprint setup became a direct type with distance,
+  repeats, exact/ranged target time, and one recovery control.
+- **2.1 (build 37)** added reusable sprint prescriptions: fixed distance and
   repeats, exact or ranged whole-second target times, prescribed recovery, per-rep RPE/rest
   logging, goal feedback, plan/picker summaries, JSON backup/restore, and additive V3
-  persistence. The app and all test targets compile, and the signed build is valid in
-  internal TestFlight. Runtime simulator suites still require an installed and booted
-  compatible iOS runtime.
-- **2.0 (build 36)** fixes the build-35 launch crash for existing users by removing a
+  persistence.
+- **2.1 (build 36)** fixed the build-35 launch crash for existing users by removing a
   redundant SwiftData stage and letting the additive `WorkoutSession` schema migrate
-  automatically. It retains first-class session history, the session-led Workout tab,
-  focused Trends, JSON backup/restore, safer recovery, and visible save failures. Local
-  verification: a real build-34 → build-36 Release upgrade, **239 unit tests**, all **35 UI
-  flows**, the accessibility audit, and a signed Release archive pass.
-- **1.9 (build 33)** adds **lifter-focused analytics** to Trends: an estimated-1RM
+  automatically. **Adding a `MigrationStage` for an additive change is what caused that
+  crash** — see `AGENTS.md`. It retains first-class session history, the session-led Workout
+  tab, focused Trends, JSON backup/restore, safer recovery, and visible save failures.
+- **1.9 (build 33)** added **lifter-focused analytics** to Trends: an estimated-1RM
   progression chart per exercise (Epley, sets ≤12 reps, unit-normalized — with the
   all-time best marked), sets per muscle group with weekly averages (RP volume-landmark
   style), rep-range distribution (1–5 / 6–12 / 13+), and an Effort chart (average RPE per
@@ -127,22 +129,17 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   best" target card + live "New PR!" cue while logging (see `marble/Components/
   PersonalRecords.swift`). `origin/release/1.9` may still point at the older 1.9 build 20
   release baseline unless explicitly updated.
-- Latest TestFlight upload: **2.0 (build 39)** is `VALID` and `IN_BETA_TESTING` internally
-  (build id `f61c2343-850c-42ad-9783-87eb013f308d`). External beta remains unsubmitted.
-- Builds 27–28 add, on top of build 26: a **performance + iOS 26 pass** (the
+- Builds 27–28 added, on top of build 26: a **performance + iOS 26 pass** (the
   Trends/Calendar/Journal screens memoize their derived data via `RenderMemo` instead of
   re-deriving on every render/scrub; all view models moved to `@Observable`;
   `SupplementEntry.takenAt` is indexed), a **handwritten workout scan** feature under
   `marble/Features/Import/Scan/` (on-device Vision OCR + a deterministic parser, optional
   on-device LLM path, wired into the Import hub), and an iOS 26 polish pass (SF Symbols
   Magic Replace on toggle icons).
+- **2.0 (build 34)** shipped the Trends coaching layer; it is the version App Store 2.0
+  released under.
 - `MarbleWidgets` target is wired into the app build and its `Info.plist` is checked by
   Makefile test targets.
-- Live App Store: **2.0 is `WAITING_FOR_REVIEW`** under submission
-  `a89a2e97-369e-4f80-a658-2cab40d79b19`, attached to **build 34**. Uploading builds 35–39 did
-  not change that submission. The currently released version remains **1.9 (build 29)**.
-- **[`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) is the authoritative, dated source of truth
-  for release state** — read it before any release/signing work.
 
 ## Run
 
@@ -151,13 +148,17 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Architecture
 
-- **SwiftUI + SwiftData, local-only.** Feature folders under `marble/Features/`: `Journal`,
-  `Calendar`, `Workout`, `Supplements`, `Trends`, `Split`, `Notifications`, and `Import`.
+- **SwiftUI + SwiftData, local-only.** Feature folders under `marble/Features/`: `Body`,
+  `Calendar`, `Import`, `Journal`, `Notifications`, `Onboarding`, `RestTimer`, `Settings`,
+  `Split`, `Supplements`, `Trends`, and `Workout`. Code shared with the widget extension
+  lives in `marble/Shared/`; App Intents live in `marble/Intents/`.
 - **Models** (`marble/Models/`) are SwiftData `@Model` types plus a rich domain core in
   `Enums.swift` (the configurable per-exercise metric profiles).
-- **Versioned schema.** `marble/Persistence/MarbleSchema.swift` declares V1, additive V2
-  workout-session storage, additive V3 sprint prescriptions, additive V4 per-rep sprint
-  goal snapshots, and `MarbleMigrationPlan`.
+- **Versioned schema — currently V5.** `marble/Persistence/MarbleSchema.swift` declares V1,
+  additive V2 workout-session storage, additive V3 sprint prescriptions, additive V4 per-rep
+  sprint goal snapshots, additive V5 `BodyMetricEntry`, and `MarbleMigrationPlan`. Every
+  change so far has been additive, so `MarbleMigrationPlan.stages` is `[]` and must stay that
+  way — an explicit stage for an additive change is what crashed build 35 on launch.
   The container **self-recovers** from a failed migration without overwriting older recovery
   copies.
 - **Design system** (`marble/Theme/`, `marble/Components/`) — the monochrome "Marble" brand
@@ -177,11 +178,13 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 | [`INTEGRATIONS.md`](INTEGRATIONS.md) | Workout import — how each source works and **why** |
 | [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md) | Sprint prescription attributes, logging flow, and persistence |
 | [`EXERCISE_LIBRARY.md`](EXERCISE_LIBRARY.md) | Exercise creation, attributes, discovery, editing, and deletion safety |
-| [`ROADMAP.md`](ROADMAP.md) | H2 2026 plan: what shipped in 2.2, what's next, and the portal steps that gate it |
+| [`ROADMAP.md`](ROADMAP.md) | H2 2026 plan: what shipped in 2.2, **known gaps / next up**, and why the Watch app was deferred |
 | [`AGENTS.md`](AGENTS.md) | Coding, UI, testing, and release rules for contributors/agents |
 | [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) | Dated source of truth for release/version/signing state |
-| [`TESTING.md`](TESTING.md) | Test suites, deterministic launch hooks, snapshot rules |
+| [`TESTING.md`](TESTING.md) | Test suites, deterministic launch hooks, snapshot rules, on-device checklist |
 | [`ASC.md`](ASC.md) | App Store Connect (`asc`) command reference for this app |
+| [`MarbleWidgets/SETUP.md`](MarbleWidgets/SETUP.md) | Widget extension target: what's wired, release signing, how to exercise it |
+| [`WORKFLOW_PAPERCUTS.md`](WORKFLOW_PAPERCUTS.md) | Running log of tooling friction hit during agent sessions |
 | [`AdditionalDocumentation/INDEX.md`](AdditionalDocumentation/INDEX.md) | Apple framework docs to consult per UI area |
 
 ## Testing

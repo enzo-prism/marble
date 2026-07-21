@@ -40,8 +40,46 @@ nonisolated struct WeeklyGoalWidgetState: Codable, Hashable, Sendable {
 
     /// True once the snapshot is older than `stalenessInterval`. Exactly at
     /// the boundary still counts as fresh.
+    ///
+    /// Age alone is **not** enough to decide the snapshot is renderable — see
+    /// `describesWeek(containing:)`. A snapshot published Saturday 23:00 is one
+    /// hour old at Sunday 00:00 and yet already describes last week.
     func isStale(now: Date) -> Bool {
         now.timeIntervalSince(generatedAt) > Self.stalenessInterval
+    }
+
+    // MARK: - Week identity
+
+    /// The canonical week anchor for both targets.
+    ///
+    /// Must stay identical to the app's `TrendsDateHelper.startOfWeek(for:)` —
+    /// same `dateInterval(of: .weekOfYear:)` rule, same `startOfDay` fallback —
+    /// because the app writes `weekStart` with that helper and the widget
+    /// compares against this one. The extension cannot see `TrendsDateHelper`,
+    /// so the rule is duplicated here rather than shared.
+    static func startOfWeek(for date: Date, calendar: Calendar = .current) -> Date {
+        calendar.dateInterval(of: .weekOfYear, for: date)?.start ?? calendar.startOfDay(for: date)
+    }
+
+    /// True when this snapshot still describes the week `now` falls in.
+    ///
+    /// Both sides are normalised through `startOfWeek` rather than comparing
+    /// the stored `weekStart` raw, so a lifter who crosses a time zone gets the
+    /// same week rather than a blanked widget.
+    func describesWeek(containing now: Date, calendar: Calendar = .current) -> Bool {
+        Self.startOfWeek(for: weekStart, calendar: calendar)
+            == Self.startOfWeek(for: now, calendar: calendar)
+    }
+
+    /// The single gate the widget renders behind: the snapshot must describe
+    /// the current week *and* not be stale.
+    ///
+    /// Week identity is the real check — the 8-day age limit is only a second
+    /// line of defence for a snapshot whose `weekStart` is somehow unusable.
+    /// Rendering last week's "4 of 3 · Target hit" on Sunday morning of a week
+    /// with zero sessions is the bug this exists to prevent.
+    func isRenderable(now: Date, calendar: Calendar = .current) -> Bool {
+        describesWeek(containing: now, calendar: calendar) && !isStale(now: now)
     }
 
     /// Progress through this week's target, clamped to 0...1. A non-positive

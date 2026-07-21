@@ -90,6 +90,7 @@ final class SharedDefaultsTests: XCTestCase {
         XCTAssertEqual(SharedDefaults.Key.weeklyGoalReminderEnabled, "weeklyGoalReminderEnabled")
         XCTAssertEqual(SharedDefaults.Key.preferredWeightUnit, "preferredWeightUnit")
         XCTAssertEqual(SharedDefaults.Key.didCompleteOnboarding, "didCompleteOnboarding")
+        XCTAssertEqual(SharedDefaults.Key.didBeginOnboarding, "didBeginOnboarding")
         XCTAssertEqual(WeeklyGoalReminder.enabledDefaultsKey, "weeklyGoalReminderEnabled")
     }
 

@@ -39,8 +39,8 @@ nonisolated struct WeeklyGoalProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WeeklyGoalEntry>) -> Void) {
         let now = Date()
-        let state = currentState(now: now)
         let calendar = Calendar.current
+        let loaded = WeeklyGoalWidgetState.loadPublished()
 
         let nextDay = calendar.nextDate(
             after: now,
@@ -48,16 +48,20 @@ nonisolated struct WeeklyGoalProvider: TimelineProvider {
             matchingPolicy: .nextTime
         ) ?? now.addingTimeInterval(60 * 60 * 24)
 
-        // Week rollover: from the published week start when we have one,
-        // otherwise from the calendar's current week.
-        let weekStart = state?.weekStart ?? startOfWeek(for: now, calendar: calendar)
+        // The next week boundary is a property of `now`, never of the snapshot:
+        // deriving it from a published `weekStart` that had already rolled over
+        // put the boundary in the past and lost the rollover entry entirely.
+        let weekStart = WeeklyGoalWidgetState.startOfWeek(for: now, calendar: calendar)
         let nextWeek = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? nextDay
 
-        var entries = [WeeklyGoalEntry(date: now, state: state)]
-        // Re-render at each boundary so a rolled-over week can't keep showing
-        // yesterday's copy even if a refresh budget is denied.
-        for boundary in [nextDay, nextWeek] where boundary > now {
-            entries.append(WeeklyGoalEntry(date: boundary, state: state))
+        // **Each entry is re-validated against its own date.** Reusing one
+        // state across the boundary entries is what made the week rollover
+        // actively re-render last week's numbers instead of clearing them.
+        var entries = [WeeklyGoalEntry(date: now, state: state(loaded, at: now, calendar: calendar))]
+        // Sorted + deduplicated: on a Saturday `nextDay` and `nextWeek` are the
+        // same instant, and WidgetKit wants strictly ordered entries.
+        for boundary in Set([nextDay, nextWeek]).filter({ $0 > now }).sorted() {
+            entries.append(WeeklyGoalEntry(date: boundary, state: state(loaded, at: boundary, calendar: calendar)))
         }
 
         let refreshAt = min(nextDay, nextWeek > now ? nextWeek : nextDay)
@@ -65,20 +69,22 @@ nonisolated struct WeeklyGoalProvider: TimelineProvider {
     }
 
     /// Nil covers every "nothing trustworthy to show" case identically:
-    /// nothing published yet, a snapshot older than a rolled-over week, or an
-    /// unreadable keychain (no entitlement on the simulator, first-unlock not
-    /// yet reached). All three render the neutral "Open Marble" card.
+    /// nothing published yet, a snapshot describing a week that has already
+    /// rolled over, one older than the staleness limit, or an unreadable
+    /// keychain (no entitlement on the simulator, first-unlock not yet
+    /// reached). All of them render the neutral "Open Marble" card.
     private func currentState(now: Date) -> WeeklyGoalWidgetState? {
-        guard let loaded = WeeklyGoalWidgetState.loadPublished(),
-              !loaded.isStale(now: now) else { return nil }
-        return loaded
+        state(WeeklyGoalWidgetState.loadPublished(), at: now, calendar: .current)
     }
 
-    /// Local copy of the app's week anchoring — the extension can't see
-    /// `TrendsDateHelper`, and this only needs the calendar's own week rule.
-    private func startOfWeek(for date: Date, calendar: Calendar) -> Date {
-        calendar.dateInterval(of: .weekOfYear, for: date)?.start
-            ?? calendar.startOfDay(for: date)
+    /// The snapshot as it should be rendered *at `date`*, or nil.
+    private func state(
+        _ loaded: WeeklyGoalWidgetState?,
+        at date: Date,
+        calendar: Calendar
+    ) -> WeeklyGoalWidgetState? {
+        guard let loaded, loaded.isRenderable(now: date, calendar: calendar) else { return nil }
+        return loaded
     }
 }
 
