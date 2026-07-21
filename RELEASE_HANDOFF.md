@@ -20,6 +20,27 @@ steps are portal-only; there is no public App Store Connect API for either.
    - app Release → `PROVISIONING_PROFILE_SPECIFIER = "Prism marble App Store HealthKit 2026-06-18-2015"`
    - widget Release → `PROVISIONING_PROFILE_SPECIFIER = "Prism marble MarbleWidgets App Store 2026-06-22 build 23"`
 
+**Verified 2026-07-20** — `make asc-archive` was run and fails at `GatherProvisioningInputs`
+with exactly this (both targets):
+
+```
+error: Provisioning profile "Prism marble App Store HealthKit 2026-06-18-2015"
+       doesn't support the group.Prism.marble App Group. (in target 'marble')
+error: Provisioning profile "Prism marble MarbleWidgets App Store 2026-06-22 build 23"
+       doesn't support the group.Prism.marble App Group. (in target 'MarbleWidgets')
+```
+
+This also means **no 2.2 TestFlight build can be uploaded until step 1 and 2 are done.**
+The `asc` CLI cannot do it: App Group creation is not in the App Store Connect API, and
+`asc web bundle-ids capabilities` only supports App Clips (and `asc web auth` needs an
+interactive Apple ID + 2FA login).
+
+*If you want a TestFlight build before doing the portal work*, the only way is to remove the
+`com.apple.security.application-groups` key from both entitlement files — but that ships a
+build where **the Weekly Goal widget silently shows its placeholder forever** on device,
+because `SharedDefaults.suite` falls back to `.standard` and the extension reads a different
+container. Prefer doing the portal work; it is ~30 minutes.
+
 **Until both are done:** `make asc-archive` fails at signing. Debug, simulator, CI and
 `make unit` are all unaffected — the entitlement is not enforced on the simulator, which is
 why the suites are green. On a device without the group, `SharedDefaults.suite` falls back
