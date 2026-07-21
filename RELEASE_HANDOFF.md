@@ -41,6 +41,23 @@ build where **the Weekly Goal widget silently shows its placeholder forever** on
 because `SharedDefaults.suite` falls back to `.standard` and the extension reads a different
 container. Prefer doing the portal work; it is ~30 minutes.
 
+### After the portal work — the exact sequence to get 2.2 on TestFlight
+
+Everything else is verified ready: the **Release configuration compiles clean**
+(`xcodebuild -configuration Release … CODE_SIGNING_ALLOWED=NO` succeeds, widget included),
+and `ExportOptions.plist` now exists in the repo root (it did not before — `make asc-export`
+would have failed on the missing file even after signing was fixed).
+
+```sh
+# 0. after creating group.Prism.marble + regenerating BOTH distribution profiles,
+#    download them (Xcode > Settings > Accounts > Download Manual Profiles) and update
+#    the two PROVISIONING_PROFILE_SPECIFIER names in project.pbxproj if they changed.
+make asc-archive
+ASC_EXPORT_OPTIONS=$PWD/ExportOptions.plist make asc-export
+# betaGroups flaps; retry this line until it lands (build 28 took 4 attempts)
+asc publish testflight --ipa <exported.ipa> --app 6757725234 --group "test group A" --wait
+```
+
 **Until both are done:** `make asc-archive` fails at signing. Debug, simulator, CI and
 `make unit` are all unaffected — the entitlement is not enforced on the simulator, which is
 why the suites are green. On a device without the group, `SharedDefaults.suite` falls back

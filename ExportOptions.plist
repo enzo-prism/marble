@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  App Store export options for `make asc-export`.
+
+  Usage:
+      make asc-archive
+      ASC_EXPORT_OPTIONS=$PWD/ExportOptions.plist make asc-export
+
+  `signingStyle` is manual to match the Release configuration, but no
+  `provisioningProfiles` map is declared on purpose: xcodebuild reuses the
+  profiles already embedded in the archive. That keeps this file correct when
+  the distribution profiles are regenerated under new names (which the App
+  Group work in RELEASE_HANDOFF.md requires).
+-->
+<plist version="1.0">
+<dict>
+	<key>destination</key>
+	<string>export</string>
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>signingStyle</key>
+	<string>manual</string>
+	<key>teamID</key>
+	<string>L49MKXGVM4</string>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+</dict>
+</plist>
