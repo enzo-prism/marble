@@ -80,6 +80,8 @@ struct ContentView: View {
                 // Pull any workouts that landed in Apple Health while we were
                 // away (no-op unless the user enabled auto-import).
                 Task { await HealthAutoImportService.shared.syncIfEnabled(into: modelContext) }
+                // Same anchored-query pattern, bodyweight stream (opt-in).
+                Task { await BodyMetricsAutoImportService.shared.syncIfEnabled(into: modelContext) }
             }
             if newPhase == .active || newPhase == .background {
                 // Keep the weekly-goal nudge honest: reschedule against what
@@ -145,6 +147,9 @@ struct ContentView: View {
             // Gate is pure and tested (OnboardingGateTests). Existing users
             // upgrading to 2.2 are skipped AND stamped complete, so the flow
             // can never surface for them on a later launch.
+            // Puts the exercise library in Spotlight's semantic index, which is
+            // how the rebuilt Siri reaches app content.
+            Task { await ExerciseSpotlightIndex.reindexAll() }
             let onboarding = OnboardingGate.currentDecision()
             if onboarding.marksCompleteSilently {
                 OnboardingGate.markComplete()

@@ -26,6 +26,7 @@ struct SettingsView: View {
     // these are just the view's copy of it.
     @State private var autoImportEnabled = HealthAutoImportService.shared.isEnabled
     @State private var healthExportEnabled = UserDefaults.standard.bool(forKey: HealthSessionExporter.enabledDefaultsKey)
+    @State private var bodyMetricsEnabled = BodyMetricsAutoImportService.shared.isEnabled
     @State private var showingData = false
 
     private let autoImport = HealthAutoImportService.shared
@@ -50,7 +51,9 @@ struct SettingsView: View {
             .listRowSeparatorTint(Theme.subtleDividerColor(for: colorScheme))
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundColor(for: colorScheme))
-            .accessibilityIdentifier("Settings.List")
+            // No identifier on the List: a container's accessibilityIdentifier
+            // propagates onto and overrides its children, which hid every
+            // Settings.* row from the tests. Identify leaf controls only.
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
@@ -209,6 +212,38 @@ struct SettingsView: View {
                     .accessibilityIdentifier("Settings.HealthAutoImport")
 
                 Text("Each time you open Marble, workouts recorded after you turned this on are added to your journal automatically.")
+                    .font(MarbleTypography.caption)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .marbleRowInsets()
+            .listRowSeparator(.hidden)
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                Toggle("Import bodyweight", isOn: $bodyMetricsEnabled)
+                    .font(MarbleTypography.rowTitle)
+                    .tint(Theme.dividerColor(for: colorScheme))
+                    .onChange(of: bodyMetricsEnabled) { _, enabled in
+                        // Persist first, then ask for read access and roll the
+                        // toggle back if denied — same flow as the import hub.
+                        MarbleHaptics.selection()
+                        BodyMetricsAutoImportService.shared.setEnabled(enabled)
+                        guard enabled else { return }
+                        Task {
+                            do {
+                                try await HealthBodyMetricsProvider().authorize()
+                                await BodyMetricsAutoImportService.shared.syncIfEnabled(into: modelContext)
+                            } catch {
+                                bodyMetricsEnabled = false
+                                BodyMetricsAutoImportService.shared.setEnabled(false)
+                            }
+                        }
+                    }
+                    .accessibilityIdentifier("Settings.HealthBodyMetrics")
+
+                Text("Weigh-ins recorded by a smart scale or the Health app flow into your bodyweight trend, and unlock strength relative to bodyweight.")
                     .font(MarbleTypography.caption)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .lineLimit(nil)

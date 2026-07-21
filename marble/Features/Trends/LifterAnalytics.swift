@@ -233,4 +233,193 @@ enum LifterAnalytics {
             return RepRangeBucket(kind: kind, setCount: count, share: Double(count) / total)
         }
     }
+
+    // MARK: - Relative strength (DOTS)
+    //
+    // Added in 2.4 "Body". Everything below is additive: no existing analytic
+    // changed shape, and every entry point returns nil/empty when there is no
+    // bodyweight data, so the UI omits the metric rather than guessing.
+
+    /// A bodyweight measurement reduced to what the math needs. Keeping the
+    /// pure layer off `BodyMetricEntry` means the DOTS tests run without a
+    /// `ModelContext`.
+    struct BodyweightSample: Equatable {
+        let date: Date
+        /// Canonical kilograms (`BodyMetricEntry` stores nothing else).
+        let kilograms: Double
+
+        init(date: Date, kilograms: Double) {
+            self.date = date
+            self.kilograms = kilograms
+        }
+
+        init(_ entry: BodyMetricEntry) {
+            self.date = entry.measuredAt
+            self.kilograms = entry.weightKilograms
+        }
+    }
+
+    /// How far a lift may reach for a bodyweight measurement. Beyond two weeks
+    /// a lifter's weight has genuinely moved, and a stale denominator makes
+    /// DOTS look like progress that never happened — so we omit the metric
+    /// instead of interpolating.
+    static let bodyweightLookupWindowDays = 14
+
+    /// Nearest bodyweight to `date` within the window, or nil. Ties resolve to
+    /// the more recent measurement so the result is deterministic regardless of
+    /// input ordering.
+    static func nearestBodyweight(
+        to date: Date,
+        in samples: [BodyweightSample],
+        windowDays: Int = bodyweightLookupWindowDays
+    ) -> BodyweightSample? {
+        let window = Double(windowDays) * 86_400
+        var best: BodyweightSample?
+        var bestDistance = Double.greatestFiniteMagnitude
+
+        for sample in samples {
+            let distance = abs(sample.date.timeIntervalSince(date))
+            guard distance <= window else { continue }
+            if distance < bestDistance || (distance == bestDistance && sample.date > (best?.date ?? .distantPast)) {
+                best = sample
+                bestDistance = distance
+            }
+        }
+        return best
+    }
+
+    // DOTS coefficients.
+    //
+    // Source: the DOTS ("Dynamic Objective Team Scoring") formula adopted by
+    // the German powerlifting federation (BVDK) as the successor to Wilks,
+    // derived by Tim Konertz. The five polynomial coefficients below are the
+    // published values, matching the reference implementation in
+    // OpenPowerlifting's `opl-data` (`modules/coefficients/src/dots.rs`) and
+    // OpenLifter.
+    //
+    //   coefficient = 500 / (A·x⁴ + B·x³ + C·x² + D·x + E),  x = bodyweight kg
+    //   DOTS        = total kg × coefficient
+    //
+    // The polynomial is only fitted over competitive bodyweight ranges, so the
+    // reference implementations clamp x before evaluating; outside the clamp
+    // the quartic turns over and produces nonsense. We clamp identically.
+    private enum DotsCoefficients {
+        static let male = (
+            a: -0.000001093,
+            b: 0.0007391293,
+            c: -0.1918759221,
+            d: 24.0900756,
+            e: -307.75076
+        )
+        static let female = (
+            a: -0.0000010706,
+            b: 0.0007137536,
+            c: -0.1955773591,
+            d: 24.7275145,
+            e: -57.96288
+        )
+
+        static let maleBodyweightClamp: ClosedRange<Double> = 40...210
+        static let femaleBodyweightClamp: ClosedRange<Double> = 40...150
+    }
+
+    /// The DOTS score for a lift `totalKilograms` performed at
+    /// `bodyweightKilograms`. Pure, unit-free of any display concern, and
+    /// unit-tested against published reference values.
+    ///
+    /// Returns 0 for non-positive inputs rather than trapping — callers gate on
+    /// the presence of bodyweight data, and a 0 reads as "no score" everywhere
+    /// it could leak through.
+    static func dots(totalKilograms: Double, bodyweightKilograms: Double, isFemale: Bool) -> Double {
+        guard totalKilograms > 0, bodyweightKilograms > 0 else { return 0 }
+
+        let coefficients = isFemale ? DotsCoefficients.female : DotsCoefficients.male
+        let clamp = isFemale ? DotsCoefficients.femaleBodyweightClamp : DotsCoefficients.maleBodyweightClamp
+        let x = min(max(bodyweightKilograms, clamp.lowerBound), clamp.upperBound)
+
+        let denominator = coefficients.a * pow(x, 4)
+            + coefficients.b * pow(x, 3)
+            + coefficients.c * pow(x, 2)
+            + coefficients.d * x
+            + coefficients.e
+
+        guard denominator > 0 else { return 0 }
+        return totalKilograms * (500.0 / denominator)
+    }
+
+    /// One day's lift scored against the bodyweight nearest to it.
+    struct RelativeStrengthPoint: Identifiable, Equatable {
+        /// The training day the lift happened on.
+        let date: Date
+        let dots: Double
+        /// The lift that was scored, in kilograms (an e1RM here, not a
+        /// three-lift total — see `RelativeStrengthSummary`).
+        let liftKilograms: Double
+        let bodyweightKilograms: Double
+        /// When that bodyweight was actually measured.
+        let bodyweightMeasuredAt: Date
+        /// Whole days between the lift and the bodyweight backing it, so the UI
+        /// can be honest about a scored-against-stale-weight case.
+        let bodyweightAgeDays: Int
+
+        var id: Date { date }
+    }
+
+    /// DOTS across an e1RM series, plus its latest and best points.
+    ///
+    /// **Naming honesty:** DOTS was designed to score a powerlifting *total*.
+    /// Marble applies the same scale to a single lift's estimated 1RM, which
+    /// makes it a valid bodyweight-relative comparison of that lift over time —
+    /// but not a competition DOTS total. The UI copy says so; do not relabel it
+    /// as a total.
+    struct RelativeStrengthSummary: Equatable {
+        let points: [RelativeStrengthPoint]
+        let latest: RelativeStrengthPoint?
+        let best: RelativeStrengthPoint?
+    }
+
+    /// Scores each day of an e1RM series against the nearest bodyweight within
+    /// `bodyweightLookupWindowDays`. Returns nil when no day can be scored, so
+    /// the caller omits the line entirely rather than showing a partial or
+    /// invented metric.
+    static func relativeStrength(
+        oneRepMax series: OneRepMaxSeries,
+        bodyweights: [BodyweightSample],
+        isFemale: Bool,
+        windowDays: Int = bodyweightLookupWindowDays,
+        calendar: Calendar = .current
+    ) -> RelativeStrengthSummary? {
+        guard !bodyweights.isEmpty else { return nil }
+
+        var points: [RelativeStrengthPoint] = []
+        points.reserveCapacity(series.points.count)
+
+        for point in series.points {
+            guard let sample = nearestBodyweight(to: point.date, in: bodyweights, windowDays: windowDays) else {
+                continue
+            }
+            let score = dots(
+                totalKilograms: point.kilograms,
+                bodyweightKilograms: sample.kilograms,
+                isFemale: isFemale
+            )
+            guard score > 0 else { continue }
+            let ageDays = abs(calendar.dateComponents([.day], from: sample.date, to: point.date).day ?? 0)
+            points.append(RelativeStrengthPoint(
+                date: point.date,
+                dots: score,
+                liftKilograms: point.kilograms,
+                bodyweightKilograms: sample.kilograms,
+                bodyweightMeasuredAt: sample.date,
+                bodyweightAgeDays: ageDays
+            ))
+        }
+
+        guard !points.isEmpty else { return nil }
+        return RelativeStrengthSummary(
+            points: points,
+            latest: points.max(by: { $0.date < $1.date }),
+            best: points.max(by: { $0.dots < $1.dots })
+        )
+    }
 }

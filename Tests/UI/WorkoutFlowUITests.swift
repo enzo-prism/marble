@@ -52,7 +52,9 @@ final class WorkoutFlowUITests: MarbleUITestCase {
         navigateToTab(.split)
 
         forceTap(waitForIdentifier("Workout.Data"))
-        // 2.2 moved Data & Backups behind the new Settings screen.
+        // 2.2 moved Data & Backups behind the new Settings screen, below the
+        // fold of a lazy List — it isn't in the tree until we scroll to it.
+        scrollToElement(app.descendants(matching: .any).matching(identifier: "Settings.Data").firstMatch, in: app)
         forceTap(waitForIdentifier("Settings.Data", timeout: 10))
         waitForIdentifier("Data.Summary", timeout: 15)
         waitForIdentifier("Data.Export")

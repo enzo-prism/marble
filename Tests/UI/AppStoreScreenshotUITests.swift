@@ -62,7 +62,9 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
     func test06EmojiExerciseLibrary() {
         launchScreenshotApp(initialTab: "split")
         forceTap(waitForIdentifier("Workout.Data", timeout: 10))
-        // 2.2 moved Data & Backups behind the new Settings screen.
+        // 2.2 moved Data & Backups behind the new Settings screen, below the
+        // fold of a lazy List — it isn't in the tree until we scroll to it.
+        scrollToElement(app.descendants(matching: .any).matching(identifier: "Settings.Data").firstMatch, in: app)
         forceTap(waitForIdentifier("Settings.Data", timeout: 10))
         forceTap(waitForIdentifier("Data.ExerciseLibrary", timeout: 10))
         _ = waitForIdentifier("ManageExercises.List", timeout: 10)
@@ -82,7 +84,9 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
     func test08PrivateBackup() {
         launchScreenshotApp(initialTab: "split")
         forceTap(waitForIdentifier("Workout.Data", timeout: 10))
-        // 2.2 moved Data & Backups behind the new Settings screen.
+        // 2.2 moved Data & Backups behind the new Settings screen, below the
+        // fold of a lazy List — it isn't in the tree until we scroll to it.
+        scrollToElement(app.descendants(matching: .any).matching(identifier: "Settings.Data").firstMatch, in: app)
         forceTap(waitForIdentifier("Settings.Data", timeout: 10))
         _ = waitForIdentifier("Data.Summary", timeout: 12)
         _ = waitForIdentifier("Data.Export", timeout: 10)

@@ -99,5 +99,35 @@ struct MarbleShortcuts: AppShortcutsProvider {
             shortTitle: "Log Last Set Again",
             systemImageName: "arrow.clockwise.circle"
         )
+        // Parameterised phrase: the exercise is resolved through `ExerciseQuery`,
+        // whose `suggestedEntities()` is what Siri offers when the name is unclear.
+        AppShortcut(
+            intent: LogSetIntent(),
+            phrases: [
+                "Log a set of \(\.$exercise) in \(.applicationName)",
+                "Add a \(\.$exercise) set to \(.applicationName)",
+                "Log an exercise set in \(.applicationName)"
+            ],
+            shortTitle: "Log a Set of an Exercise",
+            systemImageName: "figure.strengthtraining.traditional"
+        )
+        AppShortcut(
+            intent: StartWorkoutIntent(),
+            phrases: [
+                "Start a workout in \(.applicationName)",
+                "Start my \(.applicationName) workout"
+            ],
+            shortTitle: "Start Workout",
+            systemImageName: "play.circle"
+        )
+        AppShortcut(
+            intent: FinishWorkoutIntent(),
+            phrases: [
+                "Finish my workout in \(.applicationName)",
+                "End my \(.applicationName) workout"
+            ],
+            shortTitle: "Finish Workout",
+            systemImageName: "flag.checkered"
+        )
     }
 }

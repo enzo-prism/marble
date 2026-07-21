@@ -91,6 +91,7 @@ struct TrendsContentView: View {
     @State private var isScrubbingChart = false
     @State private var monthlyReportForSheet: MonthlyReport?
     @State private var showsDetailedAnalytics = false
+    @State private var isPresentingWeightEntry = false
 
     // Caches the derived snapshot so scrubbing a chart (which mutates UI-only
     // state and re-runs `body`) doesn't re-filter/-group/-sort the full history
@@ -218,10 +219,15 @@ struct TrendsContentView: View {
                                 }
 
                                 if let oneRepMaxSeries = derived.oneRepMaxSeries {
-                                    OneRepMaxSectionView(
-                                        series: oneRepMaxSeries,
-                                        accessibilityValue: derived.oneRepMaxAccessibilityValue
-                                    )
+                                    VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                                        OneRepMaxSectionView(
+                                            series: oneRepMaxSeries,
+                                            accessibilityValue: derived.oneRepMaxAccessibilityValue
+                                        )
+                                        // Renders nothing unless a bodyweight
+                                        // sits within 14 days of a training day.
+                                        RelativeStrengthLine(series: oneRepMaxSeries)
+                                    }
                                 }
 
                                 if let hint = derived.doubleProgressionHint {
@@ -263,6 +269,13 @@ struct TrendsContentView: View {
                                 .font(MarbleTypography.rowMeta)
                                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         }
+
+                        // Outside the hasSetData guard on purpose: a user with
+                        // no sets in range can still be invited to weigh in.
+                        BodyweightTrendSection(range: range) {
+                            isPresentingWeightEntry = true
+                        }
+                        .padding(.top, MarbleSpacing.xxl)
 
                         supplementsSection(derived: derived)
                             .padding(.top, MarbleSpacing.xxl)
@@ -338,6 +351,9 @@ struct TrendsContentView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()
+        }
+        .sheet(isPresented: $isPresentingWeightEntry) {
+            BodyMetricEntryView()
         }
         .sheet(isPresented: $isPresentingExerciseSearch) {
             NavigationStack {
