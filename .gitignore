@@ -8,7 +8,12 @@ xcuserdata/
 *.xcscmblueprint
 *.xccheckout
 .swiftpm/
-.asc/
+# App Store Connect working dir: ignore artifacts/screenshots/reports, but the
+# export options ARE release configuration and must be in version control —
+# without them `make asc-export` fails on a fresh clone.
+.asc/*
+!.asc/ExportOptions.plist
+!.asc/UploadExportOptions.plist
 
 # Node deps for the marketing composition
 node_modules/
