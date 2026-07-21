@@ -15,7 +15,33 @@
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
-## Latest local verification (2026-07-14)
+## Latest local verification (2026-07-20, 2.2 build 41)
+- `MarbleTests`: **all passed, 0 failed** (`make unit`). 2.2 added ten suites:
+  `SharedDefaultsTests`, `WeeklyGoalWidgetStateTests`, `OnboardingGateTests`,
+  `PreferredWeightUnitTests`, extended `RestActivityControllerTests`,
+  `AppIntentEntityTests`, `LogSetIntentTests`, `BodyMetricEntryTests`,
+  `RelativeStrengthTests`, `SchemaV5MigrationTests`.
+- `MarbleUITests`: **43 passed, 1 failed** (`make ui`). The failure is
+  `AppStoreScreenshotUITests.test07TrainingCalendar` waiting on `Calendar.MonthTitle`;
+  **verified pre-existing, not a 2.2 regression**: the same test fails identically on a
+  clean `origin/main` worktree on this host (`UICalendarView` render timing). Re-verify the
+  same way before blaming a change — `git worktree add <dir> origin/main` then
+  `make only TEST=MarbleUITests/AppStoreScreenshotUITests/test07TrainingCalendar`.
+- `AccessibilityAuditUITests` (2026-07-20): **passed** against the new Settings, Onboarding,
+  and bodyweight surfaces.
+- **Run UI tests on a dedicated simulator.** This Mac is shared with other agent sessions,
+  and a second session's app running on the same simulator makes XCUITest treat it as an
+  interrupting element — the symptom is a storm of "Activation point invalid" failures
+  across unrelated tests plus `Wait for <other.bundle.id> to idle` in the log. Create one
+  and pin it:
+  ```sh
+  xcrun simctl create "iPhone 17 Pro Marble CI" "iPhone 17 Pro" com.apple.CoreSimulator.SimRuntime.iOS-26-5
+  MARBLE_SIMULATOR_ID=<udid> make ui
+  ```
+  Never `xcrun simctl shutdown all` and never `pkill CoreSimulatorService` — both destroy
+  the other session's simulators (the latter wiped the whole device registry once).
+
+## Previous verification (2026-07-14)
 - `MarbleTests`: **264 passed, 0 failed** (`make unit`), verified 2026-07-14.
   The previously recorded 254 was stale: commit `3e6d4b6` took the suite to 263 and the
   follow-up docs commit carried the old number forward. Counts here are derived from an

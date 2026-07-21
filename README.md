@@ -34,8 +34,27 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-14)
+## Current state (2026-07-20)
 
+- **Shipped:** **2.0 is live** on the App Store. **2.1 (build 40) is approved and sitting in
+  `PENDING_DEVELOPER_RELEASE`** — it needs a manual release in App Store Connect, no build work.
+- **In progress: 2.2 (build 41)**, the "ambient" release, which closes the gap between how much
+  Marble knows and how little of it is reachable from outside the app:
+  - **Weekly Goal widget** — Home Screen (small/medium) and Lock Screen (circular/rectangular/
+    inline), fed by a snapshot the app pushes into a shared App Group suite. The widget never
+    opens the SwiftData store, so the crash-recovery path is untouched.
+  - **Interactive rest timer** — `+30s` / `End` buttons on the Lock Screen and Dynamic Island,
+    plus a **Control Center** "Log a Set" control.
+  - **Onboarding** (what Marble is, weekly goal, default weight unit) and a real **Settings**
+    screen; Data & Backups now lives one level in, under Settings.
+  - **Siri & Spotlight** — `ExerciseEntity` (`AppEntity` + `IndexedEntity`), a parameterized
+    `LogSetIntent`, and start/finish workout intents.
+  - **Bodyweight** — `BodyMetricEntry` (schema **V5**, additive), Apple Health bodyweight
+    import, a bodyweight trend, and DOTS relative strength.
+- **⚠️ Two manual steps gate this release — see [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).**
+  The App Group `group.Prism.marble` must be created in the developer portal and both
+  distribution profiles regenerated, or **archiving fails and the widget silently falls back to
+  per-process defaults on device**. Simulator builds and CI are unaffected.
 - **Version trains:** App Store **2.0 is pinned to build 34** (the Trends coaching layer) and
   its release notes describe exactly that build. Builds 35–39 — workout sessions, sprint
   prescriptions, the Exercise Library redesign, and JSON backups — are **not** in those notes,
@@ -156,6 +175,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 | [`INTEGRATIONS.md`](INTEGRATIONS.md) | Workout import — how each source works and **why** |
 | [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md) | Sprint prescription attributes, logging flow, and persistence |
 | [`EXERCISE_LIBRARY.md`](EXERCISE_LIBRARY.md) | Exercise creation, attributes, discovery, editing, and deletion safety |
+| [`ROADMAP.md`](ROADMAP.md) | H2 2026 plan: what shipped in 2.2, what's next, and the portal steps that gate it |
 | [`AGENTS.md`](AGENTS.md) | Coding, UI, testing, and release rules for contributors/agents |
 | [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) | Dated source of truth for release/version/signing state |
 | [`TESTING.md`](TESTING.md) | Test suites, deterministic launch hooks, snapshot rules |

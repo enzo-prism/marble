@@ -139,6 +139,32 @@ Use these commands (preferred):
 ## Current state + gotchas (read first)
 - **`RELEASE_HANDOFF.md` is the dated source of truth for release/version/signing state.**
   Read it before any release work; it is kept current (last verified date at the top).
+- **`ROADMAP.md` holds the H2 2026 plan** — what 2.2 shipped, what is deliberately deferred,
+  and the two portal steps that gate archiving. Read it before starting new feature work.
+
+### 2.2 lessons (2026-07-20) — do not rediscover
+- **A container's `.accessibilityIdentifier` overrides its children. This has now bitten
+  four times** (`Import.Scan`, `Import.GarminBridge`, and in 2.2 a `Settings.List` on the
+  Settings `List` that hid every `Settings.*` row from the tests). Identify leaf controls
+  only — never a `VStack`/`List`/`Section`/`Form` wrapper.
+- **SwiftUI `List` rows below the fold are not in the accessibility tree.** `waitForIdentifier`
+  will time out on a row that simply needs scrolling; use `scrollToElement(_:in:)` first.
+- **App/widget shared code:** files needing membership in *both* targets get an explicit
+  `PBXFileReference` + `PBXBuildFile` + an entry in the widget's Sources phase (the
+  `RestTimerAttributes.swift` precedent). Everything else under `marble/`, `MarbleWidgets/`
+  and `Tests/` is picked up automatically by the filesystem-synchronized groups.
+  Such files must import Foundation-only frameworks and reference no app type; app-only
+  calls go inside `#if !WIDGET_EXTENSION` (that flag is set on the widget target).
+- **Never hand-pick a `BEEFC0DE…` object id without checking it is free.** Ids `…0001`
+  through `…0010` are taken. A collision produces a project that passes `plutil -lint` but
+  that Xcode rejects as *"damaged"* with `-[XCConfigurationList group]: unrecognized selector`.
+- **`\.someProperty` key paths do not work on metatype existentials** (`[any VersionedSchema.Type]`).
+  Use `.map { $0.versionIdentifier }`. This was the only compile error in the 2.2 test suite
+  and `xcodebuild` reports it as an opaque `Command SwiftCompile failed` with no diagnostic
+  in the log — bisect by which `.dia` files are missing under `MarbleTests.build/Objects-normal/`.
+- Adding the App Group entitlement **breaks Release archiving until the portal work is done**
+  (the two `PROVISIONING_PROFILE_SPECIFIER` strings are pinned by name). Debug/simulator and
+  CI are unaffected, which is why `make unit` stays green.
 - SwiftData schema is versioned in `Persistence/MarbleSchema.swift`. For a breaking model
   change, add a `MarbleSchemaV2` + a `MigrationStage` — do not just edit models.
 - The target sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so any Codable value type

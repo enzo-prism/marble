@@ -1,8 +1,41 @@
 # Marble Release Handoff
 
-**Last verified: 2026-07-12.** This file is the single source of truth for "where the
+**Last verified: 2026-07-20.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
+
+---
+
+## 🚨 BLOCKING — two manual steps before 2.2 can archive or ship (added 2026-07-20)
+
+2.2 adds an **App Group** so the widget extension can read what the app publishes. Both
+steps are portal-only; there is no public App Store Connect API for either.
+
+1. **Create the App Group.** developer.apple.com → Certificates, Identifiers & Profiles →
+   Identifiers → App Groups → **`group.Prism.marble`**. Then edit both App IDs
+   (`Prism.marble` and `Prism.marble.MarbleWidgets`), enable the App Groups capability, and
+   assign that group to each.
+2. **Regenerate both App Store distribution profiles** (enabling a capability invalidates
+   them) and update the two pinned names in `marble.xcodeproj/project.pbxproj`:
+   - app Release → `PROVISIONING_PROFILE_SPECIFIER = "Prism marble App Store HealthKit 2026-06-18-2015"`
+   - widget Release → `PROVISIONING_PROFILE_SPECIFIER = "Prism marble MarbleWidgets App Store 2026-06-22 build 23"`
+
+**Until both are done:** `make asc-archive` fails at signing. Debug, simulator, CI and
+`make unit` are all unaffected — the entitlement is not enforced on the simulator, which is
+why the suites are green. On a device without the group, `SharedDefaults.suite` falls back
+to `.standard`, so **the widget would show its placeholder forever rather than crash**.
+
+Entitlement files are already committed: `marble.entitlements` and
+`MarbleWidgets/MarbleWidgets.entitlements` both declare `group.Prism.marble`.
+
+## Release state (2026-07-20)
+
+- **2.0** — live on the App Store (`READY_FOR_DISTRIBUTION`).
+- **2.1 (build 40)** — **approved and waiting on you**: `PENDING_DEVELOPER_RELEASE` since
+  2026-07-15, release type MANUAL. Press release in App Store Connect; no build work needed.
+- **2.2 (build 41)** — in development on `main`. Widgets, interactive rest timer, Control
+  Center control, onboarding, Settings, Siri/Spotlight intents, bodyweight + schema **V5**.
+  Blocked on the two portal steps above before archiving.
 
 ---
 

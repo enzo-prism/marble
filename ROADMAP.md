@@ -1,5 +1,34 @@
 # Marble — H2 2026 Implementation Plan (written 2026-07-20)
 
+> **STATUS 2026-07-20 — Phases 0–3 are implemented and on `main` as 2.2 (build 41).**
+> Unit suite green, accessibility audit green, UI suite 43/44 (the one failure,
+> `test07TrainingCalendar`, reproduces on clean `origin/main` — see TESTING.md).
+>
+> | Phase | State |
+> |---|---|
+> | 0 — ship & tidy | Repo work **done** (version bump, PRs #2/#11 closed). **2.1 still needs its manual App Store release — that is Enzo's button.** |
+> | 1 — 2.2 Ambient | **Done.** Weekly Goal widget, interactive rest Live Activity, Control Center control, onboarding, Settings, TipKit defined. |
+> | 2 — 2.3 Siri & Spotlight | **Done.** `ExerciseEntity`+`IndexedEntity`, `LogSetIntent`, start/finish workout intents, 5 App Shortcuts. |
+> | 3 — 2.4 Body | **Done.** Schema V5 `BodyMetricEntry`, Health bodyweight import, DOTS, Trends section. |
+> | 4 — 3.0 Watch | **Not built — deliberately.** See "Why Phase 4 was not built" below. |
+>
+> **Two portal steps gate archiving** (`RELEASE_HANDOFF.md` has the detail): create the
+> App Group `group.Prism.marble` and regenerate both distribution profiles.
+>
+> Phases 1–3 were collapsed into a single 2.2 train rather than three releases. That was a
+> deliberate call to get one TestFlight build covering all of it; the phase structure below
+> still describes how the work was sequenced and why.
+>
+> ## Why Phase 4 was not built
+> The watch app is the one item here that cannot be honestly finished in this environment:
+> it needs a **new App ID and distribution profile created in the portal** (same blocker
+> class as the App Group, but for a target that does not exist yet), and its core —
+> `HKWorkoutSession` mirroring, double-tap set logging, water lock — is **device-only** and
+> untestable on the simulator. Scaffolding a watch target that cannot be run, signed, or
+> verified would add a broken target to `main` and a false sense of progress. The design in
+> Phase 4 below is unchanged and remains the right shape; it wants a session with a device
+> and portal access, ideally alongside the watchOS 27 GM in September.
+
 Source of truth for the five-workstream roadmap pitched 2026-07-20: Watch app, widget surface,
 App Intents depth, body metrics, onboarding/settings. Sequenced into releases 2.2 → 2.3 → 2.4 → 3.0.
 Baseline: main = 2.1 build 40; App Store 2.0 LIVE; 2.1 approved, `PENDING_DEVELOPER_RELEASE`.
