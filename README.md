@@ -37,13 +37,16 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-21)
+## Current state (2026-07-22)
 
-- **Live on the App Store: 2.1 (build 40)**, released 2026-07-21 (`READY_FOR_DISTRIBUTION`).
+- **Live on the App Store: 2.1 (build 40)**, released 2026-07-21 (`READY_FOR_SALE` in the
+  App Store Connect API).
   It carries builds 35–39 — workout sessions, sprint prescriptions, the Exercise Library
   redesign, and JSON backups. No phased release was configured, so it went to 100% at once.
-- **On TestFlight: 2.2 (build 41)** — `VALID`, uploaded 2026-07-21 (build id
-  `e7b6d9cb-6ea7-401b-9bab-b42b6be26cac`). **Not yet submitted to App Review.** 2.2 is the
+- **On TestFlight: 2.2 (build 42)** — `VALID` and `IN_BETA_TESTING`, uploaded 2026-07-22
+  (build id `a9acfd24-fae2-4602-b75c-e0c47c036722`) to the all-build internal group
+  `test group A`. **Not yet submitted to App Review.** Build 42 adds Daily Highlights,
+  a single-Live-Activity timer invariant, and personal-best context on Log Again. 2.2 is the
   "ambient" release, which closes the gap between how much Marble knows and how little of it
   is reachable from outside the app:
   - **Weekly Goal widget** — Home Screen (small/medium) and Lock Screen (circular/rectangular/

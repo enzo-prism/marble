@@ -83,10 +83,11 @@
   grep -oE "Test Case '-\[MarbleUITests\.[A-Za-z]+ [a-zA-Z0-9_]+\]' (passed|failed)" <log> \
     | sort -u | wc -l    # expect 44
   ```
-  Note `AccessibilityAuditUITests`' two cases share the `testAccessibilityAudit_` prefix — a
-  regex that stops at the underscore collapses them into one and skews the arithmetic.
+  Note the two original `AccessibilityAuditUITests` cases share the
+  `testAccessibilityAudit_` prefix — a regex that stops at the underscore collapses them
+  into one and skews the historical arithmetic.
 
-### Daily Highlights release-candidate verification (2026-07-22, 2.2 build 42)
+### Daily Highlights verification (2026-07-22, 2.2 build 42)
 
 - `DailyHighlightsTests`: 10 passed, 0 failed, including schedule/DST boundaries, genuine
   records, run-distance matching, filter independence, and 1080 × 1350 export.
@@ -98,6 +99,9 @@
   light/dark, and default/Accessibility XXXL text; all eight baselines are checked in.
 - `DerivationPerformanceTests`: the 5,000-entry Daily Highlights benchmark passed in under
   one second on the local simulator host.
+- Signed Release archive and App Store export passed for `Prism.marble` and
+  `Prism.marble.MarbleWidgets`; App Store Connect reports build 42 `VALID` and
+  `IN_BETA_TESTING` for the internal all-build group `test group A`.
 
 ## Standing caveats (carried forward)
 - `AccessibilityAuditUITests`: the iOS 26.5 runtime skips its unsupported Dynamic Type audit,
@@ -139,8 +143,9 @@ Preferred Makefile targets:
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **2.2 (41)**, build ID
-  `e7b6d9cb-6ea7-401b-9bab-b42b6be26cac`; `VALID`, uploaded 2026-07-21.
+- Current phone-test build: **2.2 (42)**, build ID
+  `a9acfd24-fae2-4602-b75c-e0c47c036722`; `VALID` and `IN_BETA_TESTING`, uploaded
+  2026-07-22.
 - Internal group `test group A` receives all builds; external beta remains unsubmitted.
 - **Most of 2.2 is device-only.** Widgets, Live Activity buttons, Control Center controls,
   Siri, and Spotlight cannot be verified on the simulator — the keychain access group is not
@@ -148,6 +153,12 @@ Preferred Makefile targets:
   the only coverage those surfaces get; do not sign off 2.2 without walking it.
 
 ### 2.2 payload (what's new on this build)
+- **Daily Highlights** — after logging today, open Trends during the default 8:00 PM–11:59 PM
+  window. Confirm the card shows only truthful progress from that day, Share produces a
+  4:5 image, and Settings → Training → Daily Highlights changes the window. Also check a
+  custom window that crosses midnight.
+- **Log Again best cue** — confirm weighted exercises show the heaviest prior weight, runs
+  show the fastest time at the same distance, and bodyweight exercises show the most reps.
 - **Weekly Goal widget** — add it in all five families: Home Screen small and medium, and
   Lock Screen circular, rectangular, and inline. Check each shows real progress, not the
   neutral "Open Marble" placeholder. **Lock the phone and confirm the Lock Screen families
