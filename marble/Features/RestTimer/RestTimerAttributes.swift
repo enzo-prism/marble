@@ -20,4 +20,13 @@ nonisolated struct RestTimerAttributes: ActivityAttributes {
 
     /// The exercise that was just logged — fixed for the life of the activity.
     var exerciseName: String
+
+    /// Creation time identifies the newest rest independently of its duration. Optional so
+    /// activities created by older Marble builds still decode and can be reconciled safely.
+    var startedAt: Date?
+
+    init(exerciseName: String, startedAt: Date? = nil) {
+        self.exerciseName = exerciseName
+        self.startedAt = startedAt
+    }
 }

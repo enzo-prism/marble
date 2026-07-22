@@ -48,6 +48,15 @@ changes, TestFlight via `make asc-*`, PR to main (no direct pushes). Never `git 
 
 ## Known gaps / next up
 
+### Shipped after the original 2.2 plan
+
+- **Daily Highlights in Trends** is implemented on `main`: a local-only end-of-day recap,
+  visible by default from 8:00 PM through 11:59 PM, with a customizable/overnight-capable
+  schedule, truthful unit-normalized lift and matched-distance run records, accessible
+  layouts, and an explicit 1080 × 1350 PNG share flow. It adds no persistence schema,
+  notification, background task, analytics, or network dependency. See
+  [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md).
+
 **Verified 2026-07-21 against the 2.2 (build 41) source.** These are things the roadmap below
 describes as designed or done that are **not actually working end to end**. Do not claim any
 of them works, and do not put them in release notes.

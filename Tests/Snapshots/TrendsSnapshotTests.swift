@@ -4,6 +4,20 @@ import XCTest
 @testable import marble
 
 final class TrendsSnapshotTests: SnapshotTestCase {
+    override func setUp() {
+        super.setUp()
+        SharedDefaults.suite.set(true, forKey: SharedDefaults.Key.dailyHighlightsEnabled)
+        SharedDefaults.suite.set(DailyHighlightWindow.defaultStartMinute, forKey: SharedDefaults.Key.dailyHighlightsStartMinute)
+        SharedDefaults.suite.set(DailyHighlightWindow.defaultEndMinute, forKey: SharedDefaults.Key.dailyHighlightsEndMinute)
+    }
+
+    override func tearDown() {
+        SharedDefaults.suite.removeObject(forKey: SharedDefaults.Key.dailyHighlightsEnabled)
+        SharedDefaults.suite.removeObject(forKey: SharedDefaults.Key.dailyHighlightsStartMinute)
+        SharedDefaults.suite.removeObject(forKey: SharedDefaults.Key.dailyHighlightsEndMinute)
+        super.tearDown()
+    }
+
     func testTrendsEmpty() {
         let container = SnapshotFixtures.makeContainer()
         let context = ModelContext(container)
@@ -24,6 +38,41 @@ final class TrendsSnapshotTests: SnapshotTestCase {
             .modelContainer(container)
             .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_Populated")
+    }
+
+    func testTrendsDailyHighlights() {
+        let calendar = Calendar.current
+        TestHooks.overrideNow = calendar.date(
+            bySettingHour: 21,
+            minute: 0,
+            second: 0,
+            of: SnapshotFixtures.now
+        ) ?? SnapshotFixtures.now
+
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedPopulated(in: context)
+
+        let priorDay = calendar.date(byAdding: .day, value: -5, to: SnapshotFixtures.now) ?? SnapshotFixtures.now
+        SnapshotFixtures.addSet(
+            in: context,
+            exerciseName: "Bench Press",
+            performedAt: priorDay,
+            weight: 175,
+            reps: 5
+        )
+        SnapshotFixtures.addSet(
+            in: context,
+            exerciseName: "Bench Press",
+            performedAt: SnapshotFixtures.now,
+            weight: 205,
+            reps: 5
+        )
+
+        let view = TrendsView()
+            .modelContainer(container)
+            .environment(QuickLogCoordinator())
+        assertSnapshot(view, named: "Trends_DailyHighlights")
     }
 
     func testTrendsFilteredExercise() {

@@ -141,7 +141,8 @@ final class RestActivityControllerTests: XCTestCase {
 
     @MainActor
     func testPruneExpiredRestClearsOnlyElapsedRests() {
-        let controller = RestActivityController()
+        let client = FakeRestLiveActivityClient()
+        let controller = RestActivityController(liveActivities: client)
         let endsAt = Date(timeIntervalSince1970: 1_700_000_000)
         controller.beginRestSession(exerciseName: "Bench Press", endsAt: endsAt)
 
@@ -150,5 +151,321 @@ final class RestActivityControllerTests: XCTestCase {
 
         controller.pruneExpiredRest(now: endsAt)
         XCTAssertNil(controller.activeRest, "An elapsed rest must be cleared by a prune")
+    }
+
+    // MARK: - System Live Activity invariant
+
+    func testReconciliationKeepsOnlyLatestUnexpiredActivity() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let snapshots = [
+            RestLiveActivitySnapshot(
+                id: "expired",
+                exerciseName: "Deadlift",
+                endsAt: now.addingTimeInterval(-1),
+                isOngoing: true
+            ),
+            RestLiveActivitySnapshot(
+                id: "older",
+                exerciseName: "Good Morning",
+                endsAt: now.addingTimeInterval(30),
+                isOngoing: true
+            ),
+            RestLiveActivitySnapshot(
+                id: "latest",
+                exerciseName: "Squat",
+                endsAt: now.addingTimeInterval(90),
+                isOngoing: true
+            ),
+            RestLiveActivitySnapshot(
+                id: "ended",
+                exerciseName: "Bench Press",
+                endsAt: now.addingTimeInterval(120),
+                isOngoing: false
+            )
+        ]
+
+        let plan = RestActivityController.reconciliationPlan(for: snapshots, now: now)
+
+        XCTAssertEqual(plan.keeper?.id, "latest")
+        XCTAssertEqual(plan.activityIDsToEnd, ["ended", "expired", "older"])
+    }
+
+    func testReconciliationPrefersNewestCreationEvenWhenItsRestEndsSooner() {
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        let snapshots = [
+            RestLiveActivitySnapshot(
+                id: "old-long-rest",
+                exerciseName: "Good Morning",
+                endsAt: now.addingTimeInterval(300),
+                startedAt: now.addingTimeInterval(-60),
+                isOngoing: true
+            ),
+            RestLiveActivitySnapshot(
+                id: "new-short-rest",
+                exerciseName: "Squat",
+                endsAt: now.addingTimeInterval(60),
+                startedAt: now,
+                isOngoing: true
+            )
+        ]
+
+        let plan = RestActivityController.reconciliationPlan(for: snapshots, now: now)
+
+        XCTAssertEqual(plan.keeper?.id, "new-short-rest")
+        XCTAssertEqual(plan.activityIDsToEnd, ["old-long-rest"])
+    }
+
+    @MainActor
+    func testRepeatedStartsNeverCreateMoreThanOneLiveActivity() async {
+        let client = FakeRestLiveActivityClient()
+        let controller = RestActivityController(liveActivities: client)
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+
+        for index in 0..<10 {
+            controller.startRest(exerciseName: "Set \(index)", restSeconds: 90, now: now)
+            await controller.waitForPendingLiveActivityOperation()
+        }
+
+        XCTAssertEqual(client.currentSnapshots.count, 1)
+        XCTAssertEqual(client.currentSnapshots.first?.exerciseName, "Set 9")
+        XCTAssertEqual(client.maximumConcurrentActivityCount, 1)
+        XCTAssertEqual(client.requestCount, 10)
+    }
+
+    @MainActor
+    func testRapidStartsOnlyRequestTheLatestTimer() async {
+        let client = FakeRestLiveActivityClient()
+        let controller = RestActivityController(liveActivities: client)
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+
+        controller.startRest(exerciseName: "Bench Press", restSeconds: 60, now: now)
+        controller.startRest(exerciseName: "Good Morning", restSeconds: 75, now: now)
+        controller.startRest(exerciseName: "Squat", restSeconds: 90, now: now)
+        await controller.waitForPendingLiveActivityOperation()
+
+        XCTAssertEqual(client.requestCount, 1)
+        XCTAssertEqual(client.currentSnapshots.map(\.exerciseName), ["Squat"])
+        XCTAssertEqual(client.maximumConcurrentActivityCount, 1)
+    }
+
+    @MainActor
+    func testRelaunchReconciliationCollapsesLegacyPileAndRestoresOneTimer() async {
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        let client = FakeRestLiveActivityClient(snapshots: [
+            .init(id: "expired", exerciseName: "Deadlift", endsAt: now.addingTimeInterval(-20), isOngoing: true),
+            .init(id: "older", exerciseName: "Good Morning", endsAt: now.addingTimeInterval(30), isOngoing: true),
+            .init(id: "keeper", exerciseName: "Squat", endsAt: now.addingTimeInterval(90), isOngoing: true)
+        ])
+        let controller = RestActivityController(liveActivities: client)
+
+        controller.reconcileLiveActivities(now: now)
+        await controller.waitForPendingLiveActivityOperation()
+
+        XCTAssertEqual(client.currentSnapshots.map(\.id), ["keeper"])
+        XCTAssertEqual(
+            controller.activeRest,
+            ActiveRest(exerciseName: "Squat", endsAt: now.addingTimeInterval(90))
+        )
+    }
+
+    @MainActor
+    func testRelaunchWithOnlyExpiredActivitiesDismissesEveryCard() async {
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        let client = FakeRestLiveActivityClient(snapshots: [
+            .init(id: "one", exerciseName: "Squat", endsAt: now.addingTimeInterval(-10), isOngoing: true),
+            .init(id: "two", exerciseName: "Good Morning", endsAt: now, isOngoing: true)
+        ])
+        let controller = RestActivityController(liveActivities: client)
+
+        controller.reconcileLiveActivities(now: now)
+        await controller.waitForPendingLiveActivityOperation()
+
+        XCTAssertNil(controller.activeRest)
+        XCTAssertTrue(client.currentSnapshots.isEmpty)
+        XCTAssertEqual(Set(client.endedActivityIDs), Set(["one", "two"]))
+    }
+
+    @MainActor
+    func testNaturalCompletionImmediatelyDismissesTheSystemActivity() async {
+        let client = FakeRestLiveActivityClient()
+        let controller = RestActivityController(liveActivities: client)
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        let endsAt = now.addingTimeInterval(90)
+        controller.startRest(exerciseName: "Squat", restSeconds: 90, now: now)
+        await controller.waitForPendingLiveActivityOperation()
+
+        controller.completeRest(endingAt: endsAt)
+        await controller.waitForPendingLiveActivityOperation()
+
+        XCTAssertNil(controller.activeRest)
+        XCTAssertTrue(client.currentSnapshots.isEmpty)
+        XCTAssertEqual(client.endedActivityIDs.count, 1)
+    }
+
+    @MainActor
+    func testSupersededExpiryCannotEndReplacementTimer() async {
+        let client = FakeRestLiveActivityClient()
+        let controller = RestActivityController(liveActivities: client)
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        let firstEnd = now.addingTimeInterval(60)
+        let secondEnd = now.addingTimeInterval(120)
+
+        controller.startRest(exerciseName: "Good Morning", restSeconds: 60, now: now)
+        await controller.waitForPendingLiveActivityOperation()
+        controller.startRest(exerciseName: "Squat", restSeconds: 120, now: now)
+        await controller.waitForPendingLiveActivityOperation()
+
+        controller.completeRest(endingAt: firstEnd)
+        await controller.waitForPendingLiveActivityOperation()
+
+        XCTAssertEqual(controller.activeRest, ActiveRest(exerciseName: "Squat", endsAt: secondEnd))
+        XCTAssertEqual(client.currentSnapshots.map(\.exerciseName), ["Squat"])
+    }
+
+    @MainActor
+    func testExtendAfterProcessRelaunchTargetsExactActivityWithoutCreatingAnother() async {
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        let originalEnd = now.addingTimeInterval(60)
+        let client = FakeRestLiveActivityClient(snapshots: [
+            .init(id: "current", exerciseName: "Squat", endsAt: originalEnd, isOngoing: true)
+        ])
+        let controller = RestActivityController(liveActivities: client)
+
+        controller.extend(by: 30, now: now, activityID: "current")
+        await controller.waitForPendingLiveActivityOperation()
+
+        XCTAssertEqual(client.requestCount, 0)
+        XCTAssertEqual(client.currentSnapshots.count, 1)
+        XCTAssertEqual(client.currentSnapshots.first?.endsAt, originalEnd.addingTimeInterval(30))
+        XCTAssertEqual(controller.activeRest?.endsAt, originalEnd.addingTimeInterval(30))
+    }
+
+    @MainActor
+    func testRapidExtendTapsAccumulateWhileActivityKitUpdateIsDelayed() async {
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        let originalEnd = now.addingTimeInterval(60)
+        let client = FakeRestLiveActivityClient(snapshots: [
+            .init(
+                id: "current",
+                exerciseName: "Squat",
+                endsAt: originalEnd,
+                startedAt: now,
+                isOngoing: true
+            )
+        ])
+        client.updateDelay = .milliseconds(20)
+        let controller = RestActivityController(liveActivities: client)
+        controller.reconcileLiveActivities(now: now)
+
+        controller.extend(by: 30, now: now, activityID: "current")
+        controller.extend(by: 30, now: now, activityID: "current")
+        controller.extend(by: 30, now: now, activityID: "current")
+        await controller.waitForPendingLiveActivityOperation()
+
+        let expectedEnd = originalEnd.addingTimeInterval(90)
+        XCTAssertEqual(controller.activeRest?.endsAt, expectedEnd)
+        XCTAssertEqual(client.currentSnapshots.first?.endsAt, expectedEnd)
+        XCTAssertEqual(client.updatedEnds.last, expectedEnd)
+    }
+
+    @MainActor
+    func testForegroundReconciliationCannotRegressAnInFlightExtension() async {
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        let originalEnd = now.addingTimeInterval(60)
+        let client = FakeRestLiveActivityClient(snapshots: [
+            .init(
+                id: "current",
+                exerciseName: "Squat",
+                endsAt: originalEnd,
+                startedAt: now,
+                isOngoing: true
+            )
+        ])
+        client.updateDelay = .milliseconds(20)
+        let controller = RestActivityController(liveActivities: client)
+        controller.reconcileLiveActivities(now: now)
+
+        controller.extend(by: 30, now: now, activityID: "current")
+        controller.reconcileLiveActivities(now: now)
+
+        let expectedEnd = originalEnd.addingTimeInterval(30)
+        XCTAssertEqual(controller.activeRest?.endsAt, expectedEnd)
+        await controller.waitForPendingLiveActivityOperation()
+        XCTAssertEqual(controller.activeRest?.endsAt, expectedEnd)
+        XCTAssertEqual(client.currentSnapshots.first?.endsAt, expectedEnd)
+    }
+
+    @MainActor
+    func testEndOnOldDuplicatePreservesTheNewerCurrentTimer() async {
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        let client = FakeRestLiveActivityClient(snapshots: [
+            .init(id: "old", exerciseName: "Good Morning", endsAt: now.addingTimeInterval(30), isOngoing: true),
+            .init(id: "current", exerciseName: "Squat", endsAt: now.addingTimeInterval(90), isOngoing: true)
+        ])
+        let controller = RestActivityController(liveActivities: client)
+
+        controller.cancelRest(activityID: "old")
+        await controller.waitForPendingLiveActivityOperation()
+
+        XCTAssertEqual(client.currentSnapshots.map(\.id), ["current"])
+        XCTAssertEqual(controller.activeRest?.exerciseName, "Squat")
+    }
+}
+
+@MainActor
+private final class FakeRestLiveActivityClient: RestLiveActivityClient {
+    var activitiesEnabled = true
+    private(set) var currentSnapshots: [RestLiveActivitySnapshot]
+    private(set) var endedActivityIDs: [String] = []
+    private(set) var requestCount = 0
+    private(set) var maximumConcurrentActivityCount: Int
+    private(set) var updatedEnds: [Date] = []
+    var updateDelay: Duration?
+
+    init(snapshots: [RestLiveActivitySnapshot] = []) {
+        currentSnapshots = snapshots
+        maximumConcurrentActivityCount = snapshots.count
+    }
+
+    func snapshots() -> [RestLiveActivitySnapshot] {
+        currentSnapshots
+    }
+
+    func request(exerciseName: String, endsAt: Date, startedAt: Date) throws -> String {
+        requestCount += 1
+        let id = "requested-\(requestCount)"
+        currentSnapshots.append(
+            RestLiveActivitySnapshot(
+                id: id,
+                exerciseName: exerciseName,
+                endsAt: endsAt,
+                startedAt: startedAt,
+                isOngoing: true
+            )
+        )
+        maximumConcurrentActivityCount = max(maximumConcurrentActivityCount, currentSnapshots.count)
+        return id
+    }
+
+    func update(activityID: String, endsAt: Date) async {
+        if let updateDelay {
+            try? await Task.sleep(for: updateDelay)
+        }
+        guard let index = currentSnapshots.firstIndex(where: { $0.id == activityID }) else { return }
+        let current = currentSnapshots[index]
+        updatedEnds.append(endsAt)
+        currentSnapshots[index] = RestLiveActivitySnapshot(
+            id: current.id,
+            exerciseName: current.exerciseName,
+            endsAt: endsAt,
+            startedAt: current.startedAt,
+            isOngoing: current.isOngoing
+        )
+    }
+
+    func endImmediately(activityID: String) async {
+        guard currentSnapshots.contains(where: { $0.id == activityID }) else { return }
+        endedActivityIDs.append(activityID)
+        currentSnapshots.removeAll { $0.id == activityID }
     }
 }

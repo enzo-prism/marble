@@ -17,7 +17,8 @@ struct RestTimerLiveActivity: Widget {
             // Lock Screen / banner presentation. Monochrome to match the Marble brand.
             RestTimerLockScreenView(
                 exerciseName: context.attributes.exerciseName,
-                restEndsAt: context.state.restEndsAt
+                restEndsAt: context.state.restEndsAt,
+                activityID: context.activityID
             )
             .activityBackgroundTint(.black)
             .activitySystemActionForegroundColor(.white)
@@ -39,7 +40,7 @@ struct RestTimerLiveActivity: Widget {
                             .font(.headline)
                             .lineLimit(1)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        RestActionButtons()
+                        RestActionButtons(activityID: context.activityID)
                     }
                 }
             } compactLeading: {
@@ -67,6 +68,7 @@ struct RestTimerLiveActivity: Widget {
 private struct RestTimerLockScreenView: View {
     let exerciseName: String
     let restEndsAt: Date
+    let activityID: String
 
     var body: some View {
         VStack(spacing: 12) {
@@ -90,7 +92,7 @@ private struct RestTimerLockScreenView: View {
                     .foregroundStyle(.white)
                     .frame(minWidth: 92, alignment: .trailing)
             }
-            RestActionButtons()
+            RestActionButtons(activityID: activityID)
         }
         .padding(16)
     }
@@ -99,19 +101,21 @@ private struct RestTimerLockScreenView: View {
 /// The "+30s" / "End" pair, shared by the Lock Screen view and the Dynamic Island's expanded
 /// bottom region so the two presentations can't drift apart.
 private struct RestActionButtons: View {
+    let activityID: String
+
     var body: some View {
         HStack(spacing: 10) {
             RestActionButton(
                 title: "+30s",
                 accessibilityLabel: "Add 30 seconds to rest",
                 style: .filled,
-                intent: ExtendRestIntent()
+                intent: ExtendRestIntent(activityID: activityID)
             )
             RestActionButton(
                 title: "End",
                 accessibilityLabel: "End rest",
                 style: .outlined,
-                intent: EndRestIntent()
+                intent: EndRestIntent(activityID: activityID)
             )
         }
     }

@@ -63,4 +63,69 @@ final class JournalSnapshotTests: SnapshotTestCase {
             .modelContainer(container)
         assertSnapshot(view, named: "Journal_QuickLog")
     }
+
+    func testJournalBodyweightBest() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedBase(in: context)
+
+        let earlier = SnapshotFixtures.now.addingTimeInterval(-3_600)
+        SnapshotFixtures.addSet(
+            in: context,
+            exerciseName: "Push Ups",
+            performedAt: earlier,
+            reps: 30,
+            difficulty: 8,
+            restAfterSeconds: 60
+        )
+        SnapshotFixtures.addSet(
+            in: context,
+            exerciseName: "Push Ups",
+            performedAt: SnapshotFixtures.now,
+            reps: 24,
+            difficulty: 7,
+            restAfterSeconds: 60
+        )
+
+        let view = JournalView()
+            .modelContainer(container)
+            .environment(QuickLogCoordinator())
+        assertSnapshot(view, named: "Journal_BodyweightBest")
+    }
+
+    func testJournalRunBest() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedBase(in: context)
+        let run = SnapshotFixtures.exercise(named: "Run", in: context)
+        let priorDate = SnapshotFixtures.now.addingTimeInterval(-86_400)
+        context.insert(SetEntry(
+            exercise: run,
+            performedAt: priorDate,
+            distance: 5_000,
+            distanceUnit: .meters,
+            durationSeconds: 1_458,
+            difficulty: 8,
+            restAfterSeconds: 0,
+            createdAt: priorDate,
+            updatedAt: priorDate
+        ))
+        context.insert(SetEntry(
+            exercise: run,
+            performedAt: SnapshotFixtures.now,
+            distance: 5,
+            distanceUnit: .kilometers,
+            durationSeconds: 1_560,
+            difficulty: 7,
+            restAfterSeconds: 0,
+            createdAt: SnapshotFixtures.now,
+            updatedAt: SnapshotFixtures.now
+        ))
+        try? context.save()
+
+        let view = JournalView()
+            .modelContainer(container)
+            .environment(QuickLogCoordinator())
+        assertSnapshot(view, named: "Journal_RunBest")
+    }
 }

@@ -4,6 +4,7 @@ struct QuickLogCardView: View {
     let entry: SetEntry?
     var prBadge: PersonalRecordBadge = []
     var sprintGoal: SprintGoalSnapshot? = nil
+    var bestCue: QuickLogBestCue? = nil
     let onLogAgain: () -> Void
     let onEdit: () -> Void
     let onLogSet: () -> Void
@@ -56,6 +57,10 @@ struct QuickLogCardView: View {
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
 
+                    if let bestCue {
+                        bestCueLine(bestCue)
+                    }
+
                     if let sprintGoal {
                         SprintGoalStatusLine(
                             evaluation: SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry),
@@ -94,6 +99,24 @@ struct QuickLogCardView: View {
                 .accessibilityHidden(true)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func bestCueLine(_ cue: QuickLogBestCue) -> some View {
+        ViewThatFits(in: .horizontal) {
+            Text(cue.text)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                Text(cue.title)
+                Text(cue.value)
+                    .fontWeight(.semibold)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(MarbleTypography.rowMeta.weight(.medium))
+        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+        .monospacedDigit()
     }
 
     private var emptyContent: some View {
@@ -163,11 +186,11 @@ struct QuickLogCardView: View {
     private func summaryLine(for entry: SetEntry) -> String {
         var parts: [String] = []
         if let weight = entry.weight {
-            let formattedWeight = Formatters.weight.string(from: NSNumber(value: weight)) ?? "\(weight)"
+            let formattedWeight = entry.exercise.formattedWeightSummary(weight, unit: entry.weightUnit)
             if let reps = entry.reps {
-                parts.append("\(formattedWeight) \(entry.weightUnit.symbol) × \(reps)")
+                parts.append("\(formattedWeight) × \(reps)")
             } else {
-                parts.append("\(formattedWeight) \(entry.weightUnit.symbol)")
+                parts.append(formattedWeight)
             }
         }
 
@@ -198,10 +221,11 @@ struct QuickLogCardView: View {
 
     private func accessibilityLabel(for entry: SetEntry, summary: String, lastLogged: String) -> String {
         let prefix = prBadge.isEmpty ? "" : "\(prBadge.accessibilityDescription). "
+        let best = bestCue.map { "\($0.accessibilityLabel), " } ?? ""
         if let sprintGoal {
             let evaluation = SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry)
-            return "\(prefix)\(entry.exercise.name), \(summary), \(evaluation.status.title), target \(evaluation.targetText), \(evaluation.reason), \(lastLogged)"
+            return "\(prefix)\(entry.exercise.name), \(summary), \(best)\(evaluation.status.title), target \(evaluation.targetText), \(evaluation.reason), \(lastLogged)"
         }
-        return "\(prefix)\(entry.exercise.name), \(summary), \(lastLogged)"
+        return "\(prefix)\(entry.exercise.name), \(summary), \(best)\(lastLogged)"
     }
 }

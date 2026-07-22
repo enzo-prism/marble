@@ -28,6 +28,7 @@ struct SettingsView: View {
     @State private var healthExportEnabled = UserDefaults.standard.bool(forKey: HealthSessionExporter.enabledDefaultsKey)
     @State private var bodyMetricsEnabled = BodyMetricsAutoImportService.shared.isEnabled
     @State private var showingData = false
+    @State private var showingDailyHighlights = false
 
     private let autoImport = HealthAutoImportService.shared
 
@@ -68,6 +69,12 @@ struct SettingsView: View {
             // Data & Backups brings its own NavigationStack and Done button, so
             // it is presented rather than pushed.
             DataManagementView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .sheetGlassBackground()
+        }
+        .sheet(isPresented: $showingDailyHighlights) {
+            DailyHighlightsSettingsView()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()
@@ -151,9 +158,61 @@ struct SettingsView: View {
             .marbleRowInsets()
             .listRowSeparator(.hidden)
             .listRowBackground(Theme.backgroundColor(for: colorScheme))
+
+            Button {
+                showingDailyHighlights = true
+            } label: {
+                HStack(spacing: MarbleLayout.rowSpacing) {
+                    Image(systemName: "sparkles")
+                        .frame(width: MarbleLayout.rowIconSize)
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                        Text("Daily Highlights")
+                            .font(MarbleTypography.rowTitle)
+                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        Text(dailyHighlightsWindowSummary)
+                            .font(MarbleTypography.rowMeta)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    }
+
+                    Spacer(minLength: MarbleSpacing.s)
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .accessibilityHidden(true)
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .marbleRowInsets()
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+            .accessibilityLabel("Daily Highlights")
+            .accessibilityValue(dailyHighlightsWindowSummary)
+            .accessibilityIdentifier("Settings.DailyHighlights")
         } header: {
             SectionHeaderView(title: "Training")
         }
+    }
+
+    private var dailyHighlightsWindowSummary: String {
+        let defaults = SharedDefaults.suite
+        let enabled = defaults.object(forKey: SharedDefaults.Key.dailyHighlightsEnabled) as? Bool ?? true
+        guard enabled else { return "Off" }
+        let start = defaults.object(forKey: SharedDefaults.Key.dailyHighlightsStartMinute) as? Int
+            ?? DailyHighlightWindow.defaultStartMinute
+        let end = defaults.object(forKey: SharedDefaults.Key.dailyHighlightsEndMinute) as? Int
+            ?? DailyHighlightWindow.defaultEndMinute
+        return "\(formattedHighlightTime(start))–\(formattedHighlightTime(end))"
+    }
+
+    private func formattedHighlightTime(_ minute: Int) -> String {
+        let calendar = Calendar.autoupdatingCurrent
+        let day = calendar.startOfDay(for: AppEnvironment.now)
+        let date = calendar.date(bySettingHour: minute / 60, minute: minute % 60, second: 0, of: day) ?? day
+        return date.formatted(date: .omitted, time: .shortened)
     }
 
     // MARK: - Notifications

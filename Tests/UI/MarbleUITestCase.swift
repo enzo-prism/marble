@@ -405,22 +405,24 @@ class MarbleUITestCase: XCTestCase {
         }
     }
 
-    static let fixedNowISO8601: String = {
+    static func fixtureNowISO8601(hour: Int, minute: Int = 0) -> String {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         var components = DateComponents()
         components.year = 2025
         components.month = 1
         components.day = 15
-        components.hour = 12
-        components.minute = 0
+        components.hour = hour
+        components.minute = minute
         components.second = 0
         let date = calendar.date(from: components) ?? Date(timeIntervalSince1970: 0)
         let formatter = ISO8601DateFormatter()
         formatter.timeZone = .current
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter.string(from: date)
-    }()
+    }
+
+    static let fixedNowISO8601 = fixtureNowISO8601(hour: 12)
 
     private func attachFailureArtifacts() {
         guard let app else { return }

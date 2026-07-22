@@ -26,14 +26,26 @@ struct ExtendRestIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Extend Rest"
     static let description = IntentDescription("Adds 30 seconds to the running rest timer.")
 
+    /// The exact ActivityKit card that rendered the button. Without this identity, a button
+    /// on an old duplicate can accidentally extend a newer timer after the app relaunches.
+    @Parameter(title: "Activity ID")
+    var activityID: String?
+
     /// One tap's worth of extra rest. Kept here so the button label and the applied amount
     /// can never drift apart.
     static let extensionSeconds: TimeInterval = 30
 
+    init() {}
+
+    init(activityID: String) {
+        self.activityID = activityID
+    }
+
     @MainActor
     func perform() async throws -> some IntentResult {
         #if !WIDGET_EXTENSION
-        RestActivityController.shared.extend(by: Self.extensionSeconds)
+        RestActivityController.shared.extend(by: Self.extensionSeconds, activityID: activityID)
+        await RestActivityController.shared.waitForPendingLiveActivityOperation()
         #endif
         return .result()
     }
@@ -44,10 +56,21 @@ struct EndRestIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "End Rest"
     static let description = IntentDescription("Ends the running rest timer and dismisses it.")
 
+    /// Identifies the card being ended so an obsolete duplicate cannot cancel the current rest.
+    @Parameter(title: "Activity ID")
+    var activityID: String?
+
+    init() {}
+
+    init(activityID: String) {
+        self.activityID = activityID
+    }
+
     @MainActor
     func perform() async throws -> some IntentResult {
         #if !WIDGET_EXTENSION
-        RestActivityController.shared.cancelRest()
+        RestActivityController.shared.cancelRest(activityID: activityID)
+        await RestActivityController.shared.waitForPendingLiveActivityOperation()
         #endif
         return .result()
     }

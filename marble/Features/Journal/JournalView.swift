@@ -44,6 +44,7 @@ struct JournalView: View {
                         entry: entries.first,
                         prBadge: entries.first.flatMap { derived.prBadges[$0.id] } ?? [],
                         sprintGoal: entries.first.flatMap { derived.sprintGoals[$0.id] },
+                        bestCue: derived.quickLogBestCue,
                         onLogAgain: { quickLogAgain() },
                         onEdit: { openEdit() },
                         onLogSet: { quickLog.open() }
@@ -167,10 +168,15 @@ struct JournalView: View {
     }
 
     private var derived: JournalDerived {
+        let latestEntry = entries.first
         let signature = JournalSectionsSignature(
             count: entries.count,
             latestUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast,
-            sprintGoalCount: sprintGoalSnapshots.count
+            sprintGoalCount: sprintGoalSnapshots.count,
+            latestEntryID: latestEntry?.id,
+            latestExerciseID: latestEntry?.exercise.id,
+            latestExerciseMetrics: latestEntry?.exercise.metrics,
+            latestResistanceTrackingStyle: latestEntry?.exercise.resistanceTrackingStyle
         )
         return derivedMemo.value(for: signature) {
             // entries arrive sorted newest-first from the query, so grouping
@@ -186,7 +192,15 @@ struct JournalView: View {
                 sprintGoalSnapshots.map { ($0.setEntryID, $0) },
                 uniquingKeysWith: { first, _ in first }
             )
-            return JournalDerived(sections: sections, prBadges: prBadges, sprintGoals: sprintGoals)
+            let quickLogBestCue = latestEntry.flatMap {
+                QuickLogBestCueResolver.resolve(latest: $0, entries: entries)
+            }
+            return JournalDerived(
+                sections: sections,
+                prBadges: prBadges,
+                sprintGoals: sprintGoals,
+                quickLogBestCue: quickLogBestCue
+            )
         }
     }
 
@@ -317,6 +331,7 @@ private struct JournalDerived {
     let sections: [JournalDaySection]
     let prBadges: [UUID: PersonalRecordBadge]
     let sprintGoals: [UUID: SprintGoalSnapshot]
+    let quickLogBestCue: QuickLogBestCue?
 }
 
 /// Cheap `Equatable` fingerprint for memoizing `daySections`: counts catch
@@ -325,6 +340,10 @@ private struct JournalSectionsSignature: Equatable {
     let count: Int
     let latestUpdate: Date
     let sprintGoalCount: Int
+    let latestEntryID: UUID?
+    let latestExerciseID: UUID?
+    let latestExerciseMetrics: ExerciseMetricsProfile?
+    let latestResistanceTrackingStyle: ResistanceTrackingStyle?
 }
 
 private struct JournalRow: View {

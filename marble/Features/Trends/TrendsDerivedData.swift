@@ -60,6 +60,9 @@ struct TrendsDerivedData {
     let muscleCoverage: [LifterCoaching.MuscleGroupCoverage]
     let consistencySnapshot: TrainingConsistency.Snapshot
     let monthlyReport: MonthlyReport?
+    /// Derived from full history and the celebration day, deliberately
+    /// independent of the selected Trends range and exercise filter.
+    let dailyHighlight: DailyHighlightSummary?
 
     // PR-card bests, derived once here instead of re-scanning `filteredEntries`
     // inside the view body on every render (including chart scrubbing).
@@ -86,6 +89,8 @@ struct TrendsDerivedData {
         selectedSupplementType: SupplementType?,
         range: TrendRange,
         weeklyTarget: Int = TrainingConsistency.defaultWeeklyTarget,
+        dailyHighlightOccurrence: DailyHighlightOccurrence? = nil,
+        displayWeightUnit: WeightUnit = .lb,
         calendar: Calendar = .current,
         now: Date = AppEnvironment.now
     ) -> TrendsDerivedData {
@@ -288,6 +293,15 @@ struct TrendsDerivedData {
             calendar: calendar
         )
         let monthlyReport = MonthlyReportBuilder.build(history: historyEntries, now: now, calendar: calendar)
+        let dailyHighlight = dailyHighlightOccurrence.flatMap {
+            DailyHighlightsBuilder.build(
+                history: historyEntries,
+                occurrence: $0,
+                now: now,
+                displayWeightUnit: displayWeightUnit,
+                calendar: calendar
+            )
+        }
 
         let usesWeeks = granularity == .week
 
@@ -318,6 +332,7 @@ struct TrendsDerivedData {
             muscleCoverage: muscleCoverage,
             consistencySnapshot: consistencySnapshot,
             monthlyReport: monthlyReport,
+            dailyHighlight: dailyHighlight,
             bestWeightEntry: bestWeightEntry,
             bestDistanceEntry: bestDistanceEntry,
             fastestSpeedEntry: fastestSpeedEntry,

@@ -23,7 +23,10 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
   red miss, or neutral unscored state; details explain the saved target and exact result.
   See [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md).
 - **Trends** — a focused weekly goal, priority lift, and monthly report first; detailed
-  consistency, volume, per-exercise, supplement, and PR charts remain one tap away.
+  consistency, volume, per-exercise, supplement, and PR charts remain one tap away. From
+  8:00 PM through 11:59 PM by default, **Daily Highlights** celebrates that day's genuine
+  PRs and progress in a private, screenshots-ready 4:5 card; the window is customizable.
+  See [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md).
 - **Data safety** — export and restore exercises, sets, supplements, sessions, and plans as
   JSON. Progress photos and videos remain on-device and are intentionally excluded.
 - **Import** — bring workouts in from Apple Health (Apple Watch, Garmin, …) and Strava. See
@@ -178,6 +181,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 | [`INTEGRATIONS.md`](INTEGRATIONS.md) | Workout import — how each source works and **why** |
 | [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md) | Sprint prescription attributes, logging flow, and persistence |
 | [`EXERCISE_LIBRARY.md`](EXERCISE_LIBRARY.md) | Exercise creation, attributes, discovery, editing, and deletion safety |
+| [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md) | End-of-day celebration rules, time-window semantics, privacy, sharing, and tests |
 | [`ROADMAP.md`](ROADMAP.md) | H2 2026 plan: what shipped in 2.2, **known gaps / next up**, and why the Watch app was deferred |
 | [`AGENTS.md`](AGENTS.md) | Coding, UI, testing, and release rules for contributors/agents |
 | [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) | Dated source of truth for release/version/signing state |

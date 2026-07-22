@@ -51,7 +51,10 @@ entitlements read back off the archive as `marble.app` →
 ## Run
 - **Live Activity:** on a device or simulator with Live Activities enabled, log a set whose
   rest is > 0. The countdown appears on the Lock Screen and in the Dynamic Island,
-  auto-dismisses when rest ends, and is replaced when logging the next resting set.
+  dismisses as soon as Marble next executes after the rest ends, and is replaced when logging
+  the next resting set. (iOS may suspend the app at expiry; `staleDate` alone does not dismiss.)
+  ActivityKit's system inventory is the source of truth, so force-quitting/relaunching Marble
+  must still leave at most one rest activity.
 - **Weekly Goal widget: device only.** On the simulator, keychain access groups are not
   enforced and `SecItem*` can return `errSecMissingEntitlement`, so every read degrades to
   "no snapshot" and the widget renders its neutral "Open Marble" card. That is expected and
@@ -60,8 +63,10 @@ entitlements read back off the archive as `marble.app` →
 ## Notes
 - The Live Activity UI uses monochrome system colors to match the Marble brand. To reuse the
   app's `Theme`/`DesignTokens`, add those files to the extension's membership too (optional).
-- `RestActivityController` keeps a single active timer and ends the previous one when a new
-  set is logged; `cancelRest()` powers the Live Activity's `End` button.
+- `RestActivityController` reconciles `Activity<RestTimerAttributes>.activities` on launch and
+  foreground, ends every prior timer before requesting a replacement, and immediately removes
+  expired cards when Marble next runs. The `+30s` / `End` intents carry the rendering activity's ID so an obsolete
+  card can never mutate a newer timer.
 - **Known gap:** `WeeklyGoalWidgetPublisher.publish` runs only on scene-phase change, so a
   set logged via **Siri** — which has no scene phase — leaves the widget stale. Restoring
   from a backup has the same problem. See "Known gaps / next up" in `ROADMAP.md`.

@@ -13,11 +13,24 @@
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
-## Suite inventory (counted from source, 2026-07-21)
-- `Tests/Unit/` — **47 files, 49 classes, 401 test methods**.
-- `Tests/UI/` — **17 files, 46 test methods**: **44 flow cases** plus
-  `AccessibilityAuditUITests`' 2. `make ui` runs the 44 and skips the audit pair via
-  `-skip-testing`; `make audit` runs that pair instead.
+### Daily Highlights coverage
+
+- `DailyHighlightsTests` pins the default 8:00 PM/midnight boundaries, overnight anchoring,
+  equal-time validation, DST gaps/repeated hours, empty/future-day hiding, genuine PR rules,
+  mixed-unit weights, matched-distance run bests, Trends filter independence, and the exact
+  1080 × 1350 PNG output.
+- `TrendsSnapshotTests.testTrendsDailyHighlights` records the celebration across iPhone SE
+  and iPhone 15 Pro, light/dark, and default/Accessibility XXXL text.
+- `TrendsSmokeUITests.testDailyHighlightsAppearOnlyInTheCelebrationWindowAndOpenSettings`
+  proves evening visibility, share readiness, settings access, and daytime removal.
+- The populated Trends accessibility audit runs at 9:00 PM fixture time so the section is
+  included, and `DerivationPerformanceTests` guards the builder with a 5,000-entry history.
+
+## Suite inventory (counted from source, 2026-07-22)
+- `Tests/Unit/` — **49 files, 51 classes, 453 test methods**.
+- `Tests/UI/` — **17 files, 49 test methods**: **45 flow cases** plus
+  `AccessibilityAuditUITests`' 4. `make ui` runs the flows and skips that audit class;
+  `make audit` runs the audit cases instead.
 - Counts here are derived by counting source, not by hand-editing the previous number
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
@@ -72,6 +85,19 @@
   ```
   Note `AccessibilityAuditUITests`' two cases share the `testAccessibilityAudit_` prefix — a
   regex that stops at the underscore collapses them into one and skews the arithmetic.
+
+### Daily Highlights release-candidate verification (2026-07-22, 2.2 build 42)
+
+- `DailyHighlightsTests`: 10 passed, 0 failed, including schedule/DST boundaries, genuine
+  records, run-distance matching, filter independence, and 1080 × 1350 export.
+- `TrendsSmokeUITests.testDailyHighlightsAppearOnlyInTheCelebrationWindowAndOpenSettings`:
+  passed; the card appears at 9:00 PM, disappears at noon, prepares sharing, and opens its
+  schedule editor.
+- Focused Daily Highlights accessibility audits: light and dark both passed on iOS 26.5.
+- `TrendsSnapshotTests.testTrendsDailyHighlights`: passed across iPhone SE and iPhone 15 Pro,
+  light/dark, and default/Accessibility XXXL text; all eight baselines are checked in.
+- `DerivationPerformanceTests`: the 5,000-entry Daily Highlights benchmark passed in under
+  one second on the local simulator host.
 
 ## Standing caveats (carried forward)
 - `AccessibilityAuditUITests`: the iOS 26.5 runtime skips its unsupported Dynamic Type audit,
@@ -133,7 +159,14 @@ Preferred Makefile targets:
     behaviour, not a new bug.
 - **Rest timer Live Activity** — log a set with rest > 0, then use the **`+30s`** and
   **`End`** buttons on both the Lock Screen and the Dynamic Island expanded view. Confirm
-  `+30s` actually extends the countdown and `End` dismisses the activity.
+  `+30s` actually extends the countdown and `End` dismisses the activity. Then verify the
+  single-timer invariant on a physical device:
+  1. Let a rest reach `0:00`, then activate Marble; its card must disappear rather than remain
+     stacked. iOS does not guarantee app execution at the exact background expiry moment.
+  2. Log several sets back to back; only the newest rest may be visible.
+  3. Force-quit and relaunch during a rest; at most one timer survives and `+30s` / `End`
+     still operate on that exact card.
+  4. Background Marble past expiry, reopen it, and confirm no expired cards remain.
 - **Control Center** — add the "Log a Set" control in Control Center, and confirm it opens
   Marble to quick log. Also try it from the Lock Screen and the Action button.
 - **Onboarding** — install fresh (delete the app first) and walk all three pages: what

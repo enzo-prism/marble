@@ -60,6 +60,18 @@ struct TrendsContentView: View {
     @AppStorage(SharedDefaults.Key.weeklySessionTarget, store: SharedDefaults.suite)
     private var weeklyTarget = TrainingConsistency.defaultWeeklyTarget
 
+    @AppStorage(SharedDefaults.Key.dailyHighlightsEnabled, store: SharedDefaults.suite)
+    private var dailyHighlightsEnabled = true
+
+    @AppStorage(SharedDefaults.Key.dailyHighlightsStartMinute, store: SharedDefaults.suite)
+    private var dailyHighlightsStartMinute = DailyHighlightWindow.defaultStartMinute
+
+    @AppStorage(SharedDefaults.Key.dailyHighlightsEndMinute, store: SharedDefaults.suite)
+    private var dailyHighlightsEndMinute = DailyHighlightWindow.defaultEndMinute
+
+    @AppStorage(SharedDefaults.Key.preferredWeightUnit, store: SharedDefaults.suite)
+    private var preferredWeightUnitRaw = WeightUnit.lb.rawValue
+
     /// Scoped to the selected range at init (see `TrendsView`): only rows the
     /// charts can actually show are fetched and kept live. "All" keeps the
     /// unbounded fetch — that's what the user asked to see.
@@ -92,6 +104,7 @@ struct TrendsContentView: View {
     @State private var monthlyReportForSheet: MonthlyReport?
     @State private var showsDetailedAnalytics = false
     @State private var isPresentingWeightEntry = false
+    @State private var isPresentingDailyHighlightsSettings = false
 
     // Caches the derived snapshot so scrubbing a chart (which mutates UI-only
     // state and re-runs `body`) doesn't re-filter/-group/-sort the full history
@@ -134,14 +147,28 @@ struct TrendsContentView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                let derived = derivedMemo.value(for: currentInputSignature) { makeDerivedData() }
+        TimelineView(.periodic(from: .now, by: 60)) { _ in
+            let occurrence = dailyHighlightOccurrence
+            NavigationStack {
+                ScrollView {
+                    let signature = currentInputSignature(highlightOccurrence: occurrence)
+                    let derived = derivedMemo.value(for: signature) {
+                        makeDerivedData(highlightOccurrence: occurrence)
+                    }
                 VStack(alignment: .leading, spacing: MarbleSpacing.l) {
                     let hasSetData = !derived.filteredEntries.isEmpty
                     let hasSupplementData = !derived.filteredSupplementEntries.isEmpty
 
                     rangePicker
+
+                    if let occurrence, let summary = derived.dailyHighlight {
+                        DailyHighlightsSection(
+                            summary: summary,
+                            window: dailyHighlightWindow,
+                            occurrence: occurrence,
+                            onCustomize: { isPresentingDailyHighlightsSettings = true }
+                        )
+                    }
 
                     if derived.consistencySnapshot.lifetimeSets > 0 {
                         TrendsFocusView(
@@ -300,7 +327,7 @@ struct TrendsContentView: View {
 
                 }
                 .padding(MarbleLayout.pagePadding)
-            }
+                }
             .safeAreaInset(edge: .bottom) {
                 Color.clear
                     .frame(height: MarbleSpacing.xxl)
@@ -322,8 +349,9 @@ struct TrendsContentView: View {
                     AddSetToolbarButton()
                 }
             }
+            }
+            .background(Theme.backgroundColor(for: colorScheme).ignoresSafeArea())
         }
-        .background(Theme.backgroundColor(for: colorScheme).ignoresSafeArea())
         .sheet(item: $sheetDestination) { destination in
             Group {
                 switch destination {
@@ -367,6 +395,12 @@ struct TrendsContentView: View {
             .presentationDragIndicator(.visible)
             .sheetGlassBackground()
         }
+        .sheet(isPresented: $isPresentingDailyHighlightsSettings) {
+            DailyHighlightsSettingsView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .sheetGlassBackground()
+        }
         .onChange(of: range) { _, _ in
             MarbleHaptics.selection()
             clearSelections()
@@ -397,7 +431,7 @@ struct TrendsContentView: View {
         }
     }
 
-    private func makeDerivedData() -> TrendsDerivedData {
+    private func makeDerivedData(highlightOccurrence: DailyHighlightOccurrence?) -> TrendsDerivedData {
         TrendsDerivedData.build(
             entries: entries,
             supplementEntries: supplementEntries,
@@ -405,8 +439,22 @@ struct TrendsContentView: View {
             selectedExercise: selectedExercise,
             selectedSupplementType: selectedSupplementType,
             range: range,
-            weeklyTarget: weeklyTarget
+            weeklyTarget: weeklyTarget,
+            dailyHighlightOccurrence: highlightOccurrence,
+            displayWeightUnit: WeightUnit(rawValue: preferredWeightUnitRaw) ?? .lb
         )
+    }
+
+    private var dailyHighlightWindow: DailyHighlightWindow {
+        DailyHighlightWindow(
+            startMinute: dailyHighlightsStartMinute,
+            endMinute: dailyHighlightsEndMinute
+        )
+    }
+
+    private var dailyHighlightOccurrence: DailyHighlightOccurrence? {
+        guard dailyHighlightsEnabled else { return nil }
+        return dailyHighlightWindow.occurrence(containing: AppEnvironment.now)
     }
 
     /// One-shot full-history fetch for the coaching layer (records, streaks,
@@ -425,7 +473,7 @@ struct TrendsContentView: View {
     /// Counts catch inserts/deletes; the latest `updatedAt` catches in-place
     /// edits (the app stamps it on every edit); the selected exercise's name
     /// catches a rename of the one exercise whose fields feed the progress chart.
-    private var currentInputSignature: TrendsInputSignature {
+    private func currentInputSignature(highlightOccurrence: DailyHighlightOccurrence?) -> TrendsInputSignature {
         TrendsInputSignature(
             entryCount: entries.count,
             supplementCount: supplementEntries.count,
@@ -437,7 +485,12 @@ struct TrendsContentView: View {
             selectedSupplementTypeID: selectedSupplementTypeID,
             selectedExerciseName: selectedExercise?.name,
             activeDay: activeDay,
-            weeklyTarget: weeklyTarget
+            weeklyTarget: weeklyTarget,
+            highlightCelebrationDay: highlightOccurrence?.celebrationDay,
+            dailyHighlightsEnabled: dailyHighlightsEnabled,
+            dailyHighlightsStartMinute: dailyHighlightsStartMinute,
+            dailyHighlightsEndMinute: dailyHighlightsEndMinute,
+            preferredWeightUnitRaw: preferredWeightUnitRaw
         )
     }
 
@@ -1762,6 +1815,11 @@ struct TrendsInputSignature: Equatable {
     let selectedExerciseName: String?
     let activeDay: Date
     let weeklyTarget: Int
+    let highlightCelebrationDay: Date?
+    let dailyHighlightsEnabled: Bool
+    let dailyHighlightsStartMinute: Int
+    let dailyHighlightsEndMinute: Int
+    let preferredWeightUnitRaw: String
 }
 
 enum TrendRange: String, CaseIterable, Identifiable {

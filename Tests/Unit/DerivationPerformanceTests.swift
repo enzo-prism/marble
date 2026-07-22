@@ -55,6 +55,27 @@ final class DerivationPerformanceTests: MarbleTestCase {
         }
     }
 
+    func testDailyHighlightsDerivationScalesOn5kEntries() throws {
+        let exercise = makeExercise()
+        let entries = syntheticEntries(count: 5000, exercise: exercise)
+        let evening = try XCTUnwrap(calendar.date(bySettingHour: 21, minute: 0, second: 0, of: now))
+        let window = DailyHighlightWindow(
+            startMinute: DailyHighlightWindow.defaultStartMinute,
+            endMinute: DailyHighlightWindow.defaultEndMinute
+        )
+        let occurrence = try XCTUnwrap(window.occurrence(containing: evening, calendar: calendar))
+
+        measure(metrics: [XCTClockMetric()]) {
+            _ = DailyHighlightsBuilder.build(
+                history: entries,
+                occurrence: occurrence,
+                now: evening,
+                displayWeightUnit: .lb,
+                calendar: calendar
+            )
+        }
+    }
+
     func testPersonalRecordBadgesScaleOn5kEntries() {
         let exercise = makeExercise()
         let entries = syntheticEntries(count: 5000, exercise: exercise)

@@ -1,6 +1,41 @@
 import XCTest
 
 final class TrendsSmokeUITests: MarbleUITestCase {
+    func testDailyHighlightsAppearOnlyInTheCelebrationWindowAndOpenSettings() {
+        launchApp(
+            fixtureMode: "populated",
+            nowISO8601: MarbleUITestCase.fixtureNowISO8601(hour: 21)
+        )
+        navigateToTab(.trends)
+
+        let highlights = waitForIdentifier("Trends.DailyHighlights", timeout: 10)
+        XCTAssertTrue(highlights.exists)
+        waitForIdentifier("Trends.DailyHighlights.Achievement.0", timeout: 8)
+
+        let share = waitForIdentifier("Trends.DailyHighlights.Share", timeout: 8)
+        let shareReady = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: share)
+        wait(for: [shareReady], timeout: 8)
+        XCTAssertTrue(share.isEnabled)
+
+        let customize = waitForIdentifier("Trends.DailyHighlights.Customize", timeout: 8)
+        forceTap(customize)
+        waitForIdentifier("DailyHighlights.Enabled", timeout: 8)
+        waitForIdentifier("DailyHighlights.Start", timeout: 8)
+        waitForIdentifier("DailyHighlights.End", timeout: 8)
+        forceTap(waitForIdentifier("DailyHighlights.Done", timeout: 8))
+
+        launchApp(
+            fixtureMode: "populated",
+            nowISO8601: MarbleUITestCase.fixtureNowISO8601(hour: 12)
+        )
+        navigateToTab(.trends)
+
+        let hiddenHighlights = app.descendants(matching: .any)
+            .matching(identifier: "Trends.DailyHighlights")
+            .firstMatch
+        XCTAssertFalse(hiddenHighlights.waitForExistence(timeout: 3))
+    }
+
     func testDetailsToggleSupportsLargestAccessibilityText() {
         launchApp(
             contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,

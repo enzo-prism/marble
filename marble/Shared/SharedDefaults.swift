@@ -33,6 +33,9 @@ nonisolated enum SharedDefaults {
         static let weeklySessionTarget = "weeklySessionTarget"
         static let weeklyGoalReminderEnabled = "weeklyGoalReminderEnabled"
         static let preferredWeightUnit = "preferredWeightUnit"
+        static let dailyHighlightsEnabled = "dailyHighlightsEnabled"
+        static let dailyHighlightsStartMinute = "dailyHighlightsStartMinute"
+        static let dailyHighlightsEndMinute = "dailyHighlightsEndMinute"
         static let didCompleteOnboarding = "didCompleteOnboarding"
         /// Written the first time the onboarding flow is actually presented.
         /// Without it, a user who force-quits midway through onboarding is

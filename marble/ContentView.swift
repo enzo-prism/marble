@@ -74,9 +74,10 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 refreshActiveDay()
-                // A rest that expired while the app was suspended never ran its
-                // auto-end task; clear it so the pill doesn't linger at 0:00.
-                restTimer.pruneExpiredRest()
+                // ActivityKit outlives this app process. Reconcile the complete system
+                // inventory so an expired or duplicated Lock Screen timer cannot survive a
+                // suspension/relaunch, and recover the one valid timer if it still exists.
+                restTimer.reconcileLiveActivities()
                 // Pull any workouts that landed in Apple Health while we were
                 // away (no-op unless the user enabled auto-import).
                 Task { await HealthAutoImportService.shared.syncIfEnabled(into: modelContext) }
@@ -141,6 +142,10 @@ struct ContentView: View {
         }
         .applyTestOverrides()
         .task {
+            // `scenePhase` does not necessarily transition on a cold launch, so perform the
+            // same ActivityKit recovery here as well. This also cleans piles created by older
+            // builds the first time the fixed app opens.
+            restTimer.reconcileLiveActivities()
             // Routes the system undo gestures (shake, three-finger swipe)
             // through SwiftData's change tracking.
             modelContext.undoManager = undoManager
