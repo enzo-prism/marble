@@ -1,4 +1,3 @@
-import UIKit
 import XCTest
 @testable import marble
 
@@ -149,32 +148,55 @@ final class DailyHighlightsTests: MarbleTestCase {
         XCTAssertEqual(derived.dailyHighlight?.achievements.first?.title, "Squat")
     }
 
-    @MainActor
-    func testShareRendererProducesExactFourByFivePNG() throws {
-        let summary = DailyHighlightSummary(
-            day: calendar.startOfDay(for: now),
-            headline: "You moved forward.",
-            achievements: [DailyHighlightAchievement(
-                id: "bench",
-                kind: .personalRecord,
-                title: "Bench Press",
-                value: "225 lb × 5",
-                detail: "New weight best",
-                accessibilityLabel: "Bench Press, new weight best, 225 pounds for 5 reps"
-            )],
-            stats: [
-                .init(label: "sets", value: "12"),
-                .init(label: "exercises", value: "4")
-            ],
-            setCount: 12,
-            exerciseCount: 4,
-            personalRecordCount: 1
+    func testQuoteLibraryIsLargeUniqueAndSourceAuditable() {
+        let quotes = DailyHighlightQuoteLibrary.all
+
+        XCTAssertEqual(quotes.count, 45)
+        XCTAssertEqual(Set(quotes.map { $0.id }).count, quotes.count)
+        XCTAssertTrue(quotes.allSatisfy { !$0.text.isEmpty && !$0.author.isEmpty && !$0.source.isEmpty })
+        XCTAssertTrue(quotes.allSatisfy { URL(string: $0.sourceURL)?.scheme == "https" })
+    }
+
+    func testQuoteScheduleIsStableAndReturnsThreeUniqueQuotes() {
+        let day = date(dayOffset: 0, hour: 8, minute: 0)
+        let morning = DailyHighlightQuoteLibrary.quotes(for: day, calendar: calendar)
+        let evening = DailyHighlightQuoteLibrary.quotes(
+            for: date(dayOffset: 0, hour: 22, minute: 0),
+            calendar: calendar
         )
 
-        let image = try XCTUnwrap(DailyHighlightShareRenderer.render(summary: summary, colorScheme: .light))
-        let uiImage = try XCTUnwrap(UIImage(data: image.pngData))
-        XCTAssertEqual(uiImage.size.width * uiImage.scale, 1_080)
-        XCTAssertEqual(uiImage.size.height * uiImage.scale, 1_350)
+        XCTAssertEqual(morning, evening)
+        XCTAssertEqual(morning.count, DailyHighlightQuoteLibrary.quotesPerDay)
+        XCTAssertEqual(Set(morning.map { $0.id }).count, DailyHighlightQuoteLibrary.quotesPerDay)
+        XCTAssertEqual(Set(morning.map { $0.author }).count, DailyHighlightQuoteLibrary.quotesPerDay)
+    }
+
+    func testQuoteScheduleUsesEntireCatalogBeforeRepeatingWithoutAdjacentOverlap() {
+        let days = (0..<15).map {
+            DailyHighlightQuoteLibrary.quotes(
+                for: date(dayOffset: $0, hour: 21, minute: 0),
+                calendar: calendar
+            )
+        }
+        let presentedIDs = days.flatMap { $0.map { $0.id } }
+
+        XCTAssertEqual(Set(presentedIDs), Set(DailyHighlightQuoteLibrary.all.map { $0.id }))
+        for index in 1..<days.count {
+            XCTAssertTrue(
+                Set(days[index - 1].map { $0.id })
+                    .isDisjoint(with: Set(days[index].map { $0.id }))
+            )
+        }
+
+        let firstDay = DailyHighlightQuoteLibrary.quotes(
+            for: date(dayOffset: 0, hour: 21, minute: 0),
+            calendar: calendar
+        )
+        let nextCycle = DailyHighlightQuoteLibrary.quotes(
+            for: date(dayOffset: 15, hour: 21, minute: 0),
+            calendar: calendar
+        )
+        XCTAssertEqual(firstDay, nextCycle)
     }
 
     private func defaultOccurrence() throws -> DailyHighlightOccurrence {

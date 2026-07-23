@@ -115,18 +115,6 @@ struct DailyHighlightSummary: Equatable, Identifiable {
 
     var id: Date { day }
 
-    var accessibilityLabel: String {
-        let achievementsText = achievements.map(\.accessibilityLabel).joined(separator: ". ")
-        let statsText = stats.map { "\($0.value) \($0.label)" }.joined(separator: ", ")
-        return [headline, achievementsText, statsText]
-            .filter { !$0.isEmpty }
-            .joined(separator: ". ")
-    }
-
-    var shareMessage: String {
-        let lines = achievements.map { "\($0.title): \($0.value) — \($0.detail)" }
-        return ([headline] + lines + ["Made with marble.fit"]).joined(separator: "\n")
-    }
 }
 
 struct DailyHighlightAchievement: Equatable, Identifiable {

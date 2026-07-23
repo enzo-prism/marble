@@ -164,7 +164,6 @@ struct TrendsContentView: View {
                     if let occurrence, let summary = derived.dailyHighlight {
                         DailyHighlightsSection(
                             summary: summary,
-                            window: dailyHighlightWindow,
                             occurrence: occurrence,
                             onCustomize: { isPresentingDailyHighlightsSettings = true }
                         )

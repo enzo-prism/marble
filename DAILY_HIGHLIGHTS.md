@@ -1,8 +1,8 @@
 # Daily Highlights
 
 Daily Highlights is Marble's end-of-day celebration in Trends. It turns the work already
-stored on the device into a calm, shareable recap without adding an account, server, or
-background process.
+stored on the device into a colorful, screenshots-ready recap without adding an account,
+server, background process, or sharing integration.
 
 ## User experience
 
@@ -13,9 +13,37 @@ background process.
   editor. Users can disable the feature or choose a custom start and end time. An end time
   earlier than the start is intentionally treated as an overnight window; equal times are
   rejected rather than interpreted as “always on.”
-- The in-app card uses Marble's normal Dynamic Type and accessibility behavior. The share
-  action creates a control-free **1080 × 1350 PNG (4:5)** and hands it to the system share
-  sheet. Nothing is uploaded automatically.
+- The celebration card uses one achievement-specific accent from Marble's existing Trends
+  palette: gold for a personal record, teal for a run best, violet for lift progress, and
+  indigo for a completed day. Icons and written details always carry the same meaning, so
+  color is never the only signal.
+- The previous export and Share button were deliberately removed. The achievement, stats,
+  and motivation now own the card's visual hierarchy; users can still capture the whole
+  in-app composition with the system screenshot gesture.
+
+## Daily motivation
+
+The app bundles **45 short public-domain quotations** with attribution, source title, and a
+primary-source URL. The catalog is arranged into 15 balanced three-quote cohorts. A fixed,
+versioned local-day schedule means:
+
+- exactly three unique quotes are selected for each celebration day;
+- the same local day always receives the same trio across relaunches;
+- adjacent days never share a quote;
+- every quote appears once before the 15-day schedule repeats; and
+- an overnight window continues using the prior celebration day's trio after midnight.
+
+The visible quote advances every 12 seconds with a short crossfade. Tapping it advances
+manually and pauses automatic changes for that card session. VoiceOver and Reduce Motion
+stop automatic rotation; the quote remains a single adjustable accessibility element with
+its author and “quote N of 3” position. Dynamic Type wraps naturally without line limits or
+text scaling.
+
+Every catalog entry is auditable in `DailyHighlightQuotes.swift`. Primary archives include
+[Project Gutenberg](https://www.gutenberg.org/), the
+[Library of Congress Frederick Douglass papers](https://www.loc.gov/resource/mss11879.21039/?sp=45),
+the [Founders Online Franklin papers](https://founders.archives.gov/documents/Franklin/01-02-02-0028),
+and the [Papers of Abraham Lincoln](https://papersofabrahamlincoln.org/documents/D200867).
 
 ## What is celebrated
 
@@ -43,36 +71,36 @@ interval, so the default ends exactly at the next local midnight and DST gaps/re
 remain usable. For an overnight custom window, the post-midnight portion belongs to the
 previous celebration day.
 
-Only workout facts needed for the recap enter the share image. Notes, body weight,
-supplements, locations, and exact timestamps are excluded. The rendered PNG stays in memory
-until the user invokes `ShareLink`.
+The card is derived on-device from workout facts already stored by Marble. Quotes are
+bundled static content. There is no networking, analytics, persistence schema, notification,
+background task, image renderer, or share payload in this feature.
 
 ## Engineering map
 
 - `marble/Features/Trends/DailyHighlights.swift` — time-window and ranking engine.
-- `marble/Features/Trends/DailyHighlightsView.swift` — in-app card and share action.
-- `marble/Features/Trends/DailyHighlightShareCard.swift` — fixed 4:5 export renderer and
-  `Transferable` PNG payload.
+- `marble/Features/Trends/DailyHighlightQuotes.swift` — sourced catalog and deterministic
+  three-per-day schedule.
+- `marble/Features/Trends/DailyHighlightsView.swift` — premium celebration card and isolated
+  quote rotator.
 - `marble/Features/Settings/DailyHighlightsSettingsView.swift` — schedule editor.
 - `Tests/Unit/DailyHighlightsTests.swift` — boundaries, DST, record truth, filter
-  independence, and exact export size.
+  independence, catalog integrity, and quote schedule guarantees.
 - `Tests/Snapshots/TrendsSnapshotTests.swift` — light/dark, phone-size, and Accessibility
   XXXL visual matrix.
-- `Tests/UI/TrendsSmokeUITests.swift` — active/inactive window and settings flow.
+- `Tests/UI/TrendsSmokeUITests.swift` — active/inactive window, quote interaction, removed
+  sharing surface, and settings flow.
 
 The implementation follows Apple's documented `Calendar` semantics for local civil time,
-`TimelineView` for periodic visibility refreshes, `ImageRenderer` for SwiftUI image output,
-`Transferable` plus `ShareLink` for user-initiated sharing, and the Human Interface
-Guidelines for accessibility, privacy, and activity views.
+`TimelineView` for lifecycle-managed periodic updates, and the Human Interface Guidelines
+for purposeful motion, color, and accessibility. Auto-advancing content stops under Reduce
+Motion or VoiceOver, important text retains black/white contrast, and color never stands
+alone.
 
 Official references:
 
 - [Calendar](https://developer.apple.com/documentation/foundation/calendar)
 - [TimelineView](https://developer.apple.com/documentation/swiftui/timelineview)
-- [ImageRenderer](https://developer.apple.com/documentation/swiftui/imagerenderer)
-- [ShareLink](https://developer.apple.com/documentation/swiftui/sharelink)
-- [DataRepresentation](https://developer.apple.com/documentation/coretransferable/datarepresentation)
-- [Collaboration and sharing](https://developer.apple.com/design/human-interface-guidelines/collaboration-and-sharing)
-- [Activity views](https://developer.apple.com/design/human-interface-guidelines/activity-views)
+- [Color](https://developer.apple.com/design/human-interface-guidelines/color)
+- [Motion](https://developer.apple.com/design/human-interface-guidelines/motion)
 - [Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility)
-- [Privacy](https://developer.apple.com/design/human-interface-guidelines/privacy)
+- [Reduced Motion evaluation criteria](https://developer.apple.com/help/app-store-connect/manage-app-accessibility/reduced-motion-evaluation-criteria)

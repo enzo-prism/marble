@@ -41,8 +41,8 @@ struct DailyHighlightsSettingsView: View {
                     }
                 }
 
-                Section("Sharing") {
-                    Text("Shared images include exercise names and workout numbers. Notes, body measurements, locations, and supplement details are never included.")
+                Section("Daily motivation") {
+                    Text("Marble chooses three short quotes for each celebration day and rotates them gently with your highlights. Everything stays on this iPhone.")
                         .font(MarbleTypography.caption)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 }

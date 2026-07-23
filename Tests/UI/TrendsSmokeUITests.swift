@@ -12,10 +12,23 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         XCTAssertTrue(highlights.exists)
         waitForIdentifier("Trends.DailyHighlights.Achievement.0", timeout: 8)
 
-        let share = waitForIdentifier("Trends.DailyHighlights.Share", timeout: 8)
-        let shareReady = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: share)
-        wait(for: [shareReady], timeout: 8)
-        XCTAssertTrue(share.isEnabled)
+        let quote = app.buttons["Trends.DailyHighlights.Quote"]
+        waitFor(quote, timeout: 8)
+        XCTAssertTrue(quote.label.contains("Daily motivation"))
+        XCTAssertTrue((quote.value as? String)?.contains("Quote 1 of 3") == true)
+
+        let firstQuote = quote.value as? String
+        forceTap(quote)
+        let quoteChanged = expectation(
+            for: NSPredicate(format: "value != %@", firstQuote ?? ""),
+            evaluatedWith: quote
+        )
+        wait(for: [quoteChanged], timeout: 3)
+
+        let removedShare = app.descendants(matching: .any)
+            .matching(identifier: "Trends.DailyHighlights.Share")
+            .firstMatch
+        XCTAssertFalse(removedShare.exists)
 
         let customize = waitForIdentifier("Trends.DailyHighlights.Customize", timeout: 8)
         forceTap(customize)

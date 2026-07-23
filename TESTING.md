@@ -17,12 +17,14 @@
 
 - `DailyHighlightsTests` pins the default 8:00 PM/midnight boundaries, overnight anchoring,
   equal-time validation, DST gaps/repeated hours, empty/future-day hiding, genuine PR rules,
-  mixed-unit weights, matched-distance run bests, Trends filter independence, and the exact
-  1080 × 1350 PNG output.
+  mixed-unit weights, matched-distance run bests, Trends filter independence, all 45 sourced
+  quote records, three-unique-per-day selection, adjacent-day separation, and full-catalog
+  schedule coverage.
 - `TrendsSnapshotTests.testTrendsDailyHighlights` records the celebration across iPhone SE
   and iPhone 15 Pro, light/dark, and default/Accessibility XXXL text.
 - `TrendsSmokeUITests.testDailyHighlightsAppearOnlyInTheCelebrationWindowAndOpenSettings`
-  proves evening visibility, share readiness, settings access, and daytime removal.
+  proves evening visibility, manual quote advancement, absence of the removed Share control,
+  settings access, and daytime removal.
 - The populated Trends accessibility audit runs at 9:00 PM fixture time so the section is
   included, and `DerivationPerformanceTests` guards the builder with a 5,000-entry history.
 
@@ -87,21 +89,22 @@
   `testAccessibilityAudit_` prefix — a regex that stops at the underscore collapses them
   into one and skews the historical arithmetic.
 
-### Daily Highlights verification (2026-07-22, 2.2 build 42)
+### Daily Highlights verification (2026-07-22, 2.2 build 43 candidate)
 
-- `DailyHighlightsTests`: 10 passed, 0 failed, including schedule/DST boundaries, genuine
-  records, run-distance matching, filter independence, and 1080 × 1350 export.
+- `DailyHighlightsTests`: 12 passed, 0 failed, including schedule/DST boundaries, genuine
+  records, run-distance matching, filter independence, all 45 sourced quotes, and the full
+  15-day quote cycle.
 - `TrendsSmokeUITests.testDailyHighlightsAppearOnlyInTheCelebrationWindowAndOpenSettings`:
-  passed; the card appears at 9:00 PM, disappears at noon, prepares sharing, and opens its
-  schedule editor.
+  passed; the card appears at 9:00 PM, advances its quote manually, has no Share control,
+  disappears at noon, and opens its schedule editor.
 - Focused Daily Highlights accessibility audits: light and dark both passed on iOS 26.5.
 - `TrendsSnapshotTests.testTrendsDailyHighlights`: passed across iPhone SE and iPhone 15 Pro,
   light/dark, and default/Accessibility XXXL text; all eight baselines are checked in.
-- `DerivationPerformanceTests`: the 5,000-entry Daily Highlights benchmark passed in under
-  one second on the local simulator host.
-- Signed Release archive and App Store export passed for `Prism.marble` and
-  `Prism.marble.MarbleWidgets`; App Store Connect reports build 42 `VALID` and
-  `IN_BETA_TESTING` for the internal all-build group `test group A`.
+- `DerivationPerformanceTests`: the 5,000-entry Daily Highlights benchmark averaged 0.022
+  seconds on the local simulator host.
+- Full `MarbleTests`: 455 passed, 0 failed. The changed Daily Highlights snapshot matrix is
+  green; the broader snapshot target still has unrelated Add Set baseline drift documented
+  in `work/codex-workflow-papercuts.md`.
 
 ## Standing caveats (carried forward)
 - `AccessibilityAuditUITests`: the iOS 26.5 runtime skips its unsupported Dynamic Type audit,
@@ -154,9 +157,10 @@ Preferred Makefile targets:
 
 ### 2.2 payload (what's new on this build)
 - **Daily Highlights** — after logging today, open Trends during the default 8:00 PM–11:59 PM
-  window. Confirm the card shows only truthful progress from that day, Share produces a
-  4:5 image, and Settings → Training → Daily Highlights changes the window. Also check a
-  custom window that crosses midnight.
+  window. Confirm the card shows only truthful progress from that day, carries the expected
+  achievement color, cycles among three quotes, and has no Share button. Confirm Settings →
+  Training → Daily Highlights changes the window, then check a custom window that crosses
+  midnight.
 - **Log Again best cue** — confirm weighted exercises show the heaviest prior weight, runs
   show the fastest time at the same distance, and bodyweight exercises show the most reps.
 - **Weekly Goal widget** — add it in all five families: Home Screen small and medium, and

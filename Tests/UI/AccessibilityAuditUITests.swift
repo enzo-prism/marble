@@ -242,9 +242,6 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 if shouldIgnoreVerifiedExercisePickerTextClipping(issue) {
                     return false
                 }
-                if shouldIgnoreVerifiedDailyHighlightShareClipping(issue) {
-                    return false
-                }
                 return true
             }
 
@@ -334,20 +331,6 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         // launches at XXXL and verifies this exact field is visible and usable.
         if element.identifier == "ExerciseEditor.Name" { return true }
         return false
-    }
-
-    @available(iOS 17.0, *)
-    private func shouldIgnoreVerifiedDailyHighlightShareClipping(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
-        guard issue.auditType == .textClipped,
-              issue.element?.label == "Share Today’s Highlights",
-              app.scrollViews["Trends.Scroll"].exists,
-              app.descendants(matching: .any).matching(identifier: "Trends.DailyHighlights").firstMatch.exists
-        else { return false }
-
-        // iOS 26.5 audits the internal ShareLink label at its default-size frame and
-        // reports theoretical clipping even though the button is multiline, vertically
-        // self-sizing, captured at Accessibility XXXL, and exercised by the dedicated UI test.
-        return true
     }
 
     @available(iOS 17.0, *)
