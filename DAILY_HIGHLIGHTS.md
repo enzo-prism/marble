@@ -34,8 +34,10 @@ versioned local-day schedule means:
 - an overnight window continues using the prior celebration day's trio after midnight.
 
 The visible quote advances every 12 seconds with a short crossfade. Tapping it advances
-manually and pauses automatic changes for that card session. VoiceOver and Reduce Motion
-stop automatic rotation; the quote remains a single adjustable accessibility element with
+manually and holds the chosen quote for at least one full interval, after which automatic
+rotation resumes on the shared schedule. VoiceOver and Reduce Motion stop automatic
+rotation, and a manual pick is then permanent; the quote remains a single adjustable
+accessibility element with
 its author and “quote N of 3” position. Dynamic Type wraps naturally without line limits or
 text scaling. Visually, motivation is deliberately a quiet footer: secondary italic text
 with a compact author and position line. It has no heading, quote icon, or pagination
@@ -49,8 +51,10 @@ and the [Papers of Abraham Lincoln](https://papersofabrahamlincoln.org/documents
 
 ## What is celebrated
 
-`DailyHighlightsBuilder` derives the recap from the full `SetEntry` history, independent of
-the Trends range and exercise filter. It ranks at most three deterministic highlights and
+`DailyHighlightsBuilder` derives the recap from a scoped `SetEntry` fetch — the celebration
+day's entries plus the complete prior history of just that day's exercises — independent of
+the Trends range and exercise filter. Record baselines stay unbounded going back in time,
+so an all-time best from years ago still vetoes a false "new best" today. It ranks at most three deterministic highlights and
 uses one highlight per exercise:
 
 1. Genuine strength records: a higher unit-normalized weight or a higher bodyweight rep
@@ -82,11 +86,17 @@ background task, image renderer, or share payload in this feature.
 - `marble/Features/Trends/DailyHighlights.swift` — time-window and ranking engine.
 - `marble/Features/Trends/DailyHighlightQuotes.swift` — sourced catalog and deterministic
   three-per-day schedule.
+- `marble/Features/Trends/DailyHighlightQuoteRotation.swift` — pure timing rules for the
+  quote rotator's hold-then-resume behavior after a manual pick.
 - `marble/Features/Trends/DailyHighlightsView.swift` — monochrome celebration card and isolated
   quote rotator.
+- `marble/Persistence/Queries/DailyHighlightQueries.swift` — scoped history fetch: the day's
+  entries plus the prior history of only that day's exercises.
 - `marble/Features/Settings/DailyHighlightsSettingsView.swift` — schedule editor.
 - `Tests/Unit/DailyHighlightsTests.swift` — boundaries, DST, record truth, filter
-  independence, catalog integrity, and quote schedule guarantees.
+  independence, catalog integrity, quote schedule guarantees, and rotation resume rules.
+- `Tests/Unit/DailyHighlightQueriesTests.swift` — scoped fetch equivalence with the
+  full-table history.
 - `Tests/Snapshots/TrendsSnapshotTests.swift` — light/dark, phone-size, and Accessibility
   XXXL visual matrix.
 - `Tests/UI/TrendsSmokeUITests.swift` — active/inactive window, quote interaction, removed

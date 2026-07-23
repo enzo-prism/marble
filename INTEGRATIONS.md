@@ -139,7 +139,8 @@ A `WorkoutImportRecord` maps to one or more `SetEntry`s **plus one enriched
   `SetEntry.importedWorkout`, which powers the journal's origin badge, the set detail's
   read-only "Imported Workout" section, and the hub's history + detail sheet (with a live
   heart-rate sparkline re-queried from Health when enough samples exist — Garmin bridges
-  HR sparsely).
+  HR sparsely). The ledger rides along in Marble's JSON backup, so a restore keeps origin
+  badges, workout detail, and re-import dedup intact.
 - The note is just the provenance line (`Imported from Garmin`); stats are no longer
   string-stuffed into notes.
 

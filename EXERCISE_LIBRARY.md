@@ -50,6 +50,11 @@ An exercise can be deleted only when it has no logged sets and no planned workou
 The dependency check runs both before showing the confirmation and immediately before the
 delete is committed.
 
+Saving a created or renamed exercise reindexes the library so Siri and Spotlight see the
+new name immediately; deleting one removes its Spotlight entry right away rather than at
+the next launch. Both paths re-register the "Log a set of …" shortcut phrase against the
+current names.
+
 Key implementation files:
 
 - `marble/Features/Journal/ExerciseEditorDraft.swift`
@@ -57,6 +62,7 @@ Key implementation files:
 - `marble/Features/Journal/ExercisePickerView.swift`
 - `marble/Features/Journal/ManageExercisesView.swift`
 - `marble/Features/Journal/ExerciseLibraryPresentation.swift`
+- `marble/Intents/ExerciseEntity.swift`
 - `Tests/Unit/ExerciseEditorDraftTests.swift`
 - `Tests/UI/JournalFlowUITests.swift`
 

@@ -39,7 +39,7 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-22)
+## Current state (2026-07-23)
 
 - **Live on the App Store: 2.1 (build 40)**, released 2026-07-21
   (`READY_FOR_DISTRIBUTION` in the
@@ -192,7 +192,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 | [`INTEGRATIONS.md`](INTEGRATIONS.md) | Workout import — how each source works and **why** |
 | [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md) | Sprint prescription attributes, logging flow, and persistence |
 | [`EXERCISE_LIBRARY.md`](EXERCISE_LIBRARY.md) | Exercise creation, attributes, discovery, editing, and deletion safety |
-| [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md) | End-of-day celebration rules, time-window semantics, privacy, sharing, and tests |
+| [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md) | End-of-day celebration rules, time-window semantics, privacy, and tests |
 | [`ROADMAP.md`](ROADMAP.md) | H2 2026 plan: what shipped in 2.2, **known gaps / next up**, and why the Watch app was deferred |
 | [`AGENTS.md`](AGENTS.md) | Coding, UI, testing, and release rules for contributors/agents |
 | [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) | Dated source of truth for release/version/signing state |

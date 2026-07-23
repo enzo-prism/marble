@@ -10,7 +10,10 @@ widget, and a Control Center control.
 - `marble/Features/RestTimer/RestTimerAttributes.swift` — the shared `ActivityAttributes`.
 - `marble/Features/RestTimer/RestActivityController.swift` — starts/replaces/ends the
   activity. Already called after every **interactive** set log (AddSet, "Log Again",
-  duplicate in Journal + Set detail); bulk import deliberately does not trigger it.
+  duplicate in Journal + Set detail); bulk import deliberately does not trigger it. Also
+  schedules the single pending **"rest complete" local notification** that alerts a
+  backgrounded/locked user when the countdown hits zero — it rides on whatever notification
+  authorization already exists and never prompts.
 - `RestTimerLiveActivity.swift` — Lock Screen / Dynamic Island UI, including the interactive
   **`+30s`** and **`End`** buttons added in 2.2.
 - App target build settings include `INFOPLIST_KEY_NSSupportsLiveActivities = YES`.
@@ -60,8 +63,9 @@ widget, and a Control Center control.
 - `Prism.marble.MarbleWidgets`
 
 `.asc/ExportOptions.plist` (tracked in git) maps both bundle IDs to the two pinned profiles,
-and Release signing is pinned per target in the project. Build **2.2 (41)** is the current
-proof of this path — the uploaded IPA includes the signed `MarbleWidgets.appex`, with
+and Release signing is pinned per target in the project. Build **2.2 (47)** is the current
+proof of this path (verified end to end 2026-07-23, see `RELEASE_HANDOFF.md`) — the
+uploaded IPA includes the signed `MarbleWidgets.appex`, with
 entitlements read back off the archive as `marble.app` →
 `['L49MKXGVM4.Prism.marble', 'L49MKXGVM4.Prism.marble.shared']` and `MarbleWidgets.appex` →
 `['L49MKXGVM4.Prism.marble.shared']`. Keep both profile mappings in place.
@@ -79,6 +83,11 @@ entitlements read back off the archive as `marble.app` →
   is why CI and `make unit` stay green — it is not a bug to chase on the simulator.
 
 ## Notes
+- `MarbleWidgets/PrivacyInfo.xcprivacy` — the appex needs its **own privacy manifest**
+  (Apple scans each executable bundle separately; it cannot rely on
+  `marble/PrivacyInfo.xcprivacy`). Declares no tracking, no collected data, and the
+  UserDefaults required-reason API (`CA92.1`) that `SharedDefaults.swift` brings into the
+  target.
 - The Live Activity UI uses monochrome system colors to match the Marble brand. To reuse the
   app's `Theme`/`DesignTokens`, add those files to the extension's membership too (optional).
 - `RestActivityController` reconciles `Activity<RestTimerAttributes>.activities` on launch and

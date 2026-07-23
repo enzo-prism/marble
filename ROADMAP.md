@@ -1,7 +1,7 @@
 # Marble — H2 2026 Implementation Plan (written 2026-07-20)
 
-> **STATUS 2026-07-22 — Phases 0–3 plus the follow-up polish are on `main` and internal
-> TestFlight as 2.2 build 46.**
+> **STATUS 2026-07-23 — Phases 0–3, the follow-up polish, and the Apple-best-practices
+> pass (PR #12) are on `main` and internal TestFlight as 2.2 build 47.**
 > Unit suite green, accessibility audit green, UI suite 39/40 (the one failure,
 > `test07TrainingCalendar`, reproduces on clean `origin/main` — see TESTING.md).
 > **Implemented is not the same as finished** — read **Known gaps / next up** below before
@@ -40,7 +40,7 @@
 Source of truth for the five-workstream roadmap pitched 2026-07-20: Watch app, widget surface,
 App Intents depth, body metrics, onboarding/settings. Sequenced into releases 2.2 → 2.3 → 2.4 → 3.0.
 Baseline when written: main = 2.1 build 40; App Store 2.0 LIVE; 2.1 approved and pending release.
-(2.1 went live 2026-07-21; 2.2 build 46 is on internal TestFlight.)
+(2.1 went live 2026-07-21; 2.2 build 47 is on internal TestFlight.)
 
 Conventions: every phase ends with `make unit` green in CI, `make migration-release` when schema
 changes, TestFlight via `make asc-*`, PR to main (no direct pushes). Never `git add -A`
@@ -61,7 +61,7 @@ changes, TestFlight via `make asc-*`, PR to main (no direct pushes). Never `git 
   background task, analytics, or network dependency. See
   [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md).
 
-**Verified 2026-07-22 against the 2.2 (build 46) source.** These are things the roadmap below
+**Verified 2026-07-23 against the 2.2 (build 47) source.** These are things the roadmap below
 describes as designed or done that are **not actually working end to end**. Do not claim any
 of them works, and do not put them in release notes.
 
@@ -86,6 +86,12 @@ of them works, and do not put them in release notes.
   (`ExerciseSpotlightIndex.remove(exerciseID:)`) and reindexes after create/rename, calling
   `MarbleShortcuts.updateAppShortcutParameters()` in both paths. `removeAll()` still has no
   caller because the app has no data-wipe flow to wire it to.
+- **Exercises auto-created by import flows reach Spotlight and the parameterised Siri
+  phrases only at the next cold launch** (found 2026-07-23). `ExerciseSpotlightIndex.reindexAll()`
+  + `updateAppShortcutParameters()` run from `ContentView`'s launch `.task`, the exercise
+  editor, and backup restore — but none of the import paths (Health/Garmin import, Strava,
+  the handwritten scan importer) call them when they insert a new `Exercise`. Until the app
+  is relaunched, "Log a set of <imported exercise>" won't resolve and Spotlight can't find it.
 
 ### Missing user-facing affordances
 - **A bodyweight entry cannot be edited or deleted.** `BodyMetricEntryView` has a complete
@@ -94,8 +100,10 @@ of them works, and do not put them in release notes.
 - **The DOTS men/women coefficient picker exists only inside the Log Weight sheet**, not in
   Settings. A user whose weigh-ins arrive via Health import may never open that sheet, and is
   then silently scored on men's coefficients.
-- **`BodyMetricEntry` is missing from JSON backup/restore** — bodyweight history does not
-  survive a backup round-trip. (Being fixed.)
+- ~~**`BodyMetricEntry` is missing from JSON backup/restore.**~~ **Resolved 2026-07-23**
+  (PR #12) — the backup payload now carries `BodyMetricEntry`, `ImportedWorkout`,
+  `ProgressMediaAttachment` *metadata*, and `CustomNotification`, with a
+  schema-exhaustiveness guard in `MarbleBackupTests`; the restore summary reports weigh-ins.
 
 ### Roadmap 2.4 items that were not shipped
 - Calendar day-summary weight-on-day (Phase 3 item 3).
@@ -110,6 +118,31 @@ of them works, and do not put them in release notes.
   coverage at all.
 - **No V4→V5 case in `PersistenceRecoveryTests`** (Phase 3 gate), even though V5 is the
   shipping schema.
+
+### Deferred from the best-practices pass (PR #12) — next up
+Deliberately left out of build 47; verified against source 2026-07-23.
+- **Adopt `AppDependencyManager` for intent dependencies.** The intents resolve the model
+  container through the `AppIntentsSupport.resolvedContainer()` singleton; Apple's current
+  guidance is dependency injection via `AppDependencyManager`. Works today, but it's the
+  documented pattern to migrate to.
+- **Adopt `UndoableIntent`** so a Siri-logged set can be undone by voice the way an in-app
+  set can via the shake/three-finger undo (`modelContext.undoManager` is already wired).
+- **Delete the dead glass helpers** in `marble/Components/GlassStyle.swift`:
+  `GlassTileBackground`, `navigationGlassBackground()`, and `applyGlassButtonStyle()` all
+  have **zero call sites** across app, widget, and test targets.
+- **Toast-vs-inline is an open product decision.** Failure surfaces currently mix
+  `ToastView` (Journal, Supplements) with inline errors elsewhere; pick one before adding
+  more failure UI.
+- **Icon Composer layered icon.** The app still ships a classic `AppIcon.appiconset`; no
+  `.icon` bundle exists, so tinted/clear Home Screen icon treatments fall back to the
+  system-generated derivation.
+- **Accessibility Nutrition Labels declaration.** The completed worksheet lives at
+  `AppStore/ACCESSIBILITY_NUTRITION_LABELS.md`; the declaration itself still has to be made
+  in App Store Connect.
+- **Configure a phased release before releasing 2.2** — it carries the V5 migration and the
+  first widget surface; 2.1 went to 100% at once because none was configured (see
+  `RELEASE_HANDOFF.md`).
+- **Watch app** — unchanged; see "Why Phase 4 was not built" above.
 
 ---
 

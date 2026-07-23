@@ -50,7 +50,7 @@
   orphan) and each backfill skip reason now enforced by the store predicate (missing
   duration, unprescribed exercise, invalid prescription).
 
-## Suite inventory (counted from source, 2026-07-22)
+## Suite inventory (counted from source, 2026-07-23)
 - `Tests/Unit/` — **53 files, 55 classes, 505 test methods**. Added past build 46:
   `WeeklyGoalWidgetStateTests`' Smart Stack relevance cases, pinning the pure
   `WeeklyGoalWidgetState.relevanceScore` the widget wraps in `TimelineEntryRelevance`;
@@ -67,7 +67,16 @@
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
-## Latest release verification (2026-07-22, 2.2 build 46)
+## Latest release verification (2026-07-23, 2.2 build 47)
+- `MarbleTests`: **505 passed, 0 failed** locally and in GitHub CI for the PR #12 merge —
+  the counted inventory above (53 files / 55 classes / 505 methods) matches this run.
+- `AccessibilityAuditUITests` (`make audit`): **passed** after the best-practices changes.
+- Signed **build 47** Release archive/export passed; App Store Connect processing is
+  `VALID` (buildId `83f4e8ca-a4cf-41ac-8080-4f8703851a42`, uploaded 08:03 PDT).
+- The device-only surfaces PR #12 added are covered **only** by the manual checklist below
+  ("Build 47 additions") — walk it before any 2.2 App Review submission.
+
+## Prior release verification (2026-07-22, 2.2 build 46)
 - `MarbleTests`: **460 passed, 0 failed** locally and in GitHub CI run `29976114363`.
   2.2 added ten suites:
   `SharedDefaultsTests`, `WeeklyGoalWidgetStateTests`, `OnboardingGateTests`,
@@ -213,9 +222,9 @@ Preferred Makefile targets:
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **2.2 (46)**, build ID
-  `1d775573-47fb-4757-bdbc-0cf600d5edfd`; `VALID` and `IN_BETA_TESTING`, uploaded
-  2026-07-22 at 20:13 PDT.
+- Current phone-test build: **2.2 (47)**, build ID
+  `83f4e8ca-a4cf-41ac-8080-4f8703851a42`; `VALID`, uploaded
+  2026-07-23 at 08:03 PDT (the Apple-best-practices build, PR #12).
 - Internal group `test group A` receives all builds; external beta remains unsubmitted.
 - **Most of 2.2 is device-only.** Widgets, Live Activity buttons, Control Center controls,
   Siri, and Spotlight cannot be verified on the simulator — the keychain access group is not
@@ -238,9 +247,10 @@ Preferred Makefile targets:
   still render** — the snapshot is stored `AfterFirstUnlockThisDeviceOnly`, so this is the
   one check that proves the accessibility level is right. Tap through and confirm the
   `marble://trends` deep link lands on Trends.
-  - Known gap to expect: logging a set **via Siri** does not refresh the widget (see
-    ROADMAP "Known gaps"). Log via Siri, then confirm the widget is stale — that is current
-    behaviour, not a new bug.
+  - **Build 47 headline fix — Siri now refreshes the widget.** With the app closed, log a
+    set via Siri ("Log a set in Marble" / "Log my last set again in Marble") and confirm the
+    Weekly Goal widget updates its count **without ever opening the app**. Build 46 and
+    earlier left the widget stale here; on 47 a stale widget after a Siri log is a bug.
 - **Rest timer Live Activity** — log a set with rest > 0, then use the **`+30s`** and
   **`End`** buttons on both the Lock Screen and the Dynamic Island expanded view. Confirm
   `+30s` actually extends the countdown and `End` dismisses the activity. Then verify the
@@ -271,8 +281,40 @@ Preferred Makefile targets:
   - Known gaps to expect: a bodyweight entry **cannot be edited or deleted** once saved, and
     the DOTS coefficient picker exists **only** in the Log Weight sheet — a user whose
     weigh-ins all arrive from Health never sees it.
-- **Restore from backup** — restore a JSON backup and confirm the data lands. Known gap:
-  the widget does not refresh after a restore.
+- **Restore from backup** — restore a JSON backup and confirm the data lands. Then check
+  the Weekly Goal widget without reopening the app: build 47 refreshes it (plus the
+  weekly-goal reminder, Spotlight, and the parameterised Siri phrases) right after a
+  successful restore — the old "widget does not refresh after a restore" gap is closed.
+
+### Build 47 additions (Apple best practices — device-only checks)
+- **Rest-complete notification** — log a set with rest > 0, background Marble, and let the
+  countdown reach `0:00`. A local **"Rest complete"** notification must arrive with the app
+  backgrounded (nothing fired at zero before build 47). Then log another rest and end it
+  early with the Live Activity's `End` button: the pending notification must be cancelled —
+  no alert should arrive at the original end time.
+- **Live Activity stale state** — start a rest, force-kill Marble, and leave the phone
+  alone. At rest end + 60 seconds the card must flip to the quiet **"Rest over"** state
+  instead of a frozen-but-live-looking timer (the controller stamps
+  `staleDate = restEndsAt + 60s`; the widget renders `context.isStale`).
+- **Always-On Display** — with an AOD-capable phone, let the screen dim during a rest and
+  confirm the Live Activity dims with it (reduced-luminance treatment) rather than staying
+  full brightness.
+- **Widget quick-log button** — on the **medium** Home Screen family, tap the "Log set"
+  capsule (not the card body). It must deep-link straight to the quick-log sheet via
+  `marble://quicklog`; tapping anywhere else on the card still lands on Trends.
+- **Tinted / clear Home Screen rendering** — switch the Home Screen to tinted and clear
+  icon modes and check the widget: the progress arc and the quick-log capsule pick up the
+  accent (`widgetAccentable` grouping) while the track and copy keep their hierarchy —
+  nothing should flatten to one tone.
+- **TipKit tips** — on a fresh install, confirm each tip appears exactly once near its
+  surface: the scan tip on the Import scan button, the coaching tip on the Focus lift card,
+  and the PR-feed tip on the PR feed header. Use each surface, then revisit: no tip may
+  ever reappear.
+- **Audio Graphs** — with VoiceOver on, focus a Trends chart, open the rotor, choose
+  **"Chart Details"**, and play the audio graph. Every Trends chart (consistency, volume,
+  e1RM, bodyweight, …) must offer one, with sensible spoken axis ranges and values.
+- **Spotlight removal** — delete an unused exercise, then search its name in Spotlight
+  immediately: it must be gone without relaunching the app (per-item de-index on delete).
 
 ### Carried-forward regression pass (2.1 payload)
 - Start and finish a workout session, log planned and repeated sets, review recent workouts,

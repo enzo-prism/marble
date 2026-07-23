@@ -1,6 +1,6 @@
 # Marble Release Handoff
 
-**Last verified: 2026-07-22.** This file is the single source of truth for "where the
+**Last verified: 2026-07-23.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
@@ -88,7 +88,7 @@ On the **simulator**, keychain access groups are not enforced and `SecItem*` can
 neutral "Open Marble" card rather than crashing. CI and `make unit` are unaffected — no unit
 test touches the real keychain.
 
-## Release state (2026-07-22)
+## Release state (2026-07-23)
 
 - **2.1 (build 40)** — **LIVE on the App Store**, released 2026-07-21 via
   `asc versions release --version-id 59f2e4c7-1c4b-49b3-a5d3-265ca6da74b1 --confirm`;
@@ -400,7 +400,7 @@ profile for `Prism.marble.MarbleWidgets`.
 - `.asc/ExportOptions.plist` maps both `Prism.marble` and `Prism.marble.MarbleWidgets`.
 - Release signing is pinned per target in `marble.xcodeproj/project.pbxproj`.
 
-For the next upload, `make asc-next-build` currently reports **47**. Never guess a build
+For the next upload, `make asc-next-build` currently reports **48**. Never guess a build
 number locally.
 
 Historical planned command, kept for context:
@@ -426,18 +426,19 @@ Notes:
 
 ## Open release decisions
 
-**The only live decision: when to submit 2.2 to App Review.** Build 46 is currently `VALID`
-and `IN_BETA_TESTING`; nothing is submitted.
+**The only live decision: when to submit 2.2 to App Review.** Build 47 is currently `VALID`
+on TestFlight; nothing is submitted.
 Before submitting, resolve these:
 
 - **Do the device pass first.** Most of 2.2 — widgets, Live Activity buttons, the Control
   Center control, Siri, Spotlight, and the keychain snapshot itself — is untestable on the
   simulator. Walk the 2.2 checklist in `TESTING.md` on a real phone.
-- **Decide what to do about the known gaps** (`ROADMAP.md` → Known gaps / next up). Some are
-  fine to ship (TipKit inert, no bodyweight edit); others shape the release notes. In
-  particular: do **not** advertise Siri set-logging alongside the widget, because a
-  Siri-logged set does not refresh the widget or the weekly-goal reminder. Either fix that or
-  keep the notes to widgets + onboarding.
+- **Decide what to do about the known gaps** (`ROADMAP.md` → Known gaps / next up). Build 47
+  closed the big ones — Siri-logged sets now refresh the widget and reminder, TipKit tips
+  present, backup covers every entity — so Siri set-logging can be advertised alongside the
+  widget. Still open and worth weighing for release notes: bodyweight entries can't be
+  edited or deleted, the DOTS coefficient picker only lives in the Log Weight sheet, and
+  import-created exercises reach Spotlight/Siri phrases only at the next cold launch.
 - **Configure a phased release before releasing this time.** 2.1 shipped to 100% at once
   because `appStoreVersionPhasedRelease` was null. 2.2 carries the V5 migration and the first
   widget surface — both are exactly what phased rollout exists for.
@@ -478,7 +479,7 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
 - `origin/main` is the canonical release baseline, now on the **2.2** train. The latest
-  TestFlight build is **2.2 (45)**, not submitted for review. Released to users:
+  TestFlight build is **2.2 (47)**, not submitted for review. Released to users:
   **2.1 (build 40)**.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
@@ -501,8 +502,8 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 46
+make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 47
 make asc-status
 make asc-builds
-make asc-next-build   # expect 47
+make asc-next-build   # expect 48
 ```
