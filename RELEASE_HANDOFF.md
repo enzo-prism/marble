@@ -61,11 +61,11 @@ onboarding flag) never needed cross-process sharing: the widget reads only the s
 the weekly target is baked into that snapshot by `WeeklyGoalWidgetPublisher`. Do not restore
 the App Group without a new requirement the keychain snapshot genuinely cannot satisfy.
 
-> ✅ **Verified end to end 2026-07-22: 2.2 (build 42) is on TestFlight, `VALID` and
-> `IN_BETA_TESTING`** (buildId `a9acfd24-fae2-4602-b75c-e0c47c036722`, uploaded 15:25).
+> ✅ **Verified end to end 2026-07-22: 2.2 (build 43) is on TestFlight, `VALID` and
+> `IN_BETA_TESTING`** (buildId `e77804de-5c5b-4e89-b44c-6d5adca1a19f`, uploaded 17:15).
 > `make asc-archive` → **ARCHIVE SUCCEEDED** with the pinned profiles untouched.
 
-### The release sequence used for builds 41 and 42
+### The release sequence used for builds 41–43
 
 Use the **existing** `.asc/ExportOptions.plist` — it already maps both bundle IDs to the two
 pinned profiles and sets `signingCertificate = Apple Distribution`. A bare export options file
@@ -96,8 +96,8 @@ test touches the real keychain.
   **No phased release was configured** (`appStoreVersionPhasedRelease` was null), so it went
   to 100% of users at once — worth creating one *before* releasing next time, since 2.1 was
   the first production build to run the V2→V4 migrations.
-- **2.2 (build 42)** — **on TestFlight, `VALID` and `IN_BETA_TESTING`** (buildId
-  `a9acfd24-fae2-4602-b75c-e0c47c036722`, uploaded 2026-07-22). The internal group
+- **2.2 (build 43)** — **on TestFlight, `VALID` and `IN_BETA_TESTING`** (buildId
+  `e77804de-5c5b-4e89-b44c-6d5adca1a19f`, uploaded 2026-07-22). The internal group
   `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds.
   **Not submitted to App Review.** Daily Highlights, the single-timer Live Activity fix,
   and Log Again personal-best context are included alongside widgets, Control Center,
@@ -106,13 +106,18 @@ test touches the real keychain.
   **Known gaps / next up** in `ROADMAP.md` before writing release notes for it.
 - **2.0 (build 34)** — superseded by 2.1. Its review is closed; nothing about it is live
   state any more.
-- **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 42`.**
-  The next upload must use `make asc-next-build` (currently expect **43**).
+- **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 43`.**
+  The next upload must use `make asc-next-build` (currently expect **44**).
 
 ---
 
 ## Build history (what each build carried)
 
+- **Build 43:** Daily Highlights now uses a premium achievement-specific accent treatment,
+  removes its Share/export control, and presents three rotating quotes selected from a
+  sourced 45-quote public-domain catalog. Automatic quote motion stops under Reduce Motion,
+  VoiceOver, and UI testing. All 455 unit tests, the eight focused snapshots, the interaction
+  flow, the 5,000-entry benchmark, and both light/dark accessibility audits pass.
 - **Build 42:** Daily Highlights adds a local-only, configurable end-of-day celebration in
   Trends with truthful lift/run/PR derivation and a 1080 × 1350 ShareLink export. Rest timer
   reconciliation enforces at most one Live Activity across relaunches and rapid logs. Log
@@ -351,8 +356,8 @@ profile for `Prism.marble.MarbleWidgets`.
 - `.asc/ExportOptions.plist` maps both `Prism.marble` and `Prism.marble.MarbleWidgets`.
 - Release signing is pinned per target in `marble.xcodeproj/project.pbxproj`.
 
-For the next upload, re-run `make asc-next-build`; with build 42 the latest processed upload
-it should report **43**. Never guess a build number locally.
+For the next upload, re-run `make asc-next-build`; with build 43 the latest processed upload
+it should report **44**. Never guess a build number locally.
 
 Historical planned command, kept for context:
 
@@ -377,7 +382,7 @@ Notes:
 
 ## Open release decisions
 
-**The only live decision: when to submit 2.2 to App Review.** Build 42 is on TestFlight,
+**The only live decision: when to submit 2.2 to App Review.** Build 43 is on TestFlight,
 `VALID`, and `IN_BETA_TESTING`; nothing is submitted. Before submitting, resolve these:
 
 - **Do the device pass first.** Most of 2.2 — widgets, Live Activity buttons, the Control
@@ -428,7 +433,7 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
 - `origin/main` is the canonical release baseline, now on the **2.2** train. The latest
-  TestFlight build is **2.2 (42)**, not submitted for review. Released to users:
+  TestFlight build is **2.2 (43)**, not submitted for review. Released to users:
   **2.1 (build 40)**.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
@@ -451,8 +456,8 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 41
+make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 43
 make asc-status
 make asc-builds
-make asc-next-build   # expect 42
+make asc-next-build   # expect 44
 ```

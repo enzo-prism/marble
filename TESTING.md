@@ -89,7 +89,7 @@
   `testAccessibilityAudit_` prefix — a regex that stops at the underscore collapses them
   into one and skews the historical arithmetic.
 
-### Daily Highlights verification (2026-07-22, 2.2 build 43 candidate)
+### Daily Highlights verification (2026-07-22, 2.2 build 43)
 
 - `DailyHighlightsTests`: 12 passed, 0 failed, including schedule/DST boundaries, genuine
   records, run-distance matching, filter independence, all 45 sourced quotes, and the full
@@ -105,6 +105,10 @@
 - Full `MarbleTests`: 455 passed, 0 failed. The changed Daily Highlights snapshot matrix is
   green; the broader snapshot target still has unrelated Add Set baseline drift documented
   in `work/codex-workflow-papercuts.md`.
+- Signed Release archive and App Store export passed for `Prism.marble` and
+  `Prism.marble.MarbleWidgets`; App Store Connect reports build 43
+  (`e77804de-5c5b-4e89-b44c-6d5adca1a19f`) `VALID` and `IN_BETA_TESTING` for the internal
+  all-build group `test group A`.
 
 ## Standing caveats (carried forward)
 - `AccessibilityAuditUITests`: the iOS 26.5 runtime skips its unsupported Dynamic Type audit,
