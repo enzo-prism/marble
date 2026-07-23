@@ -60,16 +60,15 @@ struct DailyHighlightsSection: View {
 private struct DailyHighlightsCard: View {
     let summary: DailyHighlightSummary
 
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.l) {
+        VStack(alignment: .leading, spacing: MarbleSpacing.m) {
             cardHeader
 
             Text(summary.headline)
-                .font(.title2.weight(.bold))
+                .font(.title2.weight(.semibold))
                 .foregroundStyle(primary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
@@ -105,29 +104,11 @@ private struct DailyHighlightsCard: View {
                 .frame(height: 0.5)
                 .accessibilityHidden(true)
 
-            DailyHighlightQuoteRotator(day: summary.day, accent: accent)
+            DailyHighlightQuoteRotator(day: summary.day)
         }
-        .padding(MarbleSpacing.l)
+        .padding(MarbleSpacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous)
-                .stroke(accent.opacity(colorScheme == .dark ? 0.58 : 0.46), lineWidth: 0.75)
-        }
-        .overlay(alignment: .top) {
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [accent, companionAccent],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(height: 3)
-                .padding(.horizontal, MarbleSpacing.l)
-                .accessibilityHidden(true)
-        }
+        .marbleCardBackground()
         .accessibilityElement(children: .contain)
     }
 
@@ -148,12 +129,11 @@ private struct DailyHighlightsCard: View {
     }
 
     private var dayLabel: some View {
-        Label(dayEyebrow, systemImage: "sparkles")
+        Text(dayEyebrow)
             .font(MarbleTypography.smallLabel)
             .tracking(0.8)
-            .foregroundStyle(primary)
+            .foregroundStyle(secondary)
             .fixedSize(horizontal: false, vertical: true)
-            .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
@@ -177,50 +157,12 @@ private struct DailyHighlightsCard: View {
         }
     }
 
-    private var cardBackground: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous)
-                .fill(Theme.surfaceColor(for: colorScheme))
-
-            if !reduceTransparency && !TestHooks.forceReduceTransparency {
-                RadialGradient(
-                    colors: [
-                        accent.opacity(colorScheme == .dark ? 0.24 : 0.16),
-                        companionAccent.opacity(colorScheme == .dark ? 0.10 : 0.06),
-                        .clear
-                    ],
-                    center: .topTrailing,
-                    startRadius: 0,
-                    endRadius: 340
-                )
-            }
-        }
-    }
-
-    private var accent: Color {
-        switch summary.achievements.first?.kind {
-        case .personalRecord: TrendsPalette.personalRecord.color(for: colorScheme)
-        case .runBest: TrendsPalette.supplements.color(for: colorScheme)
-        case .liftProgress: TrendsPalette.progress.color(for: colorScheme)
-        case .dailyBest, nil: TrendsPalette.consistency.color(for: colorScheme)
-        }
-    }
-
-    private var companionAccent: Color {
-        switch summary.achievements.first?.kind {
-        case .personalRecord: TrendsPalette.volumeWeighted.color(for: colorScheme)
-        case .runBest: TrendsPalette.consistency.color(for: colorScheme)
-        case .liftProgress: TrendsPalette.personalRecord.color(for: colorScheme)
-        case .dailyBest, nil: TrendsPalette.progress.color(for: colorScheme)
-        }
-    }
-
     private var primary: Color { Theme.primaryTextColor(for: colorScheme) }
     private var secondary: Color { Theme.secondaryTextColor(for: colorScheme) }
-    private var divider: Color { accent.opacity(colorScheme == .dark ? 0.30 : 0.22) }
+    private var divider: Color { Theme.subtleDividerColor(for: colorScheme) }
 
     private var dayEyebrow: String {
-        "TODAY · \(summary.day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()).uppercased())"
+        summary.day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()).uppercased()
     }
 }
 
@@ -239,9 +181,16 @@ private struct DailyHighlightAchievementView: View {
                     achievementText
                 }
             } else {
-                HStack(alignment: .top, spacing: MarbleSpacing.s) {
+                HStack(alignment: .center, spacing: MarbleSpacing.s) {
                     icon
                     achievementText
+                    Spacer(minLength: MarbleSpacing.xs)
+                    Text(achievement.value)
+                        .font(.title3.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -252,10 +201,10 @@ private struct DailyHighlightAchievementView: View {
 
     private var icon: some View {
         Image(systemName: achievement.kind.systemImage)
-            .font(.body.weight(.semibold))
-            .foregroundStyle(accent)
-            .frame(width: 38, height: 38)
-            .background(accent.opacity(colorScheme == .dark ? 0.18 : 0.12), in: Circle())
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            .frame(width: 36, height: 36)
+            .background(Theme.controlFillColor(for: colorScheme), in: Circle())
             .accessibilityHidden(true)
     }
 
@@ -264,33 +213,25 @@ private struct DailyHighlightAchievementView: View {
             Text(achievement.title.uppercased())
                 .font(MarbleTypography.smallLabel)
                 .tracking(0.6)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .fixedSize(horizontal: false, vertical: true)
-            Text(achievement.value)
-                .font(.title2.weight(.bold))
-                .monospacedDigit()
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
+            if dynamicTypeSize.isAccessibilitySize {
+                Text(achievement.value)
+                    .font(.title2.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Text(achievement.detail)
                 .font(MarbleTypography.rowMeta)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
-
-    private var accent: Color {
-        switch achievement.kind {
-        case .personalRecord: TrendsPalette.personalRecord.color(for: colorScheme)
-        case .runBest: TrendsPalette.supplements.color(for: colorScheme)
-        case .liftProgress: TrendsPalette.progress.color(for: colorScheme)
-        case .dailyBest: TrendsPalette.consistency.color(for: colorScheme)
-        }
-    }
 }
 
 private struct DailyHighlightQuoteRotator: View {
     let day: Date
-    let accent: Color
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
@@ -330,13 +271,13 @@ private struct DailyHighlightQuoteRotator: View {
                 HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.xs) {
                     Image(systemName: "quote.opening")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(accent)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .accessibilityHidden(true)
 
                     Text("EVENING NOTE")
                         .font(MarbleTypography.smallLabel)
                         .tracking(0.7)
-                        .foregroundStyle(accent)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 }
 
                 VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
@@ -357,7 +298,11 @@ private struct DailyHighlightQuoteRotator: View {
                 HStack(spacing: MarbleSpacing.xxs) {
                     ForEach(quotes.indices, id: \.self) { quoteIndex in
                         Capsule()
-                            .fill(quoteIndex == index ? accent : accent.opacity(0.24))
+                            .fill(
+                                quoteIndex == index
+                                    ? Theme.primaryTextColor(for: colorScheme)
+                                    : Theme.subtleDividerColor(for: colorScheme)
+                            )
                             .frame(width: quoteIndex == index ? 16 : 6, height: 6)
                     }
                 }

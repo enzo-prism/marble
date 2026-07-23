@@ -25,7 +25,7 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 - **Trends** — a focused weekly goal, priority lift, and monthly report first; detailed
   consistency, volume, per-exercise, supplement, and PR charts remain one tap away. From
   8:00 PM through 11:59 PM by default, **Daily Highlights** celebrates that day's genuine
-  PRs and progress in a colorful, screenshots-ready card with three rotating daily quotes;
+  PRs and progress in a clean monochrome card with three rotating daily quotes;
   the window is customizable and the feature remains entirely on-device.
   See [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md).
 - **Data safety** — export and restore exercises, sets, supplements, sessions, and plans as

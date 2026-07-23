@@ -1,7 +1,7 @@
 # Daily Highlights
 
 Daily Highlights is Marble's end-of-day celebration in Trends. It turns the work already
-stored on the device into a colorful, screenshots-ready recap without adding an account,
+stored on the device into a clean, screenshots-ready recap without adding an account,
 server, background process, or sharing integration.
 
 ## User experience
@@ -13,10 +13,10 @@ server, background process, or sharing integration.
   editor. Users can disable the feature or choose a custom start and end time. An end time
   earlier than the start is intentionally treated as an overnight window; equal times are
   rejected rather than interpreted as “always on.”
-- The celebration card uses one achievement-specific accent from Marble's existing Trends
-  palette: gold for a personal record, teal for a run best, violet for lift progress, and
-  indigo for a completed day. Icons and written details always carry the same meaning, so
-  color is never the only signal.
+- The celebration card follows Marble's monochrome system: a solid surface, restrained gray
+  border and dividers, compact date, grayscale icon treatment, and clear type hierarchy. A
+  trailing result keeps the achievement immediately scannable without using gold or another
+  achievement-specific accent.
 - The previous export and Share button were deliberately removed. The achievement, stats,
   and motivation now own the card's visual hierarchy; users can still capture the whole
   in-app composition with the system screenshot gesture.
@@ -80,7 +80,7 @@ background task, image renderer, or share payload in this feature.
 - `marble/Features/Trends/DailyHighlights.swift` — time-window and ranking engine.
 - `marble/Features/Trends/DailyHighlightQuotes.swift` — sourced catalog and deterministic
   three-per-day schedule.
-- `marble/Features/Trends/DailyHighlightsView.swift` — premium celebration card and isolated
+- `marble/Features/Trends/DailyHighlightsView.swift` — monochrome celebration card and isolated
   quote rotator.
 - `marble/Features/Settings/DailyHighlightsSettingsView.swift` — schedule editor.
 - `Tests/Unit/DailyHighlightsTests.swift` — boundaries, DST, record truth, filter
@@ -93,8 +93,7 @@ background task, image renderer, or share payload in this feature.
 The implementation follows Apple's documented `Calendar` semantics for local civil time,
 `TimelineView` for lifecycle-managed periodic updates, and the Human Interface Guidelines
 for purposeful motion, color, and accessibility. Auto-advancing content stops under Reduce
-Motion or VoiceOver, important text retains black/white contrast, and color never stands
-alone.
+Motion or VoiceOver, and important text retains black/white contrast in both appearances.
 
 Official references:
 

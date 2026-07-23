@@ -54,7 +54,7 @@ changes, TestFlight via `make asc-*`, PR to main (no direct pushes). Never `git 
 - **Daily Highlights in Trends** is implemented on `main`: a local-only end-of-day recap,
   visible by default from 8:00 PM through 11:59 PM, with a customizable/overnight-capable
   schedule, truthful unit-normalized lift and matched-distance run records, accessible
-  layouts, a premium achievement-specific color treatment, and three deterministic rotating
+  layouts, a restrained monochrome card treatment, and three deterministic rotating
   quotes selected daily from a sourced 45-quote public-domain catalog. The old share/export
   flow is intentionally removed. It adds no persistence schema, notification, background
   task, analytics, or network dependency. See
