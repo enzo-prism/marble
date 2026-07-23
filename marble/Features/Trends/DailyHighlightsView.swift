@@ -99,11 +99,6 @@ private struct DailyHighlightsCard: View {
                 }
             }
 
-            Rectangle()
-                .fill(divider)
-                .frame(height: 0.5)
-                .accessibilityHidden(true)
-
             DailyHighlightQuoteRotator(day: summary.day)
         }
         .padding(MarbleSpacing.m)
@@ -267,48 +262,26 @@ private struct DailyHighlightQuoteRotator: View {
             manuallySelectedIndex = (index + 1) % quotes.count
             MarbleHaptics.selection()
         } label: {
-            VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                Text("“\(quote.text)”")
+                    .font(MarbleTypography.rowMeta)
+                    .italic()
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .fixedSize(horizontal: false, vertical: true)
+
                 HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.xs) {
-                    Image(systemName: "quote.opening")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        .accessibilityHidden(true)
-
-                    Text("EVENING NOTE")
-                        .font(MarbleTypography.smallLabel)
-                        .tracking(0.7)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    Text(quote.author)
+                    Spacer(minLength: MarbleSpacing.xs)
+                    Text("\(index + 1) / \(quotes.count)")
+                        .monospacedDigit()
                 }
-
-                VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
-                    Text("“\(quote.text)”")
-                        .font(.callout.weight(.medium))
-                        .fontDesign(.serif)
-                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text("— \(quote.author)")
-                        .font(MarbleTypography.rowMeta)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .id(quote.id)
-                .transition(.opacity)
-
-                HStack(spacing: MarbleSpacing.xxs) {
-                    ForEach(quotes.indices, id: \.self) { quoteIndex in
-                        Capsule()
-                            .fill(
-                                quoteIndex == index
-                                    ? Theme.primaryTextColor(for: colorScheme)
-                                    : Theme.subtleDividerColor(for: colorScheme)
-                            )
-                            .frame(width: quoteIndex == index ? 16 : 6, height: 6)
-                    }
-                }
+                .font(MarbleTypography.smallLabel)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .accessibilityHidden(true)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .id(quote.id)
+            .transition(.opacity)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

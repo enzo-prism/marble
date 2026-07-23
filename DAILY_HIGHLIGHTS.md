@@ -37,7 +37,9 @@ The visible quote advances every 12 seconds with a short crossfade. Tapping it a
 manually and pauses automatic changes for that card session. VoiceOver and Reduce Motion
 stop automatic rotation; the quote remains a single adjustable accessibility element with
 its author and “quote N of 3” position. Dynamic Type wraps naturally without line limits or
-text scaling.
+text scaling. Visually, motivation is deliberately a quiet footer: secondary italic text
+with a compact author and position line. It has no heading, quote icon, or pagination
+ornament, keeping the day's achievements and results at the top of the hierarchy.
 
 Every catalog entry is auditable in `DailyHighlightQuotes.swift`. Primary archives include
 [Project Gutenberg](https://www.gutenberg.org/), the
