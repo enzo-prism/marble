@@ -1,6 +1,7 @@
 # Marble — H2 2026 Implementation Plan (written 2026-07-20)
 
-> **STATUS 2026-07-22 — Phases 0–3 plus the follow-up polish are on `main` as 2.2 (build 45).**
+> **STATUS 2026-07-22 — Phases 0–3 plus the follow-up polish are on `main` as the 2.2
+> build 46 TestFlight candidate.**
 > Unit suite green, accessibility audit green, UI suite 39/40 (the one failure,
 > `test07TrainingCalendar`, reproduces on clean `origin/main` — see TESTING.md).
 > **Implemented is not the same as finished** — read **Known gaps / next up** below before
@@ -18,8 +19,8 @@
 > regenerate both distribution profiles.~~ **Resolved 2026-07-21** — the widget snapshot moved
 > to the keychain access group `L49MKXGVM4.Prism.marble.shared`, which both existing App Store
 > profiles already grant via their `L49MKXGVM4.*` wildcard. No portal work, no profile
-> regeneration. **Verified end to end: build 45 archived, exported and is on TestFlight
-> `VALID` / `IN_BETA_TESTING`.**
+> regeneration. **Build 45 is verified end to end on TestFlight; build 46 is the prepared
+> candidate with the quieter Daily Highlights quote footer.**
 > `RELEASE_HANDOFF.md` has the detail.
 >
 > Phases 1–3 were collapsed into a single 2.2 train rather than three releases. That was a
@@ -39,7 +40,7 @@
 Source of truth for the five-workstream roadmap pitched 2026-07-20: Watch app, widget surface,
 App Intents depth, body metrics, onboarding/settings. Sequenced into releases 2.2 → 2.3 → 2.4 → 3.0.
 Baseline when written: main = 2.1 build 40; App Store 2.0 LIVE; 2.1 approved and pending release.
-(2.1 went live 2026-07-21; 2.2 build 45 is on TestFlight.)
+(2.1 went live 2026-07-21; 2.2 build 45 is on TestFlight and build 46 is prepared.)
 
 Conventions: every phase ends with `make unit` green in CI, `make migration-release` when schema
 changes, TestFlight via `make asc-*`, PR to main (no direct pushes). Never `git add -A`
@@ -54,13 +55,13 @@ changes, TestFlight via `make asc-*`, PR to main (no direct pushes). Never `git 
 - **Daily Highlights in Trends** is implemented on `main`: a local-only end-of-day recap,
   visible by default from 8:00 PM through 11:59 PM, with a customizable/overnight-capable
   schedule, truthful unit-normalized lift and matched-distance run records, accessible
-  layouts, a restrained monochrome card treatment, and three deterministic rotating
-  quotes selected daily from a sourced 45-quote public-domain catalog. The old share/export
-  flow is intentionally removed. It adds no persistence schema, notification, background
-  task, analytics, or network dependency. See
+  layouts, a restrained monochrome card treatment, and three deterministic daily quotes in
+  a quiet rotating footer selected from a sourced 45-quote public-domain catalog. The old
+  share/export flow is intentionally removed. It adds no persistence schema, notification,
+  background task, analytics, or network dependency. See
   [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md).
 
-**Verified 2026-07-22 against the 2.2 (build 45) source.** These are things the roadmap below
+**Verified 2026-07-22 against the 2.2 (build 46) source.** These are things the roadmap below
 describes as designed or done that are **not actually working end to end**. Do not claim any
 of them works, and do not put them in release notes.
 

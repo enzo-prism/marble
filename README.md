@@ -25,7 +25,8 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 - **Trends** — a focused weekly goal, priority lift, and monthly report first; detailed
   consistency, volume, per-exercise, supplement, and PR charts remain one tap away. From
   8:00 PM through 11:59 PM by default, **Daily Highlights** celebrates that day's genuine
-  PRs and progress in a clean monochrome card with three rotating daily quotes;
+  PRs and progress in a clean monochrome card with three daily quotes presented as a quiet
+  rotating footer;
   the window is customizable and the feature remains entirely on-device.
   See [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md).
 - **Data safety** — export and restore exercises, sets, supplements, sessions, and plans as
@@ -40,14 +41,17 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-07-22)
 
-- **Live on the App Store: 2.1 (build 40)**, released 2026-07-21 (`READY_FOR_SALE` in the
+- **Live on the App Store: 2.1 (build 40)**, released 2026-07-21
+  (`READY_FOR_DISTRIBUTION` in the
   App Store Connect API).
   It carries builds 35–39 — workout sessions, sprint prescriptions, the Exercise Library
   redesign, and JSON backups. No phased release was configured, so it went to 100% at once.
-- **On TestFlight: 2.2 (build 45)** — `VALID` and `IN_BETA_TESTING`, uploaded 2026-07-22
+- **TestFlight candidate: 2.2 (build 46)** — prepared on `main` for upload. The latest
+  processed build remains **2.2 (build 45)** — `VALID` and `IN_BETA_TESTING`, uploaded 2026-07-22
   at 19:21 PDT (build id `685b7870-70ac-4b5c-b686-e0bd607c9c26`) to the all-build internal
-  group `test group A`. **Not yet submitted to App Review.** Build 45 replaces the Daily
-  Highlights accent treatment with Marble's restrained monochrome card, while retaining the
+  group `test group A`. **Not yet submitted to App Review.** Build 46 makes Daily Highlights
+  motivation visually secondary with a compact italic footer, while retaining the
+  monochrome achievement hierarchy, rotation, accessibility behavior, the
   single-Live-Activity timer invariant, Log Again personal-best context, and build-44
   performance improvements. 2.2 is the "ambient" release,
   which closes the gap between how much Marble knows

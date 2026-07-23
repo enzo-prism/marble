@@ -47,8 +47,9 @@
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
-## Latest release verification (2026-07-22, 2.2 build 45)
-- `MarbleTests`: **460 passed, 0 failed** locally and in GitHub CI run `29974031009`.
+## Latest release verification (2026-07-22, 2.2 build 46 candidate)
+- `MarbleTests`: **460 passed, 0 failed** locally for build 46. Build 45 also passed in
+  GitHub CI run `29974031009`.
   2.2 added ten suites:
   `SharedDefaultsTests`, `WeeklyGoalWidgetStateTests`, `OnboardingGateTests`,
   `PreferredWeightUnitTests`, extended `RestActivityControllerTests`,
@@ -86,9 +87,20 @@
   ```
   Never `xcrun simctl shutdown all` and never `pkill CoreSimulatorService` — both destroy
   the other session's simulators (the latter wiped the whole device registry once).
-- Signed **build 45** Release archive/export: passed for `Prism.marble` and
-  `Prism.marble.MarbleWidgets`; App Store Connect processing is `VALID` and
-  `IN_BETA_TESTING`.
+- Signed **build 46** Release archive/export and App Store Connect processing are pending.
+  Build 45 remains `VALID` and `IN_BETA_TESTING`.
+
+### Daily Highlights subtle quote verification (2026-07-22, 2.2 build 46 candidate)
+
+- Removed the dedicated divider, quote icon, “Evening Note” label, serif emphasis, and
+  pagination pills; the rotating quote is now secondary italic footer copy with a compact
+  author and position line.
+- The focused Daily Highlights snapshot comparison passed after intentionally refreshing the
+  four changed default-size baselines; the Accessibility XXXL images remained byte-identical.
+- The quote interaction/window test and focused light/dark accessibility audits passed.
+- Full `MarbleTests`: **460 passed, 0 failed**.
+- Rotation, manual advancement, the 44-point target, Dynamic Type, VoiceOver, and Reduce
+  Motion behavior remain intact.
 
 ### Daily Highlights monochrome redesign verification (2026-07-22, 2.2 build 45)
 
@@ -189,7 +201,9 @@ Preferred Makefile targets:
 ### 2.2 payload (what's new on this build)
 - **Daily Highlights** — after logging today, open Trends during the default 8:00 PM–11:59 PM
   window. Confirm the card shows only truthful progress from that day, uses the clean
-  monochrome hierarchy, cycles among three quotes, and has no Share button. Confirm Settings →
+  monochrome hierarchy, and cycles among three quotes. Confirm the quote stays visually
+  secondary with no heading, icon, divider, or pagination pills, and that there is no Share
+  button. Confirm Settings →
   Training → Daily Highlights changes the window, then check a custom window that crosses
   midnight.
 - **Log Again best cue** — confirm weighted exercises show the heaviest prior weight, runs

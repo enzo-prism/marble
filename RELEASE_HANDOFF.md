@@ -61,9 +61,9 @@ onboarding flag) never needed cross-process sharing: the widget reads only the s
 the weekly target is baked into that snapshot by `WeeklyGoalWidgetPublisher`. Do not restore
 the App Group without a new requirement the keychain snapshot genuinely cannot satisfy.
 
-> ✅ **Verified end to end 2026-07-22: 2.2 (build 45) is on TestFlight, `VALID` and
-> `IN_BETA_TESTING`** (buildId `685b7870-70ac-4b5c-b686-e0bd607c9c26`, uploaded 19:21).
-> `make asc-archive` → **ARCHIVE SUCCEEDED** with the pinned profiles untouched.
+> 🚧 **Build 46 candidate prepared 2026-07-22.** Build 45 remains on TestFlight, `VALID`
+> and `IN_BETA_TESTING` (buildId `685b7870-70ac-4b5c-b686-e0bd607c9c26`, uploaded 19:21).
+> Build 46 carries the quieter Daily Highlights quote footer and is pending archive/upload.
 
 ### The release sequence used for builds 41–45
 
@@ -108,13 +108,19 @@ test touches the real keychain.
   see **Known gaps / next up** in `ROADMAP.md` before writing release notes for it.
 - **2.0 (build 34)** — superseded by 2.1. Its review is closed; nothing about it is live
   state any more.
-- **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 45`.**
-  The next upload must use `make asc-next-build` (currently expect **46**).
+- **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 46`.**
+  App Store Connect currently reports **46** as the next safe upload number.
 
 ---
 
 ## Build history (what each build carried)
 
+- **Build 46 candidate:** Daily Highlights motivation is now a quiet footer. The dedicated
+  divider, quote icon, “Evening Note” label, serif emphasis, and pagination pills were removed
+  in favor of secondary italic copy with a compact author and position line. Rotation, manual
+  advancement, the 44-point target, Dynamic Type, VoiceOver, and Reduce Motion behavior remain
+  intact. The 460-test unit suite, focused snapshot comparison, quote interaction flow, and
+  focused light/dark accessibility audits pass locally; archive/upload verification is pending.
 - **Build 45:** Daily Highlights now follows Marble's monochrome content system: solid card
   surfaces, gray borders and dividers, compact date treatment, grayscale achievement icons,
   and a stronger result-first hierarchy with no gold or decorative gradients. Quote rotation,
@@ -222,8 +228,10 @@ test touches the real keychain.
   34 and its `whatsNew` described exactly that build's Trends coaching layer, so builds 35–39
   could not ship under the 2.0 string. They shipped as **2.1**, which released 2026-07-21.
   The question is closed; the current train is 2.2.
-- **Build/test health (2026-07-22):** Xcode 26.6 / iOS 26.5 simulator. Build 45's full
-  **460-test** unit suite passed locally and in GitHub CI; its Release archive/export passed.
+- **Build/test health (2026-07-22):** Xcode 26.6 / iOS 26.5 simulator. Build 46's full
+  **460-test** unit suite, focused Daily Highlights snapshot, quote interaction flow, and
+  focused light/dark accessibility audits passed locally. Build 45's Release archive/export
+  and GitHub CI passed.
   The build-42 focused
   logic, performance, snapshot, UI, and light/dark accessibility gates **passed**. The prior
   full-suite baseline remains: `make unit` **passed**
@@ -375,8 +383,8 @@ profile for `Prism.marble.MarbleWidgets`.
 - `.asc/ExportOptions.plist` maps both `Prism.marble` and `Prism.marble.MarbleWidgets`.
 - Release signing is pinned per target in `marble.xcodeproj/project.pbxproj`.
 
-For the next upload, re-run `make asc-next-build`; with build 45 the latest processed upload
-it should report **46**. Never guess a build number locally.
+For the pending upload, `make asc-next-build` reports **46** while build 45 remains the latest
+processed upload. Never guess a build number locally.
 
 Historical planned command, kept for context:
 
@@ -401,8 +409,9 @@ Notes:
 
 ## Open release decisions
 
-**The only live decision: when to submit 2.2 to App Review.** Build 45 is on TestFlight,
-`VALID`, and `IN_BETA_TESTING`; nothing is submitted. Before submitting, resolve these:
+**The only live decision after build 46 reaches TestFlight: when to submit 2.2 to App
+Review.** Build 45 is currently `VALID` and `IN_BETA_TESTING`; nothing is submitted.
+Before submitting, resolve these:
 
 - **Do the device pass first.** Most of 2.2 — widgets, Live Activity buttons, the Control
   Center control, Siri, Spotlight, and the keychain snapshot itself — is untestable on the
@@ -475,7 +484,7 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 45
+make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 46
 make asc-status
 make asc-builds
 make asc-next-build   # expect 46

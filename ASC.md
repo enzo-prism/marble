@@ -30,16 +30,17 @@ project-local notes.
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
 - Live App Store version: `2.1` (build 40), released 2026-07-21
-- Working project version: `2.2` (build 44); version review and validation should use `2.2`
+- Working project version: `2.2` (build 46); version review and validation should use `2.2`
 
 ## Release Safety
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches. It is the dated source of truth; this file is the command reference.
 - **State as of 2026-07-22:** `2.1` (build 40) is live on the App Store
-  (`READY_FOR_DISTRIBUTION`). `2.2` (build 44, buildId
-  `9874c20b-d418-469b-9539-2bbe5c41118d`) is on TestFlight, `VALID`,
-  `IN_BETA_TESTING`, and **not submitted to App Review**. There is no in-flight review.
+  (`READY_FOR_DISTRIBUTION`). `2.2` (build 45, buildId
+  `685b7870-70ac-4b5c-b686-e0bd607c9c26`) is on TestFlight, `VALID`,
+  `IN_BETA_TESTING`, and **not submitted to App Review**. Build 46 is the prepared candidate.
+  There is no in-flight review.
   `origin/release/1.9` may still point at the older `1.9 (build 20)` baseline unless
   explicitly updated.
 - Always run `make asc-version` before acting — the CLI can report a blank generated
@@ -203,8 +204,8 @@ current CLI. `asc review status` and `asc review doctor` are better for review
 state and blocker diagnosis.
 
 For the next TestFlight build on the 2.2 train, use `make asc-next-build`; it reads
-`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. Build 44
-is already uploaded, so expect **45** — but always use the freshly reported number rather
+`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. Build 45
+is already uploaded, so the prepared project uses **46** — but always use the freshly reported number rather
 than a local guess.
 
 ### Create A Deterministic Archive
@@ -290,8 +291,9 @@ make asc-publish-testflight \
 
 Current phone-test state as of 2026-07-22:
 
-- Build `2.2 (44)` is `VALID` and `IN_BETA_TESTING` in TestFlight:
-  `9874c20b-d418-469b-9539-2bbe5c41118d`.
+- Build `2.2 (45)` is `VALID` and `IN_BETA_TESTING` in TestFlight:
+  `685b7870-70ac-4b5c-b686-e0bd607c9c26`.
+- Build `2.2 (46)` is the prepared candidate; `make asc-next-build` currently reports `46`.
 - Internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has
   `hasAccessToAllBuilds = true`, so no explicit per-group add is required.
 - External beta remains unsubmitted.
@@ -300,7 +302,7 @@ Useful verification commands:
 
 ```bash
 asc builds build-beta-detail view \
-  --build-id "9874c20b-d418-469b-9539-2bbe5c41118d" \
+  --build-id "685b7870-70ac-4b5c-b686-e0bd607c9c26" \
   --output json --pretty
 
 asc testflight groups view \
@@ -330,7 +332,7 @@ requires `ASC_APPSTORE_PUBLISH_VERSION` so it cannot silently publish the local 
 version.
 
 As of 2026-07-22 there is **no in-flight review**. `2.1` (build 40) is released; `2.2`
-(build 44) is on TestFlight and has not been submitted. Submitting 2.2 needs explicit
+(build 45) is on TestFlight and has not been submitted. Submitting 2.2 needs explicit
 approval — see "Open release decisions" in `RELEASE_HANDOFF.md`.
 
 Dry-run first when possible:
