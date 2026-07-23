@@ -44,12 +44,13 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   App Store Connect API).
   It carries builds 35–39 — workout sessions, sprint prescriptions, the Exercise Library
   redesign, and JSON backups. No phased release was configured, so it went to 100% at once.
-- **On TestFlight: 2.2 (build 43)** — `VALID` and `IN_BETA_TESTING`, uploaded 2026-07-22
-  (build id `e77804de-5c5b-4e89-b44c-6d5adca1a19f`) to the all-build internal group
-  `test group A`. **Not yet submitted to App Review.** Build 43 gives Daily Highlights its
-  premium color treatment and three rotating sourced quotes while removing its Share button;
-  it also includes the single-Live-Activity timer invariant and personal-best context on Log
-  Again. 2.2 is the "ambient" release, which closes the gap between how much Marble knows
+- **On TestFlight: 2.2 (build 44)** — `VALID` and `IN_BETA_TESTING`, uploaded 2026-07-22
+  (build id `9874c20b-d418-469b-9539-2bbe5c41118d`) to the all-build internal group
+  `test group A`. **Not yet submitted to App Review.** Build 44 keeps the build-43 Daily
+  Highlights design, single-Live-Activity timer invariant, and Log Again personal-best
+  context while reducing repeated Trends derivation, Exercise Picker work, launch maintenance,
+  workout-session fetches, and whole-screen timer invalidation. 2.2 is the "ambient" release,
+  which closes the gap between how much Marble knows
   and how little of it is reachable from outside the app:
   - **Weekly Goal widget** — Home Screen (small/medium) and Lock Screen (circular/rectangular/
     inline), fed by a snapshot the app publishes into a shared keychain access group

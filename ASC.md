@@ -30,17 +30,18 @@ project-local notes.
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
 - Live App Store version: `2.1` (build 40), released 2026-07-21
-- Working project version: `2.2` (build 41) — the version review/validation checks should use
+- Working project version: `2.2` (build 44); version review and validation should use `2.2`
 
 ## Release Safety
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches. It is the dated source of truth; this file is the command reference.
-- **State as of 2026-07-21:** `2.1` (build 40) is live on the App Store
-  (`READY_FOR_DISTRIBUTION`). `2.2` (build 41, buildId
-  `e7b6d9cb-6ea7-401b-9bab-b42b6be26cac`) is on TestFlight, `VALID`, and **not submitted to
-  App Review**. There is no in-flight review. `origin/release/1.9` may still point at the
-  older `1.9 (build 20)` baseline unless explicitly updated.
+- **State as of 2026-07-22:** `2.1` (build 40) is live on the App Store
+  (`READY_FOR_DISTRIBUTION`). `2.2` (build 44, buildId
+  `9874c20b-d418-469b-9539-2bbe5c41118d`) is on TestFlight, `VALID`,
+  `IN_BETA_TESTING`, and **not submitted to App Review**. There is no in-flight review.
+  `origin/release/1.9` may still point at the older `1.9 (build 20)` baseline unless
+  explicitly updated.
 - Always run `make asc-version` before acting — the CLI can report a blank generated
   marketing version, so the Makefile prints a reliable fallback.
 - Do not cancel an in-flight review, upload a replacement build, or submit to
@@ -202,8 +203,8 @@ current CLI. `asc review status` and `asc review doctor` are better for review
 state and blocker diagnosis.
 
 For the next TestFlight build on the 2.2 train, use `make asc-next-build`; it reads
-`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. Build 41
-is already uploaded, so expect **42** — but always use the freshly reported number rather
+`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. Build 44
+is already uploaded, so expect **45** — but always use the freshly reported number rather
 than a local guess.
 
 ### Create A Deterministic Archive
@@ -261,7 +262,7 @@ asc xcode export \
   --output json --pretty
 ```
 
-### The Sequence That Produced Build 41
+### The Sequence Used Through Build 44
 
 This is the path that actually works on this project — prefer it over
 `make asc-publish-testflight`, whose betaGroups step flaps:
@@ -287,10 +288,10 @@ make asc-publish-testflight \
   ASC_TESTFLIGHT_GROUP="test group A"
 ```
 
-Current phone-test state as of 2026-07-21:
+Current phone-test state as of 2026-07-22:
 
-- Build `2.2 (41)` is `VALID` in TestFlight:
-  `e7b6d9cb-6ea7-401b-9bab-b42b6be26cac`.
+- Build `2.2 (44)` is `VALID` and `IN_BETA_TESTING` in TestFlight:
+  `9874c20b-d418-469b-9539-2bbe5c41118d`.
 - Internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has
   `hasAccessToAllBuilds = true`, so no explicit per-group add is required.
 - External beta remains unsubmitted.
@@ -299,12 +300,11 @@ Useful verification commands:
 
 ```bash
 asc builds build-beta-detail view \
-  --build-id "e7b6d9cb-6ea7-401b-9bab-b42b6be26cac" \
+  --build-id "9874c20b-d418-469b-9539-2bbe5c41118d" \
   --output json --pretty
 
-asc testflight groups list \
-  --app "6757725234" \
-  --internal \
+asc testflight groups view \
+  --id "514a95e2-28fc-436b-b624-9aaec2963adc" \
   --output json --pretty
 
 asc testflight groups links view \
@@ -329,8 +329,8 @@ target without explicit approval and a clean release branch. The target intentio
 requires `ASC_APPSTORE_PUBLISH_VERSION` so it cannot silently publish the local marketing
 version.
 
-As of 2026-07-21 there is **no in-flight review**. `2.1` (build 40) is released; `2.2`
-(build 41) is on TestFlight and has not been submitted. Submitting 2.2 needs explicit
+As of 2026-07-22 there is **no in-flight review**. `2.1` (build 40) is released; `2.2`
+(build 44) is on TestFlight and has not been submitted. Submitting 2.2 needs explicit
 approval — see "Open release decisions" in `RELEASE_HANDOFF.md`.
 
 Dry-run first when possible:

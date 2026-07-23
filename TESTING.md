@@ -47,8 +47,9 @@
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
-## Latest local verification (2026-07-21, 2.2 build 41)
-- `MarbleTests`: **passed, 0 failed** (`make unit`). 2.2 added ten suites:
+## Latest release verification (2026-07-22, 2.2 build 44)
+- `MarbleTests`: **460 passed, 0 failed** locally and in GitHub CI run `29972031799`.
+  2.2 added ten suites:
   `SharedDefaultsTests`, `WeeklyGoalWidgetStateTests`, `OnboardingGateTests`,
   `PreferredWeightUnitTests`, extended `RestActivityControllerTests`,
   `AppIntentEntityTests`, `LogSetIntentTests`, `BodyMetricEntryTests`,
@@ -85,8 +86,9 @@
   ```
   Never `xcrun simctl shutdown all` and never `pkill CoreSimulatorService` — both destroy
   the other session's simulators (the latter wiped the whole device registry once).
-- Signed **build 41** Release archive/export: passed for `Prism.marble` and
-  `Prism.marble.MarbleWidgets`; App Store Connect processing is `VALID`.
+- Signed **build 44** Release archive/export: passed for `Prism.marble` and
+  `Prism.marble.MarbleWidgets`; App Store Connect processing is `VALID` and
+  `IN_BETA_TESTING`.
 - **Counting caveat (resolved 2026-07-21):** count *unique* case names, not
   `Test Case ... passed/failed` lines. XCTest re-runs a case after a simulator crash, so the
   raw line count both double-counts and under-reports; an earlier run looked like "39 of 44"
@@ -160,9 +162,9 @@ Preferred Makefile targets:
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **2.2 (42)**, build ID
-  `a9acfd24-fae2-4602-b75c-e0c47c036722`; `VALID` and `IN_BETA_TESTING`, uploaded
-  2026-07-22.
+- Current phone-test build: **2.2 (44)**, build ID
+  `9874c20b-d418-469b-9539-2bbe5c41118d`; `VALID` and `IN_BETA_TESTING`, uploaded
+  2026-07-22 at 18:40 PDT.
 - Internal group `test group A` receives all builds; external beta remains unsubmitted.
 - **Most of 2.2 is device-only.** Widgets, Live Activity buttons, Control Center controls,
   Siri, and Spotlight cannot be verified on the simulator — the keychain access group is not
