@@ -71,10 +71,12 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md). The widget snapshot moved to a keychain access
   group (`L49MKXGVM4.Prism.marble.shared`) that the existing App Store profiles already grant,
   so **no portal capability and no profile regeneration are needed**.
-- **Known gaps:** several 2.2 surfaces are defined but not fully wired (TipKit tips never
-  present, Siri-logged sets don't refresh the widget, bodyweight entries can't be edited or
-  deleted). See **Known gaps / next up** in [`ROADMAP.md`](ROADMAP.md) before promising any
-  of them works.
+- **Known gaps:** most of the "wired up but inert" 2.2 defects were closed on
+  `feature/apple-best-practices` (2026-07-22): TipKit tips now present, Siri-logged sets
+  refresh the widget/reminder/Spotlight, backup covers every entity, deleted exercises leave
+  Spotlight immediately. Still open: bodyweight entries can't be edited or deleted, and the
+  DOTS coefficient picker only lives in the Log Weight sheet. See **Known gaps / next up** in
+  [`ROADMAP.md`](ROADMAP.md) before promising anything works.
 - **[`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) is the authoritative, dated source of truth
   for release state** — read it before any release/signing work.
 

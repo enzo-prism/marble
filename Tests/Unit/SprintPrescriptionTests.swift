@@ -349,4 +349,122 @@ final class SprintPrescriptionTests: MarbleTestCase {
         XCTAssertEqual(restored.targetUpperSeconds, 21)
         XCTAssertEqual(SprintGoalEvaluation.evaluate(snapshot: restored, entry: entry).status, .missed)
     }
+
+    /// The orphan sweep now compares key columns via `propertiesToFetch`
+    /// instead of materializing both tables; this pins the mixed case — it
+    /// must delete *only* the orphan, never a still-linked prescription.
+    func testOrphanCleanupPreservesLinkedPrescriptionsInMixedTable() throws {
+        let context = makeInMemoryContext()
+        let kept = Exercise(name: "Sprint", category: .run, metrics: .distanceAndDurationRequired, defaultRestSeconds: 180)
+        let deleted = Exercise(name: "Hill Sprint", category: .run, metrics: .distanceAndDurationRequired, defaultRestSeconds: 180)
+        let keptPrescription = SprintPrescription(
+            exerciseID: kept.id,
+            distance: 60,
+            repetitionCount: 4,
+            targetLowerSeconds: 8,
+            targetUpperSeconds: 8
+        )
+        let orphanedPrescription = SprintPrescription(
+            exerciseID: deleted.id,
+            distance: 100,
+            repetitionCount: 3,
+            targetLowerSeconds: 14,
+            targetUpperSeconds: 16
+        )
+        context.insert(kept)
+        context.insert(deleted)
+        context.insert(keptPrescription)
+        context.insert(orphanedPrescription)
+        try context.save()
+        context.delete(deleted)
+        try context.save()
+
+        SprintPrescription.removeOrphans(in: context)
+        try context.save()
+
+        let remaining = try context.fetch(FetchDescriptor<SprintPrescription>())
+        XCTAssertEqual(remaining.map(\.exerciseID), [kept.id])
+    }
+
+    /// The backfill's eligibility guards moved into a store predicate (entries
+    /// need a distance, a duration, and a prescribed exercise), so pin each
+    /// skip reason the loop used to enforce in memory: missing duration, an
+    /// unprescribed exercise, and an invalid prescription.
+    func testLegacySprintGoalBackfillSkipsIneligibleEntries() throws {
+        let context = makeInMemoryContext()
+        let sprint = Exercise(
+            name: "150m Sprint",
+            category: .run,
+            preferredDistanceUnit: .meters,
+            metrics: .distanceAndDurationRequired,
+            defaultRestSeconds: 180
+        )
+        let unprescribed = Exercise(
+            name: "Tempo Run",
+            category: .run,
+            preferredDistanceUnit: .kilometers,
+            metrics: .distanceAndDurationRequired,
+            defaultRestSeconds: 0
+        )
+        let badlyPrescribed = Exercise(
+            name: "Broken Sprint",
+            category: .run,
+            preferredDistanceUnit: .meters,
+            metrics: .distanceAndDurationRequired,
+            defaultRestSeconds: 180
+        )
+        let prescription = SprintPrescription(
+            exerciseID: sprint.id,
+            distance: 150,
+            repetitionCount: 4,
+            targetLowerSeconds: 19,
+            targetUpperSeconds: 21
+        )
+        // Invalid on purpose (zero target): entries for this exercise are
+        // predicate candidates but must still be rejected by `isValid`.
+        let invalidPrescription = SprintPrescription(
+            exerciseID: badlyPrescribed.id,
+            distance: 150,
+            repetitionCount: 4,
+            targetLowerSeconds: 0,
+            targetUpperSeconds: 0
+        )
+        let eligible = SetEntry(
+            exercise: sprint,
+            performedAt: now,
+            distance: 150,
+            durationSeconds: 20,
+            restAfterSeconds: 180
+        )
+        let missingDuration = SetEntry(
+            exercise: sprint,
+            performedAt: now.addingTimeInterval(-60),
+            distance: 150,
+            restAfterSeconds: 180
+        )
+        let noPrescription = SetEntry(
+            exercise: unprescribed,
+            performedAt: now.addingTimeInterval(-120),
+            distance: 3,
+            durationSeconds: 900,
+            restAfterSeconds: 0
+        )
+        let invalidGoal = SetEntry(
+            exercise: badlyPrescribed,
+            performedAt: now.addingTimeInterval(-180),
+            distance: 150,
+            durationSeconds: 22,
+            restAfterSeconds: 180
+        )
+        [sprint, unprescribed, badlyPrescribed].forEach(context.insert)
+        [prescription, invalidPrescription].forEach(context.insert)
+        [eligible, missingDuration, noPrescription, invalidGoal].forEach(context.insert)
+        try context.save()
+
+        XCTAssertEqual(SprintGoalSnapshot.backfillLegacyEntries(in: context), 1)
+        try context.save()
+
+        let snapshots = try context.fetch(FetchDescriptor<SprintGoalSnapshot>())
+        XCTAssertEqual(snapshots.map(\.setEntryID), [eligible.id])
+    }
 }

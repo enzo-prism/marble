@@ -103,10 +103,18 @@ struct ContentView: View {
             quickLog.open()
         }
         .onOpenURL { url in
-            // Widget deep links (`marble://trends`). Widget URLs are delivered
-            // straight to the owning app, so the scheme needs no Info.plist
-            // registration — but we still check it before acting on a host.
-            guard url.scheme == "marble", let tab = Self.tab(for: url.host) else { return }
+            // Widget deep links (`marble://trends`, `marble://quicklog`).
+            // Widget URLs are delivered straight to the owning app, so the
+            // scheme needs no Info.plist registration — but we still check it
+            // before acting on a host.
+            guard url.scheme == "marble" else { return }
+            // The medium widget's quick-log affordance lands on the same
+            // coordinator the `.marbleOpenQuickLog` notification above does.
+            if url.host == "quicklog" {
+                quickLog.open()
+                return
+            }
+            guard let tab = Self.tab(for: url.host) else { return }
             tabSelection.selected = tab
         }
         .sheet(isPresented: $quickLog.isPresentingAddSet, onDismiss: {

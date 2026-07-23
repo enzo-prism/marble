@@ -37,7 +37,7 @@ struct ConsistencyGoalCardView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Weekly Goal")
                     .font(MarbleTypography.sectionTitle)
-                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                     .accessibilityIdentifier("Trends.Section.WeeklyGoal")
 
                 Spacer(minLength: MarbleSpacing.s)
@@ -184,7 +184,7 @@ struct StrengthDashboardView: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             Text("Your Lifts")
                 .font(MarbleTypography.sectionTitle)
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("Trends.Section.YourLifts")
 
             VStack(spacing: MarbleSpacing.xs) {
@@ -359,7 +359,7 @@ struct PRFeedSectionView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Records")
                     .font(MarbleTypography.sectionTitle)
-                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                     .accessibilityIdentifier("Trends.Section.Records")
 
                 Spacer(minLength: MarbleSpacing.s)
@@ -446,7 +446,7 @@ struct RepRecordsSectionView: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             Text("Rep Records")
                 .font(MarbleTypography.sectionTitle)
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("Trends.Section.RepRecords")
 
             LazyVGrid(columns: columns, spacing: MarbleSpacing.xs) {
@@ -498,7 +498,7 @@ struct MonthlyReportCardView: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text(reportTitle)
                         .font(MarbleTypography.sectionTitle)
-                        .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
                     Spacer(minLength: MarbleSpacing.s)
 

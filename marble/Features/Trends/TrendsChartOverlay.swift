@@ -8,6 +8,10 @@ struct TrendsChartOverlay: View {
     let accessibilityIdentifier: String
     let accessibilityLabel: String
     let accessibilityValue: String
+    /// Optional Audio Graph descriptor. The overlay button is the chart's one
+    /// accessible element (the marks underneath are hidden), so the descriptor
+    /// must ride on it for VoiceOver's chart-details rotor to find it.
+    var audioGraph: TrendsDateSeriesAudioGraph?
     @Binding var isScrubbing: Bool
     let onSelect: (Date) -> Void
 
@@ -34,6 +38,7 @@ struct TrendsChartOverlay: View {
             .accessibilityAction {
                 selectDefaultDate()
             }
+            .trendsAudioGraph(audioGraph)
             .simultaneousGesture(
                 SpatialTapGesture()
                     .onEnded { value in

@@ -44,7 +44,7 @@ nonisolated enum WeightUnitAppEnum: String, AppEnum, CaseIterable {
 /// bench press in Marble" — the missing reps/weight/unit come from the most recent
 /// set of the *same* exercise, which is the same idea as `LogLastSetAgainIntent`
 /// but scoped to one movement instead of "whatever you did last".
-struct LogSetIntent: AppIntent {
+struct LogSetIntent: AppIntent, PredictableIntent {
     static let title: LocalizedStringResource = "Log a Set of an Exercise"
     static let description = IntentDescription(
         "Logs a set of a specific exercise. Reps, weight and unit are copied from your last set of that exercise when you leave them out."
@@ -69,6 +69,25 @@ struct LogSetIntent: AppIntent {
             \.$reps
             \.$weight
             \.$unit
+        }
+    }
+
+    /// `PredictableIntent`: every successful `perform()` teaches the system
+    /// *when* this lifter logs *which* exercise, so Siri Suggestions and the
+    /// Smart Stack can surface "Log a set of Bench Press" around actual
+    /// training times — the personalised signal the widget's
+    /// `TimelineEntryRelevance` heuristic cannot supply on its own.
+    ///
+    /// Only the exercise parameterises the prediction. Reps/weight/unit stay
+    /// free on purpose: a predicted invocation then resolves through the same
+    /// inherit-from-history path as a spoken request, instead of freezing one
+    /// day's numbers into a suggestion.
+    static var predictionConfiguration: some IntentPredictionConfiguration {
+        IntentPrediction(parameters: \.$exercise) { exercise in
+            DisplayRepresentation(
+                title: "Log a set of \(exercise.name)",
+                subtitle: "Reps and weight copied from your last set"
+            )
         }
     }
 

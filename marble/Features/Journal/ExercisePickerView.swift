@@ -4,13 +4,19 @@ import SwiftUI
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.modelContext) private var modelContext
 
     @Binding var selectedExercise: Exercise?
 
     @Query(sort: \Exercise.name)
     private var exercises: [Exercise]
 
-    @Query(sort: \SetEntry.performedAt, order: .reverse)
+    // Bounded window (newest ~200 rows) instead of the previous unbounded
+    // all-history query: recents only need the first few distinct exercises,
+    // and the rare saturated window pages deeper inside the memo (see
+    // `pickerData`). Inserts and edits made while the sheet is up still land
+    // — new logs refresh both this window and the one-row updatedAt probe.
+    @Query(SetEntryQueries.recentEntriesForPicker)
     private var recentEntries: [SetEntry]
 
     @Query(sort: \SprintPrescription.createdAt)
@@ -128,9 +134,17 @@ struct ExercisePickerView: View {
             }
         )
         return derivedMemo.value(for: signature) {
-            ExercisePickerDerivedData.build(
+            // Escalates past the bounded window only when it is saturated by
+            // fewer distinct exercises than the Recent row shows — and only
+            // here, on a memo miss, never per keystroke or render.
+            let entriesForRecents = SetEntryQueries.entriesForPickerRecents(
+                window: recentEntries,
+                minimumDistinct: ExercisePickerDerivedData.recentLimit,
+                in: modelContext
+            )
+            return ExercisePickerDerivedData.build(
                 exercises: exercises,
-                recentEntries: recentEntries,
+                recentEntries: entriesForRecents,
                 sprintPrescriptions: sprintPrescriptions
             )
         }
@@ -244,6 +258,12 @@ struct ExercisePickerView: View {
 }
 
 struct ExercisePickerDerivedData {
+    /// How many distinct exercises the Recent row shows. Also the coverage
+    /// target the scoped recents fetch must satisfy (see
+    /// `SetEntryQueries.entriesForPickerRecents`). `nonisolated` so it can
+    /// appear in `build`'s default argument regardless of caller isolation.
+    nonisolated static let recentLimit = 5
+
     let recents: [Exercise]
     let favoriteRemainder: [Exercise]
     let allRemainder: [Exercise]
@@ -253,7 +273,7 @@ struct ExercisePickerDerivedData {
         exercises: [Exercise],
         recentEntries: [SetEntry],
         sprintPrescriptions: [SprintPrescription],
-        recentLimit: Int = 5
+        recentLimit: Int = ExercisePickerDerivedData.recentLimit
     ) -> ExercisePickerDerivedData {
         var seen = Set<UUID>()
         var recents: [Exercise] = []
@@ -289,6 +309,13 @@ private struct ExercisePickerSignature: Equatable {
         let exerciseID: UUID
     }
 
+    /// Count of the *bounded* recents window (≤ `pickerRecentScanLimit`), not
+    /// the whole table. Together with `latestEntryUpdate` this catches every
+    /// change a user can make while the picker sheet is up (logging stamps a
+    /// fresh `updatedAt`); a deletion of a row beyond the window can stay
+    /// stale until the next signature change — the same accepted staleness as
+    /// the Trends history fetch (see `TrendsView.fetchHistoryEntries`), and
+    /// no journal-delete UI is reachable while this sheet is presented.
     let entryCount: Int
     let latestEntryUpdate: Date
     let exerciseOrder: [UUID]

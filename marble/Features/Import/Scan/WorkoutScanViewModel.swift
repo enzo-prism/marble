@@ -82,7 +82,7 @@ final class WorkoutScanViewModel {
     private func fail(with message: String) {
         errorMessage = message
         phase = .capture
-        MarbleHaptics.warning()
+        MarbleHaptics.error()
     }
 
     // MARK: - Review editing
@@ -140,7 +140,7 @@ final class WorkoutScanViewModel {
             phase = .imported
         } catch {
             errorMessage = "Couldn't save the scanned workout. Please try again."
-            MarbleHaptics.warning()
+            MarbleHaptics.error()
         }
     }
 

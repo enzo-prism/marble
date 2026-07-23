@@ -89,6 +89,47 @@ nonisolated struct WeeklyGoalWidgetState: Codable, Hashable, Sendable {
         return min(1, max(0, Double(thisWeekSessions) / Double(target)))
     }
 
+    // MARK: - Smart Stack relevance (pure — no WidgetKit)
+
+    /// Population-typical gym windows, in local-calendar hours. The snapshot
+    /// carries no per-user schedule, so these are deliberately broad; the
+    /// *personalised* half of Smart Stack timing comes from `LogSetIntent`'s
+    /// `PredictableIntent` donations, not from here.
+    static let morningTrainingHours = 6...9
+    static let eveningTrainingHours = 16...20
+
+    /// How strongly the Smart Stack should surface the widget at `date`,
+    /// 0...1. Foundation-only and pure so the app target's unit suite can pin
+    /// it — the widget extension (which the test target cannot see) merely
+    /// wraps the result in a `TimelineEntryRelevance`.
+    ///
+    /// The shape, per Apple's guidance that scores rank a widget against its
+    /// *own* other moments, not against other apps:
+    /// - nil or unrenderable snapshot → 0: never rotate in the neutral card.
+    /// - week already hit → 0.1: a banked week is a glance, not a nudge.
+    /// - one session remaining → 0.7, the strongest standing claim.
+    /// - progress made mid-week → 0.4; nothing logged yet → 0.25.
+    /// - +0.3 (capped at 1) inside a typical training window, so the peak
+    ///   scores land when acting on the widget is actually plausible.
+    static func relevanceScore(
+        for state: WeeklyGoalWidgetState?,
+        at date: Date,
+        calendar: Calendar = .current
+    ) -> Float {
+        guard let state,
+              state.isRenderable(now: date, calendar: calendar),
+              state.target > 0 else { return 0 }
+
+        let remaining = state.target - state.thisWeekSessions
+        guard remaining > 0 else { return 0.1 }
+
+        let base: Float = remaining == 1 ? 0.7 : (state.thisWeekSessions > 0 ? 0.4 : 0.25)
+        let hour = calendar.component(.hour, from: date)
+        let inWindow = Self.morningTrainingHours.contains(hour)
+            || Self.eveningTrainingHours.contains(hour)
+        return min(1, base + (inWindow ? 0.3 : 0))
+    }
+
     // MARK: - Wire format (pure — no keychain, no defaults)
 
     /// The bytes that go on the wire, or nil if this value somehow can't be

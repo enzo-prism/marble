@@ -216,7 +216,7 @@ struct TrendsContentView: View {
                             VStack(alignment: .leading, spacing: MarbleSpacing.s) {
                                 Text("Consistency")
                                     .font(MarbleTypography.sectionTitle)
-                                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                                 consistencyChart(derived: derived)
                             }
 
@@ -230,7 +230,7 @@ struct TrendsContentView: View {
                                 VStack(alignment: .leading, spacing: MarbleSpacing.s) {
                                     Text("Progress")
                                         .font(MarbleTypography.sectionTitle)
-                                        .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                                     if derived.progressPoints.isEmpty {
                                         Text("No progress yet")
                                             .font(MarbleTypography.rowMeta)
@@ -266,7 +266,7 @@ struct TrendsContentView: View {
                             VStack(alignment: .leading, spacing: MarbleSpacing.s) {
                                 Text("Weekly Volume")
                                     .font(MarbleTypography.sectionTitle)
-                                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                                 volumeChart(derived: derived)
                             }
 
@@ -315,7 +315,7 @@ struct TrendsContentView: View {
                                 // the all-time records in the feed above.
                                 Text("Range Bests")
                                     .font(MarbleTypography.sectionTitle)
-                                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                                     .accessibilityHidden(true)
                                 prCards(derived: derived)
                             }
@@ -710,6 +710,16 @@ struct TrendsContentView: View {
                             accessibilityIdentifier: "Trends.ConsistencyChart",
                             accessibilityLabel: "Consistency chart",
                             accessibilityValue: derived.consistencyAccessibilityValue,
+                            audioGraph: TrendsDateSeriesAudioGraph(
+                                title: "Consistency",
+                                summary: derived.consistencyAccessibilityValue,
+                                valueAxisName: "Sets",
+                                valueUnit: "sets",
+                                seriesName: "Sets",
+                                points: summaries.map {
+                                    .init(date: $0.date, value: Double($0.count), valueText: setsLabel(for: $0.count))
+                                }
+                            ),
                             isScrubbing: $isScrubbingChart
                         ) { date in
                             selectDay(date)
@@ -843,6 +853,24 @@ struct TrendsContentView: View {
                             accessibilityIdentifier: "Trends.VolumeChart",
                             accessibilityLabel: "Weekly volume chart",
                             accessibilityValue: derived.volumeAccessibilityValue,
+                            audioGraph: TrendsDateSeriesAudioGraph(
+                                title: "Weekly volume",
+                                summary: derived.volumeAccessibilityValue,
+                                valueAxisName: "Volume",
+                                valueUnit: nil,
+                                series: presentSeries.map { series in
+                                    .init(
+                                        name: series.label,
+                                        points: data.filter { $0.series == series }.map {
+                                            .init(
+                                                date: $0.weekStart,
+                                                value: $0.value,
+                                                valueText: Formatters.compactNumberText($0.value)
+                                            )
+                                        }
+                                    )
+                                }
+                            ),
                             isScrubbing: $isScrubbingChart
                         ) { date in
                             selectWeekStart(date)
@@ -888,7 +916,7 @@ struct TrendsContentView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Supplements")
                     .font(MarbleTypography.sectionTitle)
-                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                     .accessibilityHidden(true)
 
                 Spacer(minLength: MarbleSpacing.s)
@@ -1010,6 +1038,16 @@ struct TrendsContentView: View {
                             accessibilityIdentifier: "Trends.SupplementsChart",
                             accessibilityLabel: "Supplements chart",
                             accessibilityValue: derived.supplementAccessibilityValue,
+                            audioGraph: TrendsDateSeriesAudioGraph(
+                                title: "Supplements",
+                                summary: derived.supplementAccessibilityValue,
+                                valueAxisName: "Doses",
+                                valueUnit: nil,
+                                seriesName: "Doses",
+                                points: summaries.map {
+                                    .init(date: $0.date, value: $0.chartValue, valueText: $0.valueText)
+                                }
+                            ),
                             isScrubbing: $isScrubbingChart
                         ) { date in
                             selectSupplementDay(date, derived: derived)
@@ -1774,15 +1812,33 @@ private struct TimedDailyHighlightsSection: View {
         TimelineView(.periodic(from: .now, by: 60)) { _ in
             if enabled,
                let occurrence = window.occurrence(containing: AppEnvironment.now) {
-                let entryCount = (try? modelContext.fetchCount(FetchDescriptor<SetEntry>())) ?? 0
+                // Freshness probe. This used to be a full-table `fetchCount`
+                // on every minute tick and parent-driven render — the count
+                // existed only to catch deletions, which the one-row
+                // `updatedAt` probe cannot see. The latest history-transaction
+                // token catches inserts, edits, *and* deletes with a one-row
+                // indexed read, so re-derivation still happens exactly when
+                // the store changed. `latestEntryUpdate` stays in the
+                // signature both as the eager SwiftUI dependency (it arrives
+                // through a live parent @Query) and as the fallback signal for
+                // stores without history (see `HistoryTokenQueries`).
+                let historyToken = HistoryTokenQueries.latestTransactionIdentifier(in: modelContext)
                 let signature = TimedDailyHighlightsSignature(
                     celebrationDay: occurrence.celebrationDay,
-                    entryCount: entryCount,
+                    historyToken: historyToken,
                     latestEntryUpdate: latestEntryUpdate,
                     displayWeightUnit: displayWeightUnit
                 )
                 let summary = memo.value(for: signature) {
-                    let history = (try? modelContext.fetch(FetchDescriptor<SetEntry>())) ?? []
+                    // Scoped to what the builder actually consumes (the day's
+                    // rows plus the full prior history of just that day's
+                    // exercises) instead of the entire SetEntry table; see
+                    // `DailyHighlightQueries` for why the record baseline has
+                    // no date cutoff. Runs only on a signature miss.
+                    let history = DailyHighlightQueries.history(
+                        for: occurrence,
+                        in: modelContext
+                    )
                     return DailyHighlightsBuilder.build(
                         history: history,
                         occurrence: occurrence,
@@ -1805,7 +1861,10 @@ private struct TimedDailyHighlightsSection: View {
 
 private struct TimedDailyHighlightsSignature: Equatable {
     let celebrationDay: Date
-    let entryCount: Int
+    /// Latest persistent-history transaction identifier, or nil when the
+    /// store records no history. Advances on any save — including deletions,
+    /// which neither a latest-`updatedAt` probe nor a day-scoped count can see.
+    let historyToken: Int64?
     let latestEntryUpdate: Date
     let displayWeightUnit: WeightUnit
 }

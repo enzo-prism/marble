@@ -14,7 +14,7 @@ struct PRCardView: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
             Text(title)
                 .font(MarbleTypography.caption)
-                .foregroundColor(Theme.secondaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityHidden(true)
@@ -22,7 +22,7 @@ struct PRCardView: View {
             Text(value)
                 .font(MarbleTypography.rowTitle)
                 .monospacedDigit()
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .lineLimit(nil)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityHidden(true)

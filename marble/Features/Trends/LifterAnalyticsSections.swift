@@ -7,19 +7,6 @@ import Charts
 // the takeaway value lives in each section header, and VoiceOver gets a
 // chart-level summary plus the framework's per-mark elements.
 
-/// New accents for the new data. Distinct hues on purpose: the HIG asks that
-/// different data read as visibly different charts.
-extension TrendsPalette {
-    /// Estimated 1RM: steel blue, apart from the violet raw-progress line.
-    static let strength = TrendsChartAccent(
-        light: Color(red: 0.16, green: 0.48, blue: 0.85),
-        dark: Color(red: 0.45, green: 0.70, blue: 1.00)
-    )
-
-    /// Effort (average RPE): the warm red already used for duration volume.
-    static let effort = volumeDuration
-}
-
 // MARK: - Estimated 1RM
 
 struct OneRepMaxSectionView: View {
@@ -32,7 +19,7 @@ struct OneRepMaxSectionView: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Text("Estimated 1RM")
                 .font(MarbleTypography.sectionTitle)
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("Trends.Section.Strength")
 
             if let best = series.best {
@@ -125,6 +112,20 @@ struct OneRepMaxSectionView: View {
         .accessibilityLabel("Estimated one rep max chart")
         .accessibilityValue(accessibilityValue)
         .accessibilityIdentifier("Trends.StrengthChart")
+        .accessibilityChartDescriptor(TrendsDateSeriesAudioGraph(
+            title: "Estimated 1RM",
+            summary: accessibilityValue,
+            valueAxisName: "Estimated 1RM",
+            valueUnit: series.displayUnit.symbol,
+            seriesName: "Estimated 1RM",
+            points: series.points.map { point in
+                TrendsDateSeriesAudioGraph.Point(
+                    date: point.date,
+                    value: point.displayValue,
+                    valueText: "\(weightText(point.displayValue)) \(series.displayUnit.symbol), from \(point.bestSetSummary)"
+                )
+            }
+        ))
     }
 
     private func weightText(_ value: Double) -> String {
@@ -144,7 +145,7 @@ struct MuscleGroupSectionView: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Text("Muscle Groups")
                 .font(MarbleTypography.sectionTitle)
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("Trends.Section.MuscleGroups")
 
             chart
@@ -204,6 +205,20 @@ struct MuscleGroupSectionView: View {
         .accessibilityLabel("Weekly sets per muscle group chart")
         .accessibilityValue(accessibilityValue)
         .accessibilityIdentifier("Trends.MuscleGroupsChart")
+        .accessibilityChartDescriptor(TrendsCategoryAudioGraph(
+            title: "Weekly sets per muscle group",
+            summary: accessibilityValue,
+            categoryAxisName: "Muscle group",
+            valueAxisName: "Hard sets per week",
+            valueUnit: "sets per week",
+            bars: groups.map { group in
+                TrendsCategoryAudioGraph.Bar(
+                    category: group.category.displayName,
+                    value: group.setsPerWeek,
+                    valueText: accessibilityText(for: group)
+                )
+            }
+        ))
     }
 
     private func annotationText(for group: LifterCoaching.MuscleGroupCoverage) -> String {
@@ -233,7 +248,7 @@ struct RepRangeSectionView: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Text("Rep Ranges")
                 .font(MarbleTypography.sectionTitle)
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("Trends.Section.RepRanges")
 
             chart
@@ -275,7 +290,29 @@ struct RepRangeSectionView: View {
         }
         .chartLegend(.hidden)
         .accessibilityLabel("Rep range distribution chart")
+        .accessibilityValue(chartSummary)
         .accessibilityIdentifier("Trends.RepRangesChart")
+        .accessibilityChartDescriptor(TrendsCategoryAudioGraph(
+            title: "Rep ranges",
+            summary: chartSummary,
+            categoryAxisName: "Rep range",
+            valueAxisName: "Sets",
+            valueUnit: "sets",
+            bars: buckets.map { bucket in
+                TrendsCategoryAudioGraph.Bar(
+                    category: "\(bucket.kind.displayName), \(bucket.kind.subtitle)",
+                    value: Double(bucket.setCount),
+                    valueText: accessibilityText(for: bucket)
+                )
+            }
+        ))
+    }
+
+    /// One-sentence overview shared by the chart's accessibility value and its
+    /// Audio Graph summary.
+    private var chartSummary: String {
+        let total = buckets.reduce(0) { $0 + $1.setCount }
+        return "\(total) sets across \(buckets.count) rep ranges"
     }
 
     private func annotationText(for bucket: LifterAnalytics.RepRangeBucket) -> String {
@@ -300,7 +337,7 @@ struct EffortSectionView: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             Text("Effort")
                 .font(MarbleTypography.sectionTitle)
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("Trends.Section.Effort")
 
             chart
@@ -373,5 +410,20 @@ struct EffortSectionView: View {
         .accessibilityLabel("Effort chart")
         .accessibilityValue(accessibilityValue)
         .accessibilityIdentifier("Trends.EffortChart")
+        .accessibilityChartDescriptor(TrendsDateSeriesAudioGraph(
+            title: "Effort",
+            summary: accessibilityValue,
+            valueAxisName: "Average RPE",
+            valueUnit: nil,
+            seriesName: "Average RPE",
+            points: summaries.compactMap { summary in
+                guard let averageRPE = summary.averageRPE else { return nil }
+                return TrendsDateSeriesAudioGraph.Point(
+                    date: summary.date,
+                    value: averageRPE,
+                    valueText: String(format: "average RPE %.1f over %d sets", averageRPE, summary.count)
+                )
+            }
+        ))
     }
 }

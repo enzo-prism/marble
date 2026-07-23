@@ -19,6 +19,15 @@ nonisolated struct WeeklyGoalEntry: TimelineEntry {
     /// nil means "nothing trustworthy to show" — render the neutral card
     /// rather than inventing numbers.
     let state: WeeklyGoalWidgetState?
+
+    /// Smart Stack ranking for this entry, scored at the entry's own date so
+    /// the week-boundary entries (which re-validate `state` per date) also
+    /// re-score. The scoring itself is pure and lives with the snapshot
+    /// (`WeeklyGoalWidgetState.relevanceScore`) so the app target's unit
+    /// suite can pin it — this file never joins the test target.
+    var relevance: TimelineEntryRelevance? {
+        TimelineEntryRelevance(score: WeeklyGoalWidgetState.relevanceScore(for: state, at: date))
+    }
 }
 
 /// `nonisolated` on purpose: the target compiles with
@@ -151,6 +160,14 @@ private struct WeeklyGoalWidgetView: View {
     let entry: WeeklyGoalEntry
 
     var body: some View {
+        // Tap routing: the card itself opens Trends, and the medium family
+        // additionally carries a quick-log `Link` (its area wins over the
+        // `widgetURL`). A `Link` rather than an intent `Button` on purpose —
+        // the widget process never opens SwiftData, so the only honest action
+        // is "open the app to the logger", and Apple asks that widget buttons
+        // do more than open the app. `systemSmall` supports exactly one tap
+        // target (`widgetURL`), so it stays whole-card; accessory families
+        // stay link-only as before.
         switch family {
         case .accessoryCircular:
             accessoryCircular
@@ -200,38 +217,44 @@ private struct WeeklyGoalWidgetView: View {
         Group {
             if let state = entry.state {
                 HStack(alignment: .center, spacing: 16) {
-                    WeeklyGoalRing(state: state)
-                        .frame(width: 64, height: 64)
-                        .accessibilityIdentifier("weeklyGoalWidget.ring")
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Weekly goal")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityIdentifier("weeklyGoalWidget.title")
-                        Text(WeeklyGoalCopy.sessions(state))
-                            .font(.headline)
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityIdentifier("weeklyGoalWidget.sessions")
-                        Text("\(WeeklyGoalCopy.streak(state)) · \(WeeklyGoalCopy.flex(state))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityIdentifier("weeklyGoalWidget.streak")
-                        Text(WeeklyGoalCopy.stateLine(state))
-                            .font(.caption)
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityIdentifier("weeklyGoalWidget.stateLine")
+                    // Ring + copy stay one combined accessibility element; the
+                    // quick-log link sits outside the combine so VoiceOver
+                    // still exposes it as its own tappable control.
+                    HStack(alignment: .center, spacing: 16) {
+                        WeeklyGoalRing(state: state)
+                            .frame(width: 64, height: 64)
+                            .accessibilityIdentifier("weeklyGoalWidget.ring")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Weekly goal")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("weeklyGoalWidget.title")
+                            Text(WeeklyGoalCopy.sessions(state))
+                                .font(.headline)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("weeklyGoalWidget.sessions")
+                            Text("\(WeeklyGoalCopy.streak(state)) · \(WeeklyGoalCopy.flex(state))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("weeklyGoalWidget.streak")
+                            Text(WeeklyGoalCopy.stateLine(state))
+                                .font(.caption)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("weeklyGoalWidget.stateLine")
+                        }
                     }
-                    Spacer(minLength: 0)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(WeeklyGoalCopy.accessibility(state))
+                    Spacer(minLength: 8)
+                    WeeklyGoalQuickLogLink()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(WeeklyGoalCopy.accessibility(state))
             } else {
                 WeeklyGoalEmptyView()
             }
@@ -300,6 +323,30 @@ private struct WeeklyGoalWidgetView: View {
     }
 }
 
+/// The medium family's quick-log affordance: a `Link` whose area overrides the
+/// card's `widgetURL`, deep-linking straight to the quick-log sheet
+/// (`marble://quicklog` in `ContentView`, the same `QuickLogCoordinator` path
+/// `OpenQuickLogIntent` reaches by notification). Monochrome like everything
+/// else here — the capsule fill alone marks it as the tappable part.
+private struct WeeklyGoalQuickLogLink: View {
+    var body: some View {
+        if let url = URL(string: "marble://quicklog") {
+            Link(destination: url) {
+                Label("Log set", systemImage: "plus")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.quaternary, in: Capsule())
+            }
+            // Accent group: on a tinted/clear Home Screen the one actionable
+            // element picks up the accent while the copy stays primary.
+            .widgetAccentable()
+            .accessibilityLabel("Log a set")
+            .accessibilityIdentifier("weeklyGoalWidget.quickLogLink")
+        }
+    }
+}
+
 /// Monochrome progress ring. Deliberately plain shapes — no glass, no colour.
 private struct WeeklyGoalRing: View {
     let state: WeeklyGoalWidgetState
@@ -312,6 +359,11 @@ private struct WeeklyGoalRing: View {
                 .trim(from: 0, to: max(0.001, state.progressFraction))
                 .stroke(.primary, style: StrokeStyle(lineWidth: 7, lineCap: .round))
                 .rotationEffect(.degrees(-90))
+                // Accent group: in accented rendering the progress arc tints
+                // while the track and count stay in the primary group, so the
+                // ring keeps its hierarchy instead of flattening to one tone.
+                // No-op in default rendering — full-colour stays pixel-identical.
+                .widgetAccentable()
             Text("\(state.thisWeekSessions)")
                 .font(.title3.weight(.semibold).monospacedDigit())
                 .minimumScaleFactor(0.6)

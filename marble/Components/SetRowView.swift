@@ -68,7 +68,7 @@ struct SetRowView: View {
             VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
                 Text(entry.exercise.name)
                     .font(MarbleTypography.rowTitle)
-                    .foregroundColor(Theme.primaryTextColor(for: resolvedScheme))
+                    .foregroundStyle(Theme.primaryTextColor(for: resolvedScheme))
 
                 if !prBadge.isEmpty {
                     PRBadgeLabel(badge: prBadge)
@@ -83,7 +83,7 @@ struct SetRowView: View {
                 Text(summaryLine)
                     .font(MarbleTypography.rowSubtitle)
                     .monospacedDigit()
-                    .foregroundColor(Theme.secondaryTextColor(for: resolvedScheme))
+                    .foregroundStyle(Theme.secondaryTextColor(for: resolvedScheme))
 
                 if let sprintGoal {
                     SprintGoalStatusLine(
@@ -97,7 +97,7 @@ struct SetRowView: View {
                 Text(secondaryLine)
                     .font(MarbleTypography.rowMeta)
                     .monospacedDigit()
-                    .foregroundColor(Theme.secondaryTextColor(for: resolvedScheme))
+                    .foregroundStyle(Theme.secondaryTextColor(for: resolvedScheme))
             }
 
             Spacer(minLength: 8)
@@ -105,7 +105,7 @@ struct SetRowView: View {
             Text(Formatters.time.string(from: entry.performedAt))
                 .font(MarbleTypography.rowMeta)
                 .monospacedDigit()
-                .foregroundColor(Theme.secondaryTextColor(for: resolvedScheme))
+                .foregroundStyle(Theme.secondaryTextColor(for: resolvedScheme))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())

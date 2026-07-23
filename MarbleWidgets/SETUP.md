@@ -17,7 +17,24 @@ widget, and a Control Center control.
 
 ### Weekly Goal widget
 - Families: `.systemSmall`, `.systemMedium`, `.accessoryCircular`, `.accessoryRectangular`,
-  `.accessoryInline`; kind `"WeeklyGoalWidget"`; deep links to `marble://trends`.
+  `.accessoryInline`; kind `"WeeklyGoalWidget"`.
+- Deep links: the card opens `marble://trends`; `systemMedium` additionally carries a
+  quick-log `Link` to `marble://quicklog`, which `ContentView` routes into the same
+  `QuickLogCoordinator` sheet the Control Center intent reaches by notification. A `Link`
+  rather than an intent `Button` on purpose — the extension never opens the store, so the
+  only honest action is opening the app, and Apple asks that widget buttons do more than
+  that. `systemSmall` supports exactly one tap target (`widgetURL`), so it stays
+  whole-card; accessory families stay link-only.
+- Smart Stack: every timeline entry carries a `TimelineEntryRelevance`, scored at the
+  entry's own date by the pure `WeeklyGoalWidgetState.relevanceScore` — peaks with one
+  session remaining inside a typical training window, moderate mid-week, low once the week
+  is banked, zero for a stale/absent snapshot. Pure and Foundation-only so
+  `WeeklyGoalWidgetStateTests` (app target) pins it; the personalised timing signal comes
+  from `LogSetIntent`'s `PredictableIntent` donations instead.
+- Accented rendering (tinted/clear Home Screens): the ring's progress arc and the
+  quick-log capsule form the `widgetAccentable()` group; the ring track and all copy stay
+  in the primary group. No images, so `widgetAccentedRenderingMode` does not apply.
+  Full-colour rendering is pixel-identical.
 - The widget **never opens the SwiftData store.** It reads an app-published snapshot, so the
   crash-recovery path is untouched.
 - Transport is the **keychain access group `L49MKXGVM4.Prism.marble.shared`** — `SharedKeychain`
@@ -32,7 +49,8 @@ widget, and a Control Center control.
 
 ### Tests
 - `Tests/Unit/RestActivityControllerTests.swift` (pure start/timing logic) and
-  `Tests/Unit/WeeklyGoalWidgetStateTests.swift` (snapshot mapping).
+  `Tests/Unit/WeeklyGoalWidgetStateTests.swift` (snapshot mapping + the Smart Stack
+  relevance scoring).
 - ⚠️ **There is no widget snapshot suite.** None of the five families has automated rendering
   coverage — they are verified only by the device checklist in `TESTING.md`.
 
@@ -67,9 +85,10 @@ entitlements read back off the archive as `marble.app` →
   foreground, ends every prior timer before requesting a replacement, and immediately removes
   expired cards when Marble next runs. The `+30s` / `End` intents carry the rendering activity's ID so an obsolete
   card can never mutate a newer timer.
-- **Known gap:** `WeeklyGoalWidgetPublisher.publish` runs only on scene-phase change, so a
-  set logged via **Siri** — which has no scene phase — leaves the widget stale. Restoring
-  from a backup has the same problem. See "Known gaps / next up" in `ROADMAP.md`.
+- `WeeklyGoalWidgetPublisher.publish` runs on scene-phase change, after every intent save
+  (`AppIntentsSupport.refreshSystemSurfaces`), and after a backup restore
+  (`DataManagementView`), so neither a Siri-logged set nor a restore leaves the widget
+  stale any more.
 - Files needing membership in *both* targets need an explicit `PBXFileReference` +
   `PBXBuildFile` + an entry in the widget's Sources phase (the `RestTimerAttributes.swift`
   precedent). They must import Foundation-only frameworks and reference no app type; app-only

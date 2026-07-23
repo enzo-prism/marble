@@ -12,16 +12,6 @@ import Charts
 // repo rule, no derivation runs inline in a `body`: every scan is behind a memo
 // keyed by a cheap signature.
 
-extension TrendsPalette {
-    /// Bodyweight: a cool slate-green, distinct from the violet raw-progress
-    /// line, the steel-blue e1RM line, and the teal supplements line — the HIG
-    /// asks that different data read as visibly different charts.
-    static let bodyweight = TrendsChartAccent(
-        light: Color(red: 0.13, green: 0.52, blue: 0.44),
-        dark: Color(red: 0.40, green: 0.82, blue: 0.70)
-    )
-}
-
 // MARK: - Derived data
 
 /// Everything the bodyweight chart needs, derived once per signature change.
@@ -198,7 +188,7 @@ struct BodyweightTrendSection: View {
         HStack(alignment: .firstTextBaseline) {
             Text("Bodyweight")
                 .font(MarbleTypography.sectionTitle)
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("Trends.Section.Bodyweight")
 
             Spacer(minLength: MarbleSpacing.s)
@@ -338,6 +328,20 @@ struct BodyweightTrendSection: View {
         .accessibilityLabel("Bodyweight chart")
         .accessibilityValue(data.accessibilityValue)
         .accessibilityIdentifier("Trends.BodyweightChart")
+        .accessibilityChartDescriptor(TrendsDateSeriesAudioGraph(
+            title: "Bodyweight",
+            summary: data.accessibilityValue,
+            valueAxisName: "Bodyweight",
+            valueUnit: data.displayUnit.symbol,
+            seriesName: "Bodyweight",
+            points: data.points.map { point in
+                TrendsDateSeriesAudioGraph.Point(
+                    date: point.date,
+                    value: point.displayValue,
+                    valueText: "\(weightText(point.displayValue)) \(data.displayUnit.symbol)"
+                )
+            }
+        ))
     }
 
     private func weightText(_ value: Double) -> String {

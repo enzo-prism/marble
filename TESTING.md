@@ -18,8 +18,9 @@
 - `DailyHighlightsTests` pins the default 8:00 PM/midnight boundaries, overnight anchoring,
   equal-time validation, DST gaps/repeated hours, empty/future-day hiding, genuine PR rules,
   mixed-unit weights, matched-distance run bests, Trends filter independence, all 45 sourced
-  quote records, three-unique-per-day selection, adjacent-day separation, and full-catalog
-  schedule coverage.
+  quote records, three-unique-per-day selection, adjacent-day separation, full-catalog
+  schedule coverage, and the rotation-resume rules (a tapped quote holds for at least one
+  full interval, then auto-rotation resumes; permanent under VoiceOver/Reduce Motion).
 - `TrendsSnapshotTests.testTrendsDailyHighlights` records the celebration across iPhone SE
   and iPhone 15 Pro, light/dark, and default/Accessibility XXXL text.
 - `TrendsSmokeUITests.testDailyHighlightsAppearOnlyInTheCelebrationWindowAndOpenSettings`
@@ -37,9 +38,28 @@
   fetch limits used by the Workout tab.
 - `SeedDataTests.testOrphanMaintenanceRunsOncePerVersion` protects the versioned maintenance
   gate that keeps full-store orphan sweeps off routine launches.
+- `DailyHighlightQueriesTests` is the correctness tripwire for the scoped Daily Highlights
+  fetch: the day's rows plus the prior history of only that day's exercises must derive a
+  summary identical to the full `SetEntry` table it replaced (including the all-time record
+  veto a date-margin cut would miss), and exclude rows the builder never consumes.
+- `ExercisePickerDerivedDataTests`' window cases pin the bounded picker recents query: an
+  unfilled window is used as-is, a saturated window with enough distinct exercises skips
+  escalation, and a single-exercise-saturated window escalates until recents match the
+  unbounded query it replaced.
+- `SprintPrescriptionTests` pins the key-column orphan sweeps (mixed tables delete only the
+  orphan) and each backfill skip reason now enforced by the store predicate (missing
+  duration, unprescribed exercise, invalid prescription).
 
 ## Suite inventory (counted from source, 2026-07-22)
-- `Tests/Unit/` — **51 files, 53 classes, 478 test methods**.
+- `Tests/Unit/` — **53 files, 55 classes, 505 test methods**. Added past build 46:
+  `WeeklyGoalWidgetStateTests`' Smart Stack relevance cases, pinning the pure
+  `WeeklyGoalWidgetState.relevanceScore` the widget wraps in `TimelineEntryRelevance`;
+  `TrendsChartDescriptorTests`, covering the Audio Graph descriptor helper behind every
+  Trends chart (axis ranges, spoken dates/values, point labels, assembled descriptors);
+  `DailyHighlightsTests`' quote-rotation-resume cases for the pure
+  `DailyHighlightQuoteRotation` schedule; `DailyHighlightQueriesTests` (scoped highlights
+  fetch equivalence); and the picker-window and sprint-maintenance cases in
+  `ExercisePickerDerivedDataTests` and `SprintPrescriptionTests`.
 - `Tests/UI/` — **17 files, 49 test methods**: **45 flow cases** plus
   `AccessibilityAuditUITests`' 4. `make ui` runs the flows and skips that audit class;
   `make audit` runs the audit cases instead.

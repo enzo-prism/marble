@@ -93,7 +93,7 @@ struct MonthlyReportSheet: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             Text("Most Trained")
                 .font(MarbleTypography.sectionTitle)
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
             VStack(spacing: 0) {
                 ForEach(Array(report.topMuscleGroups.enumerated()), id: \.element.id) { index, focus in
@@ -127,7 +127,7 @@ struct MonthlyReportSheet: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             Text("Insights")
                 .font(MarbleTypography.sectionTitle)
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
             if isLoadingInsights {
                 HStack(spacing: MarbleSpacing.s) {
