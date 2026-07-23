@@ -641,6 +641,14 @@ struct ExerciseEditorView: View {
 
         originalDraft = draft
         MarbleHaptics.success()
+        // A created or renamed exercise must reach Siri and Spotlight now, not
+        // at the next cold launch (`reindexAll()` otherwise only runs from
+        // ContentView's launch task): the reindex refreshes the Spotlight row,
+        // and the shortcut re-registration keeps the parameterised "Log a set
+        // of <exercise>" phrase resolving against the current names — an Apple
+        // requirement whenever the entities behind such a phrase change.
+        Task { await ExerciseSpotlightIndex.reindexAll() }
+        MarbleShortcuts.updateAppShortcutParameters()
         onSave?(savedExercise)
         if dismissAfterSave { dismiss() }
     }
@@ -712,6 +720,10 @@ struct ExerciseEditorView: View {
             showDeleteBlocked = true
             return
         }
+        // Captured before the delete: the model is not safe to read once it
+        // has been removed from the context, and the Spotlight task below
+        // outlives this view.
+        let deletedID = exercise.id
         sprintPrescriptions
             .filter { $0.exerciseID == exercise.id }
             .forEach(modelContext.delete)
@@ -724,6 +736,12 @@ struct ExerciseEditorView: View {
             return
         }
         MarbleHaptics.warning()
+        // Per-item Spotlight removal — a reindex alone refreshes surviving
+        // rows but never drops the deleted one, which is how deleted exercises
+        // stayed searchable until the next cold launch. The shortcut phrase
+        // update stops Siri offering the dead name in "Log a set of …".
+        Task { await ExerciseSpotlightIndex.remove(exerciseID: deletedID) }
+        MarbleShortcuts.updateAppShortcutParameters()
         onDelete?()
         dismiss()
     }

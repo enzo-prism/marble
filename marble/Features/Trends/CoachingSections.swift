@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import TipKit
 
 // The coaching-layer Trends sections: weekly goal, strength dashboard,
 // monthly report, PR feed, and rep records. Like the lifter-analytics
@@ -189,6 +190,10 @@ struct StrengthDashboardView: View {
             VStack(spacing: MarbleSpacing.xs) {
                 ForEach(assessments) { assessment in
                     StrengthLiftRowView(assessment: assessment) {
+                        // Tapping a lift row is organic discovery of the
+                        // tappable coaching cards; the tip (anchored on the
+                        // Focus card) must never show after this.
+                        CoachingCardsTip().invalidate(reason: .actionPerformed)
                         onSelect(assessment.exerciseID)
                     }
                 }
@@ -343,6 +348,12 @@ struct PRFeedSectionView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    /// Shown once on the section header. The feed is display-only — there is no
+    /// control to hang `.actionPerformed` on — so "using the feature" is having
+    /// seen the section: invalidate when it leaves the screen, and the tip
+    /// never shows again anywhere (the `MarbleTips` contract, adapted).
+    private let prFeedTip = PRFeedTip()
+
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             HStack(alignment: .firstTextBaseline) {
@@ -357,6 +368,10 @@ struct PRFeedSectionView: View {
                     .font(MarbleTypography.rowMeta.weight(.semibold))
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .monospacedDigit()
+            }
+            .popoverTip(prFeedTip)
+            .onDisappear {
+                prFeedTip.invalidate(reason: .actionPerformed)
             }
 
             VStack(spacing: 0) {

@@ -187,6 +187,11 @@ struct LogSetIntent: AppIntent {
             return .result(dialog: "Couldn't log that set. Open Marble to try again.")
         }
 
+        // Only after a successful save: the widget must never advertise a row
+        // that was rolled back, and a refused log (the guards above) must not
+        // re-stamp the snapshot as fresh either.
+        await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
+
         let summary = Self.summary(
             exercise: model,
             metrics: metrics,

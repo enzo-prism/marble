@@ -198,6 +198,28 @@ enum ExerciseSpotlightIndex {
         }
     }
 
+    /// Drops one deleted exercise from the index, immediately.
+    ///
+    /// Per-item on purpose: `reindexAll()` refreshes rows that still exist but
+    /// never removes one that doesn't, so "delete, then reindex" would leave
+    /// the ghost searchable until the next cold launch — the stale-entry
+    /// defect this closes. Failures are swallowed for the same reason as
+    /// above: Spotlight hygiene must never block the delete itself.
+    static func remove(exerciseID: UUID) async {
+        guard !TestHooks.isUITesting else { return }
+
+        do {
+            try await CSSearchableIndex.default().deleteAppEntities(
+                identifiedBy: [exerciseID],
+                ofType: ExerciseEntity.self
+            )
+        } catch {
+            #if DEBUG
+            print("Spotlight de-indexing failed: \(error)")
+            #endif
+        }
+    }
+
     /// Drops every indexed exercise. Used when the user wipes their data so
     /// Spotlight can't keep surfacing rows that no longer exist.
     static func removeAll() async {

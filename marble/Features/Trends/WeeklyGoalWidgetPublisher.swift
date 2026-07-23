@@ -16,6 +16,27 @@ enum WeeklyGoalWidgetPublisher {
     /// Must match `WeeklyGoalWidget`'s `kind` in the extension.
     static let widgetKind = "WeeklyGoalWidget"
 
+    /// The delivery half of `publish(modelContext:now:)`: the keychain write
+    /// plus the WidgetKit reload.
+    ///
+    /// A mutable static in the same spirit as `AppIntentsSupport.container`
+    /// and `TestHooks.overrideNow`: unit tests swap in a recorder so they can
+    /// assert on the exact state an intent hands the widget without touching
+    /// the real keychain (see `SharedKeychainQueryTests` for why that stays
+    /// out of unit tests) or WidgetKit. Production never reassigns it.
+    ///
+    /// The `@MainActor` in the type is required, not decorative: this enum's
+    /// isolation makes `defaultDeliver` a main-actor function, and assigning
+    /// it to a nonisolated function type would not compile.
+    static var deliver: @MainActor (WeeklyGoalWidgetState) -> Void = defaultDeliver
+
+    /// The real transport. A named function rather than a closure literal so
+    /// tests can restore the default after swapping `deliver`.
+    static func defaultDeliver(_ state: WeeklyGoalWidgetState) {
+        state.publish()
+        WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
+    }
+
     /// `now` resolves inside the body rather than as a default argument:
     /// default arguments are evaluated in a nonisolated context, and
     /// `AppEnvironment.now` is main-actor isolated.
@@ -59,8 +80,7 @@ enum WeeklyGoalWidgetPublisher {
             generatedAt: now
         )
 
-        state.publish()
-        WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
+        deliver(state)
     }
 
     /// `GoalState` isn't `RawRepresentable`, and the extension can't see it

@@ -39,7 +39,7 @@
   gate that keeps full-store orphan sweeps off routine launches.
 
 ## Suite inventory (counted from source, 2026-07-22)
-- `Tests/Unit/` — **51 files, 53 classes, 460 test methods**.
+- `Tests/Unit/` — **51 files, 53 classes, 478 test methods**.
 - `Tests/UI/` — **17 files, 49 test methods**: **45 flow cases** plus
   `AccessibilityAuditUITests`' 4. `make ui` runs the flows and skips that audit class;
   `make audit` runs the audit cases instead.
@@ -257,8 +257,10 @@ Preferred Makefile targets:
 ### Carried-forward regression pass (2.1 payload)
 - Start and finish a workout session, log planned and repeated sets, review recent workouts,
   check weekly-goal/priority-lift/monthly-report Trends, and export + restore a JSON backup.
-  Confirm the backup disclosure that media is excluded. Note `BodyMetricEntry` is **not yet
-  included in backups** — a restore will not carry bodyweight history.
+  Confirm the backup disclosure that media is excluded. The backup payload now covers every
+  schema entity — weigh-ins, the import ledger, progress-media *metadata* (never the photo
+  or video binaries themselves), and custom reminders — and a restored reminder should fire
+  again without reopening the Notifications screen.
 - Sprint pass: create a 150 m sprint exercise with 4 repetitions, test a 19-second target
   and a 19–21-second range, log all four reps with RPE and recovery, confirm goal feedback
   at both range boundaries, and verify the final rep closes the sequence without a fifth
