@@ -47,9 +47,8 @@
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
-## Latest release verification (2026-07-22, 2.2 build 46 candidate)
-- `MarbleTests`: **460 passed, 0 failed** locally for build 46. Build 45 also passed in
-  GitHub CI run `29974031009`.
+## Latest release verification (2026-07-22, 2.2 build 46)
+- `MarbleTests`: **460 passed, 0 failed** locally and in GitHub CI run `29976114363`.
   2.2 added ten suites:
   `SharedDefaultsTests`, `WeeklyGoalWidgetStateTests`, `OnboardingGateTests`,
   `PreferredWeightUnitTests`, extended `RestActivityControllerTests`,
@@ -87,10 +86,11 @@
   ```
   Never `xcrun simctl shutdown all` and never `pkill CoreSimulatorService` — both destroy
   the other session's simulators (the latter wiped the whole device registry once).
-- Signed **build 46** Release archive/export and App Store Connect processing are pending.
-  Build 45 remains `VALID` and `IN_BETA_TESTING`.
+- Signed **build 46** Release archive/export passed for `Prism.marble` and
+  `Prism.marble.MarbleWidgets`; IPA integrity and embedded versions passed. App Store Connect
+  processing is `VALID` and `IN_BETA_TESTING`.
 
-### Daily Highlights subtle quote verification (2026-07-22, 2.2 build 46 candidate)
+### Daily Highlights subtle quote verification (2026-07-22, 2.2 build 46)
 
 - Removed the dedicated divider, quote icon, “Evening Note” label, serif emphasis, and
   pagination pills; the rotating quote is now secondary italic footer copy with a compact
@@ -101,6 +101,10 @@
 - Full `MarbleTests`: **460 passed, 0 failed**.
 - Rotation, manual advancement, the 44-point target, Dynamic Type, VoiceOver, and Reduce
   Motion behavior remain intact.
+- Signed archive/export and TestFlight processing passed. IPA SHA-256 is
+  `56e063e773647e7ea32cd6d4cfc3b1ff46052abab9c841972f148b3147b982e8`.
+- App Store Connect build `1d775573-47fb-4757-bdbc-0cf600d5edfd` is `VALID` and
+  `IN_BETA_TESTING` in internal all-build group `test group A`.
 
 ### Daily Highlights monochrome redesign verification (2026-07-22, 2.2 build 45)
 
@@ -189,9 +193,9 @@ Preferred Makefile targets:
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **2.2 (45)**, build ID
-  `685b7870-70ac-4b5c-b686-e0bd607c9c26`; `VALID` and `IN_BETA_TESTING`, uploaded
-  2026-07-22 at 19:21 PDT.
+- Current phone-test build: **2.2 (46)**, build ID
+  `1d775573-47fb-4757-bdbc-0cf600d5edfd`; `VALID` and `IN_BETA_TESTING`, uploaded
+  2026-07-22 at 20:13 PDT.
 - Internal group `test group A` receives all builds; external beta remains unsubmitted.
 - **Most of 2.2 is device-only.** Widgets, Live Activity buttons, Control Center controls,
   Siri, and Spotlight cannot be verified on the simulator — the keychain access group is not

@@ -61,11 +61,11 @@ onboarding flag) never needed cross-process sharing: the widget reads only the s
 the weekly target is baked into that snapshot by `WeeklyGoalWidgetPublisher`. Do not restore
 the App Group without a new requirement the keychain snapshot genuinely cannot satisfy.
 
-> 🚧 **Build 46 candidate prepared 2026-07-22.** Build 45 remains on TestFlight, `VALID`
-> and `IN_BETA_TESTING` (buildId `685b7870-70ac-4b5c-b686-e0bd607c9c26`, uploaded 19:21).
-> Build 46 carries the quieter Daily Highlights quote footer and is pending archive/upload.
+> ✅ **Verified end to end 2026-07-22: 2.2 (build 46) is on TestFlight, `VALID` and
+> `IN_BETA_TESTING`** (buildId `1d775573-47fb-4757-bdbc-0cf600d5edfd`, uploaded 20:13).
+> Archive, export, IPA integrity, signing, entitlements, and internal distribution passed.
 
-### The release sequence used for builds 41–45
+### The release sequence used for builds 41–46
 
 Use the **existing** `.asc/ExportOptions.plist` — it already maps both bundle IDs to the two
 pinned profiles and sets `signingCertificate = Apple Distribution`. A bare export options file
@@ -96,8 +96,8 @@ test touches the real keychain.
   **No phased release was configured** (`appStoreVersionPhasedRelease` was null), so it went
   to 100% of users at once — worth creating one *before* releasing next time, since 2.1 was
   the first production build to run the V2→V4 migrations.
-- **2.2 (build 45)** — **on TestFlight, `VALID` and `IN_BETA_TESTING`** (buildId
-  `685b7870-70ac-4b5c-b686-e0bd607c9c26`, uploaded 2026-07-22 at 19:21 PDT). The internal group
+- **2.2 (build 46)** — **on TestFlight, `VALID` and `IN_BETA_TESTING`** (buildId
+  `1d775573-47fb-4757-bdbc-0cf600d5edfd`, uploaded 2026-07-22 at 20:13 PDT). The internal group
   `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds.
   **Not submitted to App Review.** It adds the clean monochrome Daily Highlights redesign and
   the performance pass for Trends, Exercise Picker, app-start maintenance, workout-session
@@ -109,18 +109,19 @@ test touches the real keychain.
 - **2.0 (build 34)** — superseded by 2.1. Its review is closed; nothing about it is live
   state any more.
 - **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 46`.**
-  App Store Connect currently reports **46** as the next safe upload number.
+  The next upload must use `make asc-next-build` (currently **47**).
 
 ---
 
 ## Build history (what each build carried)
 
-- **Build 46 candidate:** Daily Highlights motivation is now a quiet footer. The dedicated
+- **Build 46:** Daily Highlights motivation is now a quiet footer. The dedicated
   divider, quote icon, “Evening Note” label, serif emphasis, and pagination pills were removed
   in favor of secondary italic copy with a compact author and position line. Rotation, manual
   advancement, the 44-point target, Dynamic Type, VoiceOver, and Reduce Motion behavior remain
-  intact. The 460-test unit suite, focused snapshot comparison, quote interaction flow, and
-  focused light/dark accessibility audits pass locally; archive/upload verification is pending.
+  intact. The 460-test unit suite passed locally and in GitHub CI `29976114363`; the focused
+  snapshot comparison, quote interaction flow, and focused light/dark accessibility audits
+  passed locally. Archive/export, IPA verification, and internal TestFlight processing passed.
 - **Build 45:** Daily Highlights now follows Marble's monochrome content system: solid card
   surfaces, gray borders and dividers, compact date treatment, grayscale achievement icons,
   and a stronger result-first hierarchy with no gold or decorative gradients. Quote rotation,
@@ -230,8 +231,8 @@ test touches the real keychain.
   The question is closed; the current train is 2.2.
 - **Build/test health (2026-07-22):** Xcode 26.6 / iOS 26.5 simulator. Build 46's full
   **460-test** unit suite, focused Daily Highlights snapshot, quote interaction flow, and
-  focused light/dark accessibility audits passed locally. Build 45's Release archive/export
-  and GitHub CI passed.
+  focused light/dark accessibility audits passed locally; CI `29976114363` passed. Build 46's
+  Release archive/export and TestFlight processing also passed.
   The build-42 focused
   logic, performance, snapshot, UI, and light/dark accessibility gates **passed**. The prior
   full-suite baseline remains: `make unit` **passed**
@@ -383,8 +384,8 @@ profile for `Prism.marble.MarbleWidgets`.
 - `.asc/ExportOptions.plist` maps both `Prism.marble` and `Prism.marble.MarbleWidgets`.
 - Release signing is pinned per target in `marble.xcodeproj/project.pbxproj`.
 
-For the pending upload, `make asc-next-build` reports **46** while build 45 remains the latest
-processed upload. Never guess a build number locally.
+For the next upload, `make asc-next-build` currently reports **47**. Never guess a build
+number locally.
 
 Historical planned command, kept for context:
 
@@ -409,8 +410,8 @@ Notes:
 
 ## Open release decisions
 
-**The only live decision after build 46 reaches TestFlight: when to submit 2.2 to App
-Review.** Build 45 is currently `VALID` and `IN_BETA_TESTING`; nothing is submitted.
+**The only live decision: when to submit 2.2 to App Review.** Build 46 is currently `VALID`
+and `IN_BETA_TESTING`; nothing is submitted.
 Before submitting, resolve these:
 
 - **Do the device pass first.** Most of 2.2 — widgets, Live Activity buttons, the Control
@@ -487,5 +488,5 @@ git branch -vv
 make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 46
 make asc-status
 make asc-builds
-make asc-next-build   # expect 46
+make asc-next-build   # expect 47
 ```

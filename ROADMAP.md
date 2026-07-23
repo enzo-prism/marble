@@ -1,7 +1,7 @@
 # Marble — H2 2026 Implementation Plan (written 2026-07-20)
 
-> **STATUS 2026-07-22 — Phases 0–3 plus the follow-up polish are on `main` as the 2.2
-> build 46 TestFlight candidate.**
+> **STATUS 2026-07-22 — Phases 0–3 plus the follow-up polish are on `main` and internal
+> TestFlight as 2.2 build 46.**
 > Unit suite green, accessibility audit green, UI suite 39/40 (the one failure,
 > `test07TrainingCalendar`, reproduces on clean `origin/main` — see TESTING.md).
 > **Implemented is not the same as finished** — read **Known gaps / next up** below before
@@ -19,8 +19,8 @@
 > regenerate both distribution profiles.~~ **Resolved 2026-07-21** — the widget snapshot moved
 > to the keychain access group `L49MKXGVM4.Prism.marble.shared`, which both existing App Store
 > profiles already grant via their `L49MKXGVM4.*` wildcard. No portal work, no profile
-> regeneration. **Build 45 is verified end to end on TestFlight; build 46 is the prepared
-> candidate with the quieter Daily Highlights quote footer.**
+> regeneration. **Build 46 is verified end to end on TestFlight with the quieter Daily
+> Highlights quote footer.**
 > `RELEASE_HANDOFF.md` has the detail.
 >
 > Phases 1–3 were collapsed into a single 2.2 train rather than three releases. That was a
@@ -40,7 +40,7 @@
 Source of truth for the five-workstream roadmap pitched 2026-07-20: Watch app, widget surface,
 App Intents depth, body metrics, onboarding/settings. Sequenced into releases 2.2 → 2.3 → 2.4 → 3.0.
 Baseline when written: main = 2.1 build 40; App Store 2.0 LIVE; 2.1 approved and pending release.
-(2.1 went live 2026-07-21; 2.2 build 45 is on TestFlight and build 46 is prepared.)
+(2.1 went live 2026-07-21; 2.2 build 46 is on internal TestFlight.)
 
 Conventions: every phase ends with `make unit` green in CI, `make migration-release` when schema
 changes, TestFlight via `make asc-*`, PR to main (no direct pushes). Never `git add -A`

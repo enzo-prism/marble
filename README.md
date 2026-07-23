@@ -46,9 +46,8 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   App Store Connect API).
   It carries builds 35–39 — workout sessions, sprint prescriptions, the Exercise Library
   redesign, and JSON backups. No phased release was configured, so it went to 100% at once.
-- **TestFlight candidate: 2.2 (build 46)** — prepared on `main` for upload. The latest
-  processed build remains **2.2 (build 45)** — `VALID` and `IN_BETA_TESTING`, uploaded 2026-07-22
-  at 19:21 PDT (build id `685b7870-70ac-4b5c-b686-e0bd607c9c26`) to the all-build internal
+- **On TestFlight: 2.2 (build 46)** — `VALID` and `IN_BETA_TESTING`, uploaded 2026-07-22
+  at 20:13 PDT (build id `1d775573-47fb-4757-bdbc-0cf600d5edfd`) to the all-build internal
   group `test group A`. **Not yet submitted to App Review.** Build 46 makes Daily Highlights
   motivation visually secondary with a compact italic footer, while retaining the
   monochrome achievement hierarchy, rotation, accessibility behavior, the
