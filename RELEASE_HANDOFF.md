@@ -61,11 +61,11 @@ onboarding flag) never needed cross-process sharing: the widget reads only the s
 the weekly target is baked into that snapshot by `WeeklyGoalWidgetPublisher`. Do not restore
 the App Group without a new requirement the keychain snapshot genuinely cannot satisfy.
 
-> ✅ **Verified end to end 2026-07-22: 2.2 (build 44) is on TestFlight, `VALID` and
-> `IN_BETA_TESTING`** (buildId `9874c20b-d418-469b-9539-2bbe5c41118d`, uploaded 18:40).
+> ✅ **Verified end to end 2026-07-22: 2.2 (build 45) is on TestFlight, `VALID` and
+> `IN_BETA_TESTING`** (buildId `685b7870-70ac-4b5c-b686-e0bd607c9c26`, uploaded 19:21).
 > `make asc-archive` → **ARCHIVE SUCCEEDED** with the pinned profiles untouched.
 
-### The release sequence used for builds 41–44
+### The release sequence used for builds 41–45
 
 Use the **existing** `.asc/ExportOptions.plist` — it already maps both bundle IDs to the two
 pinned profiles and sets `signingCertificate = Apple Distribution`. A bare export options file
@@ -96,24 +96,33 @@ test touches the real keychain.
   **No phased release was configured** (`appStoreVersionPhasedRelease` was null), so it went
   to 100% of users at once — worth creating one *before* releasing next time, since 2.1 was
   the first production build to run the V2→V4 migrations.
-- **2.2 (build 44)** — **on TestFlight, `VALID` and `IN_BETA_TESTING`** (buildId
-  `9874c20b-d418-469b-9539-2bbe5c41118d`, uploaded 2026-07-22). The internal group
+- **2.2 (build 45)** — **on TestFlight, `VALID` and `IN_BETA_TESTING`** (buildId
+  `685b7870-70ac-4b5c-b686-e0bd607c9c26`, uploaded 2026-07-22 at 19:21 PDT). The internal group
   `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds.
-  **Not submitted to App Review.** It adds the performance pass for Trends, Exercise Picker,
-  app-start maintenance, workout-session queries, and Daily Highlights timing on top of the
-  Daily Highlights, single-timer Live Activity, Log Again personal-best, widgets, Control
+  **Not submitted to App Review.** It adds the clean monochrome Daily Highlights redesign and
+  the performance pass for Trends, Exercise Picker, app-start maintenance, workout-session
+  queries, and Daily Highlights timing on top of the single-timer Live Activity, Log Again
+  personal-best, widgets, Control
   Center, onboarding, Settings, Siri/Spotlight, and bodyweight + schema **V5** work. Not
   blocked on portal work — see the resolved section above. Several surfaces remain incomplete;
   see **Known gaps / next up** in `ROADMAP.md` before writing release notes for it.
 - **2.0 (build 34)** — superseded by 2.1. Its review is closed; nothing about it is live
   state any more.
-- **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 44`.**
-  The next upload must use `make asc-next-build` (currently expect **45**).
+- **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 45`.**
+  The next upload must use `make asc-next-build` (currently expect **46**).
 
 ---
 
 ## Build history (what each build carried)
 
+- **Build 45:** Daily Highlights now follows Marble's monochrome content system: solid card
+  surfaces, gray borders and dividers, compact date treatment, grayscale achievement icons,
+  and a stronger result-first hierarchy with no gold or decorative gradients. Quote rotation,
+  schedule behavior, screenshot-friendly composition, Dynamic Type, VoiceOver, and Reduce
+  Motion behavior are preserved. All **460** unit tests, eight focused snapshots, the time-
+  window/quote interaction flow, and both focused accessibility audits passed; GitHub CI
+  `29974031009` passed; signed app/widget archive and export passed before TestFlight reached
+  `VALID` and `IN_BETA_TESTING`.
 - **Build 44:** Performance pass: Trends reuses one full-history PR derivation; Exercise
   Picker derives its recent/favorite/all sections in one memoized pass; launch orphan
   maintenance is gated once per app version; Workout fetches at most one active and five
@@ -213,7 +222,7 @@ test touches the real keychain.
   34 and its `whatsNew` described exactly that build's Trends coaching layer, so builds 35–39
   could not ship under the 2.0 string. They shipped as **2.1**, which released 2026-07-21.
   The question is closed; the current train is 2.2.
-- **Build/test health (2026-07-22):** Xcode 26.6 / iOS 26.5 simulator. Build 44's full
+- **Build/test health (2026-07-22):** Xcode 26.6 / iOS 26.5 simulator. Build 45's full
   **460-test** unit suite passed locally and in GitHub CI; its Release archive/export passed.
   The build-42 focused
   logic, performance, snapshot, UI, and light/dark accessibility gates **passed**. The prior
@@ -366,8 +375,8 @@ profile for `Prism.marble.MarbleWidgets`.
 - `.asc/ExportOptions.plist` maps both `Prism.marble` and `Prism.marble.MarbleWidgets`.
 - Release signing is pinned per target in `marble.xcodeproj/project.pbxproj`.
 
-For the next upload, re-run `make asc-next-build`; with build 44 the latest processed upload
-it should report **45**. Never guess a build number locally.
+For the next upload, re-run `make asc-next-build`; with build 45 the latest processed upload
+it should report **46**. Never guess a build number locally.
 
 Historical planned command, kept for context:
 
@@ -392,7 +401,7 @@ Notes:
 
 ## Open release decisions
 
-**The only live decision: when to submit 2.2 to App Review.** Build 44 is on TestFlight,
+**The only live decision: when to submit 2.2 to App Review.** Build 45 is on TestFlight,
 `VALID`, and `IN_BETA_TESTING`; nothing is submitted. Before submitting, resolve these:
 
 - **Do the device pass first.** Most of 2.2 — widgets, Live Activity buttons, the Control
@@ -443,7 +452,7 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
 - `origin/main` is the canonical release baseline, now on the **2.2** train. The latest
-  TestFlight build is **2.2 (44)**, not submitted for review. Released to users:
+  TestFlight build is **2.2 (45)**, not submitted for review. Released to users:
   **2.1 (build 40)**.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
@@ -466,8 +475,8 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 43
+make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 45
 make asc-status
 make asc-builds
-make asc-next-build   # expect 44
+make asc-next-build   # expect 46
 ```

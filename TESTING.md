@@ -47,8 +47,8 @@
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
-## Latest release verification (2026-07-22, 2.2 build 44)
-- `MarbleTests`: **460 passed, 0 failed** locally and in GitHub CI run `29972031799`.
+## Latest release verification (2026-07-22, 2.2 build 45)
+- `MarbleTests`: **460 passed, 0 failed** locally and in GitHub CI run `29974031009`.
   2.2 added ten suites:
   `SharedDefaultsTests`, `WeeklyGoalWidgetStateTests`, `OnboardingGateTests`,
   `PreferredWeightUnitTests`, extended `RestActivityControllerTests`,
@@ -86,9 +86,24 @@
   ```
   Never `xcrun simctl shutdown all` and never `pkill CoreSimulatorService` — both destroy
   the other session's simulators (the latter wiped the whole device registry once).
-- Signed **build 44** Release archive/export: passed for `Prism.marble` and
+- Signed **build 45** Release archive/export: passed for `Prism.marble` and
   `Prism.marble.MarbleWidgets`; App Store Connect processing is `VALID` and
   `IN_BETA_TESTING`.
+
+### Daily Highlights monochrome redesign verification (2026-07-22, 2.2 build 45)
+
+- The eight Daily Highlights baselines were intentionally refreshed and visually inspected:
+  iPhone SE and iPhone 15 Pro, light/dark, default/Accessibility XXXL. The focused snapshot
+  test passed after recording.
+- The focused time-window/settings/quote interaction test passed, including manual quote
+  advancement and confirmation that the removed Share surface stays absent.
+- Focused Daily Highlights accessibility audits passed in light and dark appearance.
+- Full `MarbleTests`: **460 passed, 0 failed**. The broader snapshot target still has the
+  unrelated Add Set baseline drift documented in `work/codex-workflow-papercuts.md`.
+- Signed app and widget archive/export passed; IPA SHA-256 is
+  `1467d8a93e6a9c14e95faf84c5b35c81ea118f6a9cf3b0aa8fc6105959e21207`.
+- App Store Connect build `685b7870-70ac-4b5c-b686-e0bd607c9c26` is `VALID` and
+  `IN_BETA_TESTING` in internal all-build group `test group A`.
 - **Counting caveat (resolved 2026-07-21):** count *unique* case names, not
   `Test Case ... passed/failed` lines. XCTest re-runs a case after a simulator crash, so the
   raw line count both double-counts and under-reports; an earlier run looked like "39 of 44"
@@ -162,9 +177,9 @@ Preferred Makefile targets:
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
 ## Phone TestFlight pass
-- Current phone-test build: **2.2 (44)**, build ID
-  `9874c20b-d418-469b-9539-2bbe5c41118d`; `VALID` and `IN_BETA_TESTING`, uploaded
-  2026-07-22 at 18:40 PDT.
+- Current phone-test build: **2.2 (45)**, build ID
+  `685b7870-70ac-4b5c-b686-e0bd607c9c26`; `VALID` and `IN_BETA_TESTING`, uploaded
+  2026-07-22 at 19:21 PDT.
 - Internal group `test group A` receives all builds; external beta remains unsubmitted.
 - **Most of 2.2 is device-only.** Widgets, Live Activity buttons, Control Center controls,
   Siri, and Spotlight cannot be verified on the simulator — the keychain access group is not
@@ -173,8 +188,8 @@ Preferred Makefile targets:
 
 ### 2.2 payload (what's new on this build)
 - **Daily Highlights** — after logging today, open Trends during the default 8:00 PM–11:59 PM
-  window. Confirm the card shows only truthful progress from that day, carries the expected
-  achievement color, cycles among three quotes, and has no Share button. Confirm Settings →
+  window. Confirm the card shows only truthful progress from that day, uses the clean
+  monochrome hierarchy, cycles among three quotes, and has no Share button. Confirm Settings →
   Training → Daily Highlights changes the window, then check a custom window that crosses
   midnight.
 - **Log Again best cue** — confirm weighted exercises show the heaviest prior weight, runs
