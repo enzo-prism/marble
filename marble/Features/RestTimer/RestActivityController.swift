@@ -166,8 +166,9 @@ private final class UserNotificationRestEndAlertClient: RestEndAlertClient {
 
 /// Default for the test seam: most controller tests exercise timing/invariants and must not
 /// schedule real notifications from the test host. Alert-specific tests inject a recording fake.
-@MainActor
-final class InertRestEndAlertClient: RestEndAlertClient {
+/// `nonisolated` (it holds no state) so the injectable initializer can build one as a default
+/// argument, which evaluates outside the main actor under default-MainActor isolation.
+nonisolated final class InertRestEndAlertClient: RestEndAlertClient {
     func scheduleAlert(exerciseName: String, endsAt: Date) {}
     func cancelAlert() {}
 }
