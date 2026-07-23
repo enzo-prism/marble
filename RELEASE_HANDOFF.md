@@ -61,11 +61,12 @@ onboarding flag) never needed cross-process sharing: the widget reads only the s
 the weekly target is baked into that snapshot by `WeeklyGoalWidgetPublisher`. Do not restore
 the App Group without a new requirement the keychain snapshot genuinely cannot satisfy.
 
-> ✅ **Verified end to end 2026-07-22: 2.2 (build 46) is on TestFlight, `VALID` and
-> `IN_BETA_TESTING`** (buildId `1d775573-47fb-4757-bdbc-0cf600d5edfd`, uploaded 20:13).
-> Archive, export, IPA integrity, signing, entitlements, and internal distribution passed.
+> ✅ **Verified end to end 2026-07-23: 2.2 (build 47) is on TestFlight and `VALID`**
+> (buildId `83f4e8ca-a4cf-41ac-8080-4f8703851a42`, uploaded 08:03 PDT). Archive, export,
+> IPA integrity, signing, entitlements (keychain group order verified off the archive), and
+> internal distribution passed. Build 47 is the Apple-best-practices build (PR #12).
 
-### The release sequence used for builds 41–46
+### The release sequence used for builds 41–47
 
 Use the **existing** `.asc/ExportOptions.plist` — it already maps both bundle IDs to the two
 pinned profiles and sets `signingCertificate = Apple Distribution`. A bare export options file
@@ -96,25 +97,40 @@ test touches the real keychain.
   **No phased release was configured** (`appStoreVersionPhasedRelease` was null), so it went
   to 100% of users at once — worth creating one *before* releasing next time, since 2.1 was
   the first production build to run the V2→V4 migrations.
-- **2.2 (build 46)** — **on TestFlight, `VALID` and `IN_BETA_TESTING`** (buildId
-  `1d775573-47fb-4757-bdbc-0cf600d5edfd`, uploaded 2026-07-22 at 20:13 PDT). The internal group
+- **2.2 (build 47)** — **on TestFlight, `VALID`** (buildId
+  `83f4e8ca-a4cf-41ac-8080-4f8703851a42`, uploaded 2026-07-23 at 08:03 PDT). The internal group
   `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds.
-  **Not submitted to App Review.** It adds the clean monochrome Daily Highlights redesign and
-  the performance pass for Trends, Exercise Picker, app-start maintenance, workout-session
-  queries, and Daily Highlights timing on top of the single-timer Live Activity, Log Again
-  personal-best, widgets, Control
-  Center, onboarding, Settings, Siri/Spotlight, and bodyweight + schema **V5** work. Not
-  blocked on portal work — see the resolved section above. Several surfaces remain incomplete;
-  see **Known gaps / next up** in `ROADMAP.md` before writing release notes for it.
+  **Not submitted to App Review.** It is build 46 plus the merged Apple-best-practices work
+  (PR #12): intents refresh the widget/reminder/Spotlight, complete JSON backup with an
+  exhaustiveness guard, Live Activity staleDate + rest-complete notification, TipKit tips
+  attached, widget privacy manifest, Audio Graph chart descriptors, Smart Stack relevance +
+  quick-log widget link, scoped-query performance pass, and the full `.foregroundStyle`
+  migration. Unit suite 505/505, CI green, accessibility audit passed. The 2.2 defect list in
+  `ROADMAP.md` is now mostly resolved — re-read it before writing release notes; the on-device
+  checklist walk in `TESTING.md` is still the gate before App Review submission.
 - **2.0 (build 34)** — superseded by 2.1. Its review is closed; nothing about it is live
   state any more.
-- **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 46`.**
-  The next upload must use `make asc-next-build` (currently **47**).
+- **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 47`.**
+  The next upload must use `make asc-next-build` (currently **48**).
 
 ---
 
 ## Build history (what each build carried)
 
+- **Build 47:** the Apple-best-practices build (PR #12, merged 2026-07-23). Closes the
+  "wired up but inert" 2.2 defects: Siri/shortcut-logged sets now refresh the Weekly Goal
+  widget, weekly-goal reminder, and Spotlight before the intent returns; backup restore does
+  the same; TipKit tips finally present (scan, coaching, PR feed); deleted exercises leave
+  Spotlight immediately. Backup JSON now carries ImportedWorkout, ProgressMediaAttachment
+  metadata, and CustomNotification with a schema-exhaustiveness guard test. Rest-timer Live
+  Activity gained staleDate, a rest-complete local notification (nothing fired at zero
+  before), Always-On dimming, a live minimal presentation, and the small activity family.
+  New: Audio Graph descriptors on all Trends charts, Smart Stack relevance scoring +
+  `PredictableIntent` donation, a quick-log link on the medium widget, `marble://quicklog`,
+  the widget extension's own privacy manifest, and the scoped-query performance pass
+  (history-token freshness probe, bounded picker query, batched maintenance sweeps).
+  Mechanical: `.foregroundColor` fully migrated to `.foregroundStyle`; failure paths use a
+  semantic error haptic. Unit suite 505/505 locally and in CI; accessibility audit passed.
 - **Build 46:** Daily Highlights motivation is now a quiet footer. The dedicated
   divider, quote icon, “Evening Note” label, serif emphasis, and pagination pills were removed
   in favor of secondary italic copy with a compact author and position line. Rotation, manual
