@@ -6,8 +6,11 @@ struct WorkoutView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(QuickLogCoordinator.self) private var quickLog
 
-    @Query(sort: \WorkoutSession.startedAt, order: .reverse)
-    private var sessions: [WorkoutSession]
+    @Query(WorkoutSessionQueries.active)
+    private var activeSessions: [WorkoutSession]
+
+    @Query(WorkoutSessionQueries.recentCompleted)
+    private var recentSessions: [WorkoutSession]
 
     @Query(filter: #Predicate<SplitPlan> { $0.isActive == true }, sort: \SplitPlan.updatedAt, order: .reverse)
     private var plans: [SplitPlan]
@@ -21,11 +24,7 @@ struct WorkoutView: View {
     @State private var errorMessage: String?
 
     private var activeSession: WorkoutSession? {
-        sessions.first(where: \.isActive)
-    }
-
-    private var recentSessions: [WorkoutSession] {
-        Array(sessions.filter { !$0.isActive }.prefix(5))
+        activeSessions.first
     }
 
     var body: some View {

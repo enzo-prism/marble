@@ -94,6 +94,36 @@ final class MonthlyReportTests: MarbleTestCase {
         XCTAssertNil(MonthlyReportBuilder.build(history: [], now: now, calendar: calendar))
     }
 
+    func testPrecomputedPREventsProduceEquivalentReport() {
+        let exercise = bench()
+        let history = (0..<8).map { index in
+            let isPreviousMonth = index < 4
+            return set(
+                exercise,
+                year: isPreviousMonth ? 2024 : 2025,
+                month: isPreviousMonth ? 12 : 1,
+                day: (index % 4) * 3 + 2,
+                weight: 100 + Double(index) * 5
+            )
+        }
+        let events = LifterCoaching.prEvents(
+            history: history,
+            rangeStart: nil,
+            selectedExerciseID: nil,
+            calendar: calendar
+        )
+
+        let direct = MonthlyReportBuilder.build(history: history, now: now, calendar: calendar)
+        let reused = MonthlyReportBuilder.build(
+            history: history,
+            now: now,
+            calendar: calendar,
+            precomputedPREvents: events
+        )
+
+        XCTAssertEqual(reused, direct)
+    }
+
     func testFallbackInsightsAlwaysGrounded() {
         let exercise = bench()
         let history = [set(exercise, year: 2025, month: 1, day: 10)]

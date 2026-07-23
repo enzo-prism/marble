@@ -221,10 +221,14 @@ final class LifterCoachingTests: MarbleTestCase {
         let all = LifterCoaching.prEvents(history: history, rangeStart: nil, selectedExerciseID: nil, calendar: calendar)
         let benchOnly = LifterCoaching.prEvents(history: history, rangeStart: nil, selectedExerciseID: benchPress.id, calendar: calendar)
         let recent = LifterCoaching.prEvents(history: history, rangeStart: day(10), selectedExerciseID: nil, calendar: calendar)
+        let filteredBench = LifterCoaching.filteredPREvents(all, rangeStart: nil, selectedExerciseID: benchPress.id)
+        let filteredRecent = LifterCoaching.filteredPREvents(all, rangeStart: day(10), selectedExerciseID: nil)
 
         XCTAssertEqual(all.count, 4)
         XCTAssertTrue(benchOnly.allSatisfy { $0.exerciseName == "Bench Press" })
         XCTAssertTrue(recent.allSatisfy { $0.date >= day(10) })
+        XCTAssertEqual(filteredBench, benchOnly)
+        XCTAssertEqual(filteredRecent, recent)
     }
 
     func testPREventsNormalizeUnits() {

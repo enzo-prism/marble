@@ -85,6 +85,44 @@ final class SeedDataTests: MarbleTestCase {
         XCTAssertEqual(weekdays, Set(Weekday.allCases))
     }
 
+    func testOrphanMaintenanceRunsOncePerVersion() throws {
+        let context = makeInMemoryContext()
+        let suiteName = "SeedDataTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        func insertOrphans() throws {
+            context.insert(SprintPrescription(
+                exerciseID: UUID(),
+                distance: 100,
+                repetitionCount: 4,
+                targetLowerSeconds: 12,
+                targetUpperSeconds: 14
+            ))
+            context.insert(SprintGoalSnapshot(
+                setEntryID: UUID(),
+                exerciseID: UUID(),
+                distance: 100,
+                distanceUnit: .meters,
+                repetitionNumber: 1,
+                repetitionCount: 4,
+                targetLowerSeconds: 12,
+                targetUpperSeconds: 14
+            ))
+            try context.save()
+        }
+
+        try insertOrphans()
+        SeedData.performOneTimeMaintenanceIfNeeded(in: context, defaults: defaults)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<SprintPrescription>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<SprintGoalSnapshot>()), 0)
+
+        try insertOrphans()
+        SeedData.performOneTimeMaintenanceIfNeeded(in: context, defaults: defaults)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<SprintPrescription>()), 1)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<SprintGoalSnapshot>()), 1)
+    }
+
     func testScreenshotFixtureUsesExerciseMatchedEmojiAndFeatureData() throws {
         let context = makeInMemoryContext()
         let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-07-15T16:30:00Z"))

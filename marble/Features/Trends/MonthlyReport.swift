@@ -58,10 +58,17 @@ enum MonthlyReportBuilder {
     static func build(
         history: [SetEntry],
         now: Date,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        precomputedPREvents: [LifterCoaching.PREvent]? = nil
     ) -> MonthlyReport? {
         guard !history.isEmpty else { return nil }
         guard let currentMonthStart = calendar.dateInterval(of: .month, for: now)?.start else { return nil }
+        let prEvents = precomputedPREvents ?? LifterCoaching.prEvents(
+            history: history,
+            rangeStart: nil,
+            selectedExerciseID: nil,
+            calendar: calendar
+        )
 
         let dayOfMonth = calendar.component(.day, from: now)
         let currentMonthEntries = entries(in: history, monthStart: currentMonthStart, calendar: calendar)
@@ -69,7 +76,12 @@ enum MonthlyReportBuilder {
         // Early in a month, last month's completed story is the useful one.
         if dayOfMonth <= 5 || currentMonthEntries.isEmpty {
             if let previousStart = calendar.date(byAdding: .month, value: -1, to: currentMonthStart),
-               let report = completedMonthReport(history: history, monthStart: previousStart, calendar: calendar) {
+               let report = completedMonthReport(
+                   history: history,
+                   monthStart: previousStart,
+                   prEvents: prEvents,
+                   calendar: calendar
+               ) {
                 return report
             }
         }
@@ -80,6 +92,7 @@ enum MonthlyReportBuilder {
             monthStart: currentMonthStart,
             entries: currentMonthEntries,
             now: now,
+            prEvents: prEvents,
             calendar: calendar
         )
     }
@@ -89,12 +102,13 @@ enum MonthlyReportBuilder {
     private static func completedMonthReport(
         history: [SetEntry],
         monthStart: Date,
+        prEvents: [LifterCoaching.PREvent],
         calendar: Calendar
     ) -> MonthlyReport? {
         let monthEntries = entries(in: history, monthStart: monthStart, calendar: calendar)
         guard !monthEntries.isEmpty else { return nil }
 
-        let stats = MonthStats(entries: monthEntries, history: history, monthStart: monthStart, monthEnd: monthEnd(after: monthStart, calendar: calendar), calendar: calendar)
+        let stats = MonthStats(entries: monthEntries, prEvents: prEvents, monthStart: monthStart, monthEnd: monthEnd(after: monthStart, calendar: calendar), calendar: calendar)
 
         var sessionsDelta: Int?
         var volumeDeltaPercent: Double?
@@ -103,7 +117,7 @@ enum MonthlyReportBuilder {
         if let previousStart = calendar.date(byAdding: .month, value: -1, to: monthStart) {
             let previousEntries = entries(in: history, monthStart: previousStart, calendar: calendar)
             if !previousEntries.isEmpty {
-                let previous = MonthStats(entries: previousEntries, history: history, monthStart: previousStart, monthEnd: monthEnd(after: previousStart, calendar: calendar), calendar: calendar)
+                let previous = MonthStats(entries: previousEntries, prEvents: prEvents, monthStart: previousStart, monthEnd: monthEnd(after: previousStart, calendar: calendar), calendar: calendar)
                 sessionsDelta = stats.sessions - previous.sessions
                 volumeDeltaPercent = deltaPercent(current: stats.volumeKilograms, previous: previous.volumeKilograms)
                 prDelta = stats.prCount - previous.prCount
@@ -133,9 +147,10 @@ enum MonthlyReportBuilder {
         monthStart: Date,
         entries monthEntries: [SetEntry],
         now: Date,
+        prEvents: [LifterCoaching.PREvent],
         calendar: Calendar
     ) -> MonthlyReport {
-        let stats = MonthStats(entries: monthEntries, history: history, monthStart: monthStart, monthEnd: monthEnd(after: monthStart, calendar: calendar), calendar: calendar)
+        let stats = MonthStats(entries: monthEntries, prEvents: prEvents, monthStart: monthStart, monthEnd: monthEnd(after: monthStart, calendar: calendar), calendar: calendar)
 
         var sessionsDelta: Int?
         var volumeDeltaPercent: Double?
@@ -148,7 +163,7 @@ enum MonthlyReportBuilder {
             let previousEntries = entries(in: history, monthStart: previousStart, calendar: calendar)
                 .filter { $0.performedAt < clipEnd }
             if !previousEntries.isEmpty {
-                let previous = MonthStats(entries: previousEntries, history: history, monthStart: previousStart, monthEnd: clipEnd, calendar: calendar)
+                let previous = MonthStats(entries: previousEntries, prEvents: prEvents, monthStart: previousStart, monthEnd: clipEnd, calendar: calendar)
                 sessionsDelta = stats.sessions - previous.sessions
                 volumeDeltaPercent = deltaPercent(current: stats.volumeKilograms, previous: previous.volumeKilograms)
                 prDelta = stats.prCount - previous.prCount
@@ -183,7 +198,7 @@ enum MonthlyReportBuilder {
         let averageRPE: Double?
         let topMuscleGroups: [MonthlyReport.MuscleFocus]
 
-        init(entries: [SetEntry], history: [SetEntry], monthStart: Date, monthEnd: Date, calendar: Calendar) {
+        init(entries: [SetEntry], prEvents: [LifterCoaching.PREvent], monthStart: Date, monthEnd: Date, calendar: Calendar) {
             sessions = Set(entries.map { calendar.startOfDay(for: $0.performedAt) }).count
             sets = entries.count
 
@@ -213,9 +228,7 @@ enum MonthlyReportBuilder {
 
             // Real record-breaking sets inside the month (baselines and early
             // noise already excluded by the feed's rules).
-            prCount = LifterCoaching.prEvents(history: history, rangeStart: nil, selectedExerciseID: nil, calendar: calendar)
-                .filter { $0.date >= monthStart && $0.date < monthEnd }
-                .count
+            prCount = prEvents.lazy.filter { $0.date >= monthStart && $0.date < monthEnd }.count
         }
     }
 

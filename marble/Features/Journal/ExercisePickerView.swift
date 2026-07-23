@@ -16,23 +16,28 @@ struct ExercisePickerView: View {
     @Query(sort: \SprintPrescription.createdAt)
     private var sprintPrescriptions: [SprintPrescription]
 
+    @Query(LatestUpdateQueries.setEntry)
+    private var latestUpdatedEntries: [SetEntry]
+
     @State private var searchText = ""
     @State private var showManageExercises = false
     @State private var editorDestination: PickerEditorDestination?
+    @State private var derivedMemo = RenderMemo<ExercisePickerSignature, ExercisePickerDerivedData>()
 
     var body: some View {
+        let derived = pickerData
         List {
             if trimmedSearchText.isEmpty {
                 if exercises.isEmpty {
                     firstExerciseSection
-                } else if !recents.isEmpty {
-                    exerciseSection(title: "Recent", exercises: recents)
+                } else if !derived.recents.isEmpty {
+                    exerciseSection(title: "Recent", exercises: derived.recents, prescriptions: derived.prescriptions)
                 }
-                if !favoriteRemainder.isEmpty {
-                    exerciseSection(title: "Favorites", exercises: favoriteRemainder)
+                if !derived.favoriteRemainder.isEmpty {
+                    exerciseSection(title: "Favorites", exercises: derived.favoriteRemainder, prescriptions: derived.prescriptions)
                 }
-                if !allRemainder.isEmpty {
-                    exerciseSection(title: "All Exercises", exercises: allRemainder)
+                if !derived.allRemainder.isEmpty {
+                    exerciseSection(title: "All Exercises", exercises: derived.allRemainder, prescriptions: derived.prescriptions)
                 }
             } else if filteredExercises.isEmpty {
                 noResultsSection
@@ -40,7 +45,7 @@ struct ExercisePickerView: View {
                 if !hasExactMatch {
                     createSearchSection
                 }
-                exerciseSection(title: "Results", exercises: filteredExercises)
+                exerciseSection(title: "Results", exercises: filteredExercises, prescriptions: derived.prescriptions)
             }
         }
         .listStyle(.plain)
@@ -112,22 +117,23 @@ struct ExercisePickerView: View {
         exercises.filter { $0.name.localizedCaseInsensitiveContains(trimmedSearchText) }
     }
 
-    private var recents: [Exercise] {
-        var seen = Set<UUID>()
-        return recentEntries.compactMap { entry in
-            guard seen.insert(entry.exercise.id).inserted else { return nil }
-            return entry.exercise
-        }.prefix(5).map { $0 }
-    }
-
-    private var favoriteRemainder: [Exercise] {
-        let recentIDs = Set(recents.map(\.id))
-        return exercises.filter { $0.isFavorite && !recentIDs.contains($0.id) }
-    }
-
-    private var allRemainder: [Exercise] {
-        let featuredIDs = Set((recents + favoriteRemainder).map(\.id))
-        return exercises.filter { !featuredIDs.contains($0.id) }
+    private var pickerData: ExercisePickerDerivedData {
+        let signature = ExercisePickerSignature(
+            entryCount: recentEntries.count,
+            latestEntryUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast,
+            exerciseOrder: exercises.map(\.id),
+            favoriteExerciseIDs: exercises.filter(\.isFavorite).map(\.id),
+            prescriptionOwners: sprintPrescriptions.map {
+                ExercisePickerSignature.PrescriptionOwner(id: $0.id, exerciseID: $0.exerciseID)
+            }
+        )
+        return derivedMemo.value(for: signature) {
+            ExercisePickerDerivedData.build(
+                exercises: exercises,
+                recentEntries: recentEntries,
+                sprintPrescriptions: sprintPrescriptions
+            )
+        }
     }
 
     private var noResultsSection: some View {
@@ -186,16 +192,20 @@ struct ExercisePickerView: View {
         }
     }
 
-    private func exerciseSection(title: String, exercises: [Exercise]) -> some View {
+    private func exerciseSection(
+        title: String,
+        exercises: [Exercise],
+        prescriptions: [UUID: SprintPrescription]
+    ) -> some View {
         Section(title) {
             ForEach(exercises) { exercise in
-                exerciseRow(exercise)
+                exerciseRow(exercise, prescription: prescriptions[exercise.id])
             }
         }
     }
 
-    private func exerciseRow(_ exercise: Exercise) -> some View {
-        let summary = exercise.librarySummary(prescription: prescription(for: exercise))
+    private func exerciseRow(_ exercise: Exercise, prescription: SprintPrescription?) -> some View {
+        let summary = exercise.librarySummary(prescription: prescription)
         let sanitizedName = exercise.name.replacingOccurrences(of: " ", with: "")
         return Button {
             selectedExercise = exercise
@@ -231,9 +241,59 @@ struct ExercisePickerView: View {
         .accessibilityValue("\(exercise.category.displayName), \(summary)\(exercise.isFavorite ? ", favorite" : "")")
     }
 
-    private func prescription(for exercise: Exercise) -> SprintPrescription? {
-        sprintPrescriptions.first { $0.exerciseID == exercise.id }
+}
+
+struct ExercisePickerDerivedData {
+    let recents: [Exercise]
+    let favoriteRemainder: [Exercise]
+    let allRemainder: [Exercise]
+    let prescriptions: [UUID: SprintPrescription]
+
+    static func build(
+        exercises: [Exercise],
+        recentEntries: [SetEntry],
+        sprintPrescriptions: [SprintPrescription],
+        recentLimit: Int = 5
+    ) -> ExercisePickerDerivedData {
+        var seen = Set<UUID>()
+        var recents: [Exercise] = []
+        recents.reserveCapacity(min(recentLimit, exercises.count))
+
+        for entry in recentEntries {
+            guard recents.count < recentLimit else { break }
+            guard seen.insert(entry.exercise.id).inserted else { continue }
+            recents.append(entry.exercise)
+        }
+
+        let recentIDs = Set(recents.map(\.id))
+        let favorites = exercises.filter { $0.isFavorite && !recentIDs.contains($0.id) }
+        let featuredIDs = recentIDs.union(favorites.map(\.id))
+        let remainder = exercises.filter { !featuredIDs.contains($0.id) }
+        let prescriptions = Dictionary(
+            sprintPrescriptions.map { ($0.exerciseID, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        return ExercisePickerDerivedData(
+            recents: recents,
+            favoriteRemainder: favorites,
+            allRemainder: remainder,
+            prescriptions: prescriptions
+        )
     }
+}
+
+private struct ExercisePickerSignature: Equatable {
+    struct PrescriptionOwner: Equatable {
+        let id: UUID
+        let exerciseID: UUID
+    }
+
+    let entryCount: Int
+    let latestEntryUpdate: Date
+    let exerciseOrder: [UUID]
+    let favoriteExerciseIDs: [UUID]
+    let prescriptionOwners: [PrescriptionOwner]
 }
 
 private struct PickerEditorDestination: Identifiable {

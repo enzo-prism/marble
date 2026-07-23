@@ -335,6 +335,7 @@ enum LifterCoaching {
 
     struct PREvent: Identifiable, Equatable {
         let entryID: UUID
+        let exerciseID: UUID
         let date: Date
         let exerciseName: String
         let badge: PersonalRecordBadge
@@ -413,6 +414,7 @@ enum LifterCoaching {
                 if let rangeStart, entry.performedAt < rangeStart { continue }
                 events.append(PREvent(
                     entryID: entry.id,
+                    exerciseID: entry.exercise.id,
                     date: entry.performedAt,
                     exerciseName: entry.exercise.name,
                     badge: badge,
@@ -422,6 +424,21 @@ enum LifterCoaching {
         }
 
         return events.sorted { $0.date > $1.date }
+    }
+
+    /// Applies cheap presentation filters to an already-derived all-time feed.
+    /// Trends and the monthly report can share the expensive grouping/sorting
+    /// pass, then slice that result for their own windows.
+    static func filteredPREvents(
+        _ events: [PREvent],
+        rangeStart: Date?,
+        selectedExerciseID: UUID?
+    ) -> [PREvent] {
+        events.filter { event in
+            if let rangeStart, event.date < rangeStart { return false }
+            if let selectedExerciseID, event.exerciseID != selectedExerciseID { return false }
+            return true
+        }
     }
 
     private static func prSetSummary(for entry: SetEntry) -> String {

@@ -28,8 +28,18 @@
 - The populated Trends accessibility audit runs at 9:00 PM fixture time so the section is
   included, and `DerivationPerformanceTests` guards the builder with a 5,000-entry history.
 
+### Performance regression coverage
+
+- `DerivationPerformanceTests` measures Trends, Daily Highlights, personal-record badges,
+  Journal grouping, and the Exercise Picker against histories of 5,000–10,000 entries.
+- `ExercisePickerDerivedDataTests` pins recent/favorite/all partitioning after the picker moved
+  to one cached derivation pass, and `WorkoutSessionQueryTests` pins the one-active/five-completed
+  fetch limits used by the Workout tab.
+- `SeedDataTests.testOrphanMaintenanceRunsOncePerVersion` protects the versioned maintenance
+  gate that keeps full-store orphan sweeps off routine launches.
+
 ## Suite inventory (counted from source, 2026-07-22)
-- `Tests/Unit/` — **49 files, 51 classes, 453 test methods**.
+- `Tests/Unit/` — **51 files, 53 classes, 460 test methods**.
 - `Tests/UI/` — **17 files, 49 test methods**: **45 flow cases** plus
   `AccessibilityAuditUITests`' 4. `make ui` runs the flows and skips that audit class;
   `make audit` runs the audit cases instead.

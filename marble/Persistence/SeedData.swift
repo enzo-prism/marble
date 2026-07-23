@@ -5,11 +5,14 @@ enum SeedData {
     private static let didSeedKey = "didSeedMarbleData"
     private static let didEnsureSplitPlanKey = "didEnsureMarbleSplitPlan"
     private static let didBackfillSprintGoalsKey = "didBackfillSprintGoalsV4"
+    private static let didCleanOrphansV1Key = "didCleanMarbleOrphansV1"
 
     static func seedIfNeeded(in context: ModelContext) {
-        SprintPrescription.removeOrphans(in: context)
-        SprintGoalSnapshot.removeOrphans(in: context)
         if TestHooks.isUITesting {
+            // Fixture stores are rebuilt often and deliberately exercise
+            // cleanup behavior, so keep this unconditional in UI tests.
+            SprintPrescription.removeOrphans(in: context)
+            SprintGoalSnapshot.removeOrphans(in: context)
             switch TestHooks.fixtureMode {
             case .empty:
                 TestFixtures.seedEmpty(in: context, now: AppEnvironment.now)
@@ -23,6 +26,7 @@ enum SeedData {
             return
         }
         let defaults = UserDefaults.standard
+        performOneTimeMaintenanceIfNeeded(in: context, defaults: defaults)
         let didSeed = defaults.bool(forKey: didSeedKey)
 
         if !didSeed {
@@ -54,6 +58,21 @@ enum SeedData {
             if context.saveOrRollback() {
                 defaults.set(true, forKey: didBackfillSprintGoalsKey)
             }
+        }
+    }
+
+    /// Full-store referential-integrity sweeps are maintenance, not launch
+    /// work. Run this version once for existing installs; normal delete and
+    /// restore paths already remove related records as they mutate data.
+    static func performOneTimeMaintenanceIfNeeded(
+        in context: ModelContext,
+        defaults: UserDefaults = .standard
+    ) {
+        guard !defaults.bool(forKey: didCleanOrphansV1Key) else { return }
+        SprintPrescription.removeOrphans(in: context)
+        SprintGoalSnapshot.removeOrphans(in: context)
+        if context.saveOrRollback() {
+            defaults.set(true, forKey: didCleanOrphansV1Key)
         }
     }
 

@@ -147,27 +147,25 @@ struct TrendsContentView: View {
     }
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { _ in
-            let occurrence = dailyHighlightOccurrence
-            NavigationStack {
-                ScrollView {
-                    let signature = currentInputSignature(highlightOccurrence: occurrence)
-                    let derived = derivedMemo.value(for: signature) {
-                        makeDerivedData(highlightOccurrence: occurrence)
-                    }
+        NavigationStack {
+            ScrollView {
+                let signature = currentInputSignature(highlightOccurrence: nil)
+                let derived = derivedMemo.value(for: signature) {
+                    makeDerivedData(highlightOccurrence: nil)
+                }
                 VStack(alignment: .leading, spacing: MarbleSpacing.l) {
                     let hasSetData = !derived.filteredEntries.isEmpty
                     let hasSupplementData = !derived.filteredSupplementEntries.isEmpty
 
                     rangePicker
 
-                    if let occurrence, let summary = derived.dailyHighlight {
-                        DailyHighlightsSection(
-                            summary: summary,
-                            occurrence: occurrence,
-                            onCustomize: { isPresentingDailyHighlightsSettings = true }
-                        )
-                    }
+                    TimedDailyHighlightsSection(
+                        enabled: dailyHighlightsEnabled,
+                        window: dailyHighlightWindow,
+                        displayWeightUnit: WeightUnit(rawValue: preferredWeightUnitRaw) ?? .lb,
+                        latestEntryUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast,
+                        onCustomize: { isPresentingDailyHighlightsSettings = true }
+                    )
 
                     if derived.consistencySnapshot.lifetimeSets > 0 {
                         TrendsFocusView(
@@ -326,7 +324,7 @@ struct TrendsContentView: View {
 
                 }
                 .padding(MarbleLayout.pagePadding)
-                }
+            }
             .safeAreaInset(edge: .bottom) {
                 Color.clear
                     .frame(height: MarbleSpacing.xxl)
@@ -347,7 +345,6 @@ struct TrendsContentView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     AddSetToolbarButton()
                 }
-            }
             }
             .background(Theme.backgroundColor(for: colorScheme).ignoresSafeArea())
         }
@@ -449,11 +446,6 @@ struct TrendsContentView: View {
             startMinute: dailyHighlightsStartMinute,
             endMinute: dailyHighlightsEndMinute
         )
-    }
-
-    private var dailyHighlightOccurrence: DailyHighlightOccurrence? {
-        guard dailyHighlightsEnabled else { return nil }
-        return dailyHighlightWindow.occurrence(containing: AppEnvironment.now)
     }
 
     /// One-shot full-history fetch for the coaching layer (records, streaks,
@@ -1762,6 +1754,60 @@ private struct TrendSummaryMetricView: View {
                 .allowsTightening(true)
         }
     }
+}
+
+/// Owns the only minute-level clock on Trends. Keeping the TimelineView in
+/// this leaf prevents the navigation stack, ScrollView, and every chart from
+/// rebuilding once per minute just to cross the celebration-window boundary.
+private struct TimedDailyHighlightsSection: View {
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var memo = RenderMemo<TimedDailyHighlightsSignature, DailyHighlightSummary?>()
+
+    let enabled: Bool
+    let window: DailyHighlightWindow
+    let displayWeightUnit: WeightUnit
+    let latestEntryUpdate: Date
+    let onCustomize: () -> Void
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { _ in
+            if enabled,
+               let occurrence = window.occurrence(containing: AppEnvironment.now) {
+                let entryCount = (try? modelContext.fetchCount(FetchDescriptor<SetEntry>())) ?? 0
+                let signature = TimedDailyHighlightsSignature(
+                    celebrationDay: occurrence.celebrationDay,
+                    entryCount: entryCount,
+                    latestEntryUpdate: latestEntryUpdate,
+                    displayWeightUnit: displayWeightUnit
+                )
+                let summary = memo.value(for: signature) {
+                    let history = (try? modelContext.fetch(FetchDescriptor<SetEntry>())) ?? []
+                    return DailyHighlightsBuilder.build(
+                        history: history,
+                        occurrence: occurrence,
+                        now: AppEnvironment.now,
+                        displayWeightUnit: displayWeightUnit
+                    )
+                }
+
+                if let summary {
+                    DailyHighlightsSection(
+                        summary: summary,
+                        occurrence: occurrence,
+                        onCustomize: onCustomize
+                    )
+                }
+            }
+        }
+    }
+}
+
+private struct TimedDailyHighlightsSignature: Equatable {
+    let celebrationDay: Date
+    let entryCount: Int
+    let latestEntryUpdate: Date
+    let displayWeightUnit: WeightUnit
 }
 
 struct VolumeDatum: Identifiable {

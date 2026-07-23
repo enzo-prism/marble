@@ -96,4 +96,34 @@ final class DerivationPerformanceTests: MarbleTestCase {
             _ = grouped.keys.sorted(by: >)
         }
     }
+
+    func testExercisePickerDerivationScalesOn10kEntries() {
+        let exercises = (0..<50).map { index in
+            Exercise(
+                name: "Exercise \(index)",
+                category: .chest,
+                metrics: .weightAndRepsRequired,
+                defaultRestSeconds: 90,
+                isFavorite: index.isMultiple(of: 7)
+            )
+        }
+        let entries = (0..<10_000).map { index in
+            let exercise = index < 9_951 ? exercises[0] : exercises[index - 9_950]
+            return SetEntry(
+                exercise: exercise,
+                performedAt: now.addingTimeInterval(Double(-index)),
+                weight: 100,
+                reps: 5,
+                restAfterSeconds: 90
+            )
+        }
+
+        measure(metrics: [XCTClockMetric()]) {
+            _ = ExercisePickerDerivedData.build(
+                exercises: exercises,
+                recentEntries: entries,
+                sprintPrescriptions: []
+            )
+        }
+    }
 }

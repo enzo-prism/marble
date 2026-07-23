@@ -273,11 +273,16 @@ struct TrendsDerivedData {
         let repRecords = selectedExercise.map {
             LifterCoaching.repRecords(history: historyEntries, exercise: $0)
         } ?? []
-        let prEvents = LifterCoaching.prEvents(
+        let allPREvents = LifterCoaching.prEvents(
             history: historyEntries,
-            rangeStart: startDate,
-            selectedExerciseID: selectedExerciseID,
+            rangeStart: nil,
+            selectedExerciseID: nil,
             calendar: calendar
+        )
+        let prEvents = LifterCoaching.filteredPREvents(
+            allPREvents,
+            rangeStart: startDate,
+            selectedExerciseID: selectedExerciseID
         )
         let muscleCoverage = LifterCoaching.muscleGroupCoverage(
             rangeEntries: filteredEntries,
@@ -292,7 +297,12 @@ struct TrendsDerivedData {
             now: now,
             calendar: calendar
         )
-        let monthlyReport = MonthlyReportBuilder.build(history: historyEntries, now: now, calendar: calendar)
+        let monthlyReport = MonthlyReportBuilder.build(
+            history: historyEntries,
+            now: now,
+            calendar: calendar,
+            precomputedPREvents: allPREvents
+        )
         let dailyHighlight = dailyHighlightOccurrence.flatMap {
             DailyHighlightsBuilder.build(
                 history: historyEntries,
