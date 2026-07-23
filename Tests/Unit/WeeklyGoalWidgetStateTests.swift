@@ -1,8 +1,9 @@
 import XCTest
 @testable import marble
 
-/// Pins the app/widget wire format: round-tripping, the staleness cliff, and
-/// the clamped progress fraction the ring renders.
+/// Pins the app/widget wire format: round-tripping, the staleness cliff, the
+/// clamped progress fraction the ring renders, and the pure Smart Stack
+/// relevance scoring the widget wraps in `TimelineEntryRelevance`.
 ///
 /// The snapshot now travels through `SharedKeychain`, so these cases exercise
 /// the **pure** `encoded()`/`decoded(from:)` pair rather than a store. Nothing
@@ -254,6 +255,79 @@ final class WeeklyGoalWidgetStateTests: XCTestCase {
 
     func testProgressFractionClampsNegativeSessions() {
         XCTAssertEqual(state(target: 3, sessions: -1).progressFraction, 0, accuracy: 0.0001)
+    }
+
+    // MARK: Smart Stack relevance
+
+    /// A renderable snapshot for the UTC test week (Sun 2025-01-12 …), scored
+    /// at a chosen hour of the Wednesday inside it.
+    private func score(
+        target: Int = 3,
+        sessions: Int = 2,
+        atHour hour: Int
+    ) throws -> Float {
+        let weekStart = try utc("2025-01-12T00:00:00Z")
+        let now = try utc(String(format: "2025-01-15T%02d:00:00Z", hour))
+        let snapshot = state(target: target, sessions: sessions, generatedAt: now, weekStart: weekStart)
+        return WeeklyGoalWidgetState.relevanceScore(for: snapshot, at: now, calendar: weekCalendar)
+    }
+
+    func testRelevanceIsZeroWithoutASnapshot() {
+        // The neutral "Open Marble" card must never win a Smart Stack slot.
+        XCTAssertEqual(WeeklyGoalWidgetState.relevanceScore(for: nil, at: reference), 0)
+    }
+
+    func testRelevanceIsZeroForAnUnrenderableSnapshot() throws {
+        // Last week's snapshot on Sunday morning: `isRenderable` already
+        // refuses to draw it, so it must not claim relevance either.
+        let snapshot = state(
+            sessions: 2,
+            generatedAt: try utc("2025-01-18T23:00:00Z"),
+            weekStart: try utc("2025-01-12T00:00:00Z")
+        )
+        let sunday = try utc("2025-01-19T08:00:00Z")
+
+        XCTAssertEqual(WeeklyGoalWidgetState.relevanceScore(for: snapshot, at: sunday, calendar: weekCalendar), 0)
+    }
+
+    func testRelevanceIsZeroForNonPositiveTarget() throws {
+        XCTAssertEqual(try score(target: 0, sessions: 2, atHour: 18), 0)
+        XCTAssertEqual(try score(target: -3, sessions: 2, atHour: 18), 0)
+    }
+
+    func testRelevanceIsLowOnceTheWeekIsHit() throws {
+        // A banked week stays visible but must not out-rank any open week —
+        // regardless of the hour.
+        XCTAssertEqual(try score(target: 3, sessions: 3, atHour: 18), 0.1, accuracy: 0.0001)
+        XCTAssertEqual(try score(target: 3, sessions: 5, atHour: 12), 0.1, accuracy: 0.0001)
+    }
+
+    func testRelevancePeaksWithOneRemainingInsideATrainingWindow() throws {
+        XCTAssertEqual(try score(target: 3, sessions: 2, atHour: 18), 1.0, accuracy: 0.0001)
+        XCTAssertEqual(try score(target: 3, sessions: 2, atHour: 12), 0.7, accuracy: 0.0001)
+    }
+
+    func testMidweekProgressScoresModerate() throws {
+        // Progress made, several sessions still open.
+        XCTAssertEqual(try score(target: 4, sessions: 1, atHour: 12), 0.4, accuracy: 0.0001)
+        // Nothing logged yet ranks lowest of the open-week states.
+        XCTAssertEqual(try score(target: 3, sessions: 0, atHour: 12), 0.25, accuracy: 0.0001)
+    }
+
+    func testTrainingWindowBoundaries() throws {
+        // Fresh week base is 0.25; the window boost adds 0.3. Hours 6–9 and
+        // 16–20 are inside, 10 and 21 are the first hours outside.
+        XCTAssertEqual(try score(sessions: 0, atHour: 6), 0.55, accuracy: 0.0001)
+        XCTAssertEqual(try score(sessions: 0, atHour: 9), 0.55, accuracy: 0.0001)
+        XCTAssertEqual(try score(sessions: 0, atHour: 10), 0.25, accuracy: 0.0001)
+        XCTAssertEqual(try score(sessions: 0, atHour: 16), 0.55, accuracy: 0.0001)
+        XCTAssertEqual(try score(sessions: 0, atHour: 20), 0.55, accuracy: 0.0001)
+        XCTAssertEqual(try score(sessions: 0, atHour: 21), 0.25, accuracy: 0.0001)
+    }
+
+    func testRelevanceNeverExceedsOne() throws {
+        // The strongest base plus the window boost clamps at 1.
+        XCTAssertLessThanOrEqual(try score(target: 3, sessions: 2, atHour: 7), 1)
     }
 
     // MARK: Placeholder

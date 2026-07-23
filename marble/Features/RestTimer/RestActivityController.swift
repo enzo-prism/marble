@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import ActivityKit
+import UserNotifications
 
 /// The rest period currently counting down, mirrored by every in-app surface
 /// (the tab-bar accessory pill) alongside the system Live Activity.
@@ -45,8 +46,8 @@ nonisolated struct RestLiveActivityReconciliation: Equatable {
 protocol RestLiveActivityClient: AnyObject {
     var activitiesEnabled: Bool { get }
     func snapshots() -> [RestLiveActivitySnapshot]
-    func request(exerciseName: String, endsAt: Date, startedAt: Date) throws -> String
-    func update(activityID: String, endsAt: Date) async
+    func request(exerciseName: String, endsAt: Date, staleDate: Date, startedAt: Date) throws -> String
+    func update(activityID: String, endsAt: Date, staleDate: Date) async
     func endImmediately(activityID: String) async
 }
 
@@ -66,10 +67,10 @@ private final class ActivityKitRestLiveActivityClient: RestLiveActivityClient {
         }
     }
 
-    func request(exerciseName: String, endsAt: Date, startedAt: Date) throws -> String {
+    func request(exerciseName: String, endsAt: Date, staleDate: Date, startedAt: Date) throws -> String {
         let content = ActivityContent(
             state: RestTimerAttributes.ContentState(restEndsAt: endsAt),
-            staleDate: endsAt
+            staleDate: staleDate
         )
         return try Activity.request(
             attributes: RestTimerAttributes(exerciseName: exerciseName, startedAt: startedAt),
@@ -78,13 +79,13 @@ private final class ActivityKitRestLiveActivityClient: RestLiveActivityClient {
         ).id
     }
 
-    func update(activityID: String, endsAt: Date) async {
+    func update(activityID: String, endsAt: Date, staleDate: Date) async {
         guard let activity = Activity<RestTimerAttributes>.activities.first(where: { $0.id == activityID }) else {
             return
         }
         let content = ActivityContent(
             state: RestTimerAttributes.ContentState(restEndsAt: endsAt),
-            staleDate: endsAt
+            staleDate: staleDate
         )
         await activity.update(content)
     }
@@ -100,13 +101,86 @@ private final class ActivityKitRestLiveActivityClient: RestLiveActivityClient {
     }
 }
 
+/// Seam for the single "rest complete" local notification that fires when the countdown
+/// reaches zero while Marble is backgrounded or the phone is locked. In-process the
+/// auto-end task handles completion, but that task is suspended with the app — a scheduled
+/// notification is the only alert the system will deliver on Marble's behalf.
+///
+/// Deliberately a notification and *not* an ActivityKit `AlertConfiguration`: the HIG says
+/// never to pair both for the same moment, and only the notification covers the
+/// suspended-app case that actually matters between sets. Unit tests inject a fake; the
+/// default test seam is inert so the suite never touches the real notification center.
+@MainActor
+protocol RestEndAlertClient: AnyObject {
+    func scheduleAlert(exerciseName: String, endsAt: Date)
+    func cancelAlert()
+}
+
+@MainActor
+private final class UserNotificationRestEndAlertClient: RestEndAlertClient {
+    /// One fixed identifier: at most one rest-end alert is ever pending, and re-scheduling
+    /// replaces it wholesale — the same anti-spam shape as `WeeklyGoalReminder`.
+    static let requestIdentifier = "marble.restTimer.restComplete"
+
+    func scheduleAlert(exerciseName: String, endsAt: Date) {
+        // Rest surfaces are opt-in under UI testing, and even then a real banner firing
+        // mid-flow would perturb unrelated assertions.
+        guard !TestHooks.isUITesting else { return }
+        Task {
+            let center = UNUserNotificationCenter.current()
+            // Never prompt from a rest start — the alert rides on whatever authorization the
+            // user already granted for their own reminders and stays silent otherwise
+            // (`WeeklyGoalReminder` precedent).
+            let settings = await center.notificationSettings()
+            guard settings.authorizationStatus == .authorized
+                    || settings.authorizationStatus == .provisional else { return }
+
+            let content = UNMutableNotificationContent()
+            content.title = "Rest complete"
+            content.body = "\(exerciseName) — time for your next set."
+            content.sound = .default
+            // Default interruption level on purpose: the time-sensitive entitlement is not in
+            // `marble.entitlements`, and `.timeSensitive` without it is silently downgraded
+            // anyway. When the app is foreground at zero there is no delegate opting into
+            // banner presentation, so iOS suppresses this notification — the disappearing
+            // in-app pill is the foreground signal, and the user is never double-alerted.
+
+            let components = Calendar.current.dateComponents(
+                [.year, .month, .day, .hour, .minute, .second],
+                from: endsAt
+            )
+            // A one-shot calendar trigger pinned to the rest's wall-clock end. If `endsAt`
+            // is already past by delivery time the trigger simply never fires.
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            try? await center.add(
+                UNNotificationRequest(identifier: Self.requestIdentifier, content: content, trigger: trigger)
+            )
+        }
+    }
+
+    func cancelAlert() {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [Self.requestIdentifier])
+    }
+}
+
+/// Default for the test seam: most controller tests exercise timing/invariants and must not
+/// schedule real notifications from the test host. Alert-specific tests inject a recording fake.
+/// `nonisolated` (it holds no state) so the injectable initializer can build one as a default
+/// argument, which evaluates outside the main actor under default-MainActor isolation.
+nonisolated final class InertRestEndAlertClient: RestEndAlertClient {
+    func scheduleAlert(exerciseName: String, endsAt: Date) {}
+    func cancelAlert() {}
+}
+
 /// Starts, replaces, and ends the between-sets rest timer.
 ///
 /// Call `startRest(for:)` right after an *interactive* set is logged (quick-log, "Log Again",
-/// duplicate). Bulk import deliberately does not call this. Two surfaces hang off one state
-/// machine: the observable `activeRest` drives the in-app tab-bar pill, and a Live Activity
-/// mirrors the countdown on the Lock Screen / Dynamic Island. The Live Activity is a safe
-/// no-op when unavailable/disabled (e.g. user turned them off) — the in-app pill still works.
+/// duplicate). Bulk import deliberately does not call this. Three surfaces hang off one state
+/// machine: the observable `activeRest` drives the in-app tab-bar pill, a Live Activity
+/// mirrors the countdown on the Lock Screen / Dynamic Island, and a single pending local
+/// notification alerts a backgrounded user at completion. The Live Activity and the alert
+/// are each a safe no-op when unavailable/denied — the in-app pill still works.
 @MainActor
 @Observable
 final class RestActivityController {
@@ -117,6 +191,7 @@ final class RestActivityController {
     private(set) var activeRest: ActiveRest?
 
     @ObservationIgnored private let liveActivities: any RestLiveActivityClient
+    @ObservationIgnored private let restEndAlerts: any RestEndAlertClient
     @ObservationIgnored private var currentActivityID: String?
     @ObservationIgnored private var endTask: Task<Void, Never>?
     @ObservationIgnored private var liveActivityTask: Task<Void, Never>?
@@ -124,10 +199,15 @@ final class RestActivityController {
 
     init() {
         self.liveActivities = ActivityKitRestLiveActivityClient()
+        self.restEndAlerts = UserNotificationRestEndAlertClient()
     }
 
-    init(liveActivities: any RestLiveActivityClient) {
+    init(
+        liveActivities: any RestLiveActivityClient,
+        restEndAlerts: any RestEndAlertClient = InertRestEndAlertClient()
+    ) {
         self.liveActivities = liveActivities
+        self.restEndAlerts = restEndAlerts
     }
 
     /// Convenience for the logging call sites: pulls the exercise name and rest from a
@@ -149,6 +229,9 @@ final class RestActivityController {
         guard Self.shouldStart(restSeconds: restSeconds), Self.isRestSurfaceEnabled else { return }
         let endsAt = Self.restEndDate(restSeconds: restSeconds, now: now)
         beginRestSession(exerciseName: exerciseName, endsAt: endsAt)
+        // Scheduled outside the Live Activity path on purpose: the backgrounded-completion
+        // alert must still fire when Live Activities are disabled and only the pill runs.
+        restEndAlerts.scheduleAlert(exerciseName: exerciseName, endsAt: endsAt)
         replaceLiveActivity(startedAt: now)
     }
 
@@ -196,6 +279,9 @@ final class RestActivityController {
         // (+30 then +30 = a full extra minute, not 30 seconds from the second tap).
         let endsAt = Self.extendedEnd(from: activeRest.endsAt, by: seconds, now: now)
         beginRestSession(exerciseName: activeRest.exerciseName, endsAt: endsAt)
+        // The pending completion alert tracks the extended deadline, otherwise it would fire
+        // mid-rest at the original end. Re-adding the fixed identifier replaces it wholesale.
+        restEndAlerts.scheduleAlert(exerciseName: activeRest.exerciseName, endsAt: endsAt)
         updateLiveActivity(endsAt: endsAt)
     }
 
@@ -220,6 +306,9 @@ final class RestActivityController {
         endTask?.cancel()
         activeRest = nil
         currentActivityID = nil
+        // The user ended rest early — the completion alert must not fire later for a
+        // rest that no longer exists.
+        restEndAlerts.cancelAlert()
         endLiveActivities(liveActivities.snapshots().map(\.id))
     }
 
@@ -248,6 +337,9 @@ final class RestActivityController {
             endTask?.cancel()
             activeRest = nil
             currentActivityID = nil
+            // Hygiene: the completion alert either already fired while suspended or is
+            // past-dated (a past calendar trigger never fires); drop the pending request.
+            restEndAlerts.cancelAlert()
         } else {
             // A future in-app rest can legitimately exist without a system activity when
             // Live Activities are disabled or a request failed. Keep the pill counting down.
@@ -280,6 +372,7 @@ final class RestActivityController {
                 self.currentActivityID = try self.liveActivities.request(
                     exerciseName: desiredRest.exerciseName,
                     endsAt: desiredRest.endsAt,
+                    staleDate: Self.liveActivityStaleDate(forRestEnding: desiredRest.endsAt),
                     startedAt: startedAt
                 )
             } catch {
@@ -315,7 +408,11 @@ final class RestActivityController {
                 await self.liveActivities.endImmediately(activityID: id)
             }
             guard !Task.isCancelled, self.liveActivityGeneration == generation else { return }
-            await self.liveActivities.update(activityID: currentActivityID, endsAt: endsAt)
+            await self.liveActivities.update(
+                activityID: currentActivityID,
+                endsAt: endsAt,
+                staleDate: Self.liveActivityStaleDate(forRestEnding: endsAt)
+            )
         }
     }
 
@@ -334,6 +431,10 @@ final class RestActivityController {
         guard activeRest?.endsAt == endsAt else { return }
         activeRest = nil
         currentActivityID = nil
+        // In-process completion means the app is running and (without a foreground-
+        // presentation delegate) iOS would suppress the banner anyway; removing the pending
+        // request keeps the notification center clean and can never double-alert.
+        restEndAlerts.cancelAlert()
         endLiveActivities(liveActivities.snapshots().map(\.id))
     }
 
@@ -372,6 +473,19 @@ final class RestActivityController {
     }
 
     // MARK: - Pure logic (unit-tested without the ActivityKit runtime)
+
+    /// How long past the advertised end an un-ended activity may linger before the system
+    /// marks it stale. `Text(timerInterval:)` renders 0:00 on its own with no update needed,
+    /// so the grace only has to cover the normal end path: the auto-end (foreground) or the
+    /// next foreground reconciliation dismisses the card well within a minute. Anything
+    /// older is a genuinely missed end (process killed mid-rest), and rendering it stale is
+    /// honest — a frozen card must not keep looking live.
+    nonisolated static let liveActivityStaleGrace: TimeInterval = 60
+
+    /// The `staleDate` carried by every request/update for a rest ending at `endsAt`.
+    nonisolated static func liveActivityStaleDate(forRestEnding endsAt: Date) -> Date {
+        endsAt.addingTimeInterval(liveActivityStaleGrace)
+    }
 
     /// A rest timer is only meaningful when the set actually prescribes rest.
     nonisolated static func shouldStart(restSeconds: Int) -> Bool { restSeconds > 0 }

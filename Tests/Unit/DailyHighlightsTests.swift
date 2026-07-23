@@ -199,6 +199,88 @@ final class DailyHighlightsTests: MarbleTestCase {
         XCTAssertEqual(firstDay, nextCycle)
     }
 
+    // MARK: - Quote rotation resume
+
+    func testManualQuoteSelectionHoldsForAtLeastOneFullIntervalThenRotationResumes() {
+        let selection = DailyHighlightQuoteRotation.ManualSelection(index: 2, tick: 100)
+
+        // Within the tap's own tick and the next one the pick still wins —
+        // clearing at the first boundary could dismiss a tap made moments
+        // before it.
+        for tick in [100, 101] {
+            XCTAssertEqual(
+                DailyHighlightQuoteRotation.displayedIndex(
+                    quoteCount: 3,
+                    autoRotates: true,
+                    manualSelection: selection,
+                    currentTick: tick
+                ),
+                2
+            )
+        }
+
+        // From the boundary after that, the shared schedule takes over again.
+        XCTAssertEqual(
+            DailyHighlightQuoteRotation.displayedIndex(
+                quoteCount: 3,
+                autoRotates: true,
+                manualSelection: selection,
+                currentTick: 102
+            ),
+            102 % 3
+        )
+    }
+
+    func testManualQuoteSelectionIsPermanentWhenRotationIsDisabled() {
+        // VoiceOver, Reduce Motion, and test runs never rotate — an adjusted
+        // quote must stay put no matter how much time passes.
+        let selection = DailyHighlightQuoteRotation.ManualSelection(index: 1, tick: 100)
+
+        XCTAssertEqual(
+            DailyHighlightQuoteRotation.displayedIndex(
+                quoteCount: 3,
+                autoRotates: false,
+                manualSelection: selection,
+                currentTick: 10_000
+            ),
+            1
+        )
+        // And without a pick, the static variant always shows the first quote.
+        XCTAssertEqual(
+            DailyHighlightQuoteRotation.displayedIndex(
+                quoteCount: 3,
+                autoRotates: false,
+                manualSelection: nil,
+                currentTick: 10_000
+            ),
+            0
+        )
+    }
+
+    func testAutoRotationWalksTheScheduleAndTicksFollowTheClock() {
+        XCTAssertEqual(
+            DailyHighlightQuoteRotation.displayedIndex(
+                quoteCount: 3,
+                autoRotates: true,
+                manualSelection: nil,
+                currentTick: 7
+            ),
+            1
+        )
+
+        let interval: TimeInterval = 12
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        XCTAssertEqual(DailyHighlightQuoteRotation.tick(at: start, interval: interval), 0)
+        XCTAssertEqual(
+            DailyHighlightQuoteRotation.tick(at: start.addingTimeInterval(interval - 0.5), interval: interval),
+            0
+        )
+        XCTAssertEqual(
+            DailyHighlightQuoteRotation.tick(at: start.addingTimeInterval(interval), interval: interval),
+            1
+        )
+    }
+
     private func defaultOccurrence() throws -> DailyHighlightOccurrence {
         try XCTUnwrap(DailyHighlightWindow(
             startMinute: DailyHighlightWindow.defaultStartMinute,

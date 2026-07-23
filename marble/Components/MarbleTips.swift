@@ -8,8 +8,9 @@ import TipKit
 /// already found the feature reads as nagging, which is the opposite of the
 /// brand.
 ///
-/// Attaching them to views is deliberately deferred to a later change (see the
-/// integration notes); this file only defines them and owns configuration.
+/// This file only defines the tips and owns configuration. The attach points
+/// live with the features: `ImportView` (scan button), `TrendsFocusView` and
+/// `StrengthDashboardView` (coaching cards), and `PRFeedSectionView` (PR feed).
 
 /// Points at the handwritten-workout scanner in the import hub. Nothing else in
 /// the app hints that Marble can read a photo of a notebook page.

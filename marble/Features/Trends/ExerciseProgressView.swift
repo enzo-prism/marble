@@ -220,6 +220,7 @@ struct ExerciseProgressChart: View {
                             accessibilityIdentifier: "ExerciseProgress.Chart",
                             accessibilityLabel: "Progress chart",
                             accessibilityValue: progressAccessibilityValue,
+                            audioGraph: progressAudioGraph,
                             isScrubbing: $isScrubbing
                         ) { date in
                             selectedDate = date
@@ -258,6 +259,26 @@ struct ExerciseProgressChart: View {
     private var progressAccessibilityValue: String {
         guard !points.isEmpty else { return "No data" }
         return "\(points.count) sessions"
+    }
+
+    /// Audio Graph for the progress line: one point per session, spoken as its
+    /// best set (the score itself is an internal ranking, not a lifter-facing
+    /// number).
+    private var progressAudioGraph: TrendsDateSeriesAudioGraph {
+        TrendsDateSeriesAudioGraph(
+            title: "Progress",
+            summary: progressAccessibilityValue,
+            valueAxisName: "Session score",
+            valueUnit: nil,
+            seriesName: "Progress",
+            points: points.map { point in
+                TrendsDateSeriesAudioGraph.Point(
+                    date: point.date,
+                    value: point.score,
+                    valueText: point.bestSetSummary
+                )
+            }
+        )
     }
 
     private var chartHeight: CGFloat {

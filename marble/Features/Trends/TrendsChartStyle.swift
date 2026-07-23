@@ -53,6 +53,23 @@ enum TrendsPalette {
         dark: Color(red: 0.97, green: 0.76, blue: 0.26)
     )
 
+    /// Estimated 1RM: steel blue, apart from the violet raw-progress line —
+    /// the HIG asks that different data read as visibly different charts.
+    static let strength = TrendsChartAccent(
+        light: Color(red: 0.16, green: 0.48, blue: 0.85),
+        dark: Color(red: 0.45, green: 0.70, blue: 1.00)
+    )
+
+    /// Effort (average RPE): the warm red already used for duration volume.
+    static let effort = volumeDuration
+
+    /// Bodyweight: a cool slate-green, distinct from the violet raw-progress
+    /// line, the steel-blue e1RM line, and the teal supplements line.
+    static let bodyweight = TrendsChartAccent(
+        light: Color(red: 0.13, green: 0.52, blue: 0.44),
+        dark: Color(red: 0.40, green: 0.82, blue: 0.70)
+    )
+
     /// Soft fill under line charts, fading to transparent at the baseline.
     static func areaGradient(_ accent: Color) -> LinearGradient {
         LinearGradient(

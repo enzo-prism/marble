@@ -10,7 +10,7 @@
 > | Phase | State |
 > |---|---|
 > | 0 — ship & tidy | **2.1 released to the App Store 2026-07-21** via `asc versions release`; version bump and PRs #2/#11 done. ⚠️ `ASC_APPSTORE_VERSION` in the Makefile was **never set to 2.2** — being fixed now. |
-> | 1 — 2.2 Ambient | **Mostly done.** Weekly Goal widget, interactive rest Live Activity, Control Center control, onboarding, Settings all ship. **TipKit is defined but inert** — see Known gaps. |
+> | 1 — 2.2 Ambient | **Mostly done.** Weekly Goal widget, interactive rest Live Activity, Control Center control, onboarding, Settings all ship. ~~TipKit is defined but inert~~ **tips attached 2026-07-22** — see Known gaps. |
 > | 2 — 2.3 Siri & Spotlight | **Done.** `ExerciseEntity`+`IndexedEntity`, `LogSetIntent`, start/finish workout intents, 5 App Shortcuts. |
 > | 3 — 2.4 Body | **Partly done.** Schema V5 `BodyMetricEntry`, Health bodyweight import, DOTS, Trends section ship. Calendar weight-on-day, `MonthlyReport` bodyweight deltas, and quick weight entry from Settings **were not built** — see Known gaps. |
 > | 4 — 3.0 Watch | **Not built — deliberately.** See "Why Phase 4 was not built" below. |
@@ -66,20 +66,26 @@ describes as designed or done that are **not actually working end to end**. Do n
 of them works, and do not put them in release notes.
 
 ### Wired up but inert
-- **TipKit shows nothing.** `ScanWorkoutTip`, `CoachingCardsTip` and `PRFeedTip` are defined
-  and `MarbleTips.configure()` runs at launch, but **no view presents any of them** and
-  nothing calls `invalidate(reason:)`. The intended attach points are the Import scan button,
-  the Trends coaching cards, and the Trends PR feed. Until a view carries `.popoverTip(…)`,
-  the whole feature is dead code.
-- **Siri-logged sets don't refresh the widget or the weekly-goal reminder.**
-  `WeeklyGoalWidgetPublisher.publish` is only called on scene-phase change, and Siri runs
-  intents **without one**. A voice-logged third session leaves the widget reading "2 of 3"
-  and still fires the at-risk notification. The publisher needs to be called from the intent
-  perform paths too.
-- **Restore from backup doesn't refresh the widget** — same missing `publish` call.
-- **Exercise deletes and renames leave stale Spotlight entries.** `reindexAll()` runs once
-  per launch; `removeAll()` has **no callers**. A deleted exercise stays searchable until the
-  next cold launch.
+- ~~**TipKit shows nothing.**~~ **Resolved 2026-07-22** — all three tips are attached via
+  `.popoverTip(…)` and invalidated on first use: `ScanWorkoutTip` on the Import scan button
+  (invalidated when the scanner opens), `CoachingCardsTip` on the Focus lift card (invalidated
+  on tapping it or any strength-dashboard row), `PRFeedTip` on the PR feed header (the feed is
+  display-only, so it invalidates once the section has been on screen).
+- ~~**Siri-logged sets don't refresh the widget or the weekly-goal reminder.**~~
+  **Resolved 2026-07-22** — every store-writing intent (`LogSetIntent`,
+  `LogLastSetAgainIntent`, `StartWorkoutIntent`, `FinishWorkoutIntent`) now awaits
+  `AppIntentsSupport.refreshSystemSurfaces` (widget publish + reminder sync) after its save,
+  before `perform()` returns. Pinned by `LogSetIntentTests`'
+  `testLoggedSetPublishesTheWeeklyGoalWidgetSnapshot`.
+- ~~**Restore from backup doesn't refresh the widget**~~ **Resolved 2026-07-22** —
+  `DataManagementView.restorePendingBackup()` now publishes the widget snapshot, re-syncs the
+  weekly-goal reminder, reindexes Spotlight, and re-registers the parameterised shortcut
+  phrases after a successful restore.
+- ~~**Exercise deletes and renames leave stale Spotlight entries.**~~ **Resolved 2026-07-22**
+  — `ExerciseEditorView` now removes the deleted exercise per-item
+  (`ExerciseSpotlightIndex.remove(exerciseID:)`) and reindexes after create/rename, calling
+  `MarbleShortcuts.updateAppShortcutParameters()` in both paths. `removeAll()` still has no
+  caller because the app has no data-wipe flow to wire it to.
 
 ### Missing user-facing affordances
 - **A bodyweight entry cannot be edited or deleted.** `BodyMetricEntryView` has a complete
@@ -232,8 +238,8 @@ Connect API; no portal session available), and its entitlement failed Release ar
   + new `MARBLE_FORCE_ONBOARDING=1` TestHook).
 - TipKit: `Tips.configure()` in `marbleApp` (skip when `TestHooks.isUITesting`); three tips —
   scan button (Import), coaching cards (Trends), PR feed. Invalidate each on first interaction.
-  ⚠️ **Only half-shipped:** the tips and `MarbleTips.configure()` exist; no view presents them
-  and nothing invalidates them. See Known gaps.
+  ~~⚠️ **Only half-shipped:** the tips and `MarbleTips.configure()` exist; no view presents them
+  and nothing invalidates them.~~ **Resolved 2026-07-22** — see Known gaps.
 
 ### 1F. Ship
 

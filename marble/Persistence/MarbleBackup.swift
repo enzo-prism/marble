@@ -56,6 +56,16 @@ struct MarbleBackupSummary: Equatable {
     /// Bodyweight / body-fat measurements. Surfaced because a silent zero here
     /// is exactly how months of weigh-ins went missing without anyone noticing.
     let bodyMetrics: Int
+    /// Import-ledger rows (`ImportedWorkout`). This entity was dropped from the
+    /// payload once already — after that restore, every re-import created
+    /// duplicate journal entries because the dedup ledger came back empty.
+    let importedWorkouts: Int
+    /// Progress photo/video *metadata* rows only. The media binaries live on
+    /// disk under `ProgressMediaStore` and are deliberately not in the JSON
+    /// backup — see `ProgressMediaRecord`.
+    let progressMedia: Int
+    /// Weekday-bitmask reminder schedules (`CustomNotification`).
+    let customNotifications: Int
 }
 
 @MainActor
@@ -74,8 +84,17 @@ enum MarbleBackupService {
         let sprintGoalSnapshots = try context.fetch(FetchDescriptor<SprintGoalSnapshot>())
         // Schema V5. Omitting this is what silently threw away every weigh-in
         // on a phone-to-phone restore — the same class of bug as the dropped
-        // `ImportedWorkout`. Any new @Model type belongs in this list.
+        // `ImportedWorkout`. Any new @Model type belongs in this list, and
+        // `MarbleBackupTests.testBackupPayloadCoversEveryModelInCurrentSchema`
+        // fails the build the moment a schema model is missing from it.
         let bodyMetrics = try context.fetch(FetchDescriptor<BodyMetricEntry>())
+        let importedWorkouts = try context.fetch(FetchDescriptor<ImportedWorkout>())
+        // Metadata only: the photo/video binaries under `ProgressMediaStore`
+        // never enter the JSON (they would balloon a text backup by orders of
+        // magnitude and JSON has no sane binary encoding). The export UI
+        // already discloses that media files stay on the device.
+        let progressMedia = try context.fetch(FetchDescriptor<ProgressMediaAttachment>())
+        let customNotifications = try context.fetch(FetchDescriptor<CustomNotification>())
 
         let payload = Payload(
             formatVersion: currentVersion,
@@ -88,7 +107,10 @@ enum MarbleBackupService {
             plans: plans.map(PlanRecord.init),
             sprintPrescriptions: sprintPrescriptions.map(SprintPrescriptionRecord.init),
             sprintGoalSnapshots: sprintGoalSnapshots.map(SprintGoalSnapshotRecord.init),
-            bodyMetrics: bodyMetrics.map(BodyMetricRecord.init)
+            bodyMetrics: bodyMetrics.map(BodyMetricRecord.init),
+            importedWorkouts: importedWorkouts.map(ImportedWorkoutRecord.init),
+            progressMedia: progressMedia.map(ProgressMediaRecord.init),
+            customNotifications: customNotifications.map(CustomNotificationRecord.init)
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -104,7 +126,10 @@ enum MarbleBackupService {
             supplementLogs: payload.supplementEntries.count,
             sessions: payload.sessions.count,
             plans: payload.plans.count,
-            bodyMetrics: (payload.bodyMetrics ?? []).count
+            bodyMetrics: (payload.bodyMetrics ?? []).count,
+            importedWorkouts: (payload.importedWorkouts ?? []).count,
+            progressMedia: (payload.progressMedia ?? []).count,
+            customNotifications: (payload.customNotifications ?? []).count
         )
     }
 
@@ -119,6 +144,9 @@ enum MarbleBackupService {
         var insertedSessions = 0
         var insertedPlans = 0
         var insertedBodyMetrics = 0
+        var insertedImportedWorkouts = 0
+        var insertedProgressMedia = 0
+        var insertedCustomNotifications = 0
 
         var exercises = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<Exercise>()).map { ($0.id, $0) })
         for record in payload.exercises where exercises[record.id] == nil {
@@ -240,6 +268,67 @@ enum MarbleBackupService {
             }
         }
 
+        // The import ledger has TWO database-level unique constraints: `id` and
+        // `deduplicationKey` ("<source>:<externalID>"). Dedup on both. The same
+        // Garmin/Strava/Health workout imported independently on two phones gets
+        // two different row UUIDs but the identical key, and inserting the
+        // "new" id would make SwiftData *upsert* over the user's existing row
+        // on the key collision (that is the constraint's documented behavior in
+        // `ImportedWorkout`) instead of merging alongside it.
+        let existingImports = try context.fetch(FetchDescriptor<ImportedWorkout>())
+        let existingImportsByID = Dictionary(uniqueKeysWithValues: existingImports.map { ($0.id, $0) })
+        let existingImportsByKey = Dictionary(uniqueKeysWithValues: existingImports.map { ($0.deduplicationKey, $0) })
+        for record in payload.importedWorkouts ?? [] {
+            if let existing = existingImportsByID[record.id] ?? existingImportsByKey[record.deduplicationKey] {
+                // Same repair rule as sessions above: an existing ledger row
+                // adopts restored entries it should own but doesn't. Entries
+                // already claimed by another import are never stolen —
+                // `SetEntry.importedWorkout` is to-one and the current owner
+                // is the record of truth on this device.
+                let linkedEntryIDs = Set(existing.entries.map(\.id))
+                for entryID in record.entryIDs where !linkedEntryIDs.contains(entryID) {
+                    if let entry = allSets[entryID], entry.importedWorkout == nil {
+                        entry.importedWorkout = existing
+                    }
+                }
+                continue
+            }
+            let imported = ImportedWorkout(
+                id: record.id,
+                source: ImportSource(rawValue: record.sourceRaw) ?? .appleHealth,
+                externalID: record.externalID,
+                title: record.title,
+                workoutDate: record.workoutDate,
+                setsImported: record.setsImported,
+                importedAt: record.importedAt,
+                originName: record.originName,
+                sourceAppName: record.sourceAppName,
+                deviceName: record.deviceName,
+                distanceMeters: record.distanceMeters,
+                durationSeconds: record.durationSeconds,
+                calories: record.calories,
+                averageHeartRate: record.averageHeartRate,
+                maxHeartRate: record.maxHeartRate,
+                elevationAscendedMeters: record.elevationAscendedMeters,
+                isIndoor: record.isIndoor
+            )
+            // Raw strings pass through verbatim (see `ImportedWorkoutRecord`):
+            // a source or activity kind this build doesn't know about must
+            // survive the round trip, so the enum-typed init parameters are
+            // bypassed for these. `validate` has already proven the key still
+            // matches "<sourceRaw>:<externalID>".
+            imported.sourceRaw = record.sourceRaw
+            imported.deduplicationKey = record.deduplicationKey
+            imported.kindRaw = record.kindRaw
+            context.insert(imported)
+            for entryID in record.entryIDs {
+                if let entry = allSets[entryID], entry.importedWorkout == nil {
+                    entry.importedWorkout = imported
+                }
+            }
+            insertedImportedWorkouts += 1
+        }
+
         let existingSupplementEntryIDs = Set(try context.fetch(FetchDescriptor<SupplementEntry>()).map(\.id))
         for record in payload.supplementEntries where !existingSupplementEntryIDs.contains(record.id) {
             guard let type = supplementTypes[record.typeID] else { throw MarbleBackupError.missingSupplementType(record.typeID) }
@@ -314,6 +403,62 @@ enum MarbleBackupService {
             insertedBodyMetrics += 1
         }
 
+        // Metadata only, like the export side: the row's filenames point into
+        // `ProgressMediaStore`'s on-disk directory, and the binaries themselves
+        // are NOT in the JSON backup. On a fresh device the restored row's
+        // media will be missing until the store's files arrive by other means
+        // (a full device transfer); every `ProgressMediaStore` load resolves a
+        // missing file to nil and the calendar's media section falls back to
+        // its placeholder state, so restoring the row loses nothing and
+        // preserves the date/kind/crop the user set up.
+        let existingProgressMediaIDs = Set(try context.fetch(FetchDescriptor<ProgressMediaAttachment>()).map(\.id))
+        for record in payload.progressMedia ?? [] where !existingProgressMediaIDs.contains(record.id) {
+            let attachment = ProgressMediaAttachment(
+                id: record.id,
+                attachedToDate: record.attachedToDate,
+                kind: ProgressMediaKind(rawValue: record.kindRaw) ?? .photo,
+                originalFilename: record.originalFilename,
+                thumbnailFilename: record.thumbnailFilename,
+                fileSizeBytes: record.fileSizeBytes,
+                createdAt: record.createdAt,
+                updatedAt: record.updatedAt
+            )
+            // Raw string passes through verbatim for the same forward-compat
+            // reason as `ImportedWorkout.sourceRaw`, and the crop components
+            // are set individually so a partially-present crop (a hand-edited
+            // file) round-trips exactly as stored instead of collapsing to nil.
+            attachment.kindRaw = record.kindRaw
+            attachment.photoCropX = record.photoCropX
+            attachment.photoCropY = record.photoCropY
+            attachment.photoCropWidth = record.photoCropWidth
+            attachment.photoCropHeight = record.photoCropHeight
+            context.insert(attachment)
+            insertedProgressMedia += 1
+        }
+
+        // Persistence only: inserting the row does not tell
+        // UNUserNotificationCenter anything. The restore call site is
+        // responsible for re-syncing schedules afterwards (see
+        // `DataManagementView.rescheduleRestoredNotifications`) — keeping the
+        // notification-center dependency out of this service is what lets the
+        // whole restore path run in unit tests. The 10-notification cap is a
+        // creation-time UI rule; a restore never drops rows to enforce it,
+        // because silently dropping data is the bug class this file fights.
+        let existingNotificationIDs = Set(try context.fetch(FetchDescriptor<CustomNotification>()).map(\.id))
+        for record in payload.customNotifications ?? [] where !existingNotificationIDs.contains(record.id) {
+            context.insert(CustomNotification(
+                id: record.id,
+                message: record.message,
+                hour: record.hour,
+                minute: record.minute,
+                weekdayMask: record.weekdayMask,
+                isEnabled: record.isEnabled,
+                createdAt: record.createdAt,
+                updatedAt: record.updatedAt
+            ))
+            insertedCustomNotifications += 1
+        }
+
         do {
             try context.save()
         } catch {
@@ -327,7 +472,10 @@ enum MarbleBackupService {
             supplementLogs: insertedSupplementEntries,
             sessions: insertedSessions,
             plans: insertedPlans,
-            bodyMetrics: insertedBodyMetrics
+            bodyMetrics: insertedBodyMetrics,
+            importedWorkouts: insertedImportedWorkouts,
+            progressMedia: insertedProgressMedia,
+            customNotifications: insertedCustomNotifications
         )
     }
 
@@ -359,7 +507,10 @@ enum MarbleBackupService {
               hasUniqueIDs(payload.plans, id: \.id),
               hasUniqueIDs(payload.sprintPrescriptions ?? [], id: \.id),
               hasUniqueIDs(payload.sprintGoalSnapshots ?? [], id: \.id),
-              hasUniqueIDs(payload.bodyMetrics ?? [], id: \.id)
+              hasUniqueIDs(payload.bodyMetrics ?? [], id: \.id),
+              hasUniqueIDs(payload.importedWorkouts ?? [], id: \.id),
+              hasUniqueIDs(payload.progressMedia ?? [], id: \.id),
+              hasUniqueIDs(payload.customNotifications ?? [], id: \.id)
         else {
             throw MarbleBackupError.invalidPayload
         }
@@ -385,6 +536,8 @@ enum MarbleBackupService {
         let plannedSets = days.flatMap(\.plannedSets)
         let sprintPrescriptions = payload.sprintPrescriptions ?? []
         let sprintGoalSnapshots = payload.sprintGoalSnapshots ?? []
+        let importedWorkouts = payload.importedWorkouts ?? []
+        let importedEntryIDs = importedWorkouts.flatMap(\.entryIDs)
 
         guard hasUniqueIDs(days, id: \.id),
               hasUniqueIDs(plannedSets, id: \.id),
@@ -417,10 +570,33 @@ enum MarbleBackupService {
                   ).isValid && snapshot.repetitionNumber.map {
                       (1...snapshot.repetitionCount).contains($0)
                   } != false
-              })
+              }),
+              // Import-ledger integrity, all proven before anything is
+              // written. `deduplicationKey` carries a `.unique` constraint, so
+              // two records sharing one key could never coexist after restore;
+              // the format check pins the "<source>:<externalID>" derivation
+              // the model documents, because a mismatched key would make the
+              // dedup-on-restore and the database constraint disagree about
+              // which rows are "the same" workout. Entry references get the
+              // same treatment as session `entryIDs`, plus a no-sharing check:
+              // `SetEntry.importedWorkout` is to-one, so an entry claimed by
+              // two ledger rows is structurally impossible to restore.
+              importedWorkouts.allSatisfy({ record in
+                  record.deduplicationKey == "\(record.sourceRaw):\(record.externalID)"
+                      && record.entryIDs.allSatisfy(setIDs.contains)
+              }),
+              Set(importedWorkouts.map(\.deduplicationKey)).count == importedWorkouts.count,
+              Set(importedEntryIDs).count == importedEntryIDs.count
         else {
             throw MarbleBackupError.invalidPayload
         }
+        // Deliberately nothing for `progressMedia` and `customNotifications`
+        // beyond the unique-id checks above. Both are standalone rows with no
+        // references to verify, and an odd value is harmless downstream — an
+        // unknown media kind falls back to `.photo`, and the scheduler already
+        // refuses to schedule anything failing `isValidSchedule`. Rejecting an
+        // entire restore over one odd row would be the data loss this
+        // validation exists to prevent (same reasoning as body fat above).
     }
 }
 
@@ -439,6 +615,140 @@ private nonisolated struct Payload: Codable {
     /// such key, and it must still restore. That is what lets `formatVersion`
     /// stay at 1 instead of orphaning every existing backup file.
     let bodyMetrics: [BodyMetricRecord]?
+    /// The import dedup ledger. Optional like every post-1.0 array — its
+    /// absence in older files must never fail a restore. Losing it is what
+    /// made every re-import after a restore create duplicate journal entries.
+    let importedWorkouts: [ImportedWorkoutRecord]?
+    /// Progress photo/video METADATA only — the media binaries live on disk
+    /// under `ProgressMediaStore` and are deliberately not in the JSON backup.
+    /// See `ProgressMediaRecord` for the full rationale.
+    let progressMedia: [ProgressMediaRecord]?
+    let customNotifications: [CustomNotificationRecord]?
+}
+
+private nonisolated struct ImportedWorkoutRecord: Codable {
+    let id: UUID
+    /// Raw strings, not `ImportSource`/`ImportedActivityKind`: the model
+    /// itself stores `sourceRaw`/`kindRaw` so rows survive builds that don't
+    /// know a value, and the backup must be at least as tolerant as the model
+    /// — decoding a typed enum would fail the *entire* restore on the first
+    /// unknown case in the file.
+    let sourceRaw: String
+    let externalID: String
+    /// Mirrors the `.unique` database constraint, always
+    /// "<sourceRaw>:<externalID>". Stored explicitly rather than re-derived so
+    /// `validate` can prove the file is internally consistent before restore
+    /// touches the store.
+    let deduplicationKey: String
+    let title: String
+    let workoutDate: Date
+    let setsImported: Int
+    let importedAt: Date
+    let kindRaw: String?
+    let originName: String?
+    let sourceAppName: String?
+    let deviceName: String?
+    let distanceMeters: Double?
+    let durationSeconds: Int?
+    let calories: Double?
+    let averageHeartRate: Double?
+    let maxHeartRate: Double?
+    let elevationAscendedMeters: Double?
+    let isIndoor: Bool?
+    /// Same ID-reference style as `SessionRecord.entryIDs`. The relationship
+    /// lives on this side of the file because `SetRecord` predates
+    /// `SetEntry.importedWorkout` — adding a key to the older record would be
+    /// a wire-format change, while a self-contained list here is purely
+    /// additive. Restore rebuilds `SetEntry.importedWorkout` from it.
+    let entryIDs: [UUID]
+
+    @MainActor init(_ workout: ImportedWorkout) {
+        id = workout.id
+        sourceRaw = workout.sourceRaw
+        externalID = workout.externalID
+        deduplicationKey = workout.deduplicationKey
+        title = workout.title
+        workoutDate = workout.workoutDate
+        setsImported = workout.setsImported
+        importedAt = workout.importedAt
+        kindRaw = workout.kindRaw
+        originName = workout.originName
+        sourceAppName = workout.sourceAppName
+        deviceName = workout.deviceName
+        distanceMeters = workout.distanceMeters
+        durationSeconds = workout.durationSeconds
+        calories = workout.calories
+        averageHeartRate = workout.averageHeartRate
+        maxHeartRate = workout.maxHeartRate
+        elevationAscendedMeters = workout.elevationAscendedMeters
+        isIndoor = workout.isIndoor
+        entryIDs = workout.entries.map(\.id)
+    }
+}
+
+/// Metadata for one progress photo/video. **The media binary is NOT in the
+/// JSON backup** — `originalFilename`/`thumbnailFilename` are references into
+/// `ProgressMediaStore`'s on-disk directory, which never enters this file.
+/// Embedding megabytes of image/video data in a pretty-printed JSON document
+/// is a non-starter, and the Data & Backups screen already tells the user
+/// "Progress photos and videos stay on this device." Backing up the row keeps
+/// the attachment's date, kind, crop, and file identity so nothing structural
+/// is lost — the binaries travel only via a full device transfer.
+private nonisolated struct ProgressMediaRecord: Codable {
+    let id: UUID
+    let attachedToDate: Date
+    /// Raw string for the same forward-compat reason as
+    /// `ImportedWorkoutRecord.sourceRaw`.
+    let kindRaw: String
+    let originalFilename: String
+    let thumbnailFilename: String?
+    let photoCropX: Double?
+    let photoCropY: Double?
+    let photoCropWidth: Double?
+    let photoCropHeight: Double?
+    let fileSizeBytes: Int64?
+    let createdAt: Date
+    let updatedAt: Date
+
+    @MainActor init(_ attachment: ProgressMediaAttachment) {
+        id = attachment.id
+        attachedToDate = attachment.attachedToDate
+        kindRaw = attachment.kindRaw
+        originalFilename = attachment.originalFilename
+        thumbnailFilename = attachment.thumbnailFilename
+        photoCropX = attachment.photoCropX
+        photoCropY = attachment.photoCropY
+        photoCropWidth = attachment.photoCropWidth
+        photoCropHeight = attachment.photoCropHeight
+        fileSizeBytes = attachment.fileSizeBytes
+        createdAt = attachment.createdAt
+        updatedAt = attachment.updatedAt
+    }
+}
+
+private nonisolated struct CustomNotificationRecord: Codable {
+    let id: UUID
+    let message: String
+    let hour: Int
+    let minute: Int
+    /// The weekday bitmask exactly as stored (bit N-1 = `Weekday` rawValue N,
+    /// see `Weekday.notificationBitMask`) — no expansion into day names on the
+    /// way through the file.
+    let weekdayMask: Int
+    let isEnabled: Bool
+    let createdAt: Date
+    let updatedAt: Date
+
+    @MainActor init(_ notification: CustomNotification) {
+        id = notification.id
+        message = notification.message
+        hour = notification.hour
+        minute = notification.minute
+        weekdayMask = notification.weekdayMask
+        isEnabled = notification.isEnabled
+        createdAt = notification.createdAt
+        updatedAt = notification.updatedAt
+    }
 }
 
 private nonisolated struct BodyMetricRecord: Codable {

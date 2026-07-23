@@ -161,7 +161,7 @@ final class ImportViewModel {
             selection.removeAll()
         } catch {
             importErrorMessage = "Couldn’t save the imported workouts. Please try again."
-            MarbleHaptics.warning()
+            MarbleHaptics.error()
         }
     }
 

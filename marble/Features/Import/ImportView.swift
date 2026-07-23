@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import TipKit
 
 struct ImportView: View {
     @State private var viewModel: ImportViewModel
@@ -18,6 +19,11 @@ struct ImportView: View {
     private var importHistory: [ImportedWorkout]
 
     private let autoImport = HealthAutoImportService.shared
+
+    /// Shown once on the scan button; opening the scanner invalidates it, so a
+    /// user who finds the scanner on their own never sees the tip (the
+    /// `MarbleTips` contract).
+    private let scanTip = ScanWorkoutTip()
 
     /// Identifiable wrapper so both fetched records and history rows can open
     /// the same detail sheet.
@@ -143,9 +149,13 @@ struct ImportView: View {
                     .font(MarbleTypography.rowMeta)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
 
-                Button("Scan a Workout") { showingScan = true }
-                    .buttonStyle(.bordered)
-                    .accessibilityIdentifier("Import.Scan.Open")
+                Button("Scan a Workout") {
+                    scanTip.invalidate(reason: .actionPerformed)
+                    showingScan = true
+                }
+                .buttonStyle(.bordered)
+                .popoverTip(scanTip)
+                .accessibilityIdentifier("Import.Scan.Open")
             }
             .marbleRowInsets()
             .listRowBackground(Theme.backgroundColor(for: colorScheme))

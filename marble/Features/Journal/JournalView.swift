@@ -363,7 +363,7 @@ private struct JournalRow: View {
                 sprintGoal: sprintGoal,
                 accessibilityIdentifier: "SetRow.\(entry.id.uuidString)"
             )
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .contentShape(Rectangle())
         }
             .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")

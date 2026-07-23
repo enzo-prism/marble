@@ -7,9 +7,28 @@ import XCTest
 /// this suite exists to catch.
 @MainActor
 final class LogSetIntentTests: MarbleTestCase {
+    /// Every state `perform()` hands the widget transport during a test.
+    ///
+    /// A recorder replaces `WeeklyGoalWidgetPublisher.deliver` for the whole
+    /// suite — not just the publish assertions — because `perform()` now
+    /// publishes after every save, and `SharedKeychain`'s SecItem layer is
+    /// deliberately never exercised by unit tests (see its comment for why).
+    private var publishedStates: [WeeklyGoalWidgetState] = []
+
+    override func setUp() {
+        super.setUp()
+        MainActor.assumeIsolated {
+            WeeklyGoalWidgetPublisher.deliver = { [weak self] state in
+                self?.publishedStates.append(state)
+            }
+        }
+    }
+
     override func tearDown() {
         MainActor.assumeIsolated {
             AppIntentsSupport.container = nil
+            // Restore the real widget transport for whichever suite runs next.
+            WeeklyGoalWidgetPublisher.deliver = WeeklyGoalWidgetPublisher.defaultDeliver
         }
         super.tearDown()
     }
@@ -272,6 +291,47 @@ final class LogSetIntentTests: MarbleTestCase {
 
         XCTAssertEqual(try count(WorkoutSession.self, in: context), 0)
         XCTAssertEqual(try count(SetEntry.self, in: context), 2)
+    }
+
+    // MARK: - System surface refresh
+
+    /// The shipped defect this pins: Siri runs intents without a scene, so the
+    /// scene-phase publish in `ContentView` never fires for them, and a
+    /// voice-logged set left the widget a session behind until the app was
+    /// next foregrounded. `perform()` must publish before it returns.
+    ///
+    /// Asserted through the `deliver` seam rather than the keychain — see
+    /// `SharedKeychainQueryTests` for why the real keychain stays out of unit
+    /// tests. Only target-independent fields are checked: the weekly target
+    /// comes from `SharedDefaults.suite` (`.standard` in the test host), which
+    /// these tests must not mutate.
+    func testLoggedSetPublishesTheWeeklyGoalWidgetSnapshot() async throws {
+        let context = makeIntentContext()
+        let bench = makeExercise(name: "Bench Press", category: .chest, in: context)
+        logSet(for: bench, weight: 185, unit: .lb, reps: 5, at: now.addingTimeInterval(-3_600), in: context)
+        try context.save()
+
+        _ = try await perform(exercise: bench)
+
+        let state = try XCTUnwrap(publishedStates.last, "A saved set must republish the widget snapshot.")
+        // Both sets land on the fixed `now` day, so exactly one active day.
+        XCTAssertEqual(state.thisWeekSessions, 1)
+        XCTAssertEqual(state.generatedAt, now)
+        XCTAssertEqual(state.weekStart, TrendsDateHelper.startOfWeek(for: now))
+    }
+
+    /// The refusal guards return before the save — nothing changed, so the
+    /// snapshot must not be re-stamped as fresh either.
+    func testRefusedLogDoesNotPublishAWidgetSnapshot() async throws {
+        let context = makeIntentContext()
+        // Weight and reps required, no history to inherit from: the intent
+        // refuses to write a row.
+        let bench = makeExercise(name: "Bench Press", category: .chest, in: context)
+        try context.save()
+
+        _ = try await perform(exercise: bench)
+
+        XCTAssertTrue(publishedStates.isEmpty, "No row was written, so nothing may be published.")
     }
 
     // MARK: - Unit conversion helper

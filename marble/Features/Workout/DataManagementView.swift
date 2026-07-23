@@ -1,3 +1,4 @@
+import AppIntents
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
@@ -191,8 +192,47 @@ struct DataManagementView: View {
             statusMessage = "Restored \(summary.sets) sets, \(summary.sessions) sessions, and \(summary.bodyMetrics) weigh-ins."
             clearPendingImport()
             MarbleHaptics.success()
+            // A restore rewrites weeks of history without a scene-phase
+            // change, so every surface ContentView refreshes on background
+            // would keep describing the pre-restore store: the Weekly Goal
+            // widget (the shipped "restore doesn't refresh the widget"
+            // defect), the at-risk nudge, Spotlight's exercise rows, and the
+            // parameterised "Log a set of <exercise>" phrases for any
+            // exercises the backup brought in. The refresh lives here rather
+            // than in `MarbleBackupService` so the service stays a pure store
+            // operation `MarbleBackupTests` can exercise without ambient
+            // system side effects — the same split as ContentView owning the
+            // scene-phase publish.
+            WeeklyGoalWidgetPublisher.publish(modelContext: modelContext)
+            Task { await WeeklyGoalReminder.sync(modelContext: modelContext) }
+            Task { await ExerciseSpotlightIndex.reindexAll() }
+            MarbleShortcuts.updateAppShortcutParameters()
+            rescheduleNotificationsAfterRestore()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Restored `CustomNotification` rows exist only in the store — nothing
+    /// has told UNUserNotificationCenter about them, so without this pass a
+    /// restored reminder would sit silently in the list and never fire.
+    /// Re-syncs every enabled reminder the same way
+    /// `NotificationsView.requestPermission` does. `sync` is idempotent (it
+    /// removes the row's pending requests before re-adding), so rows that
+    /// existed before the restore are simply refreshed, and
+    /// `CustomNotificationScheduler.live()` already routes UI tests to the
+    /// no-op client via `TestHooks`. If permission is undetermined, `sync`
+    /// asks — the user just chose to restore their reminders, so the prompt
+    /// is expected, and a denial leaves the rows intact for later. Lives here
+    /// rather than in `MarbleBackupService` for the same reason as the widget
+    /// publish above: the service stays a pure store operation.
+    private func rescheduleNotificationsAfterRestore() {
+        let scheduler = CustomNotificationScheduler.live()
+        Task {
+            let notifications = (try? modelContext.fetch(FetchDescriptor<CustomNotification>())) ?? []
+            for notification in notifications where notification.isEnabled {
+                _ = await scheduler.sync(notification)
+            }
         }
     }
 

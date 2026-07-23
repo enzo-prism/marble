@@ -230,7 +230,8 @@ private struct DailyHighlightQuoteRotator: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
-    @State private var manuallySelectedIndex: Int?
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var manualSelection: DailyHighlightQuoteRotation.ManualSelection?
 
     private let rotationInterval: TimeInterval = 12
 
@@ -249,8 +250,6 @@ private struct DailyHighlightQuoteRotator: View {
         .id(day)
     }
 
-    @Environment(\.colorScheme) private var colorScheme
-
     private var shouldAnimate: Bool {
         !reduceMotion && !voiceOverEnabled && !TestHooks.reduceDecorativeMotion && !TestHooks.disableAnimations
     }
@@ -259,7 +258,7 @@ private struct DailyHighlightQuoteRotator: View {
         let quote = quotes[index]
 
         return Button {
-            manuallySelectedIndex = (index + 1) % quotes.count
+            select(index: (index + 1) % quotes.count)
             MarbleHaptics.selection()
         } label: {
             VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
@@ -294,9 +293,9 @@ private struct DailyHighlightQuoteRotator: View {
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment:
-                manuallySelectedIndex = (index + 1) % quotes.count
+                select(index: (index + 1) % quotes.count)
             case .decrement:
-                manuallySelectedIndex = (index - 1 + quotes.count) % quotes.count
+                select(index: (index - 1 + quotes.count) % quotes.count)
             @unknown default:
                 break
             }
@@ -304,11 +303,23 @@ private struct DailyHighlightQuoteRotator: View {
         .accessibilityIdentifier("Trends.DailyHighlights.Quote")
     }
 
+    /// Records the pick with the tick it was made in, so
+    /// `DailyHighlightQuoteRotation` can hold it for at least one full
+    /// interval and then let auto-rotation resume. With rotation off
+    /// (VoiceOver, Reduce Motion, tests) the pick is permanent.
+    private func select(index: Int) {
+        manualSelection = DailyHighlightQuoteRotation.ManualSelection(
+            index: index,
+            tick: DailyHighlightQuoteRotation.tick(at: AppEnvironment.now, interval: rotationInterval)
+        )
+    }
+
     private func displayedIndex(for quoteCount: Int) -> Int {
-        if let manuallySelectedIndex {
-            return manuallySelectedIndex % quoteCount
-        }
-        guard shouldAnimate else { return 0 }
-        return Int(AppEnvironment.now.timeIntervalSinceReferenceDate / rotationInterval) % quoteCount
+        DailyHighlightQuoteRotation.displayedIndex(
+            quoteCount: quoteCount,
+            autoRotates: shouldAnimate,
+            manualSelection: manualSelection,
+            currentTick: DailyHighlightQuoteRotation.tick(at: AppEnvironment.now, interval: rotationInterval)
+        )
     }
 }

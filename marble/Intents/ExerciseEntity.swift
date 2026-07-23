@@ -170,8 +170,25 @@ nonisolated struct ExerciseQuery: EntityStringQuery {
 /// content: indexed entities become searchable *and* become candidates Siri can
 /// pass straight into `LogSetIntent`. Indexing is idempotent — re-running it
 /// refreshes existing items rather than duplicating them.
+///
+/// Rebuild-after-corruption: App Intents has no `IndexedEntityQuery`
+/// (`reindexAllEntities()` / `reindexEntities(for:)`) in this SDK — the
+/// iOS 26.5 `AppIntents.swiftinterface` declares no such protocol — so there
+/// is nothing for `ExerciseQuery` to conform to. Recovery therefore stays
+/// `reindexAll()` on every cold launch (`ContentView`'s `.task`), which at
+/// this library's scale rebuilds the whole index anyway. CoreSpotlight's
+/// delegate-level rebuild hooks exist but are item-based, not entity-based,
+/// and are deliberately not mixed in here.
 @MainActor
 enum ExerciseSpotlightIndex {
+    /// The one client index every call below goes through. Named because
+    /// Apple documents `CSSearchableIndex.default()` as a prototyping
+    /// convenience; `indexAppEntities`/`deleteAppEntities` are instance
+    /// methods on `CSSearchableIndex`, so a named index takes them cleanly.
+    /// Every named index writes into the same on-device store keyed by entity
+    /// type + identifier, so rows indexed by earlier builds through the
+    /// default index are upserted and deleted by these calls, not duplicated.
+    private static let index = CSSearchableIndex(name: "ExerciseEntities")
     /// Reindex the whole library. Cheap at this scale (tens of rows) and far more
     /// robust than trying to track per-row deltas across edits, deletes, seeding
     /// and store recovery.
@@ -190,10 +207,32 @@ enum ExerciseSpotlightIndex {
         let entities = exercises.map(ExerciseEntity.init)
 
         do {
-            try await CSSearchableIndex.default().indexAppEntities(entities)
+            try await index.indexAppEntities(entities)
         } catch {
             #if DEBUG
             print("Spotlight indexing failed: \(error)")
+            #endif
+        }
+    }
+
+    /// Drops one deleted exercise from the index, immediately.
+    ///
+    /// Per-item on purpose: `reindexAll()` refreshes rows that still exist but
+    /// never removes one that doesn't, so "delete, then reindex" would leave
+    /// the ghost searchable until the next cold launch — the stale-entry
+    /// defect this closes. Failures are swallowed for the same reason as
+    /// above: Spotlight hygiene must never block the delete itself.
+    static func remove(exerciseID: UUID) async {
+        guard !TestHooks.isUITesting else { return }
+
+        do {
+            try await index.deleteAppEntities(
+                identifiedBy: [exerciseID],
+                ofType: ExerciseEntity.self
+            )
+        } catch {
+            #if DEBUG
+            print("Spotlight de-indexing failed: \(error)")
             #endif
         }
     }
@@ -202,7 +241,7 @@ enum ExerciseSpotlightIndex {
     /// Spotlight can't keep surfacing rows that no longer exist.
     static func removeAll() async {
         do {
-            try await CSSearchableIndex.default().deleteAppEntities(ofType: ExerciseEntity.self)
+            try await index.deleteAppEntities(ofType: ExerciseEntity.self)
         } catch {
             #if DEBUG
             print("Spotlight de-indexing failed: \(error)")

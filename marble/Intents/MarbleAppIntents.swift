@@ -17,6 +17,31 @@ enum AppIntentsSupport {
         container = created
         return created
     }
+
+    /// Refreshes the system surfaces that mirror the store — the Weekly Goal
+    /// widget snapshot and the weekly-goal reminder — after an intent has
+    /// saved a change.
+    ///
+    /// Intents run without a scene: Siri launches the app in the background,
+    /// so `ContentView`'s scene-phase handler (the only other caller of this
+    /// pair) never fires. Skipping this was the shipped defect where a
+    /// voice-logged third session left the widget reading "2 of 3" and still
+    /// fired the at-risk nudge. Apple's widget guidance is explicit that any
+    /// code a timeline update needs must run *before* `perform()` returns,
+    /// which is why call sites `await` this instead of spinning off a `Task`
+    /// the process could be suspended under.
+    ///
+    /// The Control Center `QuickLogControl` needs no reload here: it is a
+    /// `StaticControlConfiguration` button with no value provider, so it has
+    /// no state to go stale.
+    static func refreshSystemSurfaces(modelContext: ModelContext) async {
+        // Same pair, same store as the scene-phase handler in `ContentView` —
+        // the publisher's own doc comment asks to be called wherever
+        // `WeeklyGoalReminder.sync` is, because both answer "how does this
+        // week stand?" and must never disagree.
+        WeeklyGoalWidgetPublisher.publish(modelContext: modelContext)
+        await WeeklyGoalReminder.sync(modelContext: modelContext)
+    }
 }
 
 extension Notification.Name {
@@ -74,6 +99,10 @@ struct LogLastSetAgainIntent: AppIntent {
             context.rollback()
             return .result(dialog: "Couldn't log the set. Open Marble to try again.")
         }
+
+        // This set may have just completed the week — the widget and the
+        // at-risk nudge must hear about it before the intent returns.
+        await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
 
         return .result(dialog: "Logged another set of \(latest.exercise.name).")
     }

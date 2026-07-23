@@ -119,9 +119,20 @@ final class SprintPrescription {
 }
 
 extension SprintPrescription {
+    /// Referential-integrity sweep run from `SeedData` maintenance. This used
+    /// to materialize every `Exercise` and every prescription in full just to
+    /// compare two UUID columns; both fetches now project only the key column
+    /// they need (`propertiesToFetch` — the WWDC25 session 291 guidance), so
+    /// in the normal zero-orphan case no complete row is ever loaded. The
+    /// per-model `context.delete` is kept (rather than a batch delete) so the
+    /// caller's save-or-rollback semantics stay exactly as before.
     static func removeOrphans(in context: ModelContext) {
-        guard let exerciseIDs = try? Set(context.fetch(FetchDescriptor<Exercise>()).map(\.id)),
-              let prescriptions = try? context.fetch(FetchDescriptor<SprintPrescription>()) else { return }
+        var exerciseIDsDescriptor = FetchDescriptor<Exercise>()
+        exerciseIDsDescriptor.propertiesToFetch = [\Exercise.id]
+        var prescriptionKeysDescriptor = FetchDescriptor<SprintPrescription>()
+        prescriptionKeysDescriptor.propertiesToFetch = [\SprintPrescription.exerciseID]
+        guard let exerciseIDs = try? Set(context.fetch(exerciseIDsDescriptor).map(\.id)),
+              let prescriptions = try? context.fetch(prescriptionKeysDescriptor) else { return }
         prescriptions
             .filter { !exerciseIDs.contains($0.exerciseID) }
             .forEach(context.delete)

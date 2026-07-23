@@ -23,6 +23,14 @@ enum MarbleHaptics {
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
     }
 
+    /// The system failure buzz for operations that did not complete (a save
+    /// or import that errored) — distinct from `warning`, which flags
+    /// destructive-but-successful actions and validation stops.
+    static func error() {
+        guard !TestHooks.isUITesting else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
+    }
+
     static func lightImpact() {
         guard !TestHooks.isUITesting else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()

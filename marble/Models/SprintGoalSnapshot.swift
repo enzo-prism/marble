@@ -67,9 +67,21 @@ extension SprintGoalSnapshot {
         } != false
     }
 
+    /// Referential-integrity sweep run from `SeedData` maintenance. `SetEntry`
+    /// is the app's largest table and this used to load every one of its rows
+    /// in full just to read `id`; both sides now project only the key column
+    /// (`propertiesToFetch` — WWDC25 session 291), so the sweep touches two
+    /// narrow indexed columns and, with zero orphans (the normal case since
+    /// delete paths clean up as they go), never loads a complete model. The
+    /// per-model `context.delete` is kept so the caller's save-or-rollback
+    /// semantics stay exactly as before.
     static func removeOrphans(in context: ModelContext) {
-        guard let setEntryIDs = try? Set(context.fetch(FetchDescriptor<SetEntry>()).map(\.id)),
-              let snapshots = try? context.fetch(FetchDescriptor<SprintGoalSnapshot>()) else { return }
+        var entryIDsDescriptor = FetchDescriptor<SetEntry>()
+        entryIDsDescriptor.propertiesToFetch = [\SetEntry.id]
+        var snapshotKeysDescriptor = FetchDescriptor<SprintGoalSnapshot>()
+        snapshotKeysDescriptor.propertiesToFetch = [\SprintGoalSnapshot.setEntryID]
+        guard let setEntryIDs = try? Set(context.fetch(entryIDsDescriptor).map(\.id)),
+              let snapshots = try? context.fetch(snapshotKeysDescriptor) else { return }
         snapshots
             .filter { !setEntryIDs.contains($0.setEntryID) }
             .forEach(context.delete)
@@ -77,33 +89,54 @@ extension SprintGoalSnapshot {
 
     /// Freezes the current sprint setup onto reps logged by builds that predate
     /// per-rep snapshots. The recovered provenance remains explicit in the UI.
+    ///
+    /// Perf shape: this used to load *four whole tables* — including every
+    /// `SetEntry` ever logged — into arrays just to skip most rows in a loop.
+    /// The loop's own eligibility guards are now pushed into the store (WWDC25
+    /// session 291): only entries with both a distance and a duration whose
+    /// exercise actually has a prescription are candidates, existing-snapshot
+    /// keys are projected via `propertiesToFetch`, and the candidate traversal
+    /// is a batched `context.enumerate` (WWDC23 session 10196) so a legacy
+    /// multi-year log never materializes as one resident array. The `Exercise`
+    /// table fetch is gone entirely — `entry.exercise` is the same row the
+    /// dictionary lookup used to rediscover by ID.
     @discardableResult
     static func backfillLegacyEntries(in context: ModelContext) -> Int {
-        guard let entries = try? context.fetch(FetchDescriptor<SetEntry>()),
-              let exercises = try? context.fetch(FetchDescriptor<Exercise>()),
-              let prescriptions = try? context.fetch(FetchDescriptor<SprintPrescription>()),
-              let snapshots = try? context.fetch(FetchDescriptor<SprintGoalSnapshot>()) else { return 0 }
-
-        let exerciseByID = Dictionary(uniqueKeysWithValues: exercises.map { ($0.id, $0) })
+        guard let prescriptions = try? context.fetch(FetchDescriptor<SprintPrescription>()) else { return 0 }
         let prescriptionByExerciseID = Dictionary(
             prescriptions.map { ($0.exerciseID, $0) },
             uniquingKeysWith: { first, _ in first }
         )
-        let existingSetIDs = Set(snapshots.map(\.setEntryID))
-        var inserted = 0
+        // No prescriptions means no entry can qualify; skip the big table.
+        guard !prescriptionByExerciseID.isEmpty else { return 0 }
+        let prescribedExerciseIDs = Array(prescriptionByExerciseID.keys)
 
-        for entry in entries where !existingSetIDs.contains(entry.id) {
-            guard let exercise = exerciseByID[entry.exercise.id],
-                  let prescription = prescriptionByExerciseID[exercise.id],
-                  prescription.isValid,
-                  entry.distance != nil,
-                  entry.durationSeconds != nil else { continue }
+        var snapshotKeysDescriptor = FetchDescriptor<SprintGoalSnapshot>()
+        snapshotKeysDescriptor.propertiesToFetch = [\SprintGoalSnapshot.setEntryID]
+        guard let snapshots = try? context.fetch(snapshotKeysDescriptor) else { return 0 }
+        let existingSetIDs = Set(snapshots.map(\.setEntryID))
+
+        let candidatesDescriptor = FetchDescriptor<SetEntry>(
+            predicate: #Predicate {
+                $0.distance != nil
+                    && $0.durationSeconds != nil
+                    && prescribedExerciseIDs.contains($0.exercise.id)
+            }
+        )
+        var inserted = 0
+        // `allowEscapingMutations` because the block inserts snapshots into
+        // the same context mid-traversal; inserting a *different* model type
+        // does not invalidate the SetEntry batch being enumerated.
+        try? context.enumerate(candidatesDescriptor, allowEscapingMutations: true) { entry in
+            guard !existingSetIDs.contains(entry.id),
+                  let prescription = prescriptionByExerciseID[entry.exercise.id],
+                  prescription.isValid else { return }
 
             context.insert(SprintGoalSnapshot(
                 setEntryID: entry.id,
-                exerciseID: exercise.id,
+                exerciseID: entry.exercise.id,
                 distance: prescription.distance,
-                distanceUnit: exercise.preferredDistanceUnit,
+                distanceUnit: entry.exercise.preferredDistanceUnit,
                 repetitionNumber: nil,
                 repetitionCount: prescription.repetitionCount,
                 targetLowerSeconds: prescription.targetLowerSeconds,

@@ -1,4 +1,5 @@
 import SwiftUI
+import TipKit
 
 struct TrendsFocusView: View {
     let snapshot: TrainingConsistency.Snapshot
@@ -9,6 +10,12 @@ struct TrendsFocusView: View {
     let onOpenReport: (MonthlyReport) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+
+    /// Shown once on the priority lift card — the coaching cards read as static
+    /// summaries, so the tip points out they're tappable. Tapping any coaching
+    /// card (here or in the strength dashboard) invalidates it, per the
+    /// `MarbleTips` contract.
+    private let coachingTip = CoachingCardsTip()
 
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
@@ -26,8 +33,10 @@ struct TrendsFocusView: View {
 
             if let priorityAssessment {
                 LiftFocusCard(assessment: priorityAssessment) {
+                    coachingTip.invalidate(reason: .actionPerformed)
                     onSelectExercise(priorityAssessment.exerciseID)
                 }
+                .popoverTip(coachingTip)
             }
 
             if let report {

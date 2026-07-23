@@ -85,6 +85,13 @@ struct StartWorkoutIntent: AppIntent {
             return .result(dialog: "Marble couldn't start the workout.")
         }
 
+        // A bare session moves none of the weekly numbers (they count
+        // `SetEntry` days), but every intent that writes to the store leaves
+        // the system surfaces consistent with it — and this restamps the
+        // snapshot's `generatedAt` so a workout started by voice can't let it
+        // age toward the staleness cliff while the app never foregrounds.
+        await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
+
         return .result(dialog: "Started \(session.title).")
     }
 }
@@ -119,6 +126,11 @@ struct FinishWorkoutIntent: AppIntent {
         // Same cleanup as the Workout tab's Finish button: a rest timer outliving
         // its session leaves a pill counting down over nothing.
         RestActivityController.shared.cancelRest()
+
+        // "Finish my workout" is precisely the moment before the user next
+        // glances at the widget — and, run by voice, there is no scene-phase
+        // change coming to publish the sets this session collected.
+        await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
 
         let setsText = setCount == 1 ? "1 set" : "\(setCount) sets"
         let durationText = DateHelper.formattedDuration(seconds: Int(session.duration.rounded()))

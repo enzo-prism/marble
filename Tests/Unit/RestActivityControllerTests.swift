@@ -410,6 +410,157 @@ final class RestActivityControllerTests: XCTestCase {
         XCTAssertEqual(client.currentSnapshots.map(\.id), ["current"])
         XCTAssertEqual(controller.activeRest?.exerciseName, "Squat")
     }
+
+    // MARK: - staleDate propagation (missed updates must render stale, not frozen-live)
+
+    func testLiveActivityStaleDateAddsGraceToRestEnd() {
+        let endsAt = Date(timeIntervalSince1970: 1_700_000_000)
+
+        XCTAssertEqual(
+            RestActivityController.liveActivityStaleDate(forRestEnding: endsAt),
+            endsAt.addingTimeInterval(RestActivityController.liveActivityStaleGrace)
+        )
+        XCTAssertEqual(RestActivityController.liveActivityStaleGrace, 60)
+    }
+
+    @MainActor
+    func testStartRestRequestsActivityWithStaleDateBeyondRestEnd() async {
+        let client = FakeRestLiveActivityClient()
+        let controller = RestActivityController(liveActivities: client)
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+
+        controller.startRest(exerciseName: "Squat", restSeconds: 90, now: now)
+        await controller.waitForPendingLiveActivityOperation()
+
+        XCTAssertEqual(
+            client.requestedStaleDates,
+            [now.addingTimeInterval(90 + RestActivityController.liveActivityStaleGrace)],
+            "Every request must carry restEnd + grace so a missed end renders stale"
+        )
+    }
+
+    @MainActor
+    func testExtendPropagatesRecomputedStaleDateToUpdate() async {
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        let originalEnd = now.addingTimeInterval(60)
+        let client = FakeRestLiveActivityClient(snapshots: [
+            .init(id: "current", exerciseName: "Squat", endsAt: originalEnd, startedAt: now, isOngoing: true)
+        ])
+        let controller = RestActivityController(liveActivities: client)
+        controller.reconcileLiveActivities(now: now)
+
+        controller.extend(by: 30, now: now, activityID: "current")
+        await controller.waitForPendingLiveActivityOperation()
+
+        XCTAssertEqual(
+            client.updatedStaleDates.last,
+            originalEnd.addingTimeInterval(30 + RestActivityController.liveActivityStaleGrace),
+            "An extension must move the staleDate along with the new end"
+        )
+    }
+
+    // MARK: - Rest-end completion alert (single pending local notification)
+
+    @MainActor
+    func testStartRestSchedulesCompletionAlertAtRestEnd() {
+        let alerts = FakeRestEndAlertClient()
+        let controller = RestActivityController(
+            liveActivities: FakeRestLiveActivityClient(),
+            restEndAlerts: alerts
+        )
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+
+        controller.startRest(exerciseName: "Squat", restSeconds: 90, now: now)
+
+        XCTAssertEqual(
+            alerts.scheduledAlerts,
+            [.init(exerciseName: "Squat", endsAt: now.addingTimeInterval(90))]
+        )
+    }
+
+    @MainActor
+    func testStartRestWithoutRestSchedulesNoAlert() {
+        let alerts = FakeRestEndAlertClient()
+        let controller = RestActivityController(
+            liveActivities: FakeRestLiveActivityClient(),
+            restEndAlerts: alerts
+        )
+
+        controller.startRest(
+            exerciseName: "Squat",
+            restSeconds: 0,
+            now: Date(timeIntervalSince1970: 4_000_000_000)
+        )
+
+        XCTAssertTrue(alerts.scheduledAlerts.isEmpty, "No rest, no timer, no alert")
+    }
+
+    @MainActor
+    func testExtendReschedulesCompletionAlertForTheNewEnd() {
+        let alerts = FakeRestEndAlertClient()
+        let controller = RestActivityController(
+            liveActivities: FakeRestLiveActivityClient(),
+            restEndAlerts: alerts
+        )
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        controller.startRest(exerciseName: "Squat", restSeconds: 60, now: now)
+
+        controller.extend(by: 30, now: now)
+
+        XCTAssertEqual(
+            alerts.scheduledAlerts.last,
+            .init(exerciseName: "Squat", endsAt: now.addingTimeInterval(90)),
+            "The alert must fire at the extended end, not mid-rest at the original one"
+        )
+    }
+
+    @MainActor
+    func testCancelRestCancelsThePendingCompletionAlert() {
+        let alerts = FakeRestEndAlertClient()
+        let controller = RestActivityController(
+            liveActivities: FakeRestLiveActivityClient(),
+            restEndAlerts: alerts
+        )
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        controller.startRest(exerciseName: "Squat", restSeconds: 90, now: now)
+
+        controller.cancelRest()
+
+        XCTAssertEqual(alerts.cancelCount, 1, "Ending rest early must retract the alert")
+    }
+
+    @MainActor
+    func testNaturalCompletionCancelsThePendingCompletionAlert() async {
+        let alerts = FakeRestEndAlertClient()
+        let controller = RestActivityController(
+            liveActivities: FakeRestLiveActivityClient(),
+            restEndAlerts: alerts
+        )
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        controller.startRest(exerciseName: "Squat", restSeconds: 90, now: now)
+        await controller.waitForPendingLiveActivityOperation()
+
+        controller.completeRest(endingAt: now.addingTimeInterval(90))
+
+        XCTAssertEqual(alerts.cancelCount, 1, "In-process completion must clean up the request")
+    }
+
+    @MainActor
+    func testEndOnOldDuplicateDoesNotCancelTheCurrentTimersAlert() async {
+        let now = Date(timeIntervalSince1970: 4_000_000_000)
+        let alerts = FakeRestEndAlertClient()
+        let client = FakeRestLiveActivityClient(snapshots: [
+            .init(id: "old", exerciseName: "Good Morning", endsAt: now.addingTimeInterval(30), isOngoing: true),
+            .init(id: "current", exerciseName: "Squat", endsAt: now.addingTimeInterval(90), isOngoing: true)
+        ])
+        let controller = RestActivityController(liveActivities: client, restEndAlerts: alerts)
+
+        controller.cancelRest(activityID: "old")
+        await controller.waitForPendingLiveActivityOperation()
+
+        XCTAssertEqual(alerts.cancelCount, 0, "The surviving rest still needs its completion alert")
+        XCTAssertEqual(controller.activeRest?.exerciseName, "Squat")
+    }
 }
 
 @MainActor
@@ -420,6 +571,8 @@ private final class FakeRestLiveActivityClient: RestLiveActivityClient {
     private(set) var requestCount = 0
     private(set) var maximumConcurrentActivityCount: Int
     private(set) var updatedEnds: [Date] = []
+    private(set) var requestedStaleDates: [Date] = []
+    private(set) var updatedStaleDates: [Date] = []
     var updateDelay: Duration?
 
     init(snapshots: [RestLiveActivitySnapshot] = []) {
@@ -431,8 +584,9 @@ private final class FakeRestLiveActivityClient: RestLiveActivityClient {
         currentSnapshots
     }
 
-    func request(exerciseName: String, endsAt: Date, startedAt: Date) throws -> String {
+    func request(exerciseName: String, endsAt: Date, staleDate: Date, startedAt: Date) throws -> String {
         requestCount += 1
+        requestedStaleDates.append(staleDate)
         let id = "requested-\(requestCount)"
         currentSnapshots.append(
             RestLiveActivitySnapshot(
@@ -447,13 +601,14 @@ private final class FakeRestLiveActivityClient: RestLiveActivityClient {
         return id
     }
 
-    func update(activityID: String, endsAt: Date) async {
+    func update(activityID: String, endsAt: Date, staleDate: Date) async {
         if let updateDelay {
             try? await Task.sleep(for: updateDelay)
         }
         guard let index = currentSnapshots.firstIndex(where: { $0.id == activityID }) else { return }
         let current = currentSnapshots[index]
         updatedEnds.append(endsAt)
+        updatedStaleDates.append(staleDate)
         currentSnapshots[index] = RestLiveActivitySnapshot(
             id: current.id,
             exerciseName: current.exerciseName,
@@ -467,5 +622,26 @@ private final class FakeRestLiveActivityClient: RestLiveActivityClient {
         guard currentSnapshots.contains(where: { $0.id == activityID }) else { return }
         endedActivityIDs.append(activityID)
         currentSnapshots.removeAll { $0.id == activityID }
+    }
+}
+
+/// Records the completion-alert traffic so tests can pin scheduling, rescheduling on
+/// extension, and cancellation on every early-end path.
+@MainActor
+private final class FakeRestEndAlertClient: RestEndAlertClient {
+    struct ScheduledAlert: Equatable {
+        let exerciseName: String
+        let endsAt: Date
+    }
+
+    private(set) var scheduledAlerts: [ScheduledAlert] = []
+    private(set) var cancelCount = 0
+
+    func scheduleAlert(exerciseName: String, endsAt: Date) {
+        scheduledAlerts.append(ScheduledAlert(exerciseName: exerciseName, endsAt: endsAt))
+    }
+
+    func cancelAlert() {
+        cancelCount += 1
     }
 }

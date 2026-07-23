@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import TipKit
 
 // The coaching-layer Trends sections: weekly goal, strength dashboard,
 // monthly report, PR feed, and rep records. Like the lifter-analytics
@@ -36,7 +37,7 @@ struct ConsistencyGoalCardView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Weekly Goal")
                     .font(MarbleTypography.sectionTitle)
-                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                     .accessibilityIdentifier("Trends.Section.WeeklyGoal")
 
                 Spacer(minLength: MarbleSpacing.s)
@@ -183,12 +184,16 @@ struct StrengthDashboardView: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             Text("Your Lifts")
                 .font(MarbleTypography.sectionTitle)
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("Trends.Section.YourLifts")
 
             VStack(spacing: MarbleSpacing.xs) {
                 ForEach(assessments) { assessment in
                     StrengthLiftRowView(assessment: assessment) {
+                        // Tapping a lift row is organic discovery of the
+                        // tappable coaching cards; the tip (anchored on the
+                        // Focus card) must never show after this.
+                        CoachingCardsTip().invalidate(reason: .actionPerformed)
                         onSelect(assessment.exerciseID)
                     }
                 }
@@ -343,12 +348,18 @@ struct PRFeedSectionView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    /// Shown once on the section header. The feed is display-only — there is no
+    /// control to hang `.actionPerformed` on — so "using the feature" is having
+    /// seen the section: invalidate when it leaves the screen, and the tip
+    /// never shows again anywhere (the `MarbleTips` contract, adapted).
+    private let prFeedTip = PRFeedTip()
+
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Records")
                     .font(MarbleTypography.sectionTitle)
-                    .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                     .accessibilityIdentifier("Trends.Section.Records")
 
                 Spacer(minLength: MarbleSpacing.s)
@@ -357,6 +368,10 @@ struct PRFeedSectionView: View {
                     .font(MarbleTypography.rowMeta.weight(.semibold))
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .monospacedDigit()
+            }
+            .popoverTip(prFeedTip)
+            .onDisappear {
+                prFeedTip.invalidate(reason: .actionPerformed)
             }
 
             VStack(spacing: 0) {
@@ -431,7 +446,7 @@ struct RepRecordsSectionView: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             Text("Rep Records")
                 .font(MarbleTypography.sectionTitle)
-                .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("Trends.Section.RepRecords")
 
             LazyVGrid(columns: columns, spacing: MarbleSpacing.xs) {
@@ -483,7 +498,7 @@ struct MonthlyReportCardView: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text(reportTitle)
                         .font(MarbleTypography.sectionTitle)
-                        .foregroundColor(Theme.primaryTextColor(for: colorScheme))
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
                     Spacer(minLength: MarbleSpacing.s)
 
