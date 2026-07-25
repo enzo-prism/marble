@@ -743,7 +743,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Marble reads your workouts and body measurements, such as weight and body fat, from Apple Health to add them to your journal and trends.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Marble saves your completed training sessions to Apple Health as strength workouts, with their effort score, so they count toward your Training Load.";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "Prism marble App Store HealthKit 2026-06-18-2015";
+				PROVISIONING_PROFILE_SPECIFIER = "Prism marble App Store build 48 2026-07-24";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -809,7 +809,7 @@
 				MARKETING_VERSION = 2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble.MarbleWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "Prism marble MarbleWidgets App Store 2026-06-22 build 23";
+				PROVISIONING_PROFILE_SPECIFIER = "Prism marble MarbleWidgets App Store build 48 2026-07-24";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "WIDGET_EXTENSION $(inherited)";

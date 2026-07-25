@@ -1,6 +1,6 @@
 # Marble Release Handoff
 
-**Last verified: 2026-07-23.** This file is the single source of truth for "where the
+**Last verified: 2026-07-24.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
@@ -393,6 +393,14 @@ Release signing in `marble.xcodeproj/project.pbxproj` before archiving.
 
 Because the Live Activity widget is now embedded, export signing also needs a provisioning
 profile for `Prism.marble.MarbleWidgets`.
+
+**Build 48 signing refresh (2026-07-24):** the older active profiles above were tied to a
+distribution certificate whose private key is not installed on this Mac. Two replacement
+App Store profiles were created with the installed Apple Distribution certificate
+`9M47KCWLU8` and are now pinned in the project and both export-options files:
+
+- `Prism marble App Store build 48 2026-07-24` (`G545NTS973`)
+- `Prism marble MarbleWidgets App Store build 48 2026-07-24` (`JF52GQ2SSV`)
 
 **Resolution used for build 23**:
 - ASC Bundle ID `Prism.marble.MarbleWidgets` exists (`4L93LB6CMY`).
