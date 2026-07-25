@@ -93,6 +93,9 @@
   and `CalendarFlowUITests` — **8 cases passed** (the suites new in or touched by this build).
 - `AccessibilityAuditUITests` (`make audit`): **passed** after the Body/Settings/widget changes.
 - Everything builds under the **Swift 6 language mode** except `MarbleUITests` (see `AGENTS.md`).
+- Signed **build 49** Release archive + export passed; App Store Connect processing is `VALID`
+  (buildId `5fe06de0-fc7a-4829-b4d7-a5f6f15d7f31`, uploaded 2026-07-25 to internal
+  `test group A`). It is **not** attached to the in-review version.
 
 ## Prior release verification (2026-07-23, 2.2 build 47)
 - `MarbleTests`: **505 passed, 0 failed** locally and in GitHub CI for the PR #12 merge —

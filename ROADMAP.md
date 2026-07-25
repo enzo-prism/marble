@@ -10,6 +10,7 @@
 >
 > | Phase | State |
 > |---|---|
+> | — build 49 | **On TestFlight `VALID` 2026-07-25** (buildId `5fe06de0-…`), not attached to the in-review version. Closes the known gaps below. |
 > | 0 — ship & tidy | **2.1 released to the App Store 2026-07-21** via `asc versions release`; version bump and PRs #2/#11 done. ⚠️ `ASC_APPSTORE_VERSION` in the Makefile was **never set to 2.2** — being fixed now. |
 > | 1 — 2.2 Ambient | **Mostly done.** Weekly Goal widget, interactive rest Live Activity, Control Center control, onboarding, Settings all ship. ~~TipKit is defined but inert~~ **tips attached 2026-07-22** — see Known gaps. |
 > | 2 — 2.3 Siri & Spotlight | **Done.** `ExerciseEntity`+`IndexedEntity`, `LogSetIntent`, start/finish workout intents, 5 App Shortcuts. |

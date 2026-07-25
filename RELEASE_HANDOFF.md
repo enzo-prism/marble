@@ -1,6 +1,6 @@
 # Marble Release Handoff
 
-**Last verified: 2026-07-24.** This file is the single source of truth for "where the
+**Last verified: 2026-07-25.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
@@ -88,8 +88,22 @@ On the **simulator**, keychain access groups are not enforced and `SecItem*` can
 neutral "Open Marble" card rather than crashing. CI and `make unit` are unaffected — no unit
 test touches the real keychain.
 
-## Release state (2026-07-24)
+## Release state (2026-07-25)
 
+- **2.2 (build 49)** — **on TestFlight, `VALID`**. App Store Connect build ID
+  `5fe06de0-fc7a-4829-b4d7-a5f6f15d7f31`, uploaded 2026-07-25 from `main` at
+  `4443297` (PR #14). Went to the all-build internal group `test group A` (the group is
+  configured to receive every build, so `asc` skipped an explicit assignment).
+  **It is NOT attached to the in-review version** — build 48's submission is untouched.
+  Archive, export, and processing all passed; the two pinned profiles
+  (`Prism marble App Store build 48 2026-07-24` / `… MarbleWidgets …`) were reused unchanged,
+  as were both entitlement files.
+  Build 49 = build 48 plus: editable/deletable weigh-ins, the Settings **Body** section
+  (DOTS picker + quick weight entry), Calendar weight-on-day, monthly-report bodyweight facts,
+  immediate Spotlight/Siri refresh for import-created exercises, **deployment target 26.2 →
+  26.0**, the **Swift 6 language mode** (app + widget + unit/snapshot targets), `UndoableIntent`,
+  and the four closed test gaps (onboarding flow, Settings flow, widget snapshots, V4→V5
+  recovery). 519 unit tests, snapshots re-recorded and green, `make audit` green, CI green.
 - **2.2 (build 48)** — **submitted and `WAITING_FOR_REVIEW`**. App Store Connect build ID
   `ad513fbe-123e-438c-8030-7982af86e198`; review submission ID
   `0e7f361e-2ac6-484d-b1a3-34ae9869da91`; submitted 2026-07-24 at 15:24 PDT.
@@ -123,6 +137,23 @@ test touches the real keychain.
 ---
 
 ## Build history (what each build carried)
+
+- **Build 49:** the known-gap closure build (PR #14, merged 2026-07-25). Five items from a
+  source review of build 48. The user-facing one: **a weigh-in can be corrected** —
+  `BodyMetricEntryView`'s edit path had exactly one caller and it passed `nil`, so a typo was
+  permanent and skewed every DOTS score. Also: DOTS coefficients and quick weight entry in
+  Settings, Calendar weight-on-day, monthly-report bodyweight facts, and
+  `ExerciseSpotlightIndex.refreshAfterLibraryChange()` from all three import paths (driven by a
+  new `WorkoutImporter.Summary.createdExercises`, counted after the save). Engineering:
+  deployment target dropped 26.2 → 26.0 (build 48 excluded 26.0/26.1 devices for one API, now
+  behind `#available(iOS 26.1, *)`), Swift 6 language mode everywhere except `MarbleUITests`,
+  `UndoableIntent` on both set-logging intents, dead glass helpers removed. Tests: onboarding
+  and Settings UI flows, a widget snapshot suite for all five families (the layouts moved to
+  `marble/Shared/WeeklyGoalWidgetViews.swift`), and a V4→V5 case through the recovery
+  container. Two defects were caught by the new tests and fixed in the same build: the widget's
+  quick-log Link rendered in system blue, and an unbounded `@Query` for weigh-ins hung the
+  Trends render. `@Dependency` for intents was tried and reverted (it traps outside the system
+  perform flow).
 
 - **Build 47:** the Apple-best-practices build (PR #12, merged 2026-07-23). Closes the
   "wired up but inert" 2.2 defects: Siri/shortcut-logged sets now refresh the Weekly Goal
@@ -441,21 +472,26 @@ Notes:
 
 ## Open release decisions
 
-**2.2 build 48 is waiting for App Review.** Do not replace the build or cancel the
-submission unless review finds a blocker. Before manually releasing an approved build:
+**2.2 build 48 is waiting for App Review; build 49 is on TestFlight only.** Build 49 does
+**not** replace the submission — it was uploaded as a normal TestFlight build while 48 sits in
+review. Do not attach 49 to the in-review version or cancel the submission unless review finds
+a blocker. If review *does* reject 48, 49 is the natural replacement (it is 48 plus the
+known-gap closures below, all verified locally).
+
+Before manually releasing an approved build:
 
 - The local App Store submission gate in `TESTING.md` passed using dedicated iPhone and iPad
   simulators, focused integration tests, deep-link checks, archive inspection, and live
   App Store Connect validation. Keep the hardware-only Apple integration pass as an optional
   check before manual public release, not as a submission blocker.
-- **Decide what to do about the known gaps** (`ROADMAP.md` → Known gaps / next up). Build 47
-  closed the big ones — Siri-logged sets now refresh the widget and reminder, TipKit tips
-  present, backup covers every entity — so Siri set-logging can be advertised alongside the
-  widget. Still open and worth weighing for release notes: bodyweight entries can't be
-  edited or deleted, the DOTS coefficient picker only lives in the Log Weight sheet, and
-  import-created exercises reach Spotlight/Siri phrases only at the next cold launch.
-- **Configure a phased release before releasing this time.** 2.1 shipped to 100% at once
-  because `appStoreVersionPhasedRelease` was null. 2.2 carries the V5 migration and the first
+- **The known gaps are closed in build 49** (`ROADMAP.md` → Known gaps / next up): weigh-ins
+  are editable and deletable, the DOTS coefficient picker and quick weight entry live in
+  Settings, and import-created exercises reach Spotlight and the Siri phrases immediately.
+  **Build 48 — the build in review — still has all three defects**, so keep them out of 2.2
+  release notes unless 49 becomes the shipped build.
+- ~~**Configure a phased release before releasing this time.**~~ **Done** — verified
+  `appStoreVersionPhasedRelease.configured = true` on 2026-07-24 (`make asc-status`, progress
+  0/7). 2.1 shipped to 100% at once because it was null. 2.2 carries the V5 migration and the first
   widget surface — both are exactly what phased rollout exists for.
 - **Strava posture is unchanged: ship with Strava _unconfigured_.** Leave
   `StravaClientID` / `StravaClientSecret` / `StravaRedirectURI` out of the build so only the
