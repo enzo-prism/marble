@@ -2,6 +2,7 @@ import XCTest
 import SnapshotTesting
 @testable import marble
 
+@MainActor
 class SnapshotTestCase: XCTestCase {
     override func setUp() {
         super.setUp()

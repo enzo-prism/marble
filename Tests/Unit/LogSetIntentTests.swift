@@ -13,13 +13,28 @@ final class LogSetIntentTests: MarbleTestCase {
     /// suite — not just the publish assertions — because `perform()` now
     /// publishes after every save, and `SharedKeychain`'s SecItem layer is
     /// deliberately never exercised by unit tests (see its comment for why).
-    private var publishedStates: [WeeklyGoalWidgetState] = []
+    /// A box rather than a property on the test case: `deliver` is a
+    /// `@MainActor` closure the app owns, and capturing `self` (a non-`Sendable`
+    /// `XCTestCase`) in it reads as sending under the Swift 6 language mode. The
+    /// box is only ever touched on the main actor, which the annotation states.
+    private final class StateRecorder: @unchecked Sendable {
+        private(set) var states: [WeeklyGoalWidgetState] = []
+
+        func record(_ state: WeeklyGoalWidgetState) {
+            states.append(state)
+        }
+    }
+
+    private let recorder = StateRecorder()
+
+    private var publishedStates: [WeeklyGoalWidgetState] { recorder.states }
 
     override func setUp() {
         super.setUp()
+        let recorder = recorder
         MainActor.assumeIsolated {
-            WeeklyGoalWidgetPublisher.deliver = { [weak self] state in
-                self?.publishedStates.append(state)
+            WeeklyGoalWidgetPublisher.deliver = { state in
+                recorder.record(state)
             }
         }
     }
@@ -346,7 +361,10 @@ final class LogSetIntentTests: MarbleTestCase {
 
     private func makeIntentContext() -> ModelContext {
         let container = makeInMemoryContainer()
-        AppIntentsSupport.container = container
+        // `register` (not a bare assignment) because the intents now inject the
+        // container through `@Dependency`/`AppDependencyManager`, which only the
+        // registration path populates.
+        AppIntentsSupport.register(container: container)
         return container.mainContext
     }
 

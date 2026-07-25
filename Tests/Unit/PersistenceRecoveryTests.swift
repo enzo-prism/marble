@@ -8,10 +8,13 @@ import XCTest
 /// unique temp directory — never the real Application Support store.
 @MainActor
 final class PersistenceRecoveryTests: XCTestCase {
-    private var tempDirectory: URL!
-    private var storeURL: URL!
+    // `nonisolated(unsafe)` so the nonisolated XCTest setUp/tearDown overrides can
+    // set them without sending `self` across isolation (Swift 6 language mode).
+    // Only ever touched on the main thread, one test at a time.
+    nonisolated(unsafe) private var tempDirectory: URL!
+    nonisolated(unsafe) private var storeURL: URL!
 
-    override func setUpWithError() throws {
+    nonisolated override func setUpWithError() throws {
         try super.setUpWithError()
         tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("marble-persist-\(UUID().uuidString)", isDirectory: true)
@@ -20,7 +23,7 @@ final class PersistenceRecoveryTests: XCTestCase {
         clearRecoveryNotice()
     }
 
-    override func tearDownWithError() throws {
+    nonisolated override func tearDownWithError() throws {
         if let tempDirectory {
             try? FileManager.default.removeItem(at: tempDirectory)
         }
@@ -120,6 +123,71 @@ final class PersistenceRecoveryTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.appendingPathExtension("corrupt").path))
     }
 
+    /// The gate the roadmap asked for and 2.2 shipped without: V5 is the
+    /// schema on disk for every 2.2 install, so the **recovery container** —
+    /// not just a bare `ModelContainer` (`SchemaV5MigrationTests` covers that) —
+    /// has to open a real V4 store additively, keep its training data, and
+    /// leave no `.corrupt` backup behind. A V4→V5 migration that trips the
+    /// recovery path would silently reset a shipping user's journal, which is
+    /// exactly how build 35 failed.
+    func testMigratesV4StoreToV5WithoutRecoveryOrDataLoss() throws {
+        let fixedNow = Date(timeIntervalSince1970: 1_750_000_000)
+        let exerciseID = UUID()
+        let entryID = UUID()
+        let sessionID = UUID()
+
+        // Seeded row by row rather than through `TestFixtures`: that helper's
+        // `clear` fetches `BodyMetricEntry`, which does not exist in a V4
+        // container.
+        try autoreleasepool {
+            let v4Schema = Schema(versionedSchema: MarbleSchemaV4.self)
+            let configuration = ModelConfiguration(schema: v4Schema, url: storeURL)
+            let container = try ModelContainer(for: v4Schema, configurations: [configuration])
+            let context = ModelContext(container)
+            let exercise = Exercise(
+                id: exerciseID,
+                name: "Legacy Back Squat",
+                category: .quads,
+                metrics: .weightAndRepsRequired,
+                defaultRestSeconds: 180
+            )
+            context.insert(exercise)
+            context.insert(SetEntry(
+                id: entryID,
+                exercise: exercise,
+                performedAt: fixedNow,
+                weight: 140,
+                reps: 5,
+                restAfterSeconds: 180
+            ))
+            context.insert(WorkoutSession(
+                id: sessionID,
+                title: "Legacy Session",
+                startedAt: fixedNow
+            ))
+            try context.save()
+        }
+
+        let migrated = PersistenceController.makeRecoveringContainer(at: storeURL)
+        let context = ModelContext(migrated)
+
+        XCTAssertEqual(try context.fetch(FetchDescriptor<Exercise>()).map(\.id), [exerciseID])
+        XCTAssertEqual(try context.fetch(FetchDescriptor<SetEntry>()).map(\.id), [entryID])
+        XCTAssertEqual(try context.fetch(FetchDescriptor<WorkoutSession>()).map(\.id), [sessionID])
+        // V5 is purely additive: the new table exists and is empty.
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<BodyMetricEntry>()), 0)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: storeURL.appendingPathExtension("corrupt").path),
+            "A V4 store must migrate, not fall into the corrupt-store recovery path"
+        )
+
+        // And the migrated store accepts the new model, so the weigh-in flow
+        // works for an upgrading user rather than only a fresh install.
+        context.insert(BodyMetricEntry(measuredAt: fixedNow, weightKilograms: 82.5))
+        try context.save()
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<BodyMetricEntry>()), 1)
+    }
+
     func testMigratesRealisticPopulatedV1StoreToV2() throws {
         let fixedNow = Date(timeIntervalSince1970: 1_750_000_000)
         var expectedExercises = 0
@@ -178,7 +246,9 @@ final class PersistenceRecoveryTests: XCTestCase {
         XCTAssertEqual(recoveryNames.count, 1)
     }
 
-    private func clearRecoveryNotice() {
+    /// `nonisolated`: called from the nonisolated setUp/tearDown overrides. It
+    /// only reads key strings and writes `UserDefaults`.
+    nonisolated private func clearRecoveryNotice() {
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: PersistenceRecoveryNotice.recoveryDateKey)
         defaults.removeObject(forKey: PersistenceRecoveryNotice.recoveryBackupNameKey)

@@ -137,6 +137,13 @@ final class WorkoutScanViewModel {
             } else {
                 MarbleHaptics.lightImpact()
             }
+            // A scanned workout can invent library rows too; refresh Spotlight
+            // and the parameterised Siri phrases straight away. Detached from
+            // the commit because `commit` is synchronous and the user should not
+            // wait on indexing to see the imported state.
+            if summary.createdExercises > 0 {
+                Task { await ExerciseSpotlightIndex.refreshAfterLibraryChange() }
+            }
             phase = .imported
         } catch {
             errorMessage = "Couldn't save the scanned workout. Please try again."

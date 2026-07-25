@@ -2,6 +2,7 @@ import SwiftData
 import XCTest
 @testable import marble
 
+@MainActor
 final class CalendarSnapshotTests: SnapshotTestCase {
     func testCalendarMonthWithMarkers() {
         let container = SnapshotFixtures.makeContainer()

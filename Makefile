@@ -33,6 +33,14 @@ test: verify-widget-plist
 unit: verify-widget-plist
 	SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleTests
 
+# Compiles every target *including the test bundles* without booting a simulator
+# or running a case. Use it while fixing compile errors (the Swift 6 migration
+# needed ten full `make unit` cycles to surface what this finds in one).
+typecheck-tests:
+	xcodebuild build-for-testing -project $(PROJECT) -scheme $(SCHEME) \
+		-destination "$$(scripts/sim_destination.sh)" -configuration Debug \
+		2>&1 | grep -E "error:|warning: .*deprecat|BUILD (SUCCEEDED|FAILED)" || true
+
 ui:
 	SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleUITests -skip-testing:MarbleUITests/AccessibilityAuditUITests
 
@@ -58,7 +66,7 @@ only:
 	SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:$(TEST)
 
 migration-release:
-	MIGRATION_BASE_REF="$${MIGRATION_BASE_REF:-25a1c52}" SIMULATOR_UDID="$${SIMULATOR_UDID:-}" scripts/test_previous_release_migration.sh
+	MIGRATION_BASE_REF="$${MIGRATION_BASE_REF:-96736a1}" SIMULATOR_UDID="$${SIMULATOR_UDID:-}" scripts/test_previous_release_migration.sh
 
 asc-auth:
 	asc auth status --validate --output json --pretty

@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-enum ImportSource: String, Codable, CaseIterable, Identifiable {
+nonisolated enum ImportSource: String, Codable, CaseIterable, Identifiable {
     case appleHealth
     case garminConnect
     case strava

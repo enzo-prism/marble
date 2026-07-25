@@ -5,6 +5,7 @@ import XCTest
 /// the comeback state, and at-risk detection. The fixed test clock is
 /// Wednesday 2025-01-15 in GMT; weeks run Sunday–Saturday, so the current
 /// week starts Sunday 2025-01-12 with four days left including today.
+@MainActor
 final class TrainingConsistencyTests: MarbleTestCase {
     private let calendar = MarbleTestCase.stableCalendar
 

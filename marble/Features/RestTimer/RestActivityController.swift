@@ -79,7 +79,18 @@ private final class ActivityKitRestLiveActivityClient: RestLiveActivityClient {
         ).id
     }
 
+    // The two `async` members hand off to `nonisolated` helpers that both *find*
+    // and *await* the activity. `Activity` is not `Sendable`, so looking it up on
+    // the main actor and then awaiting a nonisolated method on it means sending a
+    // non-Sendable value across isolation — an error under the Swift 6 language
+    // mode. Doing the lookup inside the nonisolated context keeps the value on
+    // one side of the boundary; the protocol stays `@MainActor` for its callers.
+
     func update(activityID: String, endsAt: Date, staleDate: Date) async {
+        await Self.updateActivity(activityID: activityID, endsAt: endsAt, staleDate: staleDate)
+    }
+
+    private nonisolated static func updateActivity(activityID: String, endsAt: Date, staleDate: Date) async {
         guard let activity = Activity<RestTimerAttributes>.activities.first(where: { $0.id == activityID }) else {
             return
         }
@@ -91,6 +102,10 @@ private final class ActivityKitRestLiveActivityClient: RestLiveActivityClient {
     }
 
     func endImmediately(activityID: String) async {
+        await Self.endActivity(activityID: activityID)
+    }
+
+    private nonisolated static func endActivity(activityID: String) async {
         guard let activity = Activity<RestTimerAttributes>.activities.first(where: { $0.id == activityID }) else {
             return
         }

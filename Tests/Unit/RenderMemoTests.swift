@@ -1,6 +1,9 @@
 import XCTest
 @testable import marble
 
+/// `@MainActor` because `RenderMemo` is main-actor isolated like the views that
+/// own it (the target sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`).
+@MainActor
 final class RenderMemoTests: XCTestCase {
     func testRebuildsOnlyWhenKeyChanges() {
         let memo = RenderMemo<Int, Int>()

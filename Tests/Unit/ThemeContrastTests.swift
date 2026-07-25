@@ -1,6 +1,7 @@
 import XCTest
 @testable import marble
 
+@MainActor
 final class ThemeContrastTests: MarbleTestCase {
     func testPrimaryTextContrast() {
         let lightRatio = contrastRatio(ThemePalette.lightPrimaryText, ThemePalette.lightBackground)

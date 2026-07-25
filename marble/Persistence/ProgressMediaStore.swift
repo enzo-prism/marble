@@ -4,7 +4,7 @@ import ImageIO
 import UIKit
 import UniformTypeIdentifiers
 
-struct ProgressPhotoCrop: Equatable {
+nonisolated struct ProgressPhotoCrop: Equatable {
     static let maximumZoom: Double = 4
 
     var x: Double

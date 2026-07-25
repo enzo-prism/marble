@@ -11,6 +11,7 @@ import XCTest
 ///
 ///   coefficient = 500 / (A·x⁴ + B·x³ + C·x² + D·x + E),  x = bodyweight kg
 ///   DOTS        = total kg × coefficient
+@MainActor
 final class RelativeStrengthTests: MarbleTestCase {
     private let tolerance = 0.01
     /// Fixed GMT calendar so `bodyweightAgeDays` can't drift across a DST edge.

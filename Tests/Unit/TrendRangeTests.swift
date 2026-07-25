@@ -1,6 +1,7 @@
 import XCTest
 @testable import marble
 
+@MainActor
 final class TrendRangeTests: MarbleTestCase {
     func testLabels() {
         let expected: [TrendRange: String] = [

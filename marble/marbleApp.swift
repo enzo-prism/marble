@@ -22,7 +22,10 @@ struct MarbleApp: App {
         // No-op under UI testing; tips floating over the UI break flows + audits.
         MarbleTips.configure()
         modelContainer = PersistenceController.makeContainer(useInMemory: TestHooks.useInMemoryStore)
-        AppIntentsSupport.container = modelContainer
+        // Registers the container with `AppDependencyManager` (what the intents
+        // inject through `@Dependency`) as well as with `AppIntentsSupport`'s own
+        // accessor, which the Spotlight index and entity queries use.
+        AppIntentsSupport.register(container: modelContainer)
         if TestHooks.isUITesting {
             // UI tests rely on fixtures existing before the first frame.
             Self.seed(container: modelContainer)

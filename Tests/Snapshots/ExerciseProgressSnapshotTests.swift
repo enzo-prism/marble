@@ -3,6 +3,7 @@ import SwiftUI
 import XCTest
 @testable import marble
 
+@MainActor
 final class ExerciseProgressSnapshotTests: SnapshotTestCase {
     func testExerciseProgressTooltip() {
         let container = SnapshotFixtures.makeContainer()

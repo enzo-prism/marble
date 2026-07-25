@@ -5,14 +5,15 @@
 > Unit suite green, accessibility audit green, UI suite 39/40 (the one failure,
 > `test07TrainingCalendar`, reproduces on clean `origin/main` — see TESTING.md).
 > **Implemented is not the same as finished** — read **Known gaps / next up** below before
-> treating any 2.2 feature as complete.
+> treating any 2.2 feature as complete. Most of the gaps recorded there were closed in
+> **build 49** (2026-07-25); each is struck through with what closed it.
 >
 > | Phase | State |
 > |---|---|
 > | 0 — ship & tidy | **2.1 released to the App Store 2026-07-21** via `asc versions release`; version bump and PRs #2/#11 done. ⚠️ `ASC_APPSTORE_VERSION` in the Makefile was **never set to 2.2** — being fixed now. |
 > | 1 — 2.2 Ambient | **Mostly done.** Weekly Goal widget, interactive rest Live Activity, Control Center control, onboarding, Settings all ship. ~~TipKit is defined but inert~~ **tips attached 2026-07-22** — see Known gaps. |
 > | 2 — 2.3 Siri & Spotlight | **Done.** `ExerciseEntity`+`IndexedEntity`, `LogSetIntent`, start/finish workout intents, 5 App Shortcuts. |
-> | 3 — 2.4 Body | **Partly done.** Schema V5 `BodyMetricEntry`, Health bodyweight import, DOTS, Trends section ship. Calendar weight-on-day, `MonthlyReport` bodyweight deltas, and quick weight entry from Settings **were not built** — see Known gaps. |
+> | 3 — 2.4 Body | **Done (build 49).** Schema V5 `BodyMetricEntry`, Health bodyweight import, DOTS, and the Trends section shipped in 2.2; build 49 adds Calendar weight-on-day, `MonthlyReport` bodyweight deltas, quick weight entry from Settings, and — the real defect — **editable/deletable weigh-ins**. |
 > | 4 — 3.0 Watch | **Not built — deliberately.** See "Why Phase 4 was not built" below. |
 >
 > ~~**Two portal steps gate archiving**: create the App Group `group.Prism.marble` and
@@ -86,50 +87,86 @@ of them works, and do not put them in release notes.
   (`ExerciseSpotlightIndex.remove(exerciseID:)`) and reindexes after create/rename, calling
   `MarbleShortcuts.updateAppShortcutParameters()` in both paths. `removeAll()` still has no
   caller because the app has no data-wipe flow to wire it to.
-- **Exercises auto-created by import flows reach Spotlight and the parameterised Siri
-  phrases only at the next cold launch** (found 2026-07-23). `ExerciseSpotlightIndex.reindexAll()`
-  + `updateAppShortcutParameters()` run from `ContentView`'s launch `.task`, the exercise
-  editor, and backup restore — but none of the import paths (Health/Garmin import, Strava,
-  the handwritten scan importer) call them when they insert a new `Exercise`. Until the app
-  is relaunched, "Log a set of <imported exercise>" won't resolve and Spotlight can't find it.
+- ~~**Exercises auto-created by import flows reach Spotlight and the parameterised Siri
+  phrases only at the next cold launch**~~ **Resolved 2026-07-25 (build 49).**
+  `WorkoutImporter.Summary` now reports `createdExercises` (a `fetchCount` before/after the
+  save, so a rolled-back import can't claim it grew the library), and every completion path —
+  `ImportViewModel.importSelected`, `HealthAutoImportService.syncIfEnabled`, and
+  `WorkoutScanViewModel.commit` — calls the new
+  `ExerciseSpotlightIndex.refreshAfterLibraryChange()` when it is greater than zero. Pinned by
+  `WorkoutImportMapperTests`' three `createdExercises` cases.
 
 ### Missing user-facing affordances
-- **A bodyweight entry cannot be edited or deleted.** `BodyMetricEntryView` has a complete
-  edit path, but it is only ever presented with `nil` — i.e. create-only. A typo'd weigh-in
-  is permanent, and it skews both the bodyweight chart and every DOTS score.
-- **The DOTS men/women coefficient picker exists only inside the Log Weight sheet**, not in
-  Settings. A user whose weigh-ins arrive via Health import may never open that sheet, and is
-  then silently scored on men's coefficients.
+- ~~**A bodyweight entry cannot be edited or deleted.**~~ **Resolved 2026-07-25 (build 49).**
+  New `BodyMetricHistoryView` (a `List` of every weigh-in, newest first) presents
+  `BodyMetricEntryView(entry:)` on tap — the complete edit path that previously had no caller —
+  and deletes on a trailing swipe. Reachable three ways: the bodyweight summary line in Trends
+  is now a button, Settings has a **Weigh-Ins** row, and the Calendar day summary shows that
+  day's weigh-in (`DayBodyweightSection`, also tap-to-edit). Editing a Health-imported row
+  flips its `source` to `.manual` while keeping `healthKitUUID`, so a re-import still dedups.
+- ~~**The DOTS men/women coefficient picker exists only inside the Log Weight sheet.**~~
+  **Resolved 2026-07-25 (build 49)** — Settings has a **Body** section carrying the same
+  picker (`Settings.DotsCoefficients`), plus quick weight entry (`Settings.LogWeight`). Both
+  drive the same keys the sheet drives.
 - ~~**`BodyMetricEntry` is missing from JSON backup/restore.**~~ **Resolved 2026-07-23**
   (PR #12) — the backup payload now carries `BodyMetricEntry`, `ImportedWorkout`,
   `ProgressMediaAttachment` *metadata*, and `CustomNotification`, with a
   schema-exhaustiveness guard in `MarbleBackupTests`; the restore summary reports weigh-ins.
 
 ### Roadmap 2.4 items that were not shipped
-- Calendar day-summary weight-on-day (Phase 3 item 3).
-- `MonthlyReport` bodyweight delta facts (Phase 3 item 4).
-- Quick weight entry from Settings (Phase 3 item 3 — the Trends-header entry point shipped).
+**All three shipped in build 49:**
+- ~~Calendar day-summary weight-on-day~~ — `DayBodyweightSection`, day-scoped `@Query` like
+  `ProgressMediaSection`; renders nothing on a day with no weigh-in.
+- ~~`MonthlyReport` bodyweight delta facts~~ — the report carries
+  `bodyweightStartKilograms` / `bodyweightEndKilograms` / `bodyweightDeltaKilograms` /
+  `bodyweightMeasurements` (endpoints, not an average — an average hides the direction), clipped
+  at "now" for a month-to-date report exactly like the session deltas. Rendered as a Bodyweight
+  card in `MonthlyReportSheet`; five cases in `MonthlyReportTests`.
+- ~~Quick weight entry from Settings~~ — `Settings.LogWeight`.
 
 ### Missing tests this roadmap called for
-- **No onboarding UI test.** The `MARBLE_FORCE_ONBOARDING` hook is implemented in the app and
-  has **zero references in `Tests/`** (Phase 1E promised one).
-- **No Settings smoke test** (Phase 1E).
-- **No widget snapshot suite** (Phase 1F) — the five widget families have no automated
-  coverage at all.
-- **No V4→V5 case in `PersistenceRecoveryTests`** (Phase 3 gate), even though V5 is the
-  shipping schema.
+**All four closed in build 49** — see `TESTING.md` → Known test gaps for what each covers:
+- ~~No onboarding UI test~~ → `Tests/UI/OnboardingFlowUITests.swift` (first real user of the
+  `MARBLE_FORCE_ONBOARDING` hook).
+- ~~No Settings smoke test~~ → `Tests/UI/SettingsFlowUITests.swift`.
+- ~~No widget snapshot suite~~ → `Tests/Snapshots/WeeklyGoalWidgetSnapshotTests.swift`
+  (all five families, light + dark, at widget point sizes) plus
+  `Tests/Unit/WeeklyGoalWidgetCopyTests.swift`. The layouts moved to
+  `marble/Shared/WeeklyGoalWidgetViews.swift` so the app target can render them.
+- ~~No V4→V5 case in `PersistenceRecoveryTests`~~ →
+  `testMigratesV4StoreToV5WithoutRecoveryOrDataLoss`, which also asserts no `.corrupt` backup
+  was written. The `make migration-release` gate now defaults to the **live App Store build**
+  (96736a1, 2.1 build 40) instead of the 2.0-era commit, and asserts `ZBODYMETRICENTRY` exists
+  after the upgrade.
 
-### Deferred from the best-practices pass (PR #12) — next up
-Deliberately left out of build 47; verified against source 2026-07-23.
-- **Adopt `AppDependencyManager` for intent dependencies.** The intents resolve the model
-  container through the `AppIntentsSupport.resolvedContainer()` singleton; Apple's current
-  guidance is dependency injection via `AppDependencyManager`. Works today, but it's the
-  documented pattern to migrate to.
-- **Adopt `UndoableIntent`** so a Siri-logged set can be undone by voice the way an in-app
-  set can via the shake/three-finger undo (`modelContext.undoManager` is already wired).
-- **Delete the dead glass helpers** in `marble/Components/GlassStyle.swift`:
-  `GlassTileBackground`, `navigationGlassBackground()`, and `applyGlassButtonStyle()` all
-  have **zero call sites** across app, widget, and test targets.
+### Deferred from the best-practices pass (PR #12)
+Build 49 closed the first three:
+- **`AppDependencyManager` — half adopted, deliberately.** `MarbleApp.init` now calls
+  `AppIntentsSupport.register(container:)`, which publishes the container to
+  `AppDependencyManager`. The intents still read `resolvedContainer()`: switching them to
+  `@Dependency` was implemented and then **reverted** because the wrapper traps outside the
+  system's perform flow — *"Dependency values can only be accessed inside of the intent perform
+  flow"* — and `LogSetIntentTests` / `AppIntentEntityTests` call `perform()` directly. Finishing
+  this means either a test-only injection seam or rewriting those suites; the singleton is not
+  the thing standing in the way.
+- ~~**Adopt `UndoableIntent`.**~~ Both set-writing intents conform, and `IntentUndo` registers
+  "delete the row this intent just logged" (plus its sprint goal snapshot) with the
+  intent's `UndoManager`, then refreshes the widget and reminder.
+- ~~**Delete the dead glass helpers.**~~ `GlassTileBackground`,
+  `navigationGlassBackground()`, and `applyGlassButtonStyle()` are gone.
+
+Still open:
+- **The snapshot baselines had silently gone stale** (found 2026-07-25): `testTrendsPopulated`
+  failed on clean `main`, because its references predate the Trends 2.0 Focus card. Snapshots
+  are local-only — CI runs `make unit` and nothing else — so a baseline nobody runs stopped
+  being coverage. Re-recorded on build 49; the open question is whether the snapshot suite can
+  join CI (it is host-rendering sensitive, which is why it was excluded).
+- **Found by the new widget snapshot suite (2026-07-25):** the `accessoryRectangular` family
+  truncates its middle line once the streak reaches two digits — "1 of 6 · 12-week st…" — and
+  the state line clips at two lines. Baselines are recorded as-is rather than papered over;
+  fixing it means shortening that copy (drop the streak when the progress text is long), not
+  widening the widget. The medium family's quick-log `Link` rendering in the system accent
+  blue instead of monochrome **was** fixed in build 49 (`.foregroundStyle(.primary)`).
 - **Toast-vs-inline is an open product decision.** Failure surfaces currently mix
   `ToastView` (Journal, Supplements) with inline errors elsewhere; pick one before adding
   more failure UI.

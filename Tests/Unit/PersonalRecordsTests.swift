@@ -1,6 +1,7 @@
 import XCTest
 @testable import marble
 
+@MainActor
 final class PersonalRecordsTests: MarbleTestCase {
     private let calendar = MarbleTestCase.stableCalendar
 

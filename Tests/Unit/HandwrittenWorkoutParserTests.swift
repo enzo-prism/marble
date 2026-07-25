@@ -4,6 +4,7 @@ import XCTest
 /// Pins the behavior of the deterministic handwritten-notation parser. The parser is
 /// pure, so these tests need no model context — they assert the exact structured
 /// output for each documented notation.
+@MainActor
 final class HandwrittenWorkoutParserTests: MarbleTestCase {
 
     private func parse(_ text: String) -> ParsedWorkoutDraft {

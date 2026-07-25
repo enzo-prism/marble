@@ -1,7 +1,11 @@
 import Foundation
 import SwiftData
 
-enum SprintTargetMode: String, CaseIterable, Identifiable {
+// `nonisolated` on the three pure sprint value types: the target compiles with
+// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which would otherwise pin them to
+// the main actor, and SwiftData `@Model` accessors that read them are themselves
+// nonisolated (a hard error under the Swift 6 language mode).
+nonisolated enum SprintTargetMode: String, CaseIterable, Identifiable {
     case time
     case range
 
@@ -15,7 +19,7 @@ enum SprintTargetMode: String, CaseIterable, Identifiable {
     }
 }
 
-enum SprintTargetOutcome: Equatable {
+nonisolated enum SprintTargetOutcome: Equatable {
     case metTime
     case missedTime
     case fasterThanRange
@@ -33,7 +37,7 @@ enum SprintTargetOutcome: Equatable {
     }
 }
 
-struct SprintPrescriptionPlan: Equatable {
+nonisolated struct SprintPrescriptionPlan: Equatable {
     var distance: Double
     var repetitionCount: Int
     var targetLowerSeconds: Int

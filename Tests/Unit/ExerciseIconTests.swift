@@ -3,6 +3,7 @@ import SwiftData
 import UIKit
 @testable import marble
 
+@MainActor
 final class ExerciseIconTests: MarbleTestCase {
     func testLegacyMetricsProfileDecodingDefaultsDistanceToNone() throws {
         let data = """

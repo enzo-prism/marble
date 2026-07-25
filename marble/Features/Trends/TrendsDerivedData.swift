@@ -91,6 +91,9 @@ struct TrendsDerivedData {
         weeklyTarget: Int = TrainingConsistency.defaultWeeklyTarget,
         dailyHighlightOccurrence: DailyHighlightOccurrence? = nil,
         displayWeightUnit: WeightUnit = .lb,
+        /// Weigh-ins, for the monthly report's bodyweight facts. Empty is the
+        /// honest default: no weigh-ins means no bodyweight story to tell.
+        bodyweights: [LifterAnalytics.BodyweightSample] = [],
         calendar: Calendar = .current,
         now: Date = AppEnvironment.now
     ) -> TrendsDerivedData {
@@ -301,7 +304,8 @@ struct TrendsDerivedData {
             history: historyEntries,
             now: now,
             calendar: calendar,
-            precomputedPREvents: allPREvents
+            precomputedPREvents: allPREvents,
+            bodyweights: bodyweights
         )
         let dailyHighlight = dailyHighlightOccurrence.flatMap {
             DailyHighlightsBuilder.build(

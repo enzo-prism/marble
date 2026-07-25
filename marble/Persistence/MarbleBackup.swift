@@ -1005,7 +1005,9 @@ private nonisolated struct PlannedSetRecord: Codable {
     }
 }
 
-enum PersistenceRecoveryNotice {
+/// `nonisolated`: plain defaults keys and `UserDefaults` access, read from the
+/// launch path and from nonisolated test setup alike.
+nonisolated enum PersistenceRecoveryNotice {
     static let recoveryDateKey = "persistenceRecoveryDate"
     static let recoveryBackupNameKey = "persistenceRecoveryBackupName"
     static let acknowledgedKey = "persistenceRecoveryAcknowledged"

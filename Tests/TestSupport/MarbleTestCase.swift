@@ -3,6 +3,7 @@ import SwiftData
 import XCTest
 @testable import marble
 
+@MainActor
 class MarbleTestCase: XCTestCase {
     enum FixtureMode {
         case empty

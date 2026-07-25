@@ -65,8 +65,11 @@ Rules:
   - Only if explicitly requested; check availability, use sessions, honor context limits, and prefer on-device privacy.
 
 ## Setup
-- Required: **Xcode 26.x with the iOS 26.2 platform installed** (the app target deploys to
-  iOS 26.2 and the code uses iOS 26 APIs — older Xcode cannot build this project). If
+- Required: **Xcode 26.x with an iOS 26.x platform installed** (the code uses iOS 26 APIs —
+  older Xcode cannot build this project). The app target **deploys to iOS 26.0** as of build 49
+  (it was 26.2 through build 48, which locked out every device on 26.0/26.1 for no reason:
+  only one API in the whole codebase needed a newer OS — `tabViewBottomAccessory(isEnabled:)`,
+  now behind `#available(iOS 26.1, *)` in `RestTimerPillView`). If
   `xcodebuild`/`asc` reports "no destinations", install the runtime via Xcode > Settings >
   Components or `xcodebuild -downloadPlatform iOS`.
 - Build: iOS Simulator.
@@ -138,6 +141,9 @@ Use these commands (preferred):
   full design and rationale.**
 - `marble/Shared/` — code that is a member of **both** the app and widget targets:
   `SharedDefaults.swift` (+ `SharedKeychain`), `WeeklyGoalWidgetState.swift`,
+  `WeeklyGoalWidgetViews.swift` (the five Weekly Goal family layouts — they live here so the
+  app's snapshot suite can render them; the widget target keeps only the `Widget`, the
+  `TimelineProvider`, and the keychain read),
   `MarbleSharedIntents.swift` (the rest-timer `+30s`/`End` and quick-log intents).
 - `marble/Intents/` — `ExerciseEntity.swift`, `LogSetIntent.swift`, `MarbleAppIntents.swift`,
   `WorkoutSessionIntents.swift`.
@@ -202,9 +208,30 @@ Use these commands (preferred):
   which is the only case that warrants a custom stage.
   Also never convert `SprintPrescription`/`SprintGoalSnapshot` raw-UUID references into
   `@Relationship`s — relationship churn resurrects the same checksum trap.
+- **Do not put `@Dependency` in an `AppIntent` here.** It traps unless the access happens
+  inside the system's perform flow, and Marble's intent suites call `perform()` directly.
+  `AppIntentsSupport.register(container:)` populates `AppDependencyManager` anyway; the intents
+  read `AppIntentsSupport.resolvedContainer()`. Tried and reverted 2026-07-25 — see
+  `MarbleAppIntents.swift`.
+- **The app, widget, unit-test and snapshot-test targets build under the Swift 6 language
+  mode (`SWIFT_VERSION = 6.0`) as of build 49.** `MarbleUITests` deliberately stays on 5.0:
+  XCUITest's `NSPredicate`/`XCUIElement` surface is not `Sendable`-annotated, and forcing the
+  UI target over produced only "sending 'self'/'predicate'" noise in test scaffolding, not
+  real findings. Migrate it when Apple annotates those APIs.
 - The target sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so any Codable value type
-  SwiftData serializes (e.g. `ExerciseMetricsProfile`) must be marked `nonisolated` or it
-  warns (a hard error under the Swift 6 language mode).
+  SwiftData serializes (e.g. `ExerciseMetricsProfile`) must be marked `nonisolated` — under
+  the Swift 6 language mode this is a hard error, not a warning. The same rule now applies to
+  every pure value type a `@Model` accessor touches: `Formatters`, `DateHelper`,
+  `AppEnvironment`, `TestHooks`, `LifterAnalytics`, `TrendRange`, the sprint plan types, and
+  the enums in `Models/` are all `nonisolated`. Two Swift 6 patterns worth knowing before you
+  touch that code:
+  - a non-`Sendable` value fetched on the main actor and then `await`ed on (ActivityKit's
+    `Activity`, Core Spotlight's `CSSearchableIndex`) is *sent* across isolation. Fix it by
+    moving the lookup **and** the await into one `nonisolated` helper — see
+    `RestActivityController` and `ExerciseSpotlightIndex`.
+  - `static var x = value` at global scope is an error; use a computed property (see
+    `MarbleSchema`'s `versionIdentifier`) or `nonisolated(unsafe) static let` where the value
+    genuinely is process-wide and immutable (`SharedDefaults.resolvedSuite`).
 - **Workout import is ToS-aligned and backend-free** (`INTEGRATIONS.md`): Apple Health is
   the universal bridge, Garmin comes in *through* Apple Health (no direct Garmin login —
   that would violate Garmin's ToS), and Strava is a direct official OAuth connector that
@@ -225,6 +252,6 @@ Prefer the repo-level `asc` wiring over ad hoc commands.
   export with *"requires a provisioning profile with the HealthKit feature"*.
 - Prefer `make asc-version` over raw `asc xcode version view`, because this project uses generated Info.plists and the helper prints a reliable `MARKETING_VERSION` fallback
 - `make asc-archive` already bakes in the required `generic/platform=iOS` destination for this project
-- The current app target requires the iOS `26.2` platform. If `xcodebuild`/`asc` reports “no destinations” or says iOS `26.2` is not installed, install that platform/runtime from Xcode > Settings > Components before debugging further.
+- The app target deploys to iOS `26.0` and needs an installed iOS 26.x simulator runtime. If `xcodebuild`/`asc` reports “no destinations”, install that platform/runtime from Xcode > Settings > Components before debugging further.
 
 See `ASC.md` for the fuller Marble-specific command reference.

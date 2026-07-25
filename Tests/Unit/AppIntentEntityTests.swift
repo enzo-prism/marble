@@ -138,7 +138,10 @@ final class AppIntentEntityTests: MarbleTestCase {
 
     private func makeIntentContext() -> ModelContext {
         let container = makeInMemoryContainer()
-        AppIntentsSupport.container = container
+        // `register` (not a bare assignment) because the intents now inject the
+        // container through `@Dependency`/`AppDependencyManager`, which only the
+        // registration path populates.
+        AppIntentsSupport.register(container: container)
         return container.mainContext
     }
 

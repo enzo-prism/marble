@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 import XCTest
 @testable import marble
 
+@MainActor
 final class ProgressMediaStoreTests: XCTestCase {
     func testProgressMediaKindFollowsContentType() {
         XCTAssertEqual(ProgressMediaKind(contentType: .movie), .video)

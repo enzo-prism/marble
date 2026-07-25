@@ -2,6 +2,7 @@ import SwiftData
 import XCTest
 @testable import marble
 
+@MainActor
 final class WorkoutSessionQueryTests: MarbleTestCase {
     func testQueriesReturnOneActiveAndFiveMostRecentCompletedSessions() throws {
         let context = makeInMemoryContext()

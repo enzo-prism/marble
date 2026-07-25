@@ -685,6 +685,9 @@ struct DaySummarySheet: View {
                         .marbleRowInsets()
                     }
 
+                    // Renders nothing unless a weigh-in landed on this day.
+                    DayBodyweightSection(date: date)
+
                     ProgressMediaSection(date: date)
 
                     if entries.isEmpty {

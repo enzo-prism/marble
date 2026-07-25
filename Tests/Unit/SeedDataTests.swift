@@ -2,6 +2,7 @@ import XCTest
 import SwiftData
 @testable import marble
 
+@MainActor
 final class SeedDataTests: MarbleTestCase {
     func testSeedExercisesExistAndEditable() throws {
         let context = makeInMemoryContext()

@@ -6,6 +6,7 @@ import XCTest
 /// The Audio Graph descriptor helper behind every Trends chart: axis-range
 /// padding, speech formatting, point labels, and the assembled
 /// `AXChartDescriptor`. Pure value math — no views, no AX runtime.
+@MainActor
 final class TrendsChartDescriptorTests: MarbleTestCase {
     private let posix = Locale(identifier: "en_US_POSIX")
 

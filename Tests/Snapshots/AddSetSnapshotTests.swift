@@ -2,6 +2,7 @@ import SwiftData
 import XCTest
 @testable import marble
 
+@MainActor
 final class AddSetSnapshotTests: SnapshotTestCase {
     func testAddSetWeightAndReps() {
         let container = SnapshotFixtures.makeContainer()

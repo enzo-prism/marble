@@ -2,18 +2,25 @@ import Foundation
 import SwiftUI
 import UIKit
 
-enum AppEnvironment {
+/// `nonisolated` because SwiftData model initialisers default their date
+/// parameters to it, and those run off the main actor (a hard error under the
+/// Swift 6 language mode).
+nonisolated enum AppEnvironment {
     static var now: Date { TestHooks.now }
 }
 
-enum TestHooks {
+nonisolated enum TestHooks {
     enum FixtureMode: String {
         case populated
         case empty
         case screenshots
     }
 
-    static var overrideNow: Date?
+    /// Test-only clock override. `nonisolated(unsafe)` because the whole point
+    /// is that any context — a `@MainActor` view, a nonisolated model
+    /// initialiser, a snapshot test's `setUp` — reads the same "now". Only tests
+    /// ever write it, and they do so before the code under test runs.
+    nonisolated(unsafe) static var overrideNow: Date?
 
     static let isUITesting: Bool = environmentFlag("MARBLE_UI_TESTING")
     static let disableAnimations: Bool = environmentFlag("MARBLE_DISABLE_ANIMATIONS") || isUITesting

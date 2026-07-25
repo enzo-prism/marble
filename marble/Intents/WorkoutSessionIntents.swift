@@ -62,6 +62,7 @@ struct StartWorkoutIntent: AppIntent {
     )
     static let openAppWhenRun = true
 
+
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let context = AppIntentsSupport.resolvedContainer().mainContext
@@ -104,6 +105,7 @@ struct FinishWorkoutIntent: AppIntent {
     static let description = IntentDescription(
         "Ends the workout that's currently running and files it in your workout history."
     )
+
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {

@@ -85,7 +85,9 @@ final class NotificationsFlowUITests: MarbleUITestCase {
         waitForIdentifier("Notifications.List", timeout: 5)
     }
 
-    private func notificationRows(in list: XCUIElement) -> XCUIElementQuery {
+    // `nonisolated` for the same reason as `MarbleUITestCase.setRows`: an
+    // `NSPredicate` must not cross an isolation boundary.
+    private nonisolated func notificationRows(in list: XCUIElement) -> XCUIElementQuery {
         let predicate = NSPredicate(format: "identifier BEGINSWITH %@", "Notifications.Row.")
         let scoped = list.descendants(matching: .any).matching(predicate)
         if scoped.count > 0 {
@@ -94,7 +96,7 @@ final class NotificationsFlowUITests: MarbleUITestCase {
         return app.descendants(matching: .any).matching(predicate)
     }
 
-    private func notificationToggles() -> XCUIElementQuery {
+    private nonisolated func notificationToggles() -> XCUIElementQuery {
         let predicate = NSPredicate(format: "identifier BEGINSWITH %@", "Notifications.Toggle.")
         let switches = app.switches.matching(predicate)
         if switches.count > 0 {

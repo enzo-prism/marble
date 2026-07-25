@@ -7,6 +7,7 @@ import XCTest
 /// - Showing onboarding during UI testing drops a modal over all 36 UI tests.
 /// - Showing it to someone upgrading from 2.1 asks an existing user to
 ///   re-introduce themselves to an app full of their own data.
+@MainActor
 final class OnboardingGateTests: XCTestCase {
     // MARK: - The happy path
 

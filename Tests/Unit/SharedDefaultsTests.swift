@@ -127,6 +127,7 @@ final class SharedDefaultsTests: XCTestCase {
 /// than on a developer machine. The thin `saveSnapshot`/`loadSnapshot`/
 /// `removeSnapshot` wrappers are deliberately left untested; everything they
 /// could get wrong lives in the dictionaries below.
+@MainActor
 final class SharedKeychainQueryTests: XCTestCase {
     func testAccessGroupMatchesTheEntitlement() {
         // `marble.entitlements` and `MarbleWidgets.entitlements` both declare

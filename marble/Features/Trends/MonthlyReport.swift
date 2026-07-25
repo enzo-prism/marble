@@ -37,6 +37,17 @@ struct MonthlyReport: Equatable, Identifiable {
     let prDelta: Int?
     /// e.g. "vs this point in June" / "vs June"
     let comparisonLabel: String?
+
+    // Bodyweight facts (2.4 "Body"). Canonical kilograms, like every other
+    // bodyweight number in Marble — the sheet converts once for display.
+    // Nil unless the month actually holds a weigh-in, and `bodyweightDelta` is
+    // additionally nil with only one, because a single measurement describes a
+    // point, not a direction.
+    let bodyweightStartKilograms: Double?
+    let bodyweightEndKilograms: Double?
+    let bodyweightDeltaKilograms: Double?
+    /// Weigh-ins the two numbers above were drawn from.
+    let bodyweightMeasurements: Int
 }
 
 enum MonthlyReportBuilder {
@@ -59,7 +70,8 @@ enum MonthlyReportBuilder {
         history: [SetEntry],
         now: Date,
         calendar: Calendar = .current,
-        precomputedPREvents: [LifterCoaching.PREvent]? = nil
+        precomputedPREvents: [LifterCoaching.PREvent]? = nil,
+        bodyweights: [LifterAnalytics.BodyweightSample] = []
     ) -> MonthlyReport? {
         guard !history.isEmpty else { return nil }
         guard let currentMonthStart = calendar.dateInterval(of: .month, for: now)?.start else { return nil }
@@ -80,7 +92,8 @@ enum MonthlyReportBuilder {
                    history: history,
                    monthStart: previousStart,
                    prEvents: prEvents,
-                   calendar: calendar
+                   calendar: calendar,
+                   bodyweights: bodyweights
                ) {
                 return report
             }
@@ -93,8 +106,31 @@ enum MonthlyReportBuilder {
             entries: currentMonthEntries,
             now: now,
             prEvents: prEvents,
-            calendar: calendar
+            calendar: calendar,
+            bodyweights: bodyweights
         )
+    }
+
+    // MARK: - Bodyweight facts
+
+    /// First and last weigh-in inside `[start, end)`, plus their difference.
+    ///
+    /// Deliberately *not* an average: the report answers "where did my weight go
+    /// this month", and the endpoints answer that honestly while an average
+    /// hides the direction. Samples are assumed sorted ascending by date; the
+    /// call sites all pass a `measuredAt`-sorted query.
+    private static func bodyweightFacts(
+        _ samples: [LifterAnalytics.BodyweightSample],
+        start: Date,
+        end: Date
+    ) -> (start: Double?, end: Double?, delta: Double?, count: Int) {
+        let inMonth = samples.filter { $0.date >= start && $0.date < end }
+            .sorted { $0.date < $1.date }
+        guard let first = inMonth.first, let last = inMonth.last else {
+            return (nil, nil, nil, 0)
+        }
+        let delta = inMonth.count > 1 ? last.kilograms - first.kilograms : nil
+        return (first.kilograms, last.kilograms, delta, inMonth.count)
     }
 
     // MARK: - Report assembly
@@ -103,7 +139,8 @@ enum MonthlyReportBuilder {
         history: [SetEntry],
         monthStart: Date,
         prEvents: [LifterCoaching.PREvent],
-        calendar: Calendar
+        calendar: Calendar,
+        bodyweights: [LifterAnalytics.BodyweightSample] = []
     ) -> MonthlyReport? {
         let monthEntries = entries(in: history, monthStart: monthStart, calendar: calendar)
         guard !monthEntries.isEmpty else { return nil }
@@ -125,6 +162,12 @@ enum MonthlyReportBuilder {
             }
         }
 
+        let bodyweight = bodyweightFacts(
+            bodyweights,
+            start: monthStart,
+            end: monthEnd(after: monthStart, calendar: calendar)
+        )
+
         return MonthlyReport(
             monthStart: monthStart,
             monthLabel: monthLabelFormatter.string(from: monthStart),
@@ -138,7 +181,11 @@ enum MonthlyReportBuilder {
             sessionsDelta: sessionsDelta,
             volumeDeltaPercent: volumeDeltaPercent,
             prDelta: prDelta,
-            comparisonLabel: comparisonLabel
+            comparisonLabel: comparisonLabel,
+            bodyweightStartKilograms: bodyweight.start,
+            bodyweightEndKilograms: bodyweight.end,
+            bodyweightDeltaKilograms: bodyweight.delta,
+            bodyweightMeasurements: bodyweight.count
         )
     }
 
@@ -148,7 +195,8 @@ enum MonthlyReportBuilder {
         entries monthEntries: [SetEntry],
         now: Date,
         prEvents: [LifterCoaching.PREvent],
-        calendar: Calendar
+        calendar: Calendar,
+        bodyweights: [LifterAnalytics.BodyweightSample] = []
     ) -> MonthlyReport {
         let stats = MonthStats(entries: monthEntries, prEvents: prEvents, monthStart: monthStart, monthEnd: monthEnd(after: monthStart, calendar: calendar), calendar: calendar)
 
@@ -171,6 +219,10 @@ enum MonthlyReportBuilder {
             }
         }
 
+        // Month-to-date clips at "now" for the same reason the deltas do: a
+        // half-finished month must not borrow a weigh-in from the future.
+        let bodyweight = bodyweightFacts(bodyweights, start: monthStart, end: now)
+
         return MonthlyReport(
             monthStart: monthStart,
             monthLabel: monthLabelFormatter.string(from: monthStart),
@@ -184,7 +236,11 @@ enum MonthlyReportBuilder {
             sessionsDelta: sessionsDelta,
             volumeDeltaPercent: volumeDeltaPercent,
             prDelta: prDelta,
-            comparisonLabel: comparisonLabel
+            comparisonLabel: comparisonLabel,
+            bodyweightStartKilograms: bodyweight.start,
+            bodyweightEndKilograms: bodyweight.end,
+            bodyweightDeltaKilograms: bodyweight.delta,
+            bodyweightMeasurements: bodyweight.count
         )
     }
 

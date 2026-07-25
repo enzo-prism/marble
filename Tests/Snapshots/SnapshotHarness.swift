@@ -3,12 +3,14 @@ import SwiftUI
 import XCTest
 @testable import marble
 
+@MainActor
 struct SnapshotDevice {
     let name: String
     let size: CGSize
     let safeArea: UIEdgeInsets
 }
 
+@MainActor
 struct SnapshotVariant {
     let colorScheme: ColorScheme
     let sizeCategory: ContentSizeCategory
@@ -21,6 +23,7 @@ struct SnapshotVariant {
     }
 }
 
+@MainActor
 enum SnapshotMatrix {
     static let devices: [SnapshotDevice] = [
         SnapshotDevice(name: "iPhoneSE", size: CGSize(width: 375, height: 667), safeArea: UIEdgeInsets(top: 20, left: 0, bottom: 0, right: 0)),
@@ -42,10 +45,14 @@ enum SnapshotMatrix {
     }()
 }
 
+@MainActor
 func assertSnapshot<V: View>(
     _ view: V,
     named name: String,
-    file: StaticString = #file,
+    // `#filePath`, not `#file`: under the Swift 6 language mode `#file` is the
+    // *concise* "Module/File.swift" form, which sent SnapshotTesting looking for
+    // baselines at `/MarbleSnapshotTests/__Snapshots__/…` — a read-only volume.
+    file: StaticString = #filePath,
     testName: String = #function,
     line: UInt = #line
 ) {
@@ -99,7 +106,7 @@ private func shouldIgnoreSnapshotFailure() -> Bool {
     SnapshotRecording.isEnabled
 }
 
-private func uiContentSizeCategory(from sizeCategory: ContentSizeCategory) -> UIContentSizeCategory {
+nonisolated private func uiContentSizeCategory(from sizeCategory: ContentSizeCategory) -> UIContentSizeCategory {
     switch sizeCategory {
     case .extraSmall:
         return .extraSmall

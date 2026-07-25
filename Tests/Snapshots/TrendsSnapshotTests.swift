@@ -3,6 +3,7 @@ import SwiftUI
 import XCTest
 @testable import marble
 
+@MainActor
 final class TrendsSnapshotTests: SnapshotTestCase {
     override func setUp() {
         super.setUp()

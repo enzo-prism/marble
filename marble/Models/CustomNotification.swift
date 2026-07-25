@@ -88,7 +88,7 @@ extension CustomNotification {
 }
 
 extension Weekday {
-    var notificationBitMask: Int {
+    nonisolated var notificationBitMask: Int {
         1 << (rawValue - 1)
     }
 

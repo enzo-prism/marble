@@ -1,6 +1,7 @@
 import XCTest
 @testable import marble
 
+@MainActor
 final class ComponentGallerySnapshotTests: SnapshotTestCase {
     func testComponentGallery() {
         #if DEBUG

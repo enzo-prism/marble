@@ -17,7 +17,7 @@ import SwiftData
 /// type name and therefore the persisted entity identity, which would break the stores of
 /// existing 1.8 users on upgrade.
 enum MarbleSchemaV1: VersionedSchema {
-    static var versionIdentifier = Schema.Version(1, 0, 0)
+    static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
 
     static var models: [any PersistentModel.Type] {
         [
@@ -39,7 +39,7 @@ enum MarbleSchemaV1: VersionedSchema {
 /// entity. SwiftData handles this additive change with its automatic lightweight
 /// migration, preserving every pre-session set as standalone history.
 enum MarbleSchemaV2: VersionedSchema {
-    static var versionIdentifier = Schema.Version(2, 0, 0)
+    static var versionIdentifier: Schema.Version { Schema.Version(2, 0, 0) }
 
     static var models: [any PersistentModel.Type] {
         MarbleSchemaV1.models + [WorkoutSession.self]
@@ -49,7 +49,7 @@ enum MarbleSchemaV2: VersionedSchema {
 /// Schema V3 adds reusable sprint prescriptions as a standalone entity. Existing
 /// Exercise and SetEntry entities are unchanged, keeping their shipped checksums stable.
 enum MarbleSchemaV3: VersionedSchema {
-    static var versionIdentifier = Schema.Version(3, 0, 0)
+    static var versionIdentifier: Schema.Version { Schema.Version(3, 0, 0) }
 
     static var models: [any PersistentModel.Type] {
         MarbleSchemaV2.models + [SprintPrescription.self]
@@ -60,7 +60,7 @@ enum MarbleSchemaV3: VersionedSchema {
 /// prescription remains editable, while each historical rep keeps the exact target
 /// it was logged against. This is additive so the shipped SetEntry remains unchanged.
 enum MarbleSchemaV4: VersionedSchema {
-    static var versionIdentifier = Schema.Version(4, 0, 0)
+    static var versionIdentifier: Schema.Version { Schema.Version(4, 0, 0) }
 
     static var models: [any PersistentModel.Type] {
         MarbleSchemaV3.models + [SprintGoalSnapshot.self]
@@ -79,7 +79,7 @@ enum MarbleSchemaV4: VersionedSchema {
 /// shipped version checksums distinct, and "improving" it into real
 /// relationships is what caused the build-35 launch crash.
 enum MarbleSchemaV5: VersionedSchema {
-    static var versionIdentifier = Schema.Version(5, 0, 0)
+    static var versionIdentifier: Schema.Version { Schema.Version(5, 0, 0) }
 
     static var models: [any PersistentModel.Type] {
         MarbleSchemaV4.models + [BodyMetricEntry.self]

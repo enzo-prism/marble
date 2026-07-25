@@ -1,6 +1,7 @@
 import XCTest
 @testable import marble
 
+@MainActor
 final class CalendarDayKeyTests: XCTestCase {
     func testDateComponentsWithMetadataStillResolveToSameKey() {
         var calendar = Calendar(identifier: .gregorian)

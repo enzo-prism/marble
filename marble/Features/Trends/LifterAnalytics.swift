@@ -4,7 +4,7 @@ import Foundation
 /// one-rep-max progression, per-muscle-group set counts, and rep-range
 /// distribution. Everything here is derived from logged sets only — no schema
 /// additions — and stays free of UI so the math is unit-testable.
-enum LifterAnalytics {
+nonisolated enum LifterAnalytics {
     // MARK: - Estimated one-rep max
 
     /// A day's best estimated 1RM for one exercise.
