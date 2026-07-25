@@ -42,7 +42,7 @@ struct DailyHighlightsSettingsView: View {
                 }
 
                 Section("Daily motivation") {
-                    Text("Marble chooses three short quotes for each celebration day and rotates them gently with your highlights. Everything stays on this iPhone.")
+                    Text("Marble chooses three short quotes for each celebration day and rotates them gently with your highlights. Everything stays on this device.")
                         .font(MarbleTypography.caption)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 }

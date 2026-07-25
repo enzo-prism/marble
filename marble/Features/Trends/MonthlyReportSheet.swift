@@ -157,7 +157,7 @@ struct MonthlyReportSheet: View {
                 .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
             }
 
-            Text("Computed privately on this iPhone. Insights phrase the stats above — the numbers come first.")
+            Text("Computed privately on this device. Insights phrase the stats above — the numbers come first.")
                 .font(MarbleTypography.caption)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)

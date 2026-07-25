@@ -115,11 +115,11 @@ class MarbleUITestCase: XCTestCase {
 
     func forceTap(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), file: file, line: line)
-        if element.isHittable {
-            element.tap()
-        } else {
-            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        }
+        // iOS 26.5 can accept an XCUIElement tap without dispatching the SwiftUI
+        // action, even when the element reports itself hittable. A center-point
+        // tap follows the same visible user target without relying on that stale
+        // accessibility activation point.
+        element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     func takeScreenshot(_ name: String) {
@@ -322,7 +322,7 @@ class MarbleUITestCase: XCTestCase {
     func selectExercise(identifier: String) {
         let picker = app.buttons["AddSet.ExercisePicker"]
         waitFor(picker)
-        picker.tap()
+        forceTap(picker)
 
         let list = waitForIdentifier("ExercisePicker.List", timeout: 8)
         let row = app.buttons.matching(identifier: "ExercisePicker.Row.\(identifier)").firstMatch

@@ -67,7 +67,7 @@ struct OnboardingView: View {
         pageLayout(
             symbol: "lock.shield",
             title: "Marble is yours alone",
-            body: "Every set, session, and photo stays on this iPhone. No account, no server, no tracking — your training data never leaves your phone.",
+            body: "Every set, session, and photo stays on this device. No account, no server, no tracking — your training data never leaves your device.",
             detail: "Backups are files you export yourself, whenever you want one."
         ) {
             EmptyView()

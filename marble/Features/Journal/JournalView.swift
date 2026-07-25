@@ -412,7 +412,7 @@ private struct StartChecklistCard: View {
                     .font(MarbleTypography.rowTitle)
                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                     .accessibilityIdentifier("Journal.StartChecklist")
-                Text("Private by default. Stored on this iPhone.")
+                Text("Private by default. Stored on this device.")
                     .font(MarbleTypography.rowSubtitle)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .fixedSize(horizontal: false, vertical: true)

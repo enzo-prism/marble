@@ -149,7 +149,7 @@ struct ExerciseEditorView: View {
     }
 
     private var basicsSection: some View {
-        Section("Basics") {
+        Section {
             VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
                 TextField("Exercise name", text: $draft.name, prompt: Text("e.g. Bench Press"))
                     .textInputAutocapitalization(.words)
@@ -184,6 +184,9 @@ struct ExerciseEditorView: View {
                 }
             }
             .accessibilityIdentifier("ExerciseEditor.Category")
+        } header: {
+            Text("Basics")
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
     }
 
@@ -204,6 +207,7 @@ struct ExerciseEditorView: View {
             .accessibilityIdentifier("ExerciseEditor.Templates")
         } header: {
             Text("How You Track It")
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         } footer: {
             Text("Choose the closest match. Marble sets up the fields you need and hides the rest.")
         }

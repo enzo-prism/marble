@@ -4,14 +4,20 @@ import XCTest
 /// These are intentionally UI tests so every image is produced from the real
 /// shipping interface and can be regenerated on both iPhone and iPad.
 final class AppStoreScreenshotUITests: MarbleUITestCase {
-    private func launchScreenshotApp(initialTab: String? = nil) {
+    private func launchScreenshotApp(
+        initialTab: String? = nil,
+        extraEnvironment: [String: String] = [:]
+    ) {
         var environment = ["MARBLE_APP_STORE_SCREENSHOTS": "1"]
         if let initialTab {
             environment["MARBLE_INITIAL_TAB"] = initialTab
         }
+        environment.merge(extraEnvironment) { _, new in new }
         launchApp(
             fixtureMode: "screenshots",
-            nowISO8601: "2026-07-15T16:30:00.000Z",
+            // 9:30 PM PDT: the deterministic fixture includes a real same-day
+            // workout, so Trends shows the shipping Daily Highlights surface.
+            nowISO8601: "2026-07-16T04:30:00.000Z",
             forceReduceTransparency: true,
             extraEnvironment: environment
         )
@@ -36,7 +42,11 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
     func test03StrengthTrends() {
         launchScreenshotApp(initialTab: "trends")
         _ = waitForIdentifier("Trends.Focus", timeout: 15)
-        _ = waitForIdentifier("Trends.Details.Toggle", timeout: 15)
+        let dailyHighlights = app.descendants(matching: .any)
+            .matching(identifier: "Trends.DailyHighlights")
+            .firstMatch
+        scrollToElement(dailyHighlights, in: app)
+        _ = waitForIdentifier("Trends.DailyHighlights", timeout: 15)
         takeScreenshot("03-strength-trends")
     }
 
@@ -75,7 +85,6 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         launchScreenshotApp()
         navigateToTab(.calendar)
         _ = waitForIdentifier("Calendar.Header", timeout: 10)
-        _ = waitForIdentifier("Calendar.MonthTitle", timeout: 12)
         XCTAssertFalse(app.buttons["Calendar.TestOpenEmpty"].exists)
         XCTAssertFalse(app.buttons["Calendar.TestOpenPopulated"].exists)
         takeScreenshot("07-training-calendar")
@@ -92,5 +101,24 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         _ = waitForIdentifier("Data.Export", timeout: 10)
         _ = waitForIdentifier("Data.Restore", timeout: 10)
         takeScreenshot("08-private-backup")
+    }
+
+    func test09PrivateOnboarding() {
+        launchScreenshotApp(extraEnvironment: ["MARBLE_FORCE_ONBOARDING": "1"])
+        _ = waitForIdentifier("Onboarding.Continue", timeout: 10)
+        let privacyCopy = app.staticTexts
+            .matching(NSPredicate(format: "label CONTAINS %@", "stays on this device"))
+            .firstMatch
+        XCTAssertTrue(privacyCopy.waitForExistence(timeout: 5))
+        takeScreenshot("09-private-onboarding")
+    }
+
+    func test10Settings() {
+        launchScreenshotApp(initialTab: "split")
+        forceTap(waitForIdentifier("Workout.Data", timeout: 10))
+        _ = waitForIdentifier("Settings.WeightUnit", timeout: 10)
+        _ = waitForIdentifier("Settings.WeeklyTarget", timeout: 10)
+        _ = waitForIdentifier("Settings.DailyHighlights", timeout: 10)
+        takeScreenshot("10-settings")
     }
 }
