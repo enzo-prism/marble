@@ -494,8 +494,7 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 - Do not cancel an in-flight App Store review by default.
 - `origin/main` is the canonical release baseline, now on the **2.2** train. The latest
   processed build is **2.2 (48)** and it is waiting for review. Released to users:
-  **2.1 (build 40)**. The build-48 release commits remain local until push is explicitly
-  approved.
+  **2.1 (build 40)**. The build-48 release commits are published in the GitHub release PR.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
   holds the Empire source — the branches named `empire-gamification` and
