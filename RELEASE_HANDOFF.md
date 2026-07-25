@@ -90,6 +90,12 @@ test touches the real keychain.
 
 ## Release state (2026-07-24)
 
+- **2.2 (build 48)** — **submitted and `WAITING_FOR_REVIEW`**. App Store Connect build ID
+  `ad513fbe-123e-438c-8030-7982af86e198`; review submission ID
+  `0e7f361e-2ac6-484d-b1a3-34ae9869da91`; submitted 2026-07-24 at 15:24 PDT.
+  The signed archive and exported IPA passed validation, the processed build is `VALID`,
+  and the version remains configured for **manual release** after approval. App Store
+  metadata, review notes, and all 30 iPhone/iPad screenshots were synced before submission.
 - **2.1 (build 40)** — **LIVE on the App Store**, released 2026-07-21 via
   `asc versions release --version-id 59f2e4c7-1c4b-49b3-a5d3-265ca6da74b1 --confirm`;
   state moved `PENDING_DEVELOPER_RELEASE` → `READY_FOR_SALE` in the API. It carries the
@@ -97,10 +103,10 @@ test touches the real keychain.
   **No phased release was configured** (`appStoreVersionPhasedRelease` was null), so it went
   to 100% of users at once — worth creating one *before* releasing next time, since 2.1 was
   the first production build to run the V2→V4 migrations.
-- **2.2 (build 47)** — **on TestFlight, `VALID`** (buildId
+- **2.2 (build 47)** — superseded submission candidate; still **on TestFlight, `VALID`** (buildId
   `83f4e8ca-a4cf-41ac-8080-4f8703851a42`, uploaded 2026-07-23 at 08:03 PDT). The internal group
   `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has access to all builds.
-  **Not submitted to App Review.** It is build 46 plus the merged Apple-best-practices work
+  Build 48 replaced it for App Review. It is build 46 plus the merged Apple-best-practices work
   (PR #12): intents refresh the widget/reminder/Spotlight, complete JSON backup with an
   exhaustiveness guard, Live Activity staleDate + rest-complete notification, TipKit tips
   attached, widget privacy manifest, Audio Graph chart descriptors, Smart Stack relevance +
@@ -111,8 +117,8 @@ test touches the real keychain.
 - **2.0 (build 34)** — superseded by 2.1. Its review is closed; nothing about it is live
   state any more.
 - **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 48`.**
-  Build 48 is the current submission candidate. Re-run `make asc-next-build` before any
-  later upload; App Store Connect currently reserves 48 as the next valid build number.
+  Build 48 is the submitted candidate. Re-run `make asc-next-build` before any later upload;
+  the next valid build number is expected to be 49.
 
 ---
 
@@ -435,15 +441,13 @@ Notes:
 
 ## Open release decisions
 
-**The only live decision: when to submit 2.2 to App Review.** Build 47 is currently `VALID`
-on TestFlight; nothing is submitted.
-Before submitting, resolve these:
+**2.2 build 48 is waiting for App Review.** Do not replace the build or cancel the
+submission unless review finds a blocker. Before manually releasing an approved build:
 
-- **Complete the local App Store submission gate in `TESTING.md`.** App Review does not
-  require a physical-device attestation. Use dedicated iPhone and iPad simulators, focused
-  integration tests, deep-link checks, archive inspection, and live App Store Connect
-  validation. Keep the hardware-only Apple integration pass as an optional check before
-  manual public release, not as a submission blocker.
+- The local App Store submission gate in `TESTING.md` passed using dedicated iPhone and iPad
+  simulators, focused integration tests, deep-link checks, archive inspection, and live
+  App Store Connect validation. Keep the hardware-only Apple integration pass as an optional
+  check before manual public release, not as a submission blocker.
 - **Decide what to do about the known gaps** (`ROADMAP.md` → Known gaps / next up). Build 47
   closed the big ones — Siri-logged sets now refresh the widget and reminder, TipKit tips
   present, backup covers every entity — so Siri set-logging can be advertised alongside the
@@ -460,9 +464,8 @@ Before submitting, resolve these:
   after (a) a live OAuth round-trip with real keys and (b) a decision on the in-binary
   `client_secret` (see "Workout import"). Rationale: Strava is the only import path that is
   network-facing, ships a secret, and is unverified end-to-end.
-- Keep App Review submission a separate, explicitly approved step. Before submitting, re-run
-  `make asc-review`, `make asc-validate`, and `asc review submit --help` — the installed CLI
-  drifts.
+- Keep manual public release a separate, explicitly approved step. Re-check review state and
+  phased-release configuration before releasing an approved build.
 
 To release an **approved** version (the step that was missing from the docs until 2.1):
 
@@ -490,8 +493,9 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
 - `origin/main` is the canonical release baseline, now on the **2.2** train. The latest
-  TestFlight build is **2.2 (47)**, not submitted for review. Released to users:
-  **2.1 (build 40)**.
+  processed build is **2.2 (48)** and it is waiting for review. Released to users:
+  **2.1 (build 40)**. The build-48 release commits remain local until push is explicitly
+  approved.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
   holds the Empire source — the branches named `empire-gamification` and
@@ -513,8 +517,8 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 47
+make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 48
 make asc-status
 make asc-builds
-make asc-next-build   # expect 48
+make asc-next-build   # expect 49 unless another build was uploaded
 ```
