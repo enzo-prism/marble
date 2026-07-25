@@ -9,12 +9,34 @@ import SwiftUI
 enum AppIntentsSupport {
     static var container: ModelContainer?
 
+    /// Publishes the app's container to this type's own accessor **and** to
+    /// `AppDependencyManager`, Apple's documented dependency mechanism for
+    /// intents. Call it exactly where the container is created —
+    /// `MarbleApp.init`, the first thing that runs in the process, including when
+    /// Siri launches the app in the background to perform an intent.
+    ///
+    /// ⚠️ **The intents deliberately still read `resolvedContainer()` rather
+    /// than an `@Dependency` property.** Adopting the wrapper (tried
+    /// 2026-07-25) traps at runtime — *"AppDependency of type ModelContainer.Type
+    /// was not initialized prior to access. Dependency values can only be
+    /// accessed inside of the intent perform flow"* — because `LogSetIntentTests`
+    /// and `AppIntentEntityTests` call `perform()` directly instead of going
+    /// through the system's flow. Registration is kept so the documented
+    /// mechanism is populated for anything the system does drive; do not swap the
+    /// call sites over without first solving the direct-`perform()` test path.
+    ///
+    /// Registration is idempotent, so tests can call it per case.
+    static func register(container: ModelContainer) {
+        self.container = container
+        AppDependencyManager.shared.add(dependency: container)
+    }
+
     static func resolvedContainer() -> ModelContainer {
         if let container {
             return container
         }
         let created = PersistenceController.makeContainer(useInMemory: TestHooks.useInMemoryStore)
-        container = created
+        register(container: created)
         return created
     }
 
@@ -60,9 +82,10 @@ struct OpenQuickLogIntent: AppIntent {
     }
 }
 
-struct LogLastSetAgainIntent: AppIntent {
+struct LogLastSetAgainIntent: AppIntent, UndoableIntent {
     static let title: LocalizedStringResource = "Log Last Set Again"
     static let description = IntentDescription("Logs another set of your most recent exercise with the same metrics.")
+
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -79,8 +102,9 @@ struct LogLastSetAgainIntent: AppIntent {
         let goalDescriptor = FetchDescriptor<SprintGoalSnapshot>(
             predicate: #Predicate { $0.setEntryID == latestID }
         )
+        var duplicatedGoalID: UUID?
         if let goal = (try? context.fetch(goalDescriptor))?.first {
-            context.insert(SprintGoalSnapshot(
+            let duplicatedGoal = SprintGoalSnapshot(
                 setEntryID: duplicate.id,
                 exerciseID: duplicate.exercise.id,
                 distance: goal.distance,
@@ -91,7 +115,9 @@ struct LogLastSetAgainIntent: AppIntent {
                 targetUpperSeconds: goal.targetUpperSeconds,
                 isInferred: goal.isInferred,
                 createdAt: duplicate.createdAt
-            ))
+            )
+            context.insert(duplicatedGoal)
+            duplicatedGoalID = duplicatedGoal.id
         }
         do {
             try context.save()
@@ -103,6 +129,14 @@ struct LogLastSetAgainIntent: AppIntent {
         // This set may have just completed the week — the widget and the
         // at-risk nudge must hear about it before the intent returns.
         await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
+
+        IntentUndo.registerLoggedSet(
+            entryID: duplicate.id,
+            goalSnapshotID: duplicatedGoalID,
+            container: AppIntentsSupport.resolvedContainer(),
+            undoManager: undoManager,
+            actionName: "Log Last Set Again"
+        )
 
         return .result(dialog: "Logged another set of \(latest.exercise.name).")
     }

@@ -8,6 +8,7 @@ import XCTest
 /// The rule: the exercise's last logged unit always wins, the stored preference
 /// is the fallback, and `.lb` is the last resort so nothing changes for users
 /// who never expressed a preference.
+@MainActor
 final class PreferredWeightUnitTests: XCTestCase {
     /// Someone who upgraded without onboarding, logging an exercise for the
     /// first time: unchanged 2.1 behaviour.

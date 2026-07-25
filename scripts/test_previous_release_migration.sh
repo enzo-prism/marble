@@ -3,7 +3,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BASE_REF="${MIGRATION_BASE_REF:-25a1c52}"
+# The newest source a real user can already be running. 96736a1 is
+# "Bump Marble 2.1 to build 40" — the build live on the App Store — so the
+# default gate is exactly the upgrade every existing install performs. Point
+# MIGRATION_BASE_REF at an older release to widen the check (25a1c52 = the 2.0
+# line, which is what this script defaulted to through the 2.2 train).
+BASE_REF="${MIGRATION_BASE_REF:-96736a1}"
 SIMULATOR_UDID="${SIMULATOR_UDID:-}"
 RUN_ROOT="${MIGRATION_RUN_ROOT:-$ROOT_DIR/work}"
 mkdir -p "$RUN_ROOT"
@@ -124,6 +129,12 @@ if ! sqlite3 "$STORE_PATH" ".tables" | tr ' ' '\n' | rg -qx 'ZWORKOUTSESSION'; t
 fi
 if ! sqlite3 "$STORE_PATH" ".tables" | tr ' ' '\n' | rg -qx 'ZSPRINTPRESCRIPTION'; then
     echo "Candidate did not create the SprintPrescription table." >&2
+    exit 1
+fi
+# V5's additive table. A shipping schema whose newest entity never appears has
+# not actually migrated — it has silently opened as the older schema.
+if ! sqlite3 "$STORE_PATH" ".tables" | tr ' ' '\n' | rg -qx 'ZBODYMETRICENTRY'; then
+    echo "Candidate did not create the BodyMetricEntry table (V5 did not migrate)." >&2
     exit 1
 fi
 

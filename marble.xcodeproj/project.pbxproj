@@ -12,6 +12,7 @@
 		BEEFC0DE0000000000000021 /* SharedDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000020 /* SharedDefaults.swift */; };
 		BEEFC0DE0000000000000023 /* WeeklyGoalWidgetState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000022 /* WeeklyGoalWidgetState.swift */; };
 		BEEFC0DE0000000000000025 /* MarbleSharedIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000024 /* MarbleSharedIntents.swift */; };
+		BEEFC0DE0000000000000027 /* WeeklyGoalWidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000026 /* WeeklyGoalWidgetViews.swift */; };
 		BEEFC0DE0000000000000002 /* RestTimerAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000005 /* RestTimerAttributes.swift */; };
 /* End PBXBuildFile section */
 
@@ -55,6 +56,7 @@
 		BEEFC0DE0000000000000020 /* SharedDefaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedDefaults.swift; path = marble/Shared/SharedDefaults.swift; sourceTree = "<group>"; };
 		BEEFC0DE0000000000000022 /* WeeklyGoalWidgetState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WeeklyGoalWidgetState.swift; path = marble/Shared/WeeklyGoalWidgetState.swift; sourceTree = "<group>"; };
 		BEEFC0DE0000000000000024 /* MarbleSharedIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MarbleSharedIntents.swift; path = marble/Shared/MarbleSharedIntents.swift; sourceTree = "<group>"; };
+		BEEFC0DE0000000000000026 /* WeeklyGoalWidgetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WeeklyGoalWidgetViews.swift; path = marble/Shared/WeeklyGoalWidgetViews.swift; sourceTree = "<group>"; };
 		BEEFC0DE0000000000000005 /* RestTimerAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RestTimerAttributes.swift; path = marble/Features/RestTimer/RestTimerAttributes.swift; sourceTree = "<group>"; };
 		C25C6D1EACFE4BE39F3E2D08 /* Tests/MarbleSnapshotRecord.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xctestplan; path = Tests/MarbleSnapshotRecord.xctestplan; sourceTree = "<group>"; };
 		C6B1ED632F154BA20044510C /* marble.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = marble.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -183,6 +185,7 @@
 				BEEFC0DE0000000000000005 /* RestTimerAttributes.swift */,
 				BEEFC0DE0000000000000024 /* MarbleSharedIntents.swift */,
 				BEEFC0DE0000000000000022 /* WeeklyGoalWidgetState.swift */,
+				BEEFC0DE0000000000000026 /* WeeklyGoalWidgetViews.swift */,
 				BEEFC0DE0000000000000020 /* SharedDefaults.swift */,
 				85E03B7D41EDB0B0B0607996 /* Tests */,
 				C6B1ED642F154BA20044510C /* Products */,
@@ -437,6 +440,7 @@
 				BEEFC0DE0000000000000002 /* RestTimerAttributes.swift in Sources */,
 				BEEFC0DE0000000000000025 /* MarbleSharedIntents.swift in Sources */,
 				BEEFC0DE0000000000000023 /* WeeklyGoalWidgetState.swift in Sources */,
+				BEEFC0DE0000000000000027 /* WeeklyGoalWidgetViews.swift in Sources */,
 				BEEFC0DE0000000000000021 /* SharedDefaults.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -481,7 +485,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -490,7 +494,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marbleTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/marble.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/marble";
 			};
@@ -503,7 +507,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -512,7 +516,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marbleSnapshotTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/marble.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/marble";
 			};
@@ -524,7 +528,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marbleUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
@@ -540,7 +544,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marbleUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -603,7 +607,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -661,7 +665,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -677,7 +681,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -706,7 +710,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -719,7 +723,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -749,7 +753,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -762,11 +766,11 @@
 				CODE_SIGN_ENTITLEMENTS = MarbleWidgets/MarbleWidgets.entitlements;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MarbleWidgets/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -782,7 +786,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -796,11 +800,11 @@
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MarbleWidgets/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -817,7 +821,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -830,7 +834,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -839,7 +843,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marbleSnapshotTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/marble.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/marble";
 			};
@@ -852,7 +856,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -861,7 +865,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = Prism.marbleTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/marble.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/marble";
 			};

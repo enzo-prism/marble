@@ -1,6 +1,8 @@
 import Foundation
 
-enum SnapshotRecording {
+/// `nonisolated`: pure environment/argument inspection, read from both the
+/// `@MainActor` harness and nonisolated helpers.
+nonisolated enum SnapshotRecording {
     private static let markerPath: String = {
         let temp = NSTemporaryDirectory()
         return (temp as NSString).appendingPathComponent("marble_snapshot_recording")

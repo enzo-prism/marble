@@ -2,6 +2,7 @@ import XCTest
 import SwiftData
 @testable import marble
 
+@MainActor
 final class RunMetricsTests: MarbleTestCase {
     func testMetersPerUnitConversions() {
         XCTAssertEqual(DistanceUnit.meters.meters(from: 200), 200)

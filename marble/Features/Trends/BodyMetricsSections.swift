@@ -131,9 +131,15 @@ struct BodyweightTrendSection: View {
     @State private var memo = RenderMemo<BodyweightTrendSignature, BodyweightTrendData>()
 
     private let onLogWeight: () -> Void
+    private let onShowHistory: () -> Void
 
-    init(range: TrendRange, onLogWeight: @escaping () -> Void) {
+    init(
+        range: TrendRange,
+        onLogWeight: @escaping () -> Void,
+        onShowHistory: @escaping () -> Void
+    ) {
         self.onLogWeight = onLogWeight
+        self.onShowHistory = onShowHistory
         if let startDate = range.startDate {
             _metrics = Query(
                 filter: #Predicate<BodyMetricEntry> { $0.measuredAt >= startDate },
@@ -205,13 +211,28 @@ struct BodyweightTrendSection: View {
         }
 
         if let latest = data.latest {
-            Text(summaryText(data: data, latest: latest))
-                .font(MarbleTypography.rowMeta)
-                .monospacedDigit()
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("Trends.Bodyweight.Latest")
+            // Tappable on purpose: this line is where a wrong number is first
+            // noticed, so it is also the shortest path to correcting it.
+            Button(action: onShowHistory) {
+                HStack(spacing: MarbleSpacing.xxs) {
+                    Text(summaryText(data: data, latest: latest))
+                        .font(MarbleTypography.rowMeta)
+                        .monospacedDigit()
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Image(systemName: "chevron.right")
+                        .font(MarbleTypography.caption)
+                        .accessibilityHidden(true)
+                }
+                .frame(minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            .accessibilityLabel("Weigh-ins")
+            .accessibilityValue(summaryText(data: data, latest: latest))
+            .accessibilityHint("Edit or delete your weigh-ins")
+            .accessibilityIdentifier("Trends.Bodyweight.Latest")
         }
     }
 

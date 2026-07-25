@@ -2,6 +2,7 @@ import SwiftData
 import XCTest
 @testable import marble
 
+@MainActor
 final class JournalSnapshotTests: SnapshotTestCase {
     func testJournalEmpty() {
         let container = SnapshotFixtures.makeContainer()

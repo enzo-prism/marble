@@ -41,3 +41,27 @@
   Papercut: Xcode UI-test video and result-bundle recording exhausted the nearly full internal disk even for one focused test.
   Impact: The first interaction assertion exposed and fixed an off-screen test navigation issue, but later reruns failed in test-runner artifact creation before they could produce reliable UI evidence.
   Suggested fix: Add a low-artifact UI-test wrapper that preflights free space, stores result bundles on PortableSSD when mounted, and disables retained screen recordings for routine focused checks.
+
+- Date: 2026-07-25
+  Workflow: Marble Swift 6 language-mode migration (build 49)
+  Papercut: Each isolation error had to be found by a full `make unit` cycle (~7 minutes), because the app target compiles clean while the test targets fail one file at a time — and the errors are per-file, not batched.
+  Impact: Ten build cycles to migrate what was ~15 small annotations; the app + widget were clean after four.
+  Suggested fix: Add a `make typecheck-tests` target that builds the test bundles only (`xcodebuild build-for-testing -destination ... -only-testing:MarbleTests`) with no simulator boot, and run it before `make unit` during migrations.
+
+- Date: 2026-07-25
+  Workflow: Marble simulator builds
+  Papercut: An `xcodebuild` run killed by a tool timeout left `XCBBuildService` in a state where the next invocation hung at `ExecuteExternalTool clang -E -dM` indefinitely, producing no output and no error.
+  Impact: Two ~10-minute build slots lost before the cause was clear; `pkill -f xcodebuild` plus a fresh invocation cleared it.
+  Suggested fix: Prefer long explicit timeouts over killing xcodebuild mid-run, and if a build produces no compile lines within a minute, kill every `xcodebuild`/`XCBBuildService` process before retrying.
+
+- Date: 2026-07-25
+  Workflow: Marble snapshot suite (build 49)
+  Papercut: Every snapshot baseline had silently gone stale — `testTrendsPopulated` fails on clean `main` because its reference predates the Trends 2.0 Focus card. CI runs `make unit` only, so nothing noticed.
+  Impact: A "green" snapshot suite was in fact unrunnable, and the drift only surfaced when a new suite was added alongside it.
+  Suggested fix: Either run `make snapshot` on a schedule (or in CI on a pinned runner image) or drop the suites that cannot be kept honest; a baseline nobody runs is not coverage.
+
+- Date: 2026-07-25
+  Workflow: Marble snapshot + record runs
+  Papercut: Two `xcodebuild test` runs against the same booted simulator (a verification pass and a record pass started in parallel) killed one group with "Early unexpected exit, operation never finished bootstrapping".
+  Impact: One group of an otherwise green 27-group verification had to be re-run, and the failure looked like a product defect rather than contention.
+  Suggested fix: Serialise simulator work — `run_snapshot_suite.sh` could take a lock file so a second invocation waits instead of racing.

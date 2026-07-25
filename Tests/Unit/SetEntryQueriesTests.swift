@@ -2,6 +2,7 @@ import SwiftData
 import XCTest
 @testable import marble
 
+@MainActor
 final class SetEntryQueriesTests: MarbleTestCase {
     func testMostRecentEntryReturnsNilWhenEmpty() {
         let context = makeInMemoryContext()

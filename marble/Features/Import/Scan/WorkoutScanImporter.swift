@@ -44,6 +44,7 @@ enum WorkoutScanImporter {
         }
 
         let performedAt = draft.performedAt ?? AppEnvironment.now
+        let exercisesBefore = WorkoutImporter.exerciseCount(in: context)
         var setCount = 0
 
         for exercise in exercises {
@@ -93,6 +94,9 @@ enum WorkoutScanImporter {
 
         summary.importedWorkouts = 1
         summary.importedSets = setCount
+        // Scanned workouts create library rows just as often as Health imports
+        // do, so they owe the same Spotlight/Siri refresh signal.
+        summary.createdExercises = max(0, WorkoutImporter.exerciseCount(in: context) - exercisesBefore)
         return summary
     }
 

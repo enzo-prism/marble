@@ -44,11 +44,12 @@ nonisolated enum WeightUnitAppEnum: String, AppEnum, CaseIterable {
 /// bench press in Marble" — the missing reps/weight/unit come from the most recent
 /// set of the *same* exercise, which is the same idea as `LogLastSetAgainIntent`
 /// but scoped to one movement instead of "whatever you did last".
-struct LogSetIntent: AppIntent, PredictableIntent {
+struct LogSetIntent: AppIntent, PredictableIntent, UndoableIntent {
     static let title: LocalizedStringResource = "Log a Set of an Exercise"
     static let description = IntentDescription(
         "Logs a set of a specific exercise. Reps, weight and unit are copied from your last set of that exercise when you leave them out."
     )
+
 
     @Parameter(title: "Exercise", requestValueDialog: "Which exercise?")
     var exercise: ExerciseEntity
@@ -210,6 +211,16 @@ struct LogSetIntent: AppIntent, PredictableIntent {
         // that was rolled back, and a refused log (the guards above) must not
         // re-stamp the snapshot as fresh either.
         await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
+
+        // A voice-logged set is now undoable the way an in-app one is (see
+        // `IntentUndo`).
+        IntentUndo.registerLoggedSet(
+            entryID: entry.id,
+            goalSnapshotID: sprintSnapshot?.id,
+            container: AppIntentsSupport.resolvedContainer(),
+            undoManager: undoManager,
+            actionName: "Log Set"
+        )
 
         let summary = Self.summary(
             exercise: model,

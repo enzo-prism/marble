@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 
-enum ExerciseCategory: String, Codable, CaseIterable, Identifiable {
+nonisolated enum ExerciseCategory: String, Codable, CaseIterable, Identifiable {
     case chest
     case back
     case shoulders
@@ -147,7 +147,7 @@ enum ExerciseCategory: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-private enum ExerciseSystemSymbolResolver {
+nonisolated private enum ExerciseSystemSymbolResolver {
     private static let universalFallback = "circle.dashed"
 
     static func resolvedName(_ preferred: String, fallback: String) -> String {
@@ -163,7 +163,7 @@ private enum ExerciseSystemSymbolResolver {
     }
 }
 
-enum Weekday: Int, Codable, CaseIterable, Identifiable {
+nonisolated enum Weekday: Int, Codable, CaseIterable, Identifiable {
     case monday = 1
     case tuesday
     case wednesday
@@ -225,7 +225,7 @@ nonisolated enum MetricRequirement: String, Codable, CaseIterable, Identifiable 
     var id: String { rawValue }
 }
 
-enum ResistanceTrackingStyle: String, Codable, CaseIterable, Identifiable {
+nonisolated enum ResistanceTrackingStyle: String, Codable, CaseIterable, Identifiable {
     case totalLoad
     case singleDumbbellPair
 
@@ -641,7 +641,7 @@ nonisolated struct ExerciseMetricsProfile: Codable, Hashable {
     static let distanceAndDurationRequired = ExerciseMetricsProfile(weight: .none, reps: .none, distance: .required, durationSeconds: .required)
 }
 
-enum WeightUnit: String, Codable, CaseIterable, Identifiable {
+nonisolated enum WeightUnit: String, Codable, CaseIterable, Identifiable {
     case lb
     case kg
 
@@ -649,7 +649,7 @@ enum WeightUnit: String, Codable, CaseIterable, Identifiable {
     var symbol: String { rawValue }
 }
 
-enum SupplementUnit: String, Codable, CaseIterable, Identifiable {
+nonisolated enum SupplementUnit: String, Codable, CaseIterable, Identifiable {
     case g
     case scoop
     case serving

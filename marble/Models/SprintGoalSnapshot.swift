@@ -150,7 +150,7 @@ extension SprintGoalSnapshot {
     }
 }
 
-enum SprintGoalStatus: Equatable {
+nonisolated enum SprintGoalStatus: Equatable {
     case hit
     case missed
     case notScored
@@ -165,7 +165,7 @@ enum SprintGoalStatus: Equatable {
 }
 
 /// A display-ready, pure evaluation of one sprint rep against its frozen goal.
-struct SprintGoalEvaluation: Equatable {
+nonisolated struct SprintGoalEvaluation: Equatable {
     let status: SprintGoalStatus
     let outcome: SprintTargetOutcome?
     let actualText: String?

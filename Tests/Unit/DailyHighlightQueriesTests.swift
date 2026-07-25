@@ -10,6 +10,7 @@ import XCTest
 /// — identical summary, including the all-time record baseline — while never
 /// containing rows the builder cannot consume (other exercises' prior
 /// history, entries after the celebration day).
+@MainActor
 final class DailyHighlightQueriesTests: MarbleTestCase {
     private let calendar = MarbleTestCase.stableCalendar
 

@@ -5,6 +5,7 @@ import XCTest
 /// runtime (requesting/ending activities) needs a device and user authorization, so it isn't
 /// unit-testable; these tests pin the behaviour that decides *whether* and *until when* a
 /// timer runs.
+@MainActor
 final class RestActivityControllerTests: XCTestCase {
     func testStartsOnlyWhenRestIsPositive() {
         XCTAssertTrue(RestActivityController.shouldStart(restSeconds: 90))

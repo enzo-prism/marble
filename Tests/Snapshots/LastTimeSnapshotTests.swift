@@ -2,6 +2,7 @@ import SwiftUI
 import XCTest
 @testable import marble
 
+@MainActor
 final class LastTimeSnapshotTests: SnapshotTestCase {
     func testLastTimeCardHistory() {
         let content = LastTimeContent(

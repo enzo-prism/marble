@@ -92,6 +92,15 @@ struct TrendsContentView: View {
     @Query(LatestUpdateQueries.supplementEntry)
     private var latestUpdatedSupplements: [SupplementEntry]
 
+    /// Freshness probe only. An **unbounded live `@Query`** for weigh-ins here
+    /// hung the Trends render outright (caught by `testTrendsPopulated`, which
+    /// timed out at three minutes): this view already keeps six live queries and
+    /// re-derives inside them. The rows themselves are fetched once per memo
+    /// rebuild by `fetchBodyMetrics()`, the same one-shot pattern
+    /// `fetchHistoryEntries()` uses.
+    @Query(LatestUpdateQueries.bodyMetricEntry)
+    private var latestUpdatedBodyMetrics: [BodyMetricEntry]
+
     @Binding private var range: TrendRange
     @State private var selectedExerciseID: UUID?
     @State private var selectedSupplementTypeID: UUID?
@@ -104,6 +113,7 @@ struct TrendsContentView: View {
     @State private var monthlyReportForSheet: MonthlyReport?
     @State private var showsDetailedAnalytics = false
     @State private var isPresentingWeightEntry = false
+    @State private var isPresentingWeightHistory = false
     @State private var isPresentingDailyHighlightsSettings = false
 
     // Caches the derived snapshot so scrubbing a chart (which mutates UI-only
@@ -296,9 +306,11 @@ struct TrendsContentView: View {
 
                         // Outside the hasSetData guard on purpose: a user with
                         // no sets in range can still be invited to weigh in.
-                        BodyweightTrendSection(range: range) {
-                            isPresentingWeightEntry = true
-                        }
+                        BodyweightTrendSection(
+                            range: range,
+                            onLogWeight: { isPresentingWeightEntry = true },
+                            onShowHistory: { isPresentingWeightHistory = true }
+                        )
                         .padding(.top, MarbleSpacing.xxl)
 
                         supplementsSection(derived: derived)
@@ -379,6 +391,12 @@ struct TrendsContentView: View {
         .sheet(isPresented: $isPresentingWeightEntry) {
             BodyMetricEntryView()
         }
+        .sheet(isPresented: $isPresentingWeightHistory) {
+            BodyMetricHistoryView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .sheetGlassBackground()
+        }
         .sheet(isPresented: $isPresentingExerciseSearch) {
             NavigationStack {
                 TrendsExerciseSearchView(
@@ -437,7 +455,8 @@ struct TrendsContentView: View {
             range: range,
             weeklyTarget: weeklyTarget,
             dailyHighlightOccurrence: highlightOccurrence,
-            displayWeightUnit: WeightUnit(rawValue: preferredWeightUnitRaw) ?? .lb
+            displayWeightUnit: WeightUnit(rawValue: preferredWeightUnitRaw) ?? .lb,
+            bodyweights: fetchBodyMetrics().map { LifterAnalytics.BodyweightSample($0) }
         )
     }
 
@@ -446,6 +465,17 @@ struct TrendsContentView: View {
             startMinute: dailyHighlightsStartMinute,
             endMinute: dailyHighlightsEndMinute
         )
+    }
+
+    /// One-shot fetch of every weigh-in, for the monthly report's bodyweight
+    /// facts. Unscoped by range on purpose — the report compares this month
+    /// against the previous one, so clipping to the selected range would drop the
+    /// comparison month. Runs only when the memo rebuilds.
+    private func fetchBodyMetrics() -> [BodyMetricEntry] {
+        let descriptor = FetchDescriptor<BodyMetricEntry>(
+            sortBy: [SortDescriptor(\BodyMetricEntry.measuredAt, order: .forward)]
+        )
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 
     /// One-shot full-history fetch for the coaching layer (records, streaks,
@@ -481,7 +511,8 @@ struct TrendsContentView: View {
             dailyHighlightsEnabled: dailyHighlightsEnabled,
             dailyHighlightsStartMinute: dailyHighlightsStartMinute,
             dailyHighlightsEndMinute: dailyHighlightsEndMinute,
-            preferredWeightUnitRaw: preferredWeightUnitRaw
+            preferredWeightUnitRaw: preferredWeightUnitRaw,
+            latestBodyweightUpdate: latestUpdatedBodyMetrics.first?.updatedAt ?? .distantPast
         )
     }
 
@@ -1924,9 +1955,15 @@ struct TrendsInputSignature: Equatable {
     let dailyHighlightsStartMinute: Int
     let dailyHighlightsEndMinute: Int
     let preferredWeightUnitRaw: String
+    /// Weigh-ins feed the monthly report's bodyweight facts, so logging or
+    /// editing one has to invalidate the memo. Same one-row `updatedAt` probe the
+    /// set and supplement signatures use.
+    let latestBodyweightUpdate: Date
 }
 
-enum TrendRange: String, CaseIterable, Identifiable {
+/// `nonisolated`: the pure analytics engines (`LifterAnalytics`,
+/// `ExerciseProgressBuilder`) take a range, and they run off the main actor.
+nonisolated enum TrendRange: String, CaseIterable, Identifiable {
     case sevenDays
     case thirtyDays
     case ninetyDays

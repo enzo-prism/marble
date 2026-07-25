@@ -1,7 +1,13 @@
 import Foundation
 
-enum Formatters {
-    static let weight: NumberFormatter = {
+/// `nonisolated` with `nonisolated(unsafe)` formatters: the target defaults to
+/// `MainActor` isolation, but pure model code (SwiftData accessors, the sprint
+/// value types) formats numbers and dates off the main actor, which the Swift 6
+/// language mode makes a hard error. `NumberFormatter`/`DateFormatter` are
+/// documented thread-safe for formatting, and these instances are configured
+/// once at initialisation and never mutated afterwards.
+nonisolated enum Formatters {
+    nonisolated(unsafe) static let weight: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 0
@@ -9,7 +15,7 @@ enum Formatters {
         return formatter
     }()
 
-    static let distance: NumberFormatter = {
+    nonisolated(unsafe) static let distance: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 0
@@ -17,7 +23,7 @@ enum Formatters {
         return formatter
     }()
 
-    static let dose: NumberFormatter = {
+    nonisolated(unsafe) static let dose: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 0
@@ -25,7 +31,7 @@ enum Formatters {
         return formatter
     }()
 
-    static let compactNumber: NumberFormatter = {
+    nonisolated(unsafe) static let compactNumber: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 0
@@ -33,20 +39,20 @@ enum Formatters {
         return formatter
     }()
 
-    static let time: DateFormatter = {
+    nonisolated(unsafe) static let time: DateFormatter = {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         formatter.dateStyle = .none
         return formatter
     }()
 
-    static let day: DateFormatter = {
+    nonisolated(unsafe) static let day: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEE, MMM d"
         return formatter
     }()
 
-    static let fullDateTime: DateFormatter = {
+    nonisolated(unsafe) static let fullDateTime: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
@@ -82,7 +88,7 @@ enum Formatters {
     }
 }
 
-enum DateHelper {
+nonisolated enum DateHelper {
     static func dayLabel(for date: Date, now: Date = AppEnvironment.now, calendar: Calendar = .current) -> String {
         if calendar.isDate(date, inSameDayAs: now) {
             return "Today"

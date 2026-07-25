@@ -3,6 +3,7 @@ import XCTest
 
 /// Pins the pre-set PR proximity cue: fires only when a record sits just past
 /// the usual working range (opportunity framing), never when it's far away.
+@MainActor
 final class PersonalRecordProximityTests: MarbleTestCase {
     private let calendar = MarbleTestCase.stableCalendar
 

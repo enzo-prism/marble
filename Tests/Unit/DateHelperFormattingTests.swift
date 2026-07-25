@@ -1,6 +1,7 @@
 import XCTest
 @testable import marble
 
+@MainActor
 final class DateHelperFormattingTests: MarbleTestCase {
     private let calendar = MarbleTestCase.stableCalendar
 

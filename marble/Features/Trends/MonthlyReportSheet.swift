@@ -9,6 +9,10 @@ struct MonthlyReportSheet: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
+
+    @AppStorage(SharedDefaults.Key.preferredWeightUnit, store: SharedDefaults.suite)
+    private var preferredWeightUnitRaw = WeightUnit.lb.rawValue
+
     @State private var insights: [String] = []
     @State private var isLoadingInsights = true
 
@@ -22,6 +26,10 @@ struct MonthlyReportSheet: View {
                         Text(comparisonLabel)
                             .font(MarbleTypography.caption)
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    }
+
+                    if let bodyweightText {
+                        bodyweightSection(bodyweightText)
                     }
 
                     if !report.topMuscleGroups.isEmpty {
@@ -87,6 +95,51 @@ struct MonthlyReportSheet: View {
             }
         }
         .accessibilityIdentifier("Trends.MonthlyReportSheet.Stats")
+    }
+
+    // MARK: - Bodyweight
+
+    /// "182.4 lb, down 1.8 lb across 6 weigh-ins" — omitted entirely when the
+    /// month holds no weigh-in, so the report never invents a bodyweight story.
+    private var bodyweightText: String? {
+        guard let end = report.bodyweightEndKilograms else { return nil }
+        let unit = WeightUnit(rawValue: preferredWeightUnitRaw) ?? .lb
+        var parts = ["\(weightText(kilograms: end, in: unit)) \(unit.symbol)"]
+        if let delta = report.bodyweightDeltaKilograms {
+            let magnitude = weightText(kilograms: abs(delta), in: unit)
+            if abs(LifterAnalytics.displayWeight(fromKilograms: delta, in: unit)) < 0.05 {
+                parts.append("no change")
+            } else {
+                parts.append("\(delta > 0 ? "up" : "down") \(magnitude) \(unit.symbol)")
+            }
+        }
+        let measurements = report.bodyweightMeasurements
+        parts.append(measurements == 1 ? "1 weigh-in" : "\(measurements) weigh-ins")
+        return parts.joined(separator: ", ")
+    }
+
+    private func weightText(kilograms: Double, in unit: WeightUnit) -> String {
+        let value = LifterAnalytics.displayWeight(fromKilograms: kilograms, in: unit)
+        return Formatters.weight.string(from: NSNumber(value: value)) ?? "\(Int(value))"
+    }
+
+    private func bodyweightSection(_ text: String) -> some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+            Text("Bodyweight")
+                .font(MarbleTypography.sectionTitle)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+
+            Text(text)
+                .font(MarbleTypography.rowSubtitle)
+                .monospacedDigit()
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(MarbleSpacing.s)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("Trends.MonthlyReportSheet.Bodyweight")
     }
 
     private var muscleFocusSection: some View {

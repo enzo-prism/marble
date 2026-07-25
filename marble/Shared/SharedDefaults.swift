@@ -27,7 +27,13 @@ nonisolated enum SharedDefaults {
     /// the keychain snapshot genuinely cannot satisfy.
     static var suite: UserDefaults { resolvedSuite }
 
-    private static let resolvedSuite: UserDefaults = .standard
+    /// `nonisolated(unsafe)` rather than a computed `.standard`: under the Swift
+    /// 6 language mode a `static let` of a non-`Sendable` type is an error, and
+    /// `UserDefaults` is not `Sendable` even though `.standard` is documented as
+    /// thread-safe. The value is a single immutable reference to the process-wide
+    /// defaults, which every framework touches from any thread, so the unchecked
+    /// annotation states a fact rather than papering over shared mutable state.
+    nonisolated(unsafe) private static let resolvedSuite: UserDefaults = .standard
 
     enum Key {
         static let weeklySessionTarget = "weeklySessionTarget"

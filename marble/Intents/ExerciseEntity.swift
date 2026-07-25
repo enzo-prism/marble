@@ -188,7 +188,14 @@ enum ExerciseSpotlightIndex {
     /// Every named index writes into the same on-device store keyed by entity
     /// type + identifier, so rows indexed by earlier builds through the
     /// default index are upserted and deleted by these calls, not duplicated.
-    private static let index = CSSearchableIndex(name: "ExerciseEntities")
+    /// Built inside each `nonisolated` helper below rather than held as a
+    /// static: `CSSearchableIndex` is not `Sendable`, so a shared instance read
+    /// on the main actor and then awaited on would be sent across isolation
+    /// (an error under the Swift 6 language mode). Every named index writes into
+    /// the same on-device store, so a per-call instance indexes identically.
+    private nonisolated static func makeIndex() -> CSSearchableIndex {
+        CSSearchableIndex(name: "ExerciseEntities")
+    }
     /// Reindex the whole library. Cheap at this scale (tens of rows) and far more
     /// robust than trying to track per-row deltas across edits, deletes, seeding
     /// and store recovery.
@@ -206,13 +213,36 @@ enum ExerciseSpotlightIndex {
         guard let exercises = try? context.fetch(descriptor), !exercises.isEmpty else { return }
         let entities = exercises.map(ExerciseEntity.init)
 
+        await indexEntities(entities)
+    }
+
+    private nonisolated static func indexEntities(_ entities: [ExerciseEntity]) async {
         do {
-            try await index.indexAppEntities(entities)
+            try await makeIndex().indexAppEntities(entities)
         } catch {
             #if DEBUG
             print("Spotlight indexing failed: \(error)")
             #endif
         }
+    }
+
+    /// Reindexes Spotlight **and** re-registers the parameterised shortcut
+    /// phrases after a bulk library change (an import, a scan, a restore).
+    ///
+    /// Both halves are needed: the reindex makes the new exercise findable in
+    /// Spotlight, and `updateAppShortcutParameters()` is what Apple requires
+    /// whenever the entities behind a parameterised phrase change — without it
+    /// "Log a set of <imported exercise>" does not resolve. Before this existed,
+    /// no import path called either, so an auto-created exercise only became
+    /// reachable from outside the app at the next cold launch.
+    ///
+    /// No-op until the app has published its container. Unit tests never set
+    /// `AppIntentsSupport.container`, and without that guard a test-host import
+    /// would spin up an on-disk store just to index it.
+    static func refreshAfterLibraryChange() async {
+        guard !TestHooks.isUITesting, AppIntentsSupport.container != nil else { return }
+        await reindexAll()
+        MarbleShortcuts.updateAppShortcutParameters()
     }
 
     /// Drops one deleted exercise from the index, immediately.
@@ -225,8 +255,12 @@ enum ExerciseSpotlightIndex {
     static func remove(exerciseID: UUID) async {
         guard !TestHooks.isUITesting else { return }
 
+        await deleteEntity(exerciseID: exerciseID)
+    }
+
+    private nonisolated static func deleteEntity(exerciseID: UUID) async {
         do {
-            try await index.deleteAppEntities(
+            try await makeIndex().deleteAppEntities(
                 identifiedBy: [exerciseID],
                 ofType: ExerciseEntity.self
             )
@@ -240,8 +274,12 @@ enum ExerciseSpotlightIndex {
     /// Drops every indexed exercise. Used when the user wipes their data so
     /// Spotlight can't keep surfacing rows that no longer exist.
     static func removeAll() async {
+        await deleteAllEntities()
+    }
+
+    private nonisolated static func deleteAllEntities() async {
         do {
-            try await index.deleteAppEntities(ofType: ExerciseEntity.self)
+            try await makeIndex().deleteAppEntities(ofType: ExerciseEntity.self)
         } catch {
             #if DEBUG
             print("Spotlight de-indexing failed: \(error)")

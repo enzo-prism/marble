@@ -72,12 +72,23 @@ extension View {
     func marbleRestPillAccessory(rest: ActiveRest?, onEnd: @escaping () -> Void) -> some View {
         if TestHooks.isUITesting && !TestHooks.enableRestPillInUITests {
             self
-        } else {
+        } else if #available(iOS 26.1, *) {
+            // `isEnabled:` (26.1) keeps the accessory installed and lets the
+            // system animate it in and out, which is why it is preferred.
             self.tabViewBottomAccessory(isEnabled: rest != nil) {
                 if let rest {
                     RestTimerPillView(rest: rest, onEnd: onEnd)
                 }
             }
+        } else if let rest {
+            // iOS 26.0 has only the unconditional overload, so the accessory is
+            // installed exactly while a rest is running. Same pill, same
+            // behaviour — it just appears rather than fading in.
+            self.tabViewBottomAccessory {
+                RestTimerPillView(rest: rest, onEnd: onEnd)
+            }
+        } else {
+            self
         }
     }
 }

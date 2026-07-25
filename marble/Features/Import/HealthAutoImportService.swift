@@ -105,6 +105,12 @@ final class HealthAutoImportService {
                 )
                 MarbleHaptics.lightImpact()
             }
+            // Same reason as the manual import hub: a background auto-import can
+            // create library rows, and those must be searchable and Siri-callable
+            // without waiting for a relaunch.
+            if summary.createdExercises > 0 {
+                await ExerciseSpotlightIndex.refreshAfterLibraryChange()
+            }
         } catch {
             // Best-effort: keep the old anchor so the next sync retries the
             // same window.

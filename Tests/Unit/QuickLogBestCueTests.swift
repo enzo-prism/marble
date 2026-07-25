@@ -1,6 +1,7 @@
 import XCTest
 @testable import marble
 
+@MainActor
 final class QuickLogBestCueTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 4_000_000_000)
 

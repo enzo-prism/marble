@@ -2,6 +2,7 @@ import SwiftData
 import XCTest
 @testable import marble
 
+@MainActor
 final class ExercisePickerDerivedDataTests: MarbleTestCase {
     func testBuildDeduplicatesRecentsAndPartitionsFavorites() {
         let exercises = (0..<7).map { index in

@@ -2,6 +2,7 @@ import Foundation
 import SwiftData
 @testable import marble
 
+@MainActor
 enum SnapshotFixtures {
     static let now: Date = ISO8601DateFormatter().date(from: "2025-01-15T12:00:00Z")!
 

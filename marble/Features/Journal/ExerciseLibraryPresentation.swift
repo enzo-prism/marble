@@ -28,7 +28,7 @@ extension Exercise {
 }
 
 private extension ExerciseMetricKind {
-    var libraryTitle: String {
+    nonisolated var libraryTitle: String {
         switch self {
         case .weight: "Weight"
         case .reps: "Reps"

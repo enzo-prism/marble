@@ -3,6 +3,7 @@ import XCTest
 
 /// Locks the PR-card bests and accessibility summaries that were folded into
 /// `TrendsDerivedData.build()` so they are derived once and memoized by the view.
+@MainActor
 final class TrendsDerivedDataTests: MarbleTestCase {
     private let calendar = MarbleTestCase.stableCalendar
 

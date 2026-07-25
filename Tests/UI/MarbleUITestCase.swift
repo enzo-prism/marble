@@ -189,9 +189,13 @@ class MarbleUITestCase: XCTestCase {
         }
     }
 
-    func step(_ name: String, _ block: () throws -> Void) rethrows {
+    /// `@MainActor` on the closure, and `assumeIsolated` inside XCTest's
+    /// nonisolated activity block: XCUITest calls all happen on the main thread,
+    /// but `runActivity`'s closure is not annotated, so under the Swift 6
+    /// language mode passing a main-actor closure straight in reads as sending it.
+    func step(_ name: String, _ block: @MainActor () throws -> Void) rethrows {
         try XCTContext.runActivity(named: name) { _ in
-            try block()
+            try MainActor.assumeIsolated { try block() }
         }
     }
 
@@ -248,7 +252,11 @@ class MarbleUITestCase: XCTestCase {
         return saveButton
     }
 
-    func setRows(in list: XCUIElement) -> XCUIElementQuery {
+    // `nonisolated`: `NSPredicate` is not `Sendable`, so building it here and
+    // handing it to XCUITest's nonisolated query API from a main-actor context
+    // would be sending it across isolation. Keeping the whole helper nonisolated
+    // keeps the predicate on one side of that boundary.
+    nonisolated func setRows(in list: XCUIElement) -> XCUIElementQuery {
         let predicate = NSPredicate(format: "identifier BEGINSWITH %@", "SetRow.")
         let scoped = list.descendants(matching: .any).matching(predicate)
         if scoped.count > 0 {

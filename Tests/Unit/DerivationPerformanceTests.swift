@@ -8,6 +8,7 @@ import XCTest
 /// paths the render memos guard (a future O(n²) slip, an accidental per-row
 /// formatter, …), not to assert wall-clock numbers. Datasets are synthetic
 /// 5k-row histories, roughly a heavy multi-year user.
+@MainActor
 final class DerivationPerformanceTests: MarbleTestCase {
     private let calendar = MarbleTestCase.stableCalendar
 

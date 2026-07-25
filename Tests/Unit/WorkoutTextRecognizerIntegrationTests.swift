@@ -5,6 +5,7 @@ import UIKit
 /// Exercises the REAL Vision text recognizer (not a mock) on a rendered image, proving the
 /// on-device OCR step of the handwritten-scan pipeline actually extracts text. The parser is
 /// covered separately with mocked OCR text in `HandwrittenWorkoutParserTests`.
+@MainActor
 final class WorkoutTextRecognizerIntegrationTests: XCTestCase {
     func testVisionRecognizesRenderedWorkoutText() async throws {
         let image = Self.renderLines(["BENCH PRESS", "100 x 5", "SQUAT 225 x 3"])

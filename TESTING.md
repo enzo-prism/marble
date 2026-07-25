@@ -9,8 +9,12 @@
   boundaries, frozen per-rep goal evaluation/persistence/orphan cleanup, V3-to-V4 migration,
   exercise-editor draft/type/validation/impact rules,
   backup/restore validation, and recovery safety). Runs in CI.
-- Snapshot tests: `MarbleSnapshotTests` (SwiftUI rendering with SnapshotTesting).
-- UI tests: `MarbleUITests` (end-to-end flows + screenshots).
+- Snapshot tests: `MarbleSnapshotTests` (SwiftUI rendering with SnapshotTesting), **including
+  the five Weekly Goal widget families** at real widget point sizes
+  (`WeeklyGoalWidgetSnapshotTests`).
+- UI tests: `MarbleUITests` (end-to-end flows + screenshots), including first-run onboarding
+  (`OnboardingFlowUITests`) and Settings, with the weigh-in log → edit → delete round trip
+  (`SettingsFlowUITests`).
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
 ### Daily Highlights coverage
@@ -50,7 +54,19 @@
   orphan) and each backfill skip reason now enforced by the store predicate (missing
   duration, unprescribed exercise, invalid prescription).
 
-## Suite inventory (counted from source, 2026-07-23)
+## Suite inventory (counted from source, 2026-07-25 — build 49)
+- Build 49 additions: `Tests/Snapshots/WeeklyGoalWidgetSnapshotTests.swift` (9 cases × light/dark
+  across all five widget families), `Tests/Unit/WeeklyGoalWidgetCopyTests.swift`,
+  `Tests/UI/OnboardingFlowUITests.swift`, `Tests/UI/SettingsFlowUITests.swift`,
+  `PersistenceRecoveryTests.testMigratesV4StoreToV5WithoutRecoveryOrDataLoss`, the
+  `createdExercises` cases in `WorkoutImportMapperTests`, and the bodyweight-facts cases in
+  `MonthlyReportTests`.
+- **Swift 6 note:** the unit and snapshot targets build under the Swift 6 language mode, so
+  test classes that touch app types are `@MainActor` (the app defaults to main-actor
+  isolation). `MarbleUITests` stays on Swift 5 — XCUITest's `NSPredicate`/`XCUIElement`
+  surface is not `Sendable`-annotated. See `AGENTS.md`.
+
+## Prior suite inventory (counted from source, 2026-07-23)
 - `Tests/Unit/` — **53 files, 55 classes, 505 test methods**. Added past build 46:
   `WeeklyGoalWidgetStateTests`' Smart Stack relevance cases, pinning the pure
   `WeeklyGoalWidgetState.relevanceScore` the widget wraps in `TimelineEntryRelevance`;
@@ -67,7 +83,18 @@
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
-## Latest release verification (2026-07-23, 2.2 build 47)
+## Latest release verification (2026-07-25, 2.2 build 49)
+- `MarbleTests` (`make unit`): **519 passed, 0 failed** — 505 on build 48 plus the V4→V5
+  recovery case, three `createdExercises` cases, five monthly-report bodyweight cases, and
+  `WeeklyGoalWidgetCopyTests`.
+- `MarbleSnapshotTests` (`make snapshot`): **all 27 groups green** against baselines
+  re-recorded on this build (see the stale-baseline note below).
+- `MarbleUITests`: `OnboardingFlowUITests`, `SettingsFlowUITests`, `SmokeNavigationUITests`,
+  and `CalendarFlowUITests` — **8 cases passed** (the suites new in or touched by this build).
+- `AccessibilityAuditUITests` (`make audit`): **passed** after the Body/Settings/widget changes.
+- Everything builds under the **Swift 6 language mode** except `MarbleUITests` (see `AGENTS.md`).
+
+## Prior release verification (2026-07-23, 2.2 build 47)
 - `MarbleTests`: **505 passed, 0 failed** locally and in GitHub CI for the PR #12 merge —
   the counted inventory above (53 files / 55 classes / 505 methods) matches this run.
 - `AccessibilityAuditUITests` (`make audit`): **passed** after the best-practices changes.
@@ -370,6 +397,17 @@ Snapshot selection overrides:
 - `SNAPSHOT_SUITE=quick|full` (default `full`)
 - `SNAPSHOT_GROUPS_OVERRIDE` (comma-separated list of snapshot test identifiers)
 
+## Snapshot baselines re-recorded on build 49 (2026-07-25)
+
+**Every baseline was stale before this build.** `testTrendsPopulated` failed on clean
+`main` (verified by stashing the build-49 work and re-running it): the references predate the
+Trends 2.0 Focus card, so they showed the detailed-analytics strip where the current screen
+shows Focus. Snapshots are **not** in CI — only `make unit` is — so nothing caught the drift.
+Baselines were re-recorded with `make snapshot-record` and spot-checked by eye.
+
+If you add a snapshot suite, consider whether it can join CI; a baseline nobody runs is not
+coverage.
+
 ## Snapshot baselines
 - Stored by SnapshotTesting in `Tests/Snapshots/__Snapshots__`.
 - Diff output appears alongside snapshots (e.g. `__diffs__` folders) when failures occur.
@@ -411,11 +449,28 @@ UI tests rely on these environment variables:
 
 ## Known test gaps
 Recorded honestly so nobody assumes coverage that isn't there. Tracked in `ROADMAP.md`
-under **Known gaps / next up**:
-- No automated end-to-end onboarding completion flow; the screenshot test covers the first
-  privacy page and the local release gate walks completion and relaunch.
-- Settings has screenshot smoke coverage for its main rows, but not automated interaction
-  coverage for every control.
-- No widget snapshot suite; `WeeklyGoalWidget`'s five families are unverified by any
-  automated test.
-- No V4→V5 case in `PersistenceRecoveryTests`, even though V5 is the shipping schema.
+under **Known gaps / next up**.
+
+**Closed in build 49** (all four gaps below were open through build 48):
+- ~~No automated end-to-end onboarding completion flow.~~ `Tests/UI/OnboardingFlowUITests.swift`
+  walks all three pages, finishes, asserts the app is revealed, and asserts the unit chosen
+  during onboarding reaches Settings. It is the first test to drive the
+  `MARBLE_FORCE_ONBOARDING` hook (which had zero references in `Tests/` outside the
+  screenshot capture).
+- ~~Settings has no automated interaction coverage.~~ `Tests/UI/SettingsFlowUITests.swift`
+  reveals every row on the screen (scrolling first — `List` rows below the fold are absent
+  from the accessibility tree) and drives log-weigh-in → history → swipe-delete.
+- ~~No widget snapshot suite.~~ `Tests/Snapshots/WeeklyGoalWidgetSnapshotTests.swift`
+  snapshots all five families in light and dark at real widget point sizes, each with a live
+  snapshot and in the neutral "no trustworthy data" state. The layouts moved to
+  `marble/Shared/WeeklyGoalWidgetViews.swift` (app + widget membership) to make this possible;
+  `WeeklyGoalWidgetCopyTests` pins the copy layer, including the unknown-`stateRaw` fallback.
+- ~~No V4→V5 case in `PersistenceRecoveryTests`.~~
+  `testMigratesV4StoreToV5WithoutRecoveryOrDataLoss` seeds a real V4 store, reopens it through
+  `makeRecoveringContainer`, and asserts the rows survive, the new table exists, and **no
+  `.corrupt` backup was written** — a V4 store falling into the recovery path would reset a
+  shipping user's journal.
+
+Still open:
+- No automated coverage of the Live Activity's system presentation (device-only).
+- Strava's OAuth round trip is unverified end to end; it ships unconfigured.

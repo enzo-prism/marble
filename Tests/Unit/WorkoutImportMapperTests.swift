@@ -2,6 +2,7 @@ import SwiftData
 import XCTest
 @testable import marble
 
+@MainActor
 final class WorkoutImportMapperTests: MarbleTestCase {
     private func cardioRecord(kind: ImportedActivityKind = .running, meters: Double = 5000, seconds: Int = 1800) -> WorkoutImportRecord {
         WorkoutImportRecord(
@@ -119,6 +120,42 @@ final class WorkoutImportMapperTests: MarbleTestCase {
         XCTAssertEqual(summary.importedWorkouts, 2)
         XCTAssertEqual(summary.importedSets, 2)
         XCTAssertEqual(summary.skipped, 1)
+    }
+
+    /// The signal the Spotlight/Siri refresh hangs off. Without it, an import
+    /// that invents a library row leaves "Log a set of <exercise>" unresolvable
+    /// until the next cold launch.
+    func testImportRecordsReportsCreatedExercises() throws {
+        let context = makeInMemoryContext()
+
+        let summary = try WorkoutImporter.importRecords([cardioRecord()], in: context)
+
+        XCTAssertEqual(summary.createdExercises, 1)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Exercise>()), 1)
+    }
+
+    func testImportRecordsReportsNoCreatedExercisesWhenTheLibraryAlreadyMatches() throws {
+        let context = makeInMemoryContext()
+        context.insert(Exercise(name: "running", category: .run, metrics: .distanceAndDurationRequired, defaultRestSeconds: 0))
+        try context.save()
+
+        let summary = try WorkoutImporter.importRecords([cardioRecord()], in: context)
+
+        XCTAssertEqual(summary.importedWorkouts, 1)
+        XCTAssertEqual(summary.createdExercises, 0)
+    }
+
+    /// A rolled-back save must not claim it grew the library — the count is read
+    /// after the save for exactly this case.
+    func testFailedSaveReportsNoCreatedExercises() throws {
+        let context = makeInMemoryContext()
+
+        XCTAssertThrowsError(
+            try WorkoutImporter.importRecords([cardioRecord()], in: context, save: { _ in
+                throw NSError(domain: "test", code: 1)
+            })
+        )
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Exercise>()), 0)
     }
 
     func testInferredCategoryHeuristics() {

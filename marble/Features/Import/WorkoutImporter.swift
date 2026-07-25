@@ -22,6 +22,21 @@ enum WorkoutImporter {
         var importedWorkouts: Int = 0
         var importedSets: Int = 0
         var skipped: Int = 0
+        /// Exercises the import had to create because no library row matched.
+        ///
+        /// Reported so the caller can refresh Spotlight and the parameterised
+        /// Siri phrases *now* rather than at the next cold launch — the defect
+        /// where "Log a set of <imported exercise>" wouldn't resolve until the
+        /// app was relaunched. Counted, not named: the caller only needs to know
+        /// whether the library changed shape.
+        var createdExercises: Int = 0
+    }
+
+    /// How many rows the exercise library holds right now. Cheap (`fetchCount`
+    /// never materialises the objects) and the honest way to detect creations
+    /// without threading a mutable counter through every resolver call site.
+    static func exerciseCount(in context: ModelContext) -> Int {
+        (try? context.fetchCount(FetchDescriptor<Exercise>())) ?? 0
     }
 
     static func alreadyImported(_ record: WorkoutImportRecord, in context: ModelContext) throws -> Bool {
@@ -71,6 +86,7 @@ enum WorkoutImporter {
         save: (ModelContext) throws -> Void = { try $0.save() }
     ) throws -> Summary {
         var summary = Summary()
+        let exercisesBefore = exerciseCount(in: context)
         var seenKeys = Set<String>(minimumCapacity: records.count)
         for record in records {
             let key = ImportedWorkout.deduplicationKey(source: record.source, externalID: record.externalID)
@@ -92,6 +108,9 @@ enum WorkoutImporter {
             context.rollback()
             throw WorkoutImporterError.saveFailed
         }
+        // After the save, so a rolled-back import can never claim it grew the
+        // library.
+        summary.createdExercises = max(0, exerciseCount(in: context) - exercisesBefore)
         return summary
     }
 }

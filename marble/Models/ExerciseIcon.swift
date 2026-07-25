@@ -1,6 +1,6 @@
 import Foundation
 
-enum ExerciseIconSource: String, CaseIterable, Identifiable {
+nonisolated enum ExerciseIconSource: String, CaseIterable, Identifiable {
     case category
     case emoji
 
@@ -16,13 +16,13 @@ enum ExerciseIconSource: String, CaseIterable, Identifiable {
     }
 }
 
-enum ExerciseDisplayIcon: Equatable {
+nonisolated enum ExerciseDisplayIcon: Equatable {
     case symbol(String)
     case emoji(String)
 }
 
 extension String {
-    var firstExerciseEmoji: String? {
+    nonisolated var firstExerciseEmoji: String? {
         for character in self {
             if character.isExerciseEmoji {
                 return String(character)
@@ -33,7 +33,7 @@ extension String {
 }
 
 private extension Character {
-    var isExerciseEmoji: Bool {
+    nonisolated var isExerciseEmoji: Bool {
         unicodeScalars.contains { scalar in
             scalar.properties.isEmojiPresentation ||
             (scalar.properties.isEmoji && unicodeScalars.count > 1)

@@ -6,6 +6,9 @@ private enum MockSaveError: Error {
     case failed
 }
 
+/// `@MainActor` like the rest of the suite: the importer and the SwiftData models
+/// it touches are main-actor isolated (`SWIFT_DEFAULT_ACTOR_ISOLATION`).
+@MainActor
 final class WorkoutImporterTests: MarbleTestCase {
     private func cardioRecord(source: ImportSource = .appleHealth, externalID: String = "hk-1") -> WorkoutImportRecord {
         WorkoutImportRecord(

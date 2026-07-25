@@ -55,34 +55,6 @@ struct GlassPillBackground: View {
     }
 }
 
-struct GlassTileBackground: View {
-    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
-    @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
-    @Environment(\.colorScheme) private var colorScheme
-
-    var isInteractive = false
-
-    private var reduceTransparency: Bool {
-        reduceTransparencyOverride ?? systemReduceTransparency
-    }
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: MarbleCornerRadius.large, style: .continuous)
-        if reduceTransparency {
-            shape
-                .fill(Theme.backgroundColor(for: colorScheme))
-                .overlay(
-                    shape
-                        .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
-                )
-        } else {
-            shape
-                .fill(.clear)
-                .glassEffect(isInteractive ? .regular.interactive() : .regular, in: shape)
-        }
-    }
-}
-
 struct GlassCircleBackground: View {
     @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
     @Environment(\.marbleReduceTransparencyOverride) private var reduceTransparencyOverride
@@ -174,10 +146,6 @@ private struct SheetGlassBackgroundModifier: ViewModifier {
 }
 
 extension View {
-    func navigationGlassBackground() -> some View {
-        glassEffect()
-    }
-
     func navigationBarGlassBackground() -> some View {
         modifier(NavigationBarGlassBackgroundModifier())
     }
@@ -188,10 +156,6 @@ extension View {
 
     func sheetGlassBackground() -> some View {
         modifier(SheetGlassBackgroundModifier())
-    }
-
-    func applyGlassButtonStyle() -> some View {
-        buttonStyle(.glass)
     }
 
     /// Minimizes the tab bar while scrolling content. Disabled under UI

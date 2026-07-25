@@ -29,6 +29,10 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
   rotating footer;
   the window is customizable and the feature remains entirely on-device.
   See [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md).
+- **Body** — log bodyweight (and body fat) in whichever unit you think in, stored as
+  canonical kilograms. Weigh-ins are **editable and deletable** from Trends, Settings, and the
+  Calendar day summary, so a typo can't quietly skew your bodyweight trend or your DOTS
+  relative-strength score. The monthly report reads the month's first and last weigh-in.
 - **Data safety** — export and restore exercises, sets, supplements, sessions, and plans as
   JSON. Progress photos and videos remain on-device and are intentionally excluded.
 - **Import** — bring workouts in from Apple Health (Apple Watch, Garmin, …) and Strava. See
@@ -39,7 +43,26 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-23)
+## Current state (2026-07-25)
+
+- **On TestFlight: 2.2 (build 49).** Build 48 plus the five items from the build-48 codebase
+  review — see [`ROADMAP.md`](ROADMAP.md) → Known gaps / next up, where every closed gap is
+  struck through with what closed it:
+  1. **Weigh-ins are editable and deletable** (`BodyMetricHistoryView`, reachable from Trends,
+     Settings, and the Calendar day summary). Before this, `BodyMetricEntryView`'s edit path had
+     no caller, so a typo'd weigh-in was permanent — and it skewed every DOTS score.
+  2. **The release-safety test gate is closed**: onboarding flow, Settings flow, a widget
+     snapshot suite for all five families, and a V4→V5 case through the *recovery* container.
+  3. **Deployment floor 26.2 → 26.0** — build 48 excluded every device on 26.0/26.1 for one API.
+  4. **Import-created exercises reach Spotlight and Siri immediately**, plus the three
+     unshipped 2.4 Body items (Calendar weight-on-day, monthly-report bodyweight facts, quick
+     weight entry from Settings).
+  5. **Swift 6 language mode** for app, widget, and the unit/snapshot test targets; `UndoableIntent`
+     so a Siri-logged set can be undone.
+- Unit suite **519 tests**, snapshots re-recorded and green, `make audit` green.
+- **2.2 (build 48) is still the build in App Review** — build 49 does not replace it.
+
+## Prior state (2026-07-23)
 
 - **Live on the App Store: 2.1 (build 40)**, released 2026-07-21
   (`READY_FOR_DISTRIBUTION` in the
@@ -157,7 +180,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Run
 
-- Open `marble.xcodeproj` in Xcode (26.x; the target deploys to iOS 26.2).
+- Open `marble.xcodeproj` in Xcode (26.x; the target deploys to **iOS 26.0**).
 - Select an iOS Simulator and run the `marble` scheme.
 
 ## Architecture

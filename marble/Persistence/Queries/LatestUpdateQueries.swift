@@ -24,6 +24,14 @@ enum LatestUpdateQueries {
         return descriptor
     }
 
+    static var bodyMetricEntry: FetchDescriptor<BodyMetricEntry> {
+        var descriptor = FetchDescriptor<BodyMetricEntry>(
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        return descriptor
+    }
+
     static var progressMediaAttachment: FetchDescriptor<ProgressMediaAttachment> {
         var descriptor = FetchDescriptor<ProgressMediaAttachment>(
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]

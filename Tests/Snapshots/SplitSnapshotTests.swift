@@ -2,6 +2,7 @@ import SwiftData
 import XCTest
 @testable import marble
 
+@MainActor
 final class SplitSnapshotTests: SnapshotTestCase {
     func testSplitEmpty() {
         let container = SnapshotFixtures.makeContainer()

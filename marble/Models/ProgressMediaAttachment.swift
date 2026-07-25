@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 import UniformTypeIdentifiers
 
-enum ProgressMediaKind: String, Codable, CaseIterable, Identifiable {
+nonisolated enum ProgressMediaKind: String, Codable, CaseIterable, Identifiable {
     case photo
     case video
 

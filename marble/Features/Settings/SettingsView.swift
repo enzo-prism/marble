@@ -29,6 +29,11 @@ struct SettingsView: View {
     @State private var bodyMetricsEnabled = BodyMetricsAutoImportService.shared.isEnabled
     @State private var showingData = false
     @State private var showingDailyHighlights = false
+    @State private var showingWeightEntry = false
+    @State private var showingWeightHistory = false
+
+    @AppStorage(BodyMetricsPreferences.dotsUsesFemaleCoefficientsKey)
+    private var dotsUsesFemaleCoefficients = false
 
     private let autoImport = HealthAutoImportService.shared
 
@@ -43,6 +48,7 @@ struct SettingsView: View {
             List {
                 unitsSection
                 trainingSection
+                bodySection
                 notificationsSection
                 healthSection
                 dataSection
@@ -75,6 +81,15 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showingDailyHighlights) {
             DailyHighlightsSettingsView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .sheetGlassBackground()
+        }
+        .sheet(isPresented: $showingWeightEntry) {
+            BodyMetricEntryView()
+        }
+        .sheet(isPresented: $showingWeightHistory) {
+            BodyMetricHistoryView()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()
@@ -213,6 +228,90 @@ struct SettingsView: View {
         let day = calendar.startOfDay(for: AppEnvironment.now)
         let date = calendar.date(bySettingHour: minute / 60, minute: minute % 60, second: 0, of: day) ?? day
         return date.formatted(date: .omitted, time: .shortened)
+    }
+
+    // MARK: - Body
+
+    /// Bodyweight lives here as well as in Trends for two reasons found in the
+    /// 2.4 review: a lifter whose weigh-ins arrive through Apple Health may
+    /// never open the Log Weight sheet, and that sheet was the *only* place the
+    /// DOTS coefficient set could be chosen — so those users were silently
+    /// scored on men's coefficients. Both controls drive the same keys the sheet
+    /// drives, so the two surfaces cannot disagree.
+    private var bodySection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                Picker("Relative strength scoring", selection: $dotsUsesFemaleCoefficients) {
+                    Text("Men").tag(false)
+                    Text("Women").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .tint(Theme.dividerColor(for: colorScheme))
+                .frame(minHeight: 44)
+                .onChange(of: dotsUsesFemaleCoefficients) { _, _ in
+                    MarbleHaptics.selection()
+                }
+                .accessibilityLabel("Relative strength scoring")
+                .accessibilityIdentifier("Settings.DotsCoefficients")
+
+                Text("DOTS scores a lift against bodyweight using sex-specific coefficients. This only affects the relative-strength line in Trends.")
+                    .font(MarbleTypography.caption)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .marbleRowInsets()
+            .listRowSeparator(.hidden)
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+
+            Button {
+                showingWeightEntry = true
+            } label: {
+                HStack {
+                    Label("Log Weight", systemImage: "scalemass")
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: MarbleSpacing.s)
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            .marbleRowInsets()
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+            .accessibilityIdentifier("Settings.LogWeight")
+
+            Button {
+                showingWeightHistory = true
+            } label: {
+                HStack {
+                    Label("Weigh-Ins", systemImage: "list.bullet")
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: MarbleSpacing.s)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .accessibilityHidden(true)
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            .marbleRowInsets()
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+            .accessibilityIdentifier("Settings.WeighIns")
+        } header: {
+            SectionHeaderView(title: "Body")
+        } footer: {
+            Text("Edit or delete any weigh-in — a typo would otherwise skew your bodyweight trend and every DOTS score.")
+                .font(MarbleTypography.caption)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     // MARK: - Notifications

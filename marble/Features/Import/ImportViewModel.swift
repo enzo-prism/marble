@@ -159,6 +159,11 @@ final class ImportViewModel {
             }
             markImported(records)
             selection.removeAll()
+            // An import that invented library rows must reach Spotlight and the
+            // parameterised Siri phrases now, not at the next cold launch.
+            if summary.createdExercises > 0 {
+                await ExerciseSpotlightIndex.refreshAfterLibraryChange()
+            }
         } catch {
             importErrorMessage = "Couldn’t save the imported workouts. Please try again."
             MarbleHaptics.error()

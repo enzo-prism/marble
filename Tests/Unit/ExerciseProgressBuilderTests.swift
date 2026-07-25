@@ -1,6 +1,7 @@
 import XCTest
 @testable import marble
 
+@MainActor
 final class ExerciseProgressBuilderTests: MarbleTestCase {
     private let calendar = MarbleTestCase.stableCalendar
     private let timesSymbol = "\u{00D7}"
