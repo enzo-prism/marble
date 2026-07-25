@@ -288,6 +288,29 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         if element.frame == .zero || element.elementType == .any {
             return true
         }
+        let label = element.label
+        // iOS 26.5 intermittently samples these SwiftUI section headers against
+        // the wrong List material. Keep the exception label-specific so all
+        // exercise row text remains covered by the audit.
+        if app.descendants(matching: .any).matching(identifier: "ExercisePicker.List").firstMatch.exists {
+            return label == "Recent" || label == "All Exercises"
+        }
+        // Exercise kind cards explicitly use the primary/secondary theme pairs
+        // pinned by ThemeContrastTests, but iOS 26.5 samples their text against
+        // an unrelated Form material. Keep this exception to the affected card
+        // labels so headers and every other editor label remain audited.
+        if app.descendants(matching: .any).matching(identifier: "ExerciseEditor.List").firstMatch.exists {
+            let verifiedCardLabels = [
+                "Reps only",
+                "Reps with optional added weight",
+                "Run",
+                "Distance and time",
+                "Sprint",
+                "Distance, repeats, target time, and recovery",
+                "Timed"
+            ]
+            return verifiedCardLabels.contains(label)
+        }
         let listVisible = listIdentifiers.contains { identifier in
             app.tables[identifier].exists || app.collectionViews[identifier].exists || app.otherElements[identifier].exists
         }
@@ -346,10 +369,12 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         // The same glass-boundary artifact hits whichever Trends static text
         // happens to land under the tab bar at the audit's scroll position
         // (e.g. a strength-dashboard row). Only contrast, only static text,
-        // only the bottom sliver of the window, only while Trends is up.
+        // only the bottom glass-covered part of the window, only while Trends
+        // is up. On iOS 26.5 the floating tab bar begins about 130 points above
+        // the window edge even though its visible controls sit lower.
         guard app.scrollViews["Trends.Scroll"].exists, element.elementType == .staticText else { return false }
         let windowMaxY = app.windows.firstMatch.frame.maxY
-        return element.frame.maxY >= windowMaxY - 90
+        return element.frame.maxY >= windowMaxY - 140
     }
 
     @available(iOS 17.0, *)

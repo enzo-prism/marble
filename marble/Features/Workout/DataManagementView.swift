@@ -124,7 +124,7 @@ struct DataManagementView: View {
             VStack(alignment: .leading, spacing: MarbleSpacing.s) {
                 Label("Marble recovered its database", systemImage: "externaldrive.badge.exclamationmark")
                     .font(MarbleTypography.rowTitle)
-                Text("The unreadable store was preserved on this iPhone and Marble opened a fresh database. Export your current data and contact support before removing the app.")
+                Text("The unreadable store was preserved on this device and Marble opened a fresh database. Export your current data and contact support before removing the app.")
                     .font(MarbleTypography.rowSubtitle)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .fixedSize(horizontal: false, vertical: true)

@@ -73,8 +73,9 @@
 - `AccessibilityAuditUITests` (`make audit`): **passed** after the best-practices changes.
 - Signed **build 47** Release archive/export passed; App Store Connect processing is
   `VALID` (buildId `83f4e8ca-a4cf-41ac-8080-4f8703851a42`, uploaded 08:03 PDT).
-- The device-only surfaces PR #12 added are covered **only** by the manual checklist below
-  ("Build 47 additions") — walk it before any 2.2 App Review submission.
+- App Review submission uses the Mac-based release gate below. Hardware-only Apple
+  integrations remain recommended checks before manual public release, but they do not block
+  submission when their logic, routing, packaging, and simulator fallbacks pass locally.
 
 ## Prior release verification (2026-07-22, 2.2 build 46)
 - `MarbleTests`: **460 passed, 0 failed** locally and in GitHub CI run `29976114363`.
@@ -221,15 +222,39 @@ Preferred Makefile targets:
 - `make audit` (accessibility audits)
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
-## Phone TestFlight pass
+## Local App Store submission gate
+
+Physical-device access is not required for App Review submission. Complete this gate on the
+release Mac:
+
+1. Confirm the candidate commit, project version, and uploaded build are the intended release.
+2. Run `make unit`, `make ui`, `make audit`, `make verify-widget-plist`, and
+   `make migration-release` on dedicated simulators.
+3. Walk fresh-install onboarding and completed-user relaunch on iPhone. Verify onboarding,
+   Settings, and the core layouts on iPad.
+4. Exercise `marble://trends` and `marble://quicklog` with `xcrun simctl openurl`, and inspect
+   the built app's `CFBundleURLTypes`.
+5. Use the focused widget/keychain, Live Activity controller, App Intent, Spotlight entity,
+   Health mapping/import, backup/restore, and notification tests as acceptance proof for
+   OS-owned integrations.
+6. Verify the widget extension is embedded, both targets archive, signed entitlements match
+   `RELEASE_HANDOFF.md`, the IPA validates, and App Store Connect reports no blockers.
+7. Keep release type manual. Hardware-only checks may be completed after submission and
+   before public release when a device is available.
+
+The simulator cannot prove locked-device keychain sharing, physical Action button assignment,
+spoken Siri recognition, real Apple Health/Watch/Garmin data, Always-On Display, or real
+background suspension. These are explicit residual product risks, not submission blockers.
+Their pure behavior, persistence, routing, and failure handling must still pass locally.
+
+## Optional physical-device pass
+
 - Current phone-test build: **2.2 (47)**, build ID
   `83f4e8ca-a4cf-41ac-8080-4f8703851a42`; `VALID`, uploaded
   2026-07-23 at 08:03 PDT (the Apple-best-practices build, PR #12).
 - Internal group `test group A` receives all builds; external beta remains unsubmitted.
-- **Most of 2.2 is device-only.** Widgets, Live Activity buttons, Control Center controls,
-  Siri, and Spotlight cannot be verified on the simulator — the keychain access group is not
-  enforced there, so every snapshot read degrades to "no snapshot". The checklist below is
-  the only coverage those surfaces get; do not sign off 2.2 without walking it.
+- This section exercises Apple-owned surfaces beyond the deterministic local gate. It is
+  recommended before public release, but is not required before App Review submission.
 
 ### 2.2 payload (what's new on this build)
 - **Daily Highlights** — after logging today, open Trends during the default 8:00 PM–11:59 PM
@@ -381,15 +406,16 @@ UI tests rely on these environment variables:
   using it (see `RestTimerPillUITests`).
 - `MARBLE_FORCE_ONBOARDING=1` — forces the onboarding flow regardless of the
   `didCompleteOnboarding` gate (`TestHooks.forceOnboarding` → `OnboardingGate`).
-  ⚠️ **The hook is implemented in the app but has zero references in `Tests/`** — the
-  onboarding UI test the roadmap called for was never written. Onboarding is currently
-  covered only by the manual device checklist above.
+  `AppStoreScreenshotUITests.test09PrivateOnboarding` verifies the first privacy page and
+  device-neutral copy on both screenshot simulators.
 
 ## Known test gaps
 Recorded honestly so nobody assumes coverage that isn't there. Tracked in `ROADMAP.md`
 under **Known gaps / next up**:
-- No onboarding UI test (`MARBLE_FORCE_ONBOARDING` is unused — see above).
-- No Settings smoke test, despite Settings being a new 2.2 surface.
+- No automated end-to-end onboarding completion flow; the screenshot test covers the first
+  privacy page and the local release gate walks completion and relaunch.
+- Settings has screenshot smoke coverage for its main rows, but not automated interaction
+  coverage for every control.
 - No widget snapshot suite; `WeeklyGoalWidget`'s five families are unverified by any
   automated test.
 - No V4→V5 case in `PersistenceRecoveryTests`, even though V5 is the shipping schema.

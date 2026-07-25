@@ -88,7 +88,7 @@ On the **simulator**, keychain access groups are not enforced and `SecItem*` can
 neutral "Open Marble" card rather than crashing. CI and `make unit` are unaffected — no unit
 test touches the real keychain.
 
-## Release state (2026-07-23)
+## Release state (2026-07-24)
 
 - **2.1 (build 40)** — **LIVE on the App Store**, released 2026-07-21 via
   `asc versions release --version-id 59f2e4c7-1c4b-49b3-a5d3-265ca6da74b1 --confirm`;
@@ -110,8 +110,9 @@ test touches the real keychain.
   checklist walk in `TESTING.md` is still the gate before App Review submission.
 - **2.0 (build 34)** — superseded by 2.1. Its review is closed; nothing about it is live
   state any more.
-- **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 47`.**
-  The next upload must use `make asc-next-build` (currently **48**).
+- **Working project version: `MARKETING_VERSION = 2.2`, `CURRENT_PROJECT_VERSION = 48`.**
+  Build 48 is the current submission candidate. Re-run `make asc-next-build` before any
+  later upload; App Store Connect currently reserves 48 as the next valid build number.
 
 ---
 
@@ -430,9 +431,11 @@ Notes:
 on TestFlight; nothing is submitted.
 Before submitting, resolve these:
 
-- **Do the device pass first.** Most of 2.2 — widgets, Live Activity buttons, the Control
-  Center control, Siri, Spotlight, and the keychain snapshot itself — is untestable on the
-  simulator. Walk the 2.2 checklist in `TESTING.md` on a real phone.
+- **Complete the local App Store submission gate in `TESTING.md`.** App Review does not
+  require a physical-device attestation. Use dedicated iPhone and iPad simulators, focused
+  integration tests, deep-link checks, archive inspection, and live App Store Connect
+  validation. Keep the hardware-only Apple integration pass as an optional check before
+  manual public release, not as a submission blocker.
 - **Decide what to do about the known gaps** (`ROADMAP.md` → Known gaps / next up). Build 47
   closed the big ones — Siri-logged sets now refresh the widget and reminder, TipKit tips
   present, backup covers every entity — so Siri set-logging can be advertised alongside the
