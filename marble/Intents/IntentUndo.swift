@@ -74,6 +74,15 @@ enum IntentUndo {
                 }
             }
 
+            // The tenths companion row goes with its entry, keyed by entryID
+            // so the callers' signatures didn't need a third id to thread.
+            let detailDescriptor = FetchDescriptor<SprintRepDetail>(
+                predicate: #Predicate { $0.setEntryID == entryID }
+            )
+            if let detail = (try? context.fetch(detailDescriptor))?.first {
+                context.delete(detail)
+            }
+
             guard context.saveOrRollback() else { return }
 
             // The undone set has to leave the widget and the weekly-goal nudge

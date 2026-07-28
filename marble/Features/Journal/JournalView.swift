@@ -16,6 +16,9 @@ struct JournalView: View {
     @Query(sort: \SprintGoalSnapshot.createdAt)
     private var sprintGoalSnapshots: [SprintGoalSnapshot]
 
+    @Query(sort: \SprintRepDetail.createdAt)
+    private var sprintRepDetails: [SprintRepDetail]
+
     @Query(filter: #Predicate<SplitPlan> { $0.isActive == true }, sort: \SplitPlan.updatedAt, order: .reverse)
     private var activeSplitPlans: [SplitPlan]
 
@@ -44,6 +47,7 @@ struct JournalView: View {
                         entry: entries.first,
                         prBadge: entries.first.flatMap { derived.prBadges[$0.id] } ?? [],
                         sprintGoal: entries.first.flatMap { derived.sprintGoals[$0.id] },
+                        sprintDetail: entries.first.flatMap { derived.sprintDetails[$0.id] },
                         bestCue: derived.quickLogBestCue,
                         onLogAgain: { quickLogAgain() },
                         onEdit: { openEdit() },
@@ -74,6 +78,7 @@ struct JournalView: View {
                                 entry: entry,
                                 prBadge: derived.prBadges[entry.id] ?? [],
                                 sprintGoal: derived.sprintGoals[entry.id],
+                                sprintDetail: derived.sprintDetails[entry.id],
                                 onDuplicate: { duplicate(entry) },
                                 onDelete: { delete(entry) }
                             )
@@ -173,6 +178,7 @@ struct JournalView: View {
             count: entries.count,
             latestUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast,
             sprintGoalCount: sprintGoalSnapshots.count,
+            sprintDetailCount: sprintRepDetails.count,
             latestEntryID: latestEntry?.id,
             latestExerciseID: latestEntry?.exercise.id,
             latestExerciseMetrics: latestEntry?.exercise.metrics,
@@ -187,11 +193,22 @@ struct JournalView: View {
             let sections = grouped.keys.sorted(by: >).map { day in
                 JournalDaySection(day: day, entries: grouped[day] ?? [])
             }
-            let prBadges = PersonalRecords.badges(for: entries)
             let sprintGoals = Dictionary(
                 sprintGoalSnapshots.map { ($0.setEntryID, $0) },
                 uniquingKeysWith: { first, _ in first }
             )
+            let sprintDetails = Dictionary(
+                sprintRepDetails.map { ($0.setEntryID, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            // Precise tenths where a detail exists, rounded legacy seconds
+            // otherwise — the sprint-PR trail compares them in one domain.
+            let sprintTimes = PersonalRecords.sprintTimes(
+                entries: entries,
+                sprintGoals: sprintGoals,
+                sprintDetails: sprintDetails
+            )
+            let prBadges = PersonalRecords.badges(for: entries, sprintTimes: sprintTimes)
             let quickLogBestCue = latestEntry.flatMap {
                 QuickLogBestCueResolver.resolve(latest: $0, entries: entries)
             }
@@ -199,6 +216,7 @@ struct JournalView: View {
                 sections: sections,
                 prBadges: prBadges,
                 sprintGoals: sprintGoals,
+                sprintDetails: sprintDetails,
                 quickLogBestCue: quickLogBestCue
             )
         }
@@ -206,13 +224,15 @@ struct JournalView: View {
 
     private func delete(_ entry: SetEntry) {
         let sprintGoal = sprintGoalSnapshots.first { $0.setEntryID == entry.id }
+        let sprintDetail = sprintRepDetails.first { $0.setEntryID == entry.id }
         // `WorkoutSession.entries` has no inverse, so membership can only be
         // recovered by asking the sessions — capture it while the entry lives.
         let entryID = entry.id
         let owningSessions = ((try? modelContext.fetch(FetchDescriptor<WorkoutSession>())) ?? [])
             .filter { session in session.entries.contains { $0.id == entryID } }
-        let snapshot = SetEntrySnapshot(entry: entry, sprintGoal: sprintGoal, owningSessions: owningSessions)
+        let snapshot = SetEntrySnapshot(entry: entry, sprintGoal: sprintGoal, sprintDetail: sprintDetail, owningSessions: owningSessions)
         if let sprintGoal { modelContext.delete(sprintGoal) }
+        if let sprintDetail { modelContext.delete(sprintDetail) }
         modelContext.delete(entry)
         guard modelContext.saveOrRollback() else {
             toast = ToastData(message: "Couldn't delete set", actionTitle: nil, onAction: nil)
@@ -243,6 +263,7 @@ struct JournalView: View {
         let duplicate = latest.duplicated(at: AppEnvironment.now)
         modelContext.insert(duplicate)
         copySprintGoal(from: latest, to: duplicate)
+        copySprintDetail(from: latest, to: duplicate)
         guard modelContext.saveOrRollback() else {
             toast = ToastData(message: "Couldn't log set", actionTitle: nil, onAction: nil)
             return
@@ -261,6 +282,7 @@ struct JournalView: View {
         let descriptor = FetchDescriptor<SetEntry>(predicate: #Predicate { $0.id == id })
         if let entry = (try? modelContext.fetch(descriptor))?.first {
             deleteSprintGoal(for: entry.id)
+            deleteSprintDetail(for: entry.id)
             modelContext.delete(entry)
             if modelContext.saveOrRollback() {
                 MarbleHaptics.lightImpact()
@@ -289,6 +311,7 @@ struct JournalView: View {
         let duplicate = entry.duplicated(at: AppEnvironment.now)
         modelContext.insert(duplicate)
         copySprintGoal(from: entry, to: duplicate)
+        copySprintDetail(from: entry, to: duplicate)
         if modelContext.saveOrRollback() {
             MarbleHaptics.success()
             RestActivityController.shared.startRest(for: duplicate)
@@ -311,6 +334,27 @@ struct JournalView: View {
             isInferred: sourceGoal.isInferred,
             createdAt: destination.createdAt
         ))
+    }
+
+    private func copySprintDetail(from source: SetEntry, to destination: SetEntry) {
+        guard let sourceDetail = sprintRepDetails.first(where: { $0.setEntryID == source.id }) else { return }
+        modelContext.insert(SprintRepDetail(
+            setEntryID: destination.id,
+            durationTenths: sourceDetail.durationTenths,
+            targetLowerTenths: sourceDetail.targetLowerTenths,
+            targetUpperTenths: sourceDetail.targetUpperTenths,
+            variantID: sourceDetail.variantID,
+            createdAt: destination.createdAt
+        ))
+    }
+
+    private func deleteSprintDetail(for entryID: UUID) {
+        let descriptor = FetchDescriptor<SprintRepDetail>(
+            predicate: #Predicate { $0.setEntryID == entryID }
+        )
+        if let detail = try? modelContext.fetch(descriptor).first {
+            modelContext.delete(detail)
+        }
     }
 
     private func deleteSprintGoal(for entryID: UUID) {
@@ -336,6 +380,7 @@ private struct JournalDerived {
     let sections: [JournalDaySection]
     let prBadges: [UUID: PersonalRecordBadge]
     let sprintGoals: [UUID: SprintGoalSnapshot]
+    let sprintDetails: [UUID: SprintRepDetail]
     let quickLogBestCue: QuickLogBestCue?
 }
 
@@ -345,6 +390,7 @@ private struct JournalSectionsSignature: Equatable {
     let count: Int
     let latestUpdate: Date
     let sprintGoalCount: Int
+    let sprintDetailCount: Int
     let latestEntryID: UUID?
     let latestExerciseID: UUID?
     let latestExerciseMetrics: ExerciseMetricsProfile?
@@ -355,6 +401,7 @@ private struct JournalRow: View {
     let entry: SetEntry
     let prBadge: PersonalRecordBadge
     let sprintGoal: SprintGoalSnapshot?
+    let sprintDetail: SprintRepDetail?
     let onDuplicate: () -> Void
     let onDelete: () -> Void
 
@@ -366,13 +413,14 @@ private struct JournalRow: View {
                 entry: entry,
                 prBadge: prBadge,
                 sprintGoal: sprintGoal,
+                sprintDetail: sprintDetail,
                 accessibilityIdentifier: "SetRow.\(entry.id.uuidString)"
             )
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .contentShape(Rectangle())
         }
             .accessibilityIdentifier("SetRow.\(entry.id.uuidString)")
-            .accessibilityLabel(SetRowView.accessibilitySummary(for: entry, prBadge: prBadge, sprintGoal: sprintGoal))
+            .accessibilityLabel(SetRowView.accessibilitySummary(for: entry, prBadge: prBadge, sprintGoal: sprintGoal, sprintDetail: sprintDetail))
             .accessibilityHint("Open set details")
             .listRowBackground(Theme.backgroundColor(for: colorScheme))
             .marbleRowInsets()
@@ -518,13 +566,14 @@ private struct SetEntrySnapshot {
     let createdAt: Date
     let updatedAt: Date
     let sprintGoal: SprintGoalSnapshotValue?
+    let sprintDetail: SprintRepDetailValue?
     /// Live references survive the entry's deletion (only the entry row dies);
     /// without them, Undo would resurrect the set stripped of its "Imported
     /// from …" lineage and dropped from the workout session that grouped it.
     let importedWorkout: ImportedWorkout?
     let owningSessions: [WorkoutSession]
 
-    init(entry: SetEntry, sprintGoal: SprintGoalSnapshot?, owningSessions: [WorkoutSession]) {
+    init(entry: SetEntry, sprintGoal: SprintGoalSnapshot?, sprintDetail: SprintRepDetail?, owningSessions: [WorkoutSession]) {
         id = entry.id
         exercise = entry.exercise
         performedAt = entry.performedAt
@@ -540,6 +589,7 @@ private struct SetEntrySnapshot {
         createdAt = entry.createdAt
         updatedAt = entry.updatedAt
         self.sprintGoal = sprintGoal.map(SprintGoalSnapshotValue.init)
+        self.sprintDetail = sprintDetail.map(SprintRepDetailValue.init)
         importedWorkout = entry.importedWorkout
         self.owningSessions = owningSessions
     }
@@ -567,6 +617,37 @@ private struct SetEntrySnapshot {
             session.append(restored, at: session.updatedAt)
         }
         sprintGoal?.restore(for: restored, in: context)
+        sprintDetail?.restore(for: restored, in: context)
+    }
+}
+
+private nonisolated struct SprintRepDetailValue {
+    let id: UUID
+    let durationTenths: Int
+    let targetLowerTenths: Int
+    let targetUpperTenths: Int
+    let variantID: UUID?
+    let createdAt: Date
+
+    init(_ detail: SprintRepDetail) {
+        id = detail.id
+        durationTenths = detail.durationTenths
+        targetLowerTenths = detail.targetLowerTenths
+        targetUpperTenths = detail.targetUpperTenths
+        variantID = detail.variantID
+        createdAt = detail.createdAt
+    }
+
+    func restore(for entry: SetEntry, in context: ModelContext) {
+        context.insert(SprintRepDetail(
+            id: id,
+            setEntryID: entry.id,
+            durationTenths: durationTenths,
+            targetLowerTenths: targetLowerTenths,
+            targetUpperTenths: targetUpperTenths,
+            variantID: variantID,
+            createdAt: createdAt
+        ))
     }
 }
 

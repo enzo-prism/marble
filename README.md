@@ -17,10 +17,13 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 - **Calendar** — month view with workout-day markers, day detail, and progress photos/videos.
 - **Workout** — start and finish timed workout sessions, log planned sets in one tap, and
   review recent sessions; the weekly split remains the editable plan behind the tab.
-- **Sprint workouts** — create reusable distance prescriptions with a repetition count,
-  exact or ranged target time, and recovery; log every sprint with actual time, RPE, rest,
-  rep progress, and immediate goal feedback. Journal previews show an accessible green hit,
-  red miss, or neutral unscored state; details explain the saved target and exact result.
+- **Sprint workouts** — create multiple reusable sprint plans per exercise ("60 m speed",
+  "150 m tempo") with a repetition count and an exact or ranged target time in **tenths of
+  a second**; log every sprint with a built-in stopwatch or typed decimal time, RPE, rest,
+  rep progress, and immediate goal feedback, then get a sequence rollup after the final
+  rep. Journal previews show an accessible green hit, red miss, or neutral unscored state
+  plus a "Fastest" PR trail per distance; Trends charts best-time progression and weekly
+  goal hit rate, and plans that keep getting beaten earn a progression nudge.
   See [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md).
 - **Trends** — a focused weekly goal, priority lift, and monthly report first; detailed
   consistency, volume, per-exercise, supplement, and PR charts remain one tap away. From
@@ -45,7 +48,23 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-07-28)
 
-- **`main` carries an unreleased 10-fix reliability pass** on top of build 49, from a
+- **`main` carries the sprint V6 feature wave** (unreleased): schema V6 adds
+  `SprintVariant` + `SprintRepDetail` (pure additive, no migration stage), bringing:
+  1. **Tenths-precision sprint timing** — targets and times are canonical tenths
+     (`SprintTiming`; 14.8 beats 15), entered as decimal seconds; the shipped whole-second
+     column keeps the rounded value for every legacy consumer.
+  2. **A built-in stopwatch** in the sprint logger (start/stop fills the time, rolls into
+     the rest timer; unit-tested engine, hidden under UI testing).
+  3. **Multiple sprint plans per exercise** — "60 m speed" and "150 m tempo" on one
+     exercise, with a plan picker in the logger; the legacy single `SprintPrescription`
+     lives on as a synced mirror of the primary plan for pre-V6 surfaces and backups.
+  4. **A sequence rollup** after Save Final Rep (hits, best, average, per-rep results).
+  5. **Sprint analytics** — a "Fastest" PR trail per exercise + distance in the Journal,
+     and a Sprints section in Trends (best-time progression, weekly goal hit rate, full
+     Audio Graph descriptors), plus **progression nudges** after two ≥80%-hit sessions.
+  See [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md). Unit suite **560 tests** green,
+  including `SchemaV6MigrationTests`.
+- **Also on `main`: a 10-fix reliability pass** on top of build 49, from a
   full-codebase bug audit (models/persistence, views, widgets/intents/timers). Highlights:
   1. **Number fields no longer corrupt grouped values** — the editing field displayed
      "1,500" but parsed every comma as a decimal point, so touching a 1,000+ value (or any

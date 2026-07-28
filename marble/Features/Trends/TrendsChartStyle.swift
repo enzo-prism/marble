@@ -70,6 +70,13 @@ enum TrendsPalette {
         dark: Color(red: 0.40, green: 0.82, blue: 0.70)
     )
 
+    /// Sprint speed + hit rate: magenta-pink, apart from the warm red of
+    /// duration volume and the gold of PR markers.
+    static let sprint = TrendsChartAccent(
+        light: Color(red: 0.78, green: 0.15, blue: 0.45),
+        dark: Color(red: 1.00, green: 0.45, blue: 0.70)
+    )
+
     /// Soft fill under line charts, fading to transparent at the baseline.
     static func areaGradient(_ accent: Color) -> LinearGradient {
         LinearGradient(

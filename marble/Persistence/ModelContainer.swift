@@ -44,7 +44,7 @@ enum PersistenceController {
     // MARK: - Container construction
 
     private static var schema: Schema {
-        Schema(versionedSchema: MarbleSchemaV5.self)
+        Schema(versionedSchema: MarbleSchemaV6.self)
     }
 
     private static func makePersistentContainer(at url: URL) throws -> ModelContainer {

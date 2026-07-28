@@ -86,6 +86,26 @@ enum MarbleSchemaV5: VersionedSchema {
     }
 }
 
+/// Schema V6 adds multi-plan sprint support: `SprintVariant` (several reusable
+/// sprint plans per exercise, tenths-precision targets) and `SprintRepDetail`
+/// (the exact tenths time and frozen tenths target for one logged rep). Purely
+/// additive, exactly like V2–V5: no existing entity gains, loses, or retypes a
+/// property, no `@Relationship`s anywhere (both models reference by raw UUID),
+/// and `stages` stays empty.
+///
+/// `SprintPrescription`'s unique-`exerciseID` single-plan limit is deliberately
+/// NOT lifted in place — modifying a shipped entity is the checksum trap this
+/// file's header documents. The prescription lives on as a mirror of each
+/// exercise's primary variant (`SprintVariant.syncLegacyPrescription`), which
+/// keeps legacy surfaces and pre-V6 backups truthful.
+enum MarbleSchemaV6: VersionedSchema {
+    static var versionIdentifier: Schema.Version { Schema.Version(6, 0, 0) }
+
+    static var models: [any PersistentModel.Type] {
+        MarbleSchemaV5.models + [SprintVariant.self, SprintRepDetail.self]
+    }
+}
+
 // MARK: - Migration plan
 
 /// Ordered list of schema versions plus the migration stages between them.
@@ -115,7 +135,8 @@ enum MarbleMigrationPlan: SchemaMigrationPlan {
             MarbleSchemaV2.self,
             MarbleSchemaV3.self,
             MarbleSchemaV4.self,
-            MarbleSchemaV5.self
+            MarbleSchemaV5.self,
+            MarbleSchemaV6.self
         ]
     }
 

@@ -4,6 +4,9 @@ struct SetRowView: View {
     let entry: SetEntry
     let prBadge: PersonalRecordBadge
     let sprintGoal: SprintGoalSnapshot?
+    /// Tenths-precision companion (V6+ reps); rows without one render the
+    /// whole-second duration exactly as before.
+    let sprintDetail: SprintRepDetail?
     let accessibilityIdentifier: String?
 
     @Environment(\.colorScheme) private var colorScheme
@@ -11,7 +14,8 @@ struct SetRowView: View {
     static func accessibilitySummary(
         for entry: SetEntry,
         prBadge: PersonalRecordBadge = [],
-        sprintGoal: SprintGoalSnapshot? = nil
+        sprintGoal: SprintGoalSnapshot? = nil,
+        sprintDetail: SprintRepDetail? = nil
     ) -> String {
         var parts: [String] = []
         if let weight = entry.weight {
@@ -31,7 +35,9 @@ struct SetRowView: View {
             parts.append(entry.exercise.formattedDistanceSummary(distance, unit: entry.distanceUnit))
         }
 
-        if let duration = entry.durationSeconds {
+        if let sprintDetail {
+            parts.append(SprintTiming.text(tenths: sprintDetail.durationTenths))
+        } else if let duration = entry.durationSeconds {
             parts.append(DateHelper.formattedDuration(seconds: duration))
         }
 
@@ -41,7 +47,7 @@ struct SetRowView: View {
             prefix += "Imported from \(imported.displayOrigin). "
         }
         if let sprintGoal {
-            let evaluation = SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry)
+            let evaluation = SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry, detail: sprintDetail)
             prefix += "\(evaluation.status.title). Target \(evaluation.targetText). \(evaluation.reason). "
         }
         return "\(prefix)\(entry.exercise.name), \(summary), RPE \(entry.difficulty), Rest \(entry.restAfterSeconds) seconds"
@@ -51,11 +57,13 @@ struct SetRowView: View {
         entry: SetEntry,
         prBadge: PersonalRecordBadge = [],
         sprintGoal: SprintGoalSnapshot? = nil,
+        sprintDetail: SprintRepDetail? = nil,
         accessibilityIdentifier: String? = nil
     ) {
         self.entry = entry
         self.prBadge = prBadge
         self.sprintGoal = sprintGoal
+        self.sprintDetail = sprintDetail
         self.accessibilityIdentifier = accessibilityIdentifier
     }
 
@@ -87,7 +95,7 @@ struct SetRowView: View {
 
                 if let sprintGoal {
                     SprintGoalStatusLine(
-                        evaluation: SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry),
+                        evaluation: SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry, detail: sprintDetail),
                         snapshot: sprintGoal,
                         showsRepetition: false
                     )
@@ -139,7 +147,9 @@ struct SetRowView: View {
             parts.append(entry.exercise.formattedDistanceSummary(distance, unit: entry.distanceUnit))
         }
 
-        if let duration = entry.durationSeconds {
+        if let sprintDetail {
+            parts.append(SprintTiming.text(tenths: sprintDetail.durationTenths))
+        } else if let duration = entry.durationSeconds {
             parts.append(DateHelper.formattedDuration(seconds: duration))
         }
 
@@ -162,6 +172,6 @@ struct SetRowView: View {
     }
 
     private var accessibilitySummary: String {
-        Self.accessibilitySummary(for: entry, prBadge: prBadge, sprintGoal: sprintGoal)
+        Self.accessibilitySummary(for: entry, prBadge: prBadge, sprintGoal: sprintGoal, sprintDetail: sprintDetail)
     }
 }

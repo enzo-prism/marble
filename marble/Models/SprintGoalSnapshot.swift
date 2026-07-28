@@ -252,6 +252,130 @@ nonisolated struct SprintGoalEvaluation: Equatable {
         )
     }
 
+    /// Tenths-aware evaluation: when the rep has a `SprintRepDetail`, judge the
+    /// exact recorded tenths against the exact frozen tenths target. Without
+    /// one (every pre-V6 rep), fall back to the whole-second path above so
+    /// legacy history reads exactly as it always has.
+    @MainActor
+    static func evaluate(
+        snapshot: SprintGoalSnapshot,
+        entry: SetEntry,
+        detail: SprintRepDetail?
+    ) -> SprintGoalEvaluation {
+        guard let detail, detail.isValid else {
+            return evaluate(snapshot: snapshot, entry: entry)
+        }
+        return evaluate(
+            target: detail.target,
+            prescribedDistance: snapshot.distance,
+            prescribedDistanceUnit: snapshot.distanceUnit,
+            actualDistance: entry.distance,
+            actualDistanceUnit: entry.distanceUnit,
+            actualTenths: detail.durationTenths
+        )
+    }
+
+    /// The tenths-domain core. Mirrors the whole-second `evaluate` guard
+    /// structure exactly; only the time arithmetic and formatting differ
+    /// (`SprintTiming` — "14.8s", "0.4 seconds faster").
+    static func evaluate(
+        target: SprintTargetTenths,
+        prescribedDistance: Double,
+        prescribedDistanceUnit: DistanceUnit,
+        actualDistance: Double?,
+        actualDistanceUnit: DistanceUnit,
+        actualTenths: Int?
+    ) -> SprintGoalEvaluation {
+        let targetText = target.targetText()
+        let actualText = actualTenths.flatMap { $0 > 0 ? SprintTiming.text(tenths: $0) : nil }
+        guard target.isValid, prescribedDistance > 0 else {
+            return SprintGoalEvaluation(
+                status: .notScored,
+                outcome: nil,
+                actualText: actualText,
+                targetText: targetText,
+                reason: "This rep's saved sprint goal is invalid."
+            )
+        }
+
+        guard let actualDistance, actualDistance > 0 else {
+            return SprintGoalEvaluation(
+                status: .notScored,
+                outcome: nil,
+                actualText: actualText,
+                targetText: targetText,
+                reason: "Add the sprint distance to score this rep."
+            )
+        }
+
+        let prescribedMeters = prescribedDistanceUnit.meters(from: prescribedDistance)
+        let actualMeters = actualDistanceUnit.meters(from: actualDistance)
+        let distanceToleranceMeters = max(0.01, prescribedMeters * 0.000_001)
+        guard abs(prescribedMeters - actualMeters) <= distanceToleranceMeters else {
+            return SprintGoalEvaluation(
+                status: .notScored,
+                outcome: nil,
+                actualText: actualText,
+                targetText: targetText,
+                reason: "This rep was \(distanceText(actualDistance, unit: actualDistanceUnit)), not the prescribed \(distanceText(prescribedDistance, unit: prescribedDistanceUnit))."
+            )
+        }
+
+        guard let actualTenths, actualTenths > 0 else {
+            return SprintGoalEvaluation(
+                status: .notScored,
+                outcome: nil,
+                actualText: nil,
+                targetText: targetText,
+                reason: "Add a sprint time to see whether this rep hit the goal."
+            )
+        }
+
+        let outcome = target.outcome(forTenths: actualTenths)
+        let status: SprintGoalStatus = switch outcome {
+        case .metTime, .inRange: .hit
+        case .missedTime, .fasterThanRange, .slowerThanRange: .missed
+        case nil: .notScored
+        }
+
+        return SprintGoalEvaluation(
+            status: status,
+            outcome: outcome,
+            actualText: SprintTiming.text(tenths: actualTenths),
+            targetText: targetText,
+            reason: tenthsReason(for: outcome, actualTenths: actualTenths, target: target)
+        )
+    }
+
+    private static func tenthsReason(
+        for outcome: SprintTargetOutcome?,
+        actualTenths: Int,
+        target: SprintTargetTenths
+    ) -> String {
+        let actual = SprintTiming.text(tenths: actualTenths)
+        switch outcome {
+        case .metTime:
+            let difference = target.lowerTenths - actualTenths
+            if difference == 0 {
+                return "\(actual) matched your \(SprintTiming.text(tenths: target.lowerTenths))-or-faster goal."
+            }
+            return "\(actual) was \(SprintTiming.deltaText(tenths: difference)) faster than your \(SprintTiming.text(tenths: target.lowerTenths))-or-faster goal."
+        case .missedTime:
+            let difference = actualTenths - target.lowerTenths
+            return "\(actual) was \(SprintTiming.deltaText(tenths: difference)) slower than your \(SprintTiming.text(tenths: target.lowerTenths))-or-faster goal."
+        case .fasterThanRange:
+            let difference = target.lowerTenths - actualTenths
+            return "\(actual) was \(SprintTiming.deltaText(tenths: difference)) faster than the \(SprintTiming.text(tenths: target.lowerTenths)) lower limit."
+        case .inRange:
+            return "\(actual) was inside your target range of \(target.targetText())."
+        case .slowerThanRange:
+            let difference = actualTenths - target.upperTenths
+            return "\(actual) was \(SprintTiming.deltaText(tenths: difference)) slower than the \(SprintTiming.text(tenths: target.upperTenths)) upper limit."
+        case nil:
+            return "This rep could not be scored."
+        }
+    }
+
     private static func reason(
         for outcome: SprintTargetOutcome?,
         actualSeconds: Int,

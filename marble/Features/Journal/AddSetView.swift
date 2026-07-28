@@ -12,6 +12,9 @@ struct AddSetView: View {
     @Query(sort: \SprintPrescription.createdAt)
     private var sprintPrescriptions: [SprintPrescription]
 
+    @Query(sort: \SprintVariant.createdAt)
+    private var sprintVariantModels: [SprintVariant]
+
     @Binding private var isPresented: Bool
     @State private var selectedExerciseID: UUID?
     @State private var selectedExerciseSnapshot: ExerciseSnapshot?
@@ -43,6 +46,21 @@ struct AddSetView: View {
     @State private var lastEntry: SetEntry?
     @State private var personalRecords: ExercisePersonalRecords?
     @State private var sprintSequenceCompleted = 0
+    /// Which of the exercise's sprint variants this sequence is running.
+    /// Value-typed and resolved in `applyDefaults` so a mid-sheet edit or
+    /// delete of the backing row can't strand the logger.
+    @State private var selectedSprintVariant: SprintVariantValue?
+    /// Precise sprint time for the rep being entered (see `SprintTiming`).
+    /// The whole-second `durationSeconds` state is not used for sprints; the
+    /// rounded value is derived at save so legacy columns stay populated.
+    @State private var sprintTimeTenths: Int?
+    /// Every rep saved in this sheet's sequence, for the final-rep rollup.
+    @State private var sequenceOutcomes: [SprintRepOutcome] = []
+    @State private var showSprintSummary = false
+    /// Cached progression nudge for the selected variant. Computed on
+    /// selection changes only — the card renders per keystroke and must not
+    /// refetch history each time.
+    @State private var progressionHintText: String?
     private let context: QuickLogContext?
     private let activeSession: WorkoutSession?
     private let repsRange: ClosedRange<Int> = 1...20
@@ -92,6 +110,9 @@ struct AddSetView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                if showSprintSummary, let variant = selectedSprintVariant {
+                    SprintSequenceSummaryView(variant: variant, outcomes: sequenceOutcomes)
+                } else {
                 List {
                     Section {
                         NavigationLink {
@@ -134,14 +155,16 @@ struct AddSetView: View {
                         }
                     }
 
-                    if let prescription = exercise.sprintPrescription {
+                    if let variant = activeSprintVariant(for: exercise) {
                         Section {
                             SprintGoalCardView(
-                                prescription: prescription,
-                                distanceUnit: exercise.preferredDistanceUnit,
+                                variant: variant,
+                                allVariants: exercise.sprintVariants,
                                 restSeconds: restAfterSeconds,
                                 completedRepetitions: completedSprintRepetitions(for: exercise.id),
-                                actualSeconds: durationSeconds
+                                actualTenths: sprintTimeTenths,
+                                progressionHint: progressionHintText,
+                                onSelectVariant: { switchSprintVariant(to: $0) }
                             )
                             .listRowSeparator(.hidden)
                             .listRowBackground(Theme.backgroundColor(for: colorScheme))
@@ -229,12 +252,12 @@ struct AddSetView: View {
                                     .accessibilityIdentifier("AddSet.LogDistance")
                             }
 
-                            if shouldCaptureDistance(for: exercise.metrics), let prescription = exercise.sprintPrescription {
+                            if shouldCaptureDistance(for: exercise.metrics), let variant = activeSprintVariant(for: exercise) {
                                 HStack {
                                     Text("Distance")
                                         .font(MarbleTypography.rowTitle)
                                     Spacer()
-                                    Text(exercise.formattedDistanceSummary(prescription.distance))
+                                    Text(variant.formattedDistance())
                                         .font(MarbleTypography.rowSubtitle.monospacedDigit())
                                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                                 }
@@ -278,7 +301,34 @@ struct AddSetView: View {
                                     .accessibilityIdentifier("AddSet.LogDuration")
                             }
 
-                            if shouldCaptureDuration(for: exercise.metrics) {
+                            if shouldCaptureDuration(for: exercise.metrics), exercise.isSprint {
+                                // Sprint times are tenths-precision decimals
+                                // ("14.8"), not h/m/s menus — three pickers to
+                                // record a 15-second effort was the single
+                                // slowest step of the logging loop.
+                                VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                                    HStack {
+                                        Text("Time")
+                                            .font(MarbleTypography.rowTitle)
+                                        Spacer()
+                                        OptionalNumberField(
+                                            title: "Seconds",
+                                            formatter: Formatters.sprintSeconds,
+                                            value: sprintSecondsBinding,
+                                            accessibilityIdentifier: "AddSet.Sprint.Time"
+                                        )
+                                        .frame(width: 96)
+                                        Text("sec")
+                                            .font(MarbleTypography.rowMeta)
+                                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                    }
+
+                                    if !TestHooks.isUITesting {
+                                        SprintStopwatchView(tenths: $sprintTimeTenths)
+                                    }
+                                }
+                                .padding(.vertical, MarbleSpacing.s)
+                            } else if shouldCaptureDuration(for: exercise.metrics) {
                                 HStack {
                                     Text("Duration")
                                         .font(MarbleTypography.rowTitle)
@@ -294,7 +344,7 @@ struct AddSetView: View {
                         SectionHeaderView(title: "Metrics")
                     }
 
-                    if exercise.sprintPrescription != nil {
+                    if exercise.isSprint {
                         Section {
                             VStack(alignment: .leading, spacing: MarbleSpacing.m) {
                                 RPEPicker(value: $difficulty)
@@ -320,7 +370,7 @@ struct AddSetView: View {
                     Section {
                         DisclosureGroup(isExpanded: $showDetails) {
                             VStack(alignment: .leading, spacing: MarbleSpacing.m) {
-                                if exercise.sprintPrescription == nil {
+                                if !exercise.isSprint {
                                     RPEPicker(value: $difficulty)
 
                                     RestPicker(restSeconds: $restAfterSeconds)
@@ -390,26 +440,37 @@ struct AddSetView: View {
                         saveButtons
                     }
                 }
+                }
             }
             .background(Theme.backgroundColor(for: colorScheme))
-            .navigationTitle("Log Set")
+            .navigationTitle(showSprintSummary ? "Sprint Complete" : "Log Set")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        closeSheet()
+                if showSprintSummary {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            closeSheet()
+                        }
+                        .tint(Theme.primaryTextColor(for: colorScheme))
+                        .accessibilityIdentifier("AddSet.SprintSummary.Done")
                     }
-                    .tint(Theme.primaryTextColor(for: colorScheme))
-                    .accessibilityIdentifier("AddSet.Cancel")
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        save()
+                } else {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            closeSheet()
+                        }
+                        .tint(Theme.primaryTextColor(for: colorScheme))
+                        .accessibilityIdentifier("AddSet.Cancel")
                     }
-                    .disabled(!effectiveCanSave)
-                    .tint(Theme.primaryTextColor(for: colorScheme))
-                    .accessibilityIdentifier("AddSet.Save")
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            save()
+                        }
+                        .disabled(!effectiveCanSave)
+                        .tint(Theme.primaryTextColor(for: colorScheme))
+                        .accessibilityIdentifier("AddSet.Save")
+                    }
                 }
             }
             .onChange(of: selectedExerciseID) { _, newValue in
@@ -517,8 +578,14 @@ struct AddSetView: View {
         if shouldCaptureDistance(for: exercise.metrics), distance == nil {
             return false
         }
-        if shouldCaptureDuration(for: exercise.metrics), (durationSeconds ?? 0) == 0 {
-            return false
+        if shouldCaptureDuration(for: exercise.metrics) {
+            // Sprints capture time as tenths; everything else stays on the
+            // whole-second duration state.
+            if exercise.isSprint {
+                if (sprintTimeTenths ?? 0) == 0 { return false }
+            } else if (durationSeconds ?? 0) == 0 {
+                return false
+            }
         }
         return true
     }
@@ -710,7 +777,7 @@ struct AddSetView: View {
 
     private var saveAndNextButtonContent: some View {
         Button {
-            save(shouldContinue: !isFinalSprintRep)
+            save(shouldContinue: !isFinalSprintRep, concludesSprintSequence: isFinalSprintRep)
         } label: {
             Label(
                 isFinalSprintRep ? "Save Final Rep" : sprintActionTitle,
@@ -885,20 +952,28 @@ struct AddSetView: View {
     }
 
     private func applyDefaults(for exercise: ExerciseSnapshot, lastEntry: SetEntry?) {
-        if let prescription = exercise.sprintPrescription {
+        if let variant = exercise.sprintVariants.first {
             weight = nil
             addedLoad = false
             reps = nil
             logReps = false
-            distance = prescription.distance
-            distanceUnit = exercise.preferredDistanceUnit
+            selectedSprintVariant = variant
+            distance = variant.distance
+            distanceUnit = variant.distanceUnit
             logDistance = true
             durationSeconds = nil
+            sprintTimeTenths = nil
+            sequenceOutcomes = []
+            refreshProgressionHint(for: variant)
             logDuration = true
             difficulty = 8
             restAfterSeconds = exercise.defaultRestSeconds
             return
         }
+        selectedSprintVariant = nil
+        sprintTimeTenths = nil
+        sequenceOutcomes = []
+        progressionHintText = nil
 
         if let lastEntry {
             weight = exercise.displayedWeightInput(fromStoredWeight: lastEntry.weight)
@@ -964,7 +1039,7 @@ struct AddSetView: View {
         restAfterSeconds = exercise.defaultRestSeconds
     }
 
-    private func save(shouldContinue: Bool = false) {
+    private func save(shouldContinue: Bool = false, concludesSprintSequence: Bool = false) {
         dismissKeyboard()
         guard let selectedExerciseID else {
             showMissingExercise = selectedExerciseSnapshot != nil
@@ -996,20 +1071,32 @@ struct AddSetView: View {
             }
             return metrics.usesDistance ? distance : nil
         }()
+        let activeVariant = selectedExerciseSnapshot.flatMap { activeSprintVariant(for: $0) }
         let resolvedDurationSeconds: Int? = {
             if metrics.durationSeconds == .optional, !logDuration {
                 return nil
             }
-            return metrics.usesDuration ? durationSeconds : nil
+            guard metrics.usesDuration else { return nil }
+            // Tenths are canonical for sprints; the whole-second column gets
+            // the rounded value so every legacy consumer sees the closest
+            // representable time (`SprintTiming.wholeSeconds`).
+            if activeVariant != nil, let tenths = sprintTimeTenths {
+                return SprintTiming.wholeSeconds(fromTenths: tenths)
+            }
+            return durationSeconds
         }()
 
         let now = AppEnvironment.now
         let storedWeight = exercise.storedWeight(from: resolvedWeight)
-        let achievedPR = didAchievePR(
+        var achievedPR = didAchievePR(
             storedWeight: storedWeight,
             reps: resolvedReps,
             metrics: metrics
         )
+        if let variant = activeVariant, let tenths = sprintTimeTenths,
+           didAchieveSprintPR(exerciseID: exercise.id, variant: variant, tenths: tenths) {
+            achievedPR = true
+        }
         let entry = SetEntry(
             exercise: exercise,
             performedAt: performedAt,
@@ -1028,23 +1115,49 @@ struct AddSetView: View {
 
         let sprintGoalSnapshot: SprintGoalSnapshot? = {
             guard let exerciseSnapshot = selectedExerciseSnapshot,
-                  let prescription = exerciseSnapshot.sprintPrescription else { return nil }
+                  let variant = activeVariant else { return nil }
             let repetitionNumber = completedSprintRepetitions(for: exerciseSnapshot.id) + 1
+            let legacyPlan = variant.legacyPlan
             return SprintGoalSnapshot(
                 setEntryID: entry.id,
                 exerciseID: exercise.id,
-                distance: prescription.distance,
-                distanceUnit: exerciseSnapshot.preferredDistanceUnit,
-                repetitionNumber: repetitionNumber <= prescription.repetitionCount ? repetitionNumber : nil,
-                repetitionCount: prescription.repetitionCount,
-                targetLowerSeconds: prescription.targetLowerSeconds,
-                targetUpperSeconds: prescription.targetUpperSeconds,
+                distance: variant.distance,
+                distanceUnit: variant.distanceUnit,
+                repetitionNumber: repetitionNumber <= variant.repetitionCount ? repetitionNumber : nil,
+                repetitionCount: variant.repetitionCount,
+                targetLowerSeconds: legacyPlan.targetLowerSeconds,
+                targetUpperSeconds: legacyPlan.targetUpperSeconds,
+                createdAt: now
+            )
+        }()
+
+        // The tenths companion row: exact recorded time + exact frozen target.
+        // Written alongside the legacy snapshot, never instead of it.
+        let sprintRepDetail: SprintRepDetail? = {
+            guard let variant = activeVariant, let tenths = sprintTimeTenths,
+                  SprintTiming.isPlausible(tenths: tenths) else { return nil }
+            return SprintRepDetail(
+                setEntryID: entry.id,
+                durationTenths: tenths,
+                targetLowerTenths: variant.target.lowerTenths,
+                targetUpperTenths: variant.target.upperTenths,
+                variantID: variant.id,
                 createdAt: now
             )
         }()
 
         modelContext.insert(entry)
         if let sprintGoalSnapshot { modelContext.insert(sprintGoalSnapshot) }
+        if let sprintRepDetail { modelContext.insert(sprintRepDetail) }
+        if let variant = activeVariant, let variantID = variant.id {
+            // Stamp the plan as most-recently-used and re-mirror the legacy
+            // prescription so every pre-variant surface stays truthful.
+            let descriptor = FetchDescriptor<SprintVariant>(predicate: #Predicate { $0.id == variantID })
+            if let liveVariant = (try? modelContext.fetch(descriptor))?.first {
+                liveVariant.lastUsedAt = now
+            }
+            SprintVariant.syncLegacyPrescription(for: exercise.id, in: modelContext)
+        }
         activeSession?.append(entry, at: now)
         do {
             try modelContext.save()
@@ -1065,9 +1178,20 @@ struct AddSetView: View {
         if exerciseSnapshotIsSprint, activeSession == nil {
             sprintSequenceCompleted += 1
         }
+        if let variant = activeVariant, let tenths = sprintTimeTenths {
+            sequenceOutcomes.append(SprintRepOutcome(
+                tenths: tenths,
+                outcome: variant.target.outcome(forTenths: tenths)
+            ))
+        }
         RestActivityController.shared.startRest(for: entry)
         if shouldContinue {
             continueAfterSaving(entry, exercise: exercise)
+            sprintTimeTenths = nil
+        } else if concludesSprintSequence, !sequenceOutcomes.isEmpty {
+            // The payoff moment: the sequence rollup replaces the form before
+            // the sheet closes, instead of the sheet just vanishing.
+            showSprintSummary = true
         } else {
             closeSheet()
         }
@@ -1108,6 +1232,44 @@ struct AddSetView: View {
         metrics.durationIsRequired || (metrics.durationSeconds == .optional && logDuration)
     }
 
+    /// Whether this rep's precise time beats every earlier time at the same
+    /// distance — the save-time mirror of `PersonalRecords.sprintTimeBadges`,
+    /// including its baseline rule (the first timed rep at a distance counts).
+    private func didAchieveSprintPR(exerciseID: UUID, variant: SprintVariantValue, tenths: Int) -> Bool {
+        let entries = fetchAllEntries(for: exerciseID)
+        guard !entries.isEmpty else { return true }
+        let entryIDs = entries.map(\.id)
+        let detailDescriptor = FetchDescriptor<SprintRepDetail>(
+            predicate: #Predicate { entryIDs.contains($0.setEntryID) }
+        )
+        let detailByEntry = Dictionary(
+            uniqueKeysWithValues: ((try? modelContext.fetch(detailDescriptor)) ?? []).map { ($0.setEntryID, $0) }
+        )
+        let snapshotDescriptor = FetchDescriptor<SprintGoalSnapshot>(
+            predicate: #Predicate { entryIDs.contains($0.setEntryID) }
+        )
+        let snapshotEntryIDs = Set(((try? modelContext.fetch(snapshotDescriptor)) ?? []).map(\.setEntryID))
+
+        let targetMeters = variant.distanceUnit.meters(from: variant.distance)
+        let tolerance = max(0.01, targetMeters * 0.000_001)
+        var best: Int?
+        for entry in entries {
+            guard let distance = entry.distance, distance > 0,
+                  abs(entry.distanceUnit.meters(from: distance) - targetMeters) <= tolerance else { continue }
+            let time: Int?
+            if let detail = detailByEntry[entry.id] {
+                time = detail.durationTenths
+            } else if snapshotEntryIDs.contains(entry.id), let seconds = entry.durationSeconds, seconds > 0 {
+                time = SprintTiming.tenths(fromWholeSeconds: seconds)
+            } else {
+                time = nil
+            }
+            if let time { best = min(best ?? time, time) }
+        }
+        guard let best else { return true }
+        return tenths < best
+    }
+
     private func completedSprintRepetitions(for exerciseID: UUID) -> Int {
         if let activeSession {
             return activeSession.entries.filter { $0.exercise.id == exerciseID }.count
@@ -1116,13 +1278,63 @@ struct AddSetView: View {
     }
 
     private var exerciseSnapshotIsSprint: Bool {
-        selectedExerciseSnapshot?.sprintPrescription != nil
+        selectedExerciseSnapshot?.isSprint ?? false
     }
 
     private var isFinalSprintRep: Bool {
         guard let exercise = selectedExerciseSnapshot,
-              let prescription = exercise.sprintPrescription else { return false }
-        return completedSprintRepetitions(for: exercise.id) + 1 == prescription.repetitionCount
+              let variant = activeSprintVariant(for: exercise) else { return false }
+        return completedSprintRepetitions(for: exercise.id) + 1 == variant.repetitionCount
+    }
+
+    /// The variant this sequence is logging against: the athlete's explicit
+    /// pick, else the exercise's primary. Re-resolved against the snapshot so
+    /// a stale selection (exercise switched mid-sheet) can never leak through.
+    private func activeSprintVariant(for exercise: ExerciseSnapshot) -> SprintVariantValue? {
+        if let selectedSprintVariant,
+           exercise.sprintVariants.contains(where: { $0.id == selectedSprintVariant.id }) {
+            return selectedSprintVariant
+        }
+        return exercise.sprintVariants.first
+    }
+
+    /// Switching plans mid-sequence restarts the rep count and distance —
+    /// the athlete is beginning a different workout, not continuing this one.
+    private func switchSprintVariant(to variant: SprintVariantValue) {
+        selectedSprintVariant = variant
+        distance = variant.distance
+        distanceUnit = variant.distanceUnit
+        sprintSequenceCompleted = 0
+        sequenceOutcomes = []
+        refreshProgressionHint(for: variant)
+    }
+
+    /// Decimal-seconds seam over the canonical tenths state.
+    private var sprintSecondsBinding: Binding<Double?> {
+        Binding(
+            get: { sprintTimeTenths.map { SprintTiming.seconds(fromTenths: $0) } },
+            set: { newValue in
+                guard let newValue, newValue > 0 else {
+                    sprintTimeTenths = nil
+                    return
+                }
+                let tenths = SprintTiming.tenths(fromSeconds: newValue)
+                sprintTimeTenths = SprintTiming.isPlausible(tenths: tenths) ? tenths : nil
+            }
+        )
+    }
+
+    private func refreshProgressionHint(for variant: SprintVariantValue?) {
+        guard let variant, let variantID = variant.id else {
+            progressionHintText = nil
+            return
+        }
+        progressionHintText = SprintProgression.hint(
+            variantID: variantID,
+            target: variant.target,
+            repetitionCount: variant.repetitionCount,
+            in: modelContext
+        )
     }
 
     private var sprintActionTitle: String {
@@ -1158,8 +1370,17 @@ private extension AddSetView {
         let preferredDistanceUnit: DistanceUnit
         let defaultRestSeconds: Int
         let sprintPrescription: SprintPrescriptionPlan?
+        /// The exercise's sprint plans, primary (most recently used) first.
+        /// Synthesized from the legacy prescription when no variant row exists
+        /// yet (fixture stores, mid-adoption edge) so sprint logging never
+        /// depends on the adoption sweep having run.
+        let sprintVariants: [SprintVariantValue]
 
-        init(_ exercise: Exercise, sprintPrescription: SprintPrescription? = nil) {
+        init(
+            _ exercise: Exercise,
+            sprintPrescription: SprintPrescription? = nil,
+            sprintVariants: [SprintVariantValue] = []
+        ) {
             id = exercise.id
             name = exercise.name
             category = exercise.category
@@ -1169,7 +1390,16 @@ private extension AddSetView {
             preferredDistanceUnit = exercise.preferredDistanceUnit
             defaultRestSeconds = exercise.defaultRestSeconds
             self.sprintPrescription = sprintPrescription?.plan
+            if !sprintVariants.isEmpty {
+                self.sprintVariants = sprintVariants
+            } else if let plan = sprintPrescription?.plan, plan.isValid {
+                self.sprintVariants = [SprintVariantValue(legacyPlan: plan, distanceUnit: exercise.preferredDistanceUnit)]
+            } else {
+                self.sprintVariants = []
+            }
         }
+
+        var isSprint: Bool { !sprintVariants.isEmpty }
 
         var weightInputTitle: String {
             resistanceTrackingStyle.fieldTitle
@@ -1194,12 +1424,28 @@ private extension AddSetView {
     }
 
     func selectExercise(_ exercise: Exercise, lastEntry: SetEntry?) {
-        let snapshot = ExerciseSnapshot(exercise, sprintPrescription: sprintPrescription(for: exercise.id))
+        let snapshot = ExerciseSnapshot(
+            exercise,
+            sprintPrescription: sprintPrescription(for: exercise.id),
+            sprintVariants: sprintVariantValues(for: exercise.id)
+        )
         selectedExerciseID = snapshot.id
         selectedExerciseSnapshot = snapshot
         self.lastEntry = lastEntry
         personalRecords = computeRecords(for: exercise)
         applyDefaults(for: snapshot, lastEntry: lastEntry)
+    }
+
+    /// The exercise's variants as value snapshots, primary first — the order
+    /// the picker menu shows and the default the sheet preselects.
+    func sprintVariantValues(for exerciseID: UUID) -> [SprintVariantValue] {
+        sprintVariantModels
+            .filter { $0.exerciseID == exerciseID && $0.isValid }
+            .sorted { lhs, rhs in
+                if lhs.lastUsedAt == rhs.lastUsedAt { return lhs.createdAt > rhs.createdAt }
+                return lhs.lastUsedAt > rhs.lastUsedAt
+            }
+            .map(SprintVariantValue.init)
     }
 
     func hydrateSelection(id: UUID, shouldApplyDefaults: Bool) {
@@ -1211,7 +1457,11 @@ private extension AddSetView {
             showMissingExercise = true
             return
         }
-        let snapshot = ExerciseSnapshot(exercise, sprintPrescription: sprintPrescription(for: exercise.id))
+        let snapshot = ExerciseSnapshot(
+            exercise,
+            sprintPrescription: sprintPrescription(for: exercise.id),
+            sprintVariants: sprintVariantValues(for: exercise.id)
+        )
         selectedExerciseSnapshot = snapshot
         let recent = fetchLastEntry(for: id)
         lastEntry = recent
@@ -1231,7 +1481,11 @@ private extension AddSetView {
             showMissingExercise = true
             return
         }
-        selectedExerciseSnapshot = ExerciseSnapshot(exercise, sprintPrescription: sprintPrescription(for: exercise.id))
+        selectedExerciseSnapshot = ExerciseSnapshot(
+            exercise,
+            sprintPrescription: sprintPrescription(for: exercise.id),
+            sprintVariants: sprintVariantValues(for: exercise.id)
+        )
         lastEntry = fetchLastEntry(for: id)
         personalRecords = computeRecords(for: exercise)
     }

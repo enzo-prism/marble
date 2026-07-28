@@ -82,6 +82,9 @@ enum MarbleBackupService {
         let plans = try context.fetch(FetchDescriptor<SplitPlan>())
         let sprintPrescriptions = try context.fetch(FetchDescriptor<SprintPrescription>())
         let sprintGoalSnapshots = try context.fetch(FetchDescriptor<SprintGoalSnapshot>())
+        // Schema V6: multi-plan sprint variants + per-rep tenths details.
+        let sprintVariants = try context.fetch(FetchDescriptor<SprintVariant>())
+        let sprintRepDetails = try context.fetch(FetchDescriptor<SprintRepDetail>())
         // Schema V5. Omitting this is what silently threw away every weigh-in
         // on a phone-to-phone restore — the same class of bug as the dropped
         // `ImportedWorkout`. Any new @Model type belongs in this list, and
@@ -107,6 +110,8 @@ enum MarbleBackupService {
             plans: plans.map(PlanRecord.init),
             sprintPrescriptions: sprintPrescriptions.map(SprintPrescriptionRecord.init),
             sprintGoalSnapshots: sprintGoalSnapshots.map(SprintGoalSnapshotRecord.init),
+            sprintVariants: sprintVariants.map(SprintVariantRecord.init),
+            sprintRepDetails: sprintRepDetails.map(SprintRepDetailRecord.init),
             bodyMetrics: bodyMetrics.map(BodyMetricRecord.init),
             importedWorkouts: importedWorkouts.map(ImportedWorkoutRecord.init),
             progressMedia: progressMedia.map(ProgressMediaRecord.init),
@@ -274,6 +279,47 @@ enum MarbleBackupService {
                 claimedEntryIDs.formUnion(adoptableEntries.map(\.id))
                 insertedSessions += 1
             }
+        }
+
+        // V6 sprint plans. Dedup by row id; a variant carries no relationship,
+        // so insertion order against prescriptions doesn't matter. After both
+        // collections land, the adoption sweep + mirror re-sync below make a
+        // pre-V6 backup's prescriptions loggable and a V6 backup's mirror
+        // consistent, whichever kind of file this was.
+        let existingVariantIDs = Set(try context.fetch(FetchDescriptor<SprintVariant>()).map(\.id))
+        for record in payload.sprintVariants ?? [] where !existingVariantIDs.contains(record.id) {
+            context.insert(SprintVariant(
+                id: record.id,
+                exerciseID: record.exerciseID,
+                title: record.title,
+                distance: record.distance,
+                distanceUnit: record.distanceUnit,
+                repetitionCount: record.repetitionCount,
+                targetLowerTenths: record.targetLowerTenths,
+                targetUpperTenths: record.targetUpperTenths,
+                lastUsedAt: record.lastUsedAt,
+                createdAt: record.createdAt,
+                updatedAt: record.updatedAt
+            ))
+        }
+
+        // Per-rep tenths details: `setEntryID` is `.unique`, so dedup on both
+        // keys exactly like the goal snapshots above — inserting a "new" id
+        // for an already-detailed rep would upsert over the user's row.
+        let existingDetails = try context.fetch(FetchDescriptor<SprintRepDetail>())
+        let existingDetailIDs = Set(existingDetails.map(\.id))
+        let existingDetailEntryIDs = Set(existingDetails.map(\.setEntryID))
+        for record in payload.sprintRepDetails ?? []
+        where !existingDetailIDs.contains(record.id) && !existingDetailEntryIDs.contains(record.setEntryID) {
+            context.insert(SprintRepDetail(
+                id: record.id,
+                setEntryID: record.setEntryID,
+                durationTenths: record.durationTenths,
+                targetLowerTenths: record.targetLowerTenths,
+                targetUpperTenths: record.targetUpperTenths,
+                variantID: record.variantID,
+                createdAt: record.createdAt
+            ))
         }
 
         // The import ledger has TWO database-level unique constraints: `id` and
@@ -475,6 +521,10 @@ enum MarbleBackupService {
             insertedCustomNotifications += 1
         }
 
+        // A pre-V6 backup restores prescriptions but no variants; adopt them
+        // now (idempotent) so the sprint logger works before the next launch.
+        SprintVariant.adoptLegacyPrescriptions(in: context)
+
         do {
             try context.save()
         } catch {
@@ -552,6 +602,8 @@ enum MarbleBackupService {
         let plannedSets = days.flatMap(\.plannedSets)
         let sprintPrescriptions = payload.sprintPrescriptions ?? []
         let sprintGoalSnapshots = payload.sprintGoalSnapshots ?? []
+        let sprintVariants = payload.sprintVariants ?? []
+        let sprintRepDetails = payload.sprintRepDetails ?? []
         let importedWorkouts = payload.importedWorkouts ?? []
         let importedEntryIDs = importedWorkouts.flatMap(\.entryIDs)
 
@@ -586,6 +638,29 @@ enum MarbleBackupService {
                   ).isValid && snapshot.repetitionNumber.map {
                       (1...snapshot.repetitionCount).contains($0)
                   } != false
+              }),
+              // V6 sprint plans: multiple per exercise is the point, so no
+              // per-exercise uniqueness — only row-id uniqueness, referenced
+              // exercises, and tenths-domain validity.
+              hasUniqueIDs(sprintVariants, id: \.id),
+              sprintVariants.allSatisfy({ exerciseIDs.contains($0.exerciseID) }),
+              sprintVariants.allSatisfy({ variant in
+                  variant.distance > 0 &&
+                  (1...50).contains(variant.repetitionCount) &&
+                  SprintTargetTenths(
+                      lowerTenths: variant.targetLowerTenths,
+                      upperTenths: variant.targetUpperTenths
+                  ).isValid
+              }),
+              hasUniqueIDs(sprintRepDetails, id: \.id),
+              Set(sprintRepDetails.map(\.setEntryID)).count == sprintRepDetails.count,
+              sprintRepDetails.allSatisfy({ detail in
+                  setIDs.contains(detail.setEntryID) &&
+                  SprintTiming.isPlausible(tenths: detail.durationTenths) &&
+                  SprintTargetTenths(
+                      lowerTenths: detail.targetLowerTenths,
+                      upperTenths: detail.targetUpperTenths
+                  ).isValid
               }),
               // Import-ledger integrity, all proven before anything is
               // written. `deduplicationKey` carries a `.unique` constraint, so
@@ -627,6 +702,10 @@ private nonisolated struct Payload: Codable {
     let plans: [PlanRecord]
     let sprintPrescriptions: [SprintPrescriptionRecord]?
     let sprintGoalSnapshots: [SprintGoalSnapshotRecord]?
+    /// V6 multi-plan sprint variants; optional so every pre-V6 file restores.
+    let sprintVariants: [SprintVariantRecord]?
+    /// V6 per-rep tenths details; optional for the same reason.
+    let sprintRepDetails: [SprintRepDetailRecord]?
     /// Optional for the same reason as the two above: a 2.1-era backup has no
     /// such key, and it must still restore. That is what lets `formatVersion`
     /// stay at 1 instead of orphaning every existing backup file.
@@ -840,6 +919,54 @@ private nonisolated struct SprintPrescriptionRecord: Codable {
         targetUpperSeconds = prescription.targetUpperSeconds
         createdAt = prescription.createdAt
         updatedAt = prescription.updatedAt
+    }
+}
+
+private nonisolated struct SprintVariantRecord: Codable {
+    let id: UUID
+    let exerciseID: UUID
+    let title: String
+    let distance: Double
+    let distanceUnit: DistanceUnit
+    let repetitionCount: Int
+    let targetLowerTenths: Int
+    let targetUpperTenths: Int
+    let lastUsedAt: Date
+    let createdAt: Date
+    let updatedAt: Date
+
+    @MainActor init(_ variant: SprintVariant) {
+        id = variant.id
+        exerciseID = variant.exerciseID
+        title = variant.title
+        distance = variant.distance
+        distanceUnit = variant.distanceUnit
+        repetitionCount = variant.repetitionCount
+        targetLowerTenths = variant.targetLowerTenths
+        targetUpperTenths = variant.targetUpperTenths
+        lastUsedAt = variant.lastUsedAt
+        createdAt = variant.createdAt
+        updatedAt = variant.updatedAt
+    }
+}
+
+private nonisolated struct SprintRepDetailRecord: Codable {
+    let id: UUID
+    let setEntryID: UUID
+    let durationTenths: Int
+    let targetLowerTenths: Int
+    let targetUpperTenths: Int
+    let variantID: UUID?
+    let createdAt: Date
+
+    @MainActor init(_ detail: SprintRepDetail) {
+        id = detail.id
+        setEntryID = detail.setEntryID
+        durationTenths = detail.durationTenths
+        targetLowerTenths = detail.targetLowerTenths
+        targetUpperTenths = detail.targetUpperTenths
+        variantID = detail.variantID
+        createdAt = detail.createdAt
     }
 }
 

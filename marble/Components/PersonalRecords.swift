@@ -9,10 +9,13 @@ struct PersonalRecordBadge: OptionSet, Hashable {
 
     static let weight = PersonalRecordBadge(rawValue: 1 << 0)
     static let reps = PersonalRecordBadge(rawValue: 1 << 1)
+    /// Fastest recorded time at a sprint's exact prescribed distance.
+    static let sprintTime = PersonalRecordBadge(rawValue: 1 << 2)
 
     /// Short label for the celebratory pill in the journal. Collapses a
     /// weight+reps record to a single "PR" so the badge stays compact.
     var shortTitle: String {
+        if contains(.sprintTime) { return "Fastest" }
         if contains(.weight) && contains(.reps) { return "PR" }
         if contains(.weight) { return "Weight PR" }
         if contains(.reps) { return "Reps PR" }
@@ -21,6 +24,7 @@ struct PersonalRecordBadge: OptionSet, Hashable {
 
     /// Spoken description for VoiceOver.
     var accessibilityDescription: String {
+        if contains(.sprintTime) { return "Personal record: fastest time" }
         if contains(.weight) && contains(.reps) { return "Personal record: weight and reps" }
         if contains(.weight) { return "Personal record: weight" }
         if contains(.reps) { return "Personal record: reps" }
@@ -86,8 +90,11 @@ enum PersonalRecords {
     /// establishes the baseline record and is badged too — so a lifter sees a
     /// trail of every personal best in their history, and the all-time best is
     /// always badged. Weight & reps only; only for exercises that use the metric.
-    static func badges(for entries: [SetEntry]) -> [UUID: PersonalRecordBadge] {
-        var result: [UUID: PersonalRecordBadge] = [:]
+    static func badges(
+        for entries: [SetEntry],
+        sprintTimes: [UUID: Int] = [:]
+    ) -> [UUID: PersonalRecordBadge] {
+        var result: [UUID: PersonalRecordBadge] = sprintTimeBadges(for: entries, sprintTimes: sprintTimes)
         let grouped = Dictionary(grouping: entries) { $0.exercise.id }
 
         for (_, group) in grouped {
@@ -129,12 +136,69 @@ enum PersonalRecords {
                 }
 
                 if !badge.isEmpty {
-                    result[entry.id] = badge
+                    result[entry.id, default: []].formUnion(badge)
                 }
             }
         }
 
         return result
+    }
+
+    /// The sprint-time counterpart of the weight/reps trail: a rep is badged
+    /// when its precise time beats every earlier time at the same exercise AND
+    /// the same distance (unit-normalized meters — a 60 m best says nothing
+    /// about 150 m). The first timed rep at a distance establishes the
+    /// baseline record and is badged, matching the weight/reps rule.
+    static func sprintTimeBadges(
+        for entries: [SetEntry],
+        sprintTimes: [UUID: Int]
+    ) -> [UUID: PersonalRecordBadge] {
+        guard !sprintTimes.isEmpty else { return [:] }
+        var result: [UUID: PersonalRecordBadge] = [:]
+        let timed = entries.filter { sprintTimes[$0.id] != nil && ($0.distance ?? 0) > 0 }
+        let grouped = Dictionary(grouping: timed) { $0.exercise.id }
+
+        for (_, group) in grouped {
+            let ordered = group.sorted(by: isChronologicallyBefore)
+            // Distance key in decimeters so 100 m == 0.1 km across units.
+            var bestByDistance: [Int: Int] = [:]
+            for entry in ordered {
+                guard let tenths = sprintTimes[entry.id], tenths > 0,
+                      let distance = entry.distance else { continue }
+                let distanceKey = Int((entry.distanceUnit.meters(from: distance) * 10).rounded())
+                if let best = bestByDistance[distanceKey] {
+                    if tenths < best {
+                        result[entry.id] = .sprintTime
+                        bestByDistance[distanceKey] = tenths
+                    }
+                } else {
+                    result[entry.id] = .sprintTime
+                    bestByDistance[distanceKey] = tenths
+                }
+            }
+        }
+        return result
+    }
+
+    /// One tenths-domain time per sprint rep: the exact recorded tenths where
+    /// a `SprintRepDetail` exists, the whole-second column ×10 for legacy reps
+    /// (identified by their goal snapshot). Non-sprint timed work (a plank, a
+    /// run) is deliberately excluded — "fastest" only means something against
+    /// a prescribed sprint distance.
+    static func sprintTimes(
+        entries: [SetEntry],
+        sprintGoals: [UUID: SprintGoalSnapshot],
+        sprintDetails: [UUID: SprintRepDetail]
+    ) -> [UUID: Int] {
+        var times: [UUID: Int] = [:]
+        for entry in entries {
+            if let detail = sprintDetails[entry.id] {
+                times[entry.id] = detail.durationTenths
+            } else if sprintGoals[entry.id] != nil, let seconds = entry.durationSeconds, seconds > 0 {
+                times[entry.id] = SprintTiming.tenths(fromWholeSeconds: seconds)
+            }
+        }
+        return times
     }
 
     /// All-time bests and usual ranges for a single exercise.

@@ -4,6 +4,7 @@ struct QuickLogCardView: View {
     let entry: SetEntry?
     var prBadge: PersonalRecordBadge = []
     var sprintGoal: SprintGoalSnapshot? = nil
+    var sprintDetail: SprintRepDetail? = nil
     var bestCue: QuickLogBestCue? = nil
     let onLogAgain: () -> Void
     let onEdit: () -> Void
@@ -63,7 +64,7 @@ struct QuickLogCardView: View {
 
                     if let sprintGoal {
                         SprintGoalStatusLine(
-                            evaluation: SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry),
+                            evaluation: SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry, detail: sprintDetail),
                             snapshot: sprintGoal
                         )
                     }
@@ -223,7 +224,7 @@ struct QuickLogCardView: View {
         let prefix = prBadge.isEmpty ? "" : "\(prBadge.accessibilityDescription). "
         let best = bestCue.map { "\($0.accessibilityLabel), " } ?? ""
         if let sprintGoal {
-            let evaluation = SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry)
+            let evaluation = SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry, detail: sprintDetail)
             return "\(prefix)\(entry.exercise.name), \(summary), \(best)\(evaluation.status.title), target \(evaluation.targetText), \(evaluation.reason), \(lastLogged)"
         }
         return "\(prefix)\(entry.exercise.name), \(summary), \(best)\(lastLogged)"

@@ -1,15 +1,17 @@
 import SwiftUI
 
-struct SprintPrescriptionEditorView: View {
-    @Binding var isEnabled: Bool
-    @Binding var distance: Double?
+/// Edits one sprint plan (`SprintVariantDraft`) inside the exercise editor —
+/// the multi-plan successor of the retired `SprintPrescriptionEditorView`.
+/// Target times are decimal seconds ("14.8"); tenths are the canon they
+/// resolve to on save.
+struct SprintVariantEditorView: View {
+    @Binding var draft: SprintVariantDraft
     @Binding var distanceUnit: DistanceUnit
-    @Binding var repetitionCount: Int
-    @Binding var targetMode: SprintTargetMode
-    @Binding var targetSeconds: Int?
-    @Binding var targetLowerSeconds: Int?
-    @Binding var targetUpperSeconds: Int?
-    var showsEnableToggle: Bool = true
+    /// Position in the plan list, for stable accessibility identifiers that
+    /// survive deletes ("ExerciseEditor.Sprint.0.Distance").
+    let index: Int
+    let canDelete: Bool
+    let onDelete: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -17,25 +19,34 @@ struct SprintPrescriptionEditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.m) {
-            if showsEnableToggle {
-                Toggle("Use a sprint prescription", isOn: $isEnabled)
-                    .tint(Theme.dividerColor(for: colorScheme))
-                    .accessibilityIdentifier("ExerciseEditor.Sprint.Enabled")
+            HStack {
+                TextField("Plan name (optional)", text: $draft.title)
+                    .font(MarbleTypography.rowTitle)
+                    .marbleFieldStyle()
+                    .accessibilityLabel("Plan name")
+                    .accessibilityIdentifier("ExerciseEditor.Sprint.\(index).Title")
+
+                if canDelete {
+                    Button(role: .destructive) {
+                        onDelete()
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.destructiveActionColor(for: colorScheme))
+                    .accessibilityLabel("Delete this sprint plan")
+                    .accessibilityIdentifier("ExerciseEditor.Sprint.\(index).Delete")
+                }
             }
 
-            Text("Set the distance, number of sprints, and the time you want to hit every rep.")
-                .font(MarbleTypography.rowSubtitle)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .fixedSize(horizontal: false, vertical: true)
-
-            if isEnabled {
-                if showsEnableToggle { Divider() }
-                sprintDistanceSection
-                Divider()
-                repeatSection
-                Divider()
-                targetSection
-            }
+            sprintDistanceSection
+            Divider()
+            repeatSection
+            Divider()
+            targetSection
         }
     }
 
@@ -48,8 +59,8 @@ struct SprintPrescriptionEditorView: View {
                 OptionalNumberField(
                     title: "Distance",
                     formatter: Formatters.distance,
-                    value: $distance,
-                    accessibilityIdentifier: "ExerciseEditor.Sprint.Distance"
+                    value: $draft.distance,
+                    accessibilityIdentifier: "ExerciseEditor.Sprint.\(index).Distance"
                 )
 
                 Picker("Unit", selection: $distanceUnit) {
@@ -58,14 +69,14 @@ struct SprintPrescriptionEditorView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .accessibilityIdentifier("ExerciseEditor.Sprint.DistanceUnit")
+                .accessibilityIdentifier("ExerciseEditor.Sprint.\(index).DistanceUnit")
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: MarbleSpacing.xs) {
                     ForEach(distancePresets, id: \.self) { preset in
                         Button {
-                            distance = preset
+                            draft.distance = preset
                             distanceUnit = .meters
                         } label: {
                             Text("\(Int(preset))m")
@@ -74,19 +85,19 @@ struct SprintPrescriptionEditorView: View {
                                 .frame(minHeight: 44)
                                 .background(
                                     Capsule().fill(
-                                        distance == preset && distanceUnit == .meters
+                                        draft.distance == preset && distanceUnit == .meters
                                             ? Theme.primaryTextColor(for: colorScheme)
                                             : Theme.chipFillColor(for: colorScheme)
                                     )
                                 )
                                 .foregroundStyle(
-                                    distance == preset && distanceUnit == .meters
+                                    draft.distance == preset && distanceUnit == .meters
                                         ? Theme.backgroundColor(for: colorScheme)
                                         : Theme.primaryTextColor(for: colorScheme)
                                 )
                         }
                         .buttonStyle(.plain)
-                        .accessibilityIdentifier("ExerciseEditor.Sprint.DistancePreset.\(Int(preset))")
+                        .accessibilityIdentifier("ExerciseEditor.Sprint.\(index).DistancePreset.\(Int(preset))")
                     }
                 }
             }
@@ -94,16 +105,16 @@ struct SprintPrescriptionEditorView: View {
     }
 
     private var repeatSection: some View {
-        Stepper(value: $repetitionCount, in: 1...50) {
+        Stepper(value: $draft.repetitionCount, in: 1...50) {
             VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
                 Text("Sprints")
                     .font(MarbleTypography.rowTitle)
-                Text("\(repetitionCount) reps")
+                Text("\(draft.repetitionCount) reps")
                     .font(MarbleTypography.rowSubtitle)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             }
         }
-        .accessibilityIdentifier("ExerciseEditor.Sprint.RepeatCount")
+        .accessibilityIdentifier("ExerciseEditor.Sprint.\(index).RepeatCount")
     }
 
     private var targetSection: some View {
@@ -111,34 +122,35 @@ struct SprintPrescriptionEditorView: View {
             Text("Target time")
                 .font(MarbleTypography.rowTitle)
 
-            Picker("Target style", selection: $targetMode) {
+            Picker("Target style", selection: $draft.targetMode) {
                 ForEach(SprintTargetMode.allCases) { mode in
                     Text(mode.title).tag(mode)
                 }
             }
             .pickerStyle(.segmented)
-            .accessibilityIdentifier("ExerciseEditor.Sprint.GoalMode")
+            .accessibilityIdentifier("ExerciseEditor.Sprint.\(index).GoalMode")
 
-            switch targetMode {
+            switch draft.targetMode {
             case .time:
-                targetTimeRow(title: "Goal", value: $targetSeconds, identifier: "ExerciseEditor.Sprint.GoalTime")
-                Text("This means the goal time or faster.")
+                targetTimeRow(title: "Goal", value: $draft.targetSeconds, identifier: "ExerciseEditor.Sprint.\(index).GoalTime")
+                Text("This means the goal time or faster. Tenths count — 14.8 beats 15.")
                     .font(MarbleTypography.caption)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             case .range:
-                targetTimeRow(title: "Fast end", value: $targetLowerSeconds, identifier: "ExerciseEditor.Sprint.RangeFast")
-                targetTimeRow(title: "Slow end", value: $targetUpperSeconds, identifier: "ExerciseEditor.Sprint.RangeSlow")
+                targetTimeRow(title: "Fast end", value: $draft.targetLowerSeconds, identifier: "ExerciseEditor.Sprint.\(index).RangeFast")
+                targetTimeRow(title: "Slow end", value: $draft.targetUpperSeconds, identifier: "ExerciseEditor.Sprint.\(index).RangeSlow")
             }
         }
     }
 
-    private func targetTimeRow(title: String, value: Binding<Int?>, identifier: String) -> some View {
+    private func targetTimeRow(title: String, value: Binding<Double?>, identifier: String) -> some View {
         HStack {
             Text(title)
                 .font(MarbleTypography.rowSubtitle)
             Spacer()
-            OptionalIntegerField(
+            OptionalNumberField(
                 title: "Seconds",
+                formatter: Formatters.sprintSeconds,
                 value: value,
                 accessibilityIdentifier: identifier
             )

@@ -13,6 +13,8 @@ enum SeedData {
             // cleanup behavior, so keep this unconditional in UI tests.
             SprintPrescription.removeOrphans(in: context)
             SprintGoalSnapshot.removeOrphans(in: context)
+            SprintVariant.removeOrphans(in: context)
+            SprintRepDetail.removeOrphans(in: context)
             switch TestHooks.fixtureMode {
             case .empty:
                 TestFixtures.seedEmpty(in: context, now: AppEnvironment.now)
@@ -22,6 +24,7 @@ enum SeedData {
                 TestFixtures.seedScreenshots(in: context, now: AppEnvironment.now)
             }
             SprintGoalSnapshot.backfillLegacyEntries(in: context)
+            SprintVariant.adoptLegacyPrescriptions(in: context)
             context.saveOrRollback()
             return
         }
@@ -31,11 +34,16 @@ enum SeedData {
             // stay on and no UI-test chrome renders. seedScreenshots clears the store
             // first, so repeat launches stay deterministic.
             TestFixtures.seedScreenshots(in: context, now: AppEnvironment.now)
+            SprintVariant.adoptLegacyPrescriptions(in: context)
             return
         }
         #endif
         let defaults = UserDefaults.standard
         performOneTimeMaintenanceIfNeeded(in: context, defaults: defaults)
+        // Every launch, not one-time: pre-V6 backups recreate legacy
+        // prescriptions at any time and each must become a loggable variant.
+        // Idempotent and key-projected — near-free with zero legacy rows.
+        SprintVariant.adoptLegacyPrescriptions(in: context)
         let didSeed = defaults.bool(forKey: didSeedKey)
 
         if !didSeed {

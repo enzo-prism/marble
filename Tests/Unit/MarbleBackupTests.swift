@@ -386,6 +386,23 @@ final class MarbleBackupTests: MarbleTestCase {
             targetLowerSeconds: 19,
             targetUpperSeconds: 21
         ))
+        let seededVariant = SprintVariant(
+            exerciseID: exercise.id,
+            title: "Speed",
+            distance: 150,
+            distanceUnit: .meters,
+            repetitionCount: 4,
+            targetLowerTenths: 190,
+            targetUpperTenths: 210
+        )
+        source.insert(seededVariant)
+        source.insert(SprintRepDetail(
+            setEntryID: entry.id,
+            durationTenths: 195,
+            targetLowerTenths: 190,
+            targetUpperTenths: 210,
+            variantID: seededVariant.id
+        ))
         source.insert(BodyMetricEntry(measuredAt: now, weightKilograms: 80))
         let imported = ImportedWorkout(source: .appleHealth, externalID: "hk-guard", title: "Imported", workoutDate: now, setsImported: 1, importedAt: now)
         source.insert(imported)
@@ -415,6 +432,8 @@ final class MarbleBackupTests: MarbleTestCase {
             "PlannedSet": plannedSetRecords.count,
             "SprintPrescription": records("sprintPrescriptions").count,
             "SprintGoalSnapshot": records("sprintGoalSnapshots").count,
+            "SprintVariant": records("sprintVariants").count,
+            "SprintRepDetail": records("sprintRepDetails").count,
             "BodyMetricEntry": records("bodyMetrics").count,
             "ImportedWorkout": records("importedWorkouts").count,
             "ProgressMediaAttachment": records("progressMedia").count,
@@ -435,11 +454,11 @@ final class MarbleBackupTests: MarbleTestCase {
         for (model, count) in payloadCounts {
             XCTAssertGreaterThan(count, 0, "\(model) was seeded above but its payload array is empty — makeDocument is not exporting it")
         }
-        // Hardcoded on purpose: adding entity #15 must fail here even if the
+        // Hardcoded on purpose: adding entity #17 must fail here even if the
         // seeding and the map above are both forgotten. When adding a model,
         // update BOTH the backup (makeDocument / validate / restore) AND this
         // test — the count, the map, and the seeded instance.
-        XCTAssertEqual(currentSchema.models.count, 14)
+        XCTAssertEqual(currentSchema.models.count, 16)
     }
 
     // MARK: - Import ledger, progress media metadata, custom notifications

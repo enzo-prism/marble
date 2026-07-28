@@ -199,6 +199,9 @@ struct LogSetIntent: AppIntent, PredictableIntent, UndoableIntent {
 
         context.insert(entry)
         if let sprintSnapshot { context.insert(sprintSnapshot) }
+        if let sprintDetail = Self.sprintDetail(for: model, entry: entry, in: context) {
+            context.insert(sprintDetail)
+        }
         // Voice-logged sets join the running workout, exactly as AddSetView does —
         // otherwise a Siri set silently falls outside the session it belongs to.
         activeSession?.append(entry, at: now)
@@ -296,6 +299,34 @@ extension LogSetIntent {
     /// Copying the source rep's snapshot (the `LogLastSetAgainIntent` behaviour)
     /// remains as the fallback for when the prescription has since been deleted, so
     /// history keeps a goal rather than losing one.
+    /// The tenths companion for a voice-logged sprint rep. Siri dictates whole
+    /// seconds, so the recorded tenths are exact (×10); the frozen target comes
+    /// from the exercise's primary `SprintVariant` at its full precision —
+    /// the same plan the mirrored prescription snapshot above was rounded from.
+    @MainActor
+    static func sprintDetail(
+        for exercise: Exercise,
+        entry: SetEntry,
+        in context: ModelContext
+    ) -> SprintRepDetail? {
+        guard let seconds = entry.durationSeconds, seconds > 0 else { return nil }
+        let exerciseID = exercise.id
+        let variantDescriptor = FetchDescriptor<SprintVariant>(
+            predicate: #Predicate { $0.exerciseID == exerciseID }
+        )
+        guard let variants = try? context.fetch(variantDescriptor),
+              let primary = SprintVariant.primary(for: exerciseID, in: variants) else { return nil }
+        primary.lastUsedAt = entry.createdAt
+        return SprintRepDetail(
+            setEntryID: entry.id,
+            durationTenths: SprintTiming.tenths(fromWholeSeconds: seconds),
+            targetLowerTenths: primary.targetLowerTenths,
+            targetUpperTenths: primary.targetUpperTenths,
+            variantID: primary.id,
+            createdAt: entry.createdAt
+        )
+    }
+
     @MainActor
     static func sprintSnapshot(
         for exercise: Exercise,

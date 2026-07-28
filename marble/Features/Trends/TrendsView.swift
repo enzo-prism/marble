@@ -322,6 +322,14 @@ struct TrendsContentView: View {
                         }
 
                         if hasSetData {
+                            SprintTrendsSection(
+                                entries: entries,
+                                latestEntryUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast
+                            )
+                            .padding(.top, MarbleSpacing.xxl)
+                        }
+
+                        if hasSetData {
                             VStack(alignment: .leading, spacing: MarbleSpacing.s) {
                                 // Range-scoped bests — distinct on purpose from
                                 // the all-time records in the feed above.

@@ -10,6 +10,7 @@
 >
 > | Phase | State |
 > |---|---|
+> | — main (2026-07-28) | **Unreleased sprint V6 feature wave**: tenths-precision timing + stopwatch, multiple sprint plans per exercise (schema V6, additive), sequence rollup, fastest-time PR trail, Trends sprint charts, progression nudges. See SPRINT_WORKOUTS.md. Ships with the next build. |
 > | — main (2026-07-28) | **Unreleased 10-fix reliability pass** on top of build 49 — number-field grouping corruption, Set Details delete-then-save crash pattern, the inert Control Center "Log a Set" control, backup-restore dedup/ownership, seed-flag durability, calendar/session cross-day attachment, undo-delete link loss, fresh-user reminder spam, rest-alert scheduling race, reps clamp. See README → Current state. Ships with the next build. |
 > | — build 49 | **On TestFlight `VALID` 2026-07-25** (buildId `5fe06de0-…`), not attached to the in-review version. Closes the known gaps below. |
 > | 0 — ship & tidy | **2.1 released to the App Store 2026-07-21** via `asc versions release`; version bump and PRs #2/#11 done. ⚠️ `ASC_APPSTORE_VERSION` in the Makefile was **never set to 2.2** — being fixed now. |

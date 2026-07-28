@@ -31,6 +31,18 @@ nonisolated enum Formatters {
         return formatter
     }()
 
+    /// Sprint times typed as decimal seconds ("14.8"). One fraction digit —
+    /// the tenths canon (`SprintTiming`) — and no grouping (sprints never
+    /// reach 1,000 s, and grouped editing is the NumberField corruption trap).
+    nonisolated(unsafe) static let sprintSeconds: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 1
+        formatter.usesGroupingSeparator = false
+        return formatter
+    }()
+
     nonisolated(unsafe) static let compactNumber: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal

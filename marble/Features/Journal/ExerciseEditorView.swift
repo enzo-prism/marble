@@ -20,6 +20,9 @@ struct ExerciseEditorView: View {
     @Query(sort: \SprintPrescription.createdAt)
     private var sprintPrescriptions: [SprintPrescription]
 
+    @Query(sort: \SprintVariant.createdAt)
+    private var sprintVariants: [SprintVariant]
+
     let exercise: Exercise?
     let initialName: String
     let onSave: ((Exercise) -> Void)?
@@ -242,18 +245,34 @@ struct ExerciseEditorView: View {
         }
 
         if draft.kind == .sprint {
-            Section("Sprint Goal") {
-                SprintPrescriptionEditorView(
-                    isEnabled: .constant(true),
-                    distance: $draft.sprintDistance,
-                    distanceUnit: $draft.preferredDistanceUnit,
-                    repetitionCount: $draft.sprintRepetitionCount,
-                    targetMode: $draft.sprintTargetMode,
-                    targetSeconds: $draft.sprintTargetSeconds,
-                    targetLowerSeconds: $draft.sprintTargetLowerSeconds,
-                    targetUpperSeconds: $draft.sprintTargetUpperSeconds,
-                    showsEnableToggle: false
-                )
+            Section("Sprint Plans") {
+                ForEach(Array($draft.sprintVariants.enumerated()), id: \.element.id) { index, $variantDraft in
+                    SprintVariantEditorView(
+                        draft: $variantDraft,
+                        distanceUnit: $draft.preferredDistanceUnit,
+                        index: index,
+                        canDelete: draft.sprintVariants.count > 1,
+                        onDelete: {
+                            let draftID = variantDraft.id
+                            draft.sprintVariants.removeAll { $0.id == draftID }
+                        }
+                    )
+                    if index < draft.sprintVariants.count - 1 {
+                        Divider()
+                    }
+                }
+
+                Button {
+                    draft.sprintVariants.append(.new())
+                } label: {
+                    Label("Add Sprint Plan", systemImage: "plus.circle")
+                        .font(MarbleTypography.rowSubtitle.weight(.semibold))
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .accessibilityHint("Adds another reusable sprint plan for this exercise, like a second distance.")
+                .accessibilityIdentifier("ExerciseEditor.Sprint.AddVariant")
 
                 if didAttemptSave, !draft.sprintErrors.isEmpty {
                     ForEach(draft.sprintErrors, id: \.self) { error in
@@ -462,6 +481,11 @@ struct ExerciseEditorView: View {
         return sprintPrescriptions.first { $0.exerciseID == exercise.id }
     }
 
+    private var currentVariants: [SprintVariant] {
+        guard let exercise else { return [] }
+        return sprintVariants.filter { $0.exerciseID == exercise.id }
+    }
+
     private var draftDisplayIcon: ExerciseDisplayIcon {
         if draft.iconSource == .emoji, let emoji = draft.resolvedCustomIconEmoji {
             return .emoji(emoji)
@@ -572,7 +596,11 @@ struct ExerciseEditorView: View {
         guard !didInitialize else { return }
         let configuredDraft: ExerciseEditorDraft
         if let exercise {
-            configuredDraft = ExerciseEditorDraft(exercise: exercise, prescription: currentPrescription)
+            configuredDraft = ExerciseEditorDraft(
+                exercise: exercise,
+                prescription: currentPrescription,
+                variants: currentVariants
+            )
         } else {
             configuredDraft = .new(initialName: initialName)
         }
@@ -635,7 +663,7 @@ struct ExerciseEditorView: View {
             savedExercise = newExercise
         }
 
-        persistSprintPrescription(for: savedExercise)
+        persistSprintVariants(for: savedExercise)
         do {
             try modelContext.save()
         } catch {
@@ -669,46 +697,63 @@ struct ExerciseEditorView: View {
         exercise.isFavorite = draft.isFavorite
     }
 
-    private func persistSprintPrescription(for exercise: Exercise) {
-        let existing = sprintPrescriptions.first { $0.exerciseID == exercise.id }
+    /// Diffs the drafted plans against the exercise's variant rows —
+    /// update by id, insert the new, delete the removed — then re-mirrors the
+    /// legacy `SprintPrescription` (`syncLegacyPrescription`) so pre-variant
+    /// surfaces and backups keep one truthful plan.
+    private func persistSprintVariants(for exercise: Exercise) {
+        let existing = sprintVariants.filter { $0.exerciseID == exercise.id }
         guard draft.usesSprintPrescription else {
-            if let existing { modelContext.delete(existing) }
+            existing.forEach(modelContext.delete)
+            if let prescription = sprintPrescriptions.first(where: { $0.exerciseID == exercise.id }) {
+                modelContext.delete(prescription)
+            }
             return
         }
 
-        guard let distance = draft.sprintDistance else { return }
-        let lower: Int
-        let upper: Int
-        switch draft.sprintTargetMode {
-        case .time:
-            guard let target = draft.sprintTargetSeconds else { return }
-            lower = target
-            upper = target
-        case .range:
-            guard let fast = draft.sprintTargetLowerSeconds,
-                  let slow = draft.sprintTargetUpperSeconds else { return }
-            lower = fast
-            upper = slow
-        }
-
         let now = AppEnvironment.now
-        if let existing {
-            existing.distance = distance
-            existing.repetitionCount = draft.sprintRepetitionCount
-            existing.targetLowerSeconds = lower
-            existing.targetUpperSeconds = upper
-            existing.updatedAt = now
-        } else {
-            modelContext.insert(SprintPrescription(
-                exerciseID: exercise.id,
-                distance: distance,
-                repetitionCount: draft.sprintRepetitionCount,
-                targetLowerSeconds: lower,
-                targetUpperSeconds: upper,
-                createdAt: now,
-                updatedAt: now
-            ))
+        var keptIDs = Set<UUID>()
+        for variantDraft in draft.sprintVariants {
+            guard let distance = variantDraft.distance, distance > 0,
+                  let target = variantDraft.resolvedTarget else { continue }
+            let title = variantDraft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let existingID = variantDraft.existingID,
+               let row = existing.first(where: { $0.id == existingID }) {
+                if row.title != title
+                    || row.distance != distance
+                    || row.distanceUnitRaw != draft.preferredDistanceUnit.rawValue
+                    || row.repetitionCount != variantDraft.repetitionCount
+                    || row.targetLowerTenths != target.lowerTenths
+                    || row.targetUpperTenths != target.upperTenths {
+                    row.title = title
+                    row.distance = distance
+                    row.distanceUnitRaw = draft.preferredDistanceUnit.rawValue
+                    row.repetitionCount = variantDraft.repetitionCount
+                    row.targetLowerTenths = target.lowerTenths
+                    row.targetUpperTenths = target.upperTenths
+                    row.updatedAt = now
+                }
+                keptIDs.insert(row.id)
+            } else {
+                let variant = SprintVariant(
+                    id: variantDraft.id,
+                    exerciseID: exercise.id,
+                    title: title,
+                    distance: distance,
+                    distanceUnit: draft.preferredDistanceUnit,
+                    repetitionCount: variantDraft.repetitionCount,
+                    targetLowerTenths: target.lowerTenths,
+                    targetUpperTenths: target.upperTenths,
+                    lastUsedAt: now,
+                    createdAt: now,
+                    updatedAt: now
+                )
+                modelContext.insert(variant)
+                keptIDs.insert(variant.id)
+            }
         }
+        existing.filter { !keptIDs.contains($0.id) }.forEach(modelContext.delete)
+        SprintVariant.syncLegacyPrescription(for: exercise.id, in: modelContext)
     }
 
     private func requestDelete() {

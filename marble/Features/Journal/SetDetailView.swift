@@ -19,6 +19,10 @@ struct SetDetailView: View {
     /// write-back can't touch a model whose backing data is gone (the classic
     /// SwiftData destroyed-backing-data crash on the dismissal that follows).
     @State private var didDelete = false
+    /// The rep's tenths-precision companion row, loaded once on appear (live
+    /// model reference, so its edits persist through the onDisappear save).
+    /// Nil for every pre-V6 rep — those keep the whole-second editor.
+    @State private var sprintDetail: SprintRepDetail?
 
     var body: some View {
         List {
@@ -46,7 +50,7 @@ struct SetDetailView: View {
                     SprintGoalResultCard(
                         entry: entry,
                         snapshot: sprintGoal,
-                        evaluation: SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry)
+                        evaluation: SprintGoalEvaluation.evaluate(snapshot: sprintGoal, entry: entry, detail: sprintDetail)
                     )
                     .listRowBackground(Theme.backgroundColor(for: colorScheme))
                 } header: {
@@ -166,7 +170,26 @@ struct SetDetailView: View {
                             .accessibilityIdentifier("SetDetail.LogDuration")
                     }
 
-                    if shouldCaptureDuration {
+                    if shouldCaptureDuration, sprintDetail != nil {
+                        // Tenths-precision reps edit as decimal seconds; the
+                        // binding mirrors the rounded value into the legacy
+                        // whole-second column (`SprintTiming.wholeSeconds`).
+                        HStack {
+                            Text("Time")
+                                .font(MarbleTypography.rowTitle)
+                            Spacer()
+                            OptionalNumberField(
+                                title: "Seconds",
+                                formatter: Formatters.sprintSeconds,
+                                value: sprintSecondsBinding,
+                                accessibilityIdentifier: "SetDetail.Sprint.Time"
+                            )
+                            .frame(width: 96)
+                            Text("sec")
+                                .font(MarbleTypography.rowMeta)
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        }
+                    } else if shouldCaptureDuration {
                         HStack {
                             Text("Duration")
                                 .font(MarbleTypography.rowTitle)
@@ -219,6 +242,7 @@ struct SetDetailView: View {
                 Button("Delete", role: .destructive) {
                     didDelete = true
                     if let sprintGoal { modelContext.delete(sprintGoal) }
+                    if let sprintDetail { modelContext.delete(sprintDetail) }
                     modelContext.delete(entry)
                     if modelContext.saveOrRollback() {
                         MarbleHaptics.warning()
@@ -238,6 +262,7 @@ struct SetDetailView: View {
         .marbleKeyboardToolbar()
         .onAppear {
             syncOptionalMetricState()
+            loadSprintDetail()
         }
         .onChange(of: entry.exercise) { _, newValue in
             // Metrics the new exercise doesn't track must be cleared, not just
@@ -253,6 +278,10 @@ struct SetDetailView: View {
             // The sprint result is a snapshot of the OLD exercise's prescription;
             // it makes no sense attached to the reassigned entry.
             if let sprintGoal { modelContext.delete(sprintGoal) }
+            if let sprintDetail {
+                modelContext.delete(sprintDetail)
+                self.sprintDetail = nil
+            }
             syncOptionalMetricState(for: newValue)
         }
         .onDisappear {
@@ -402,6 +431,16 @@ struct SetDetailView: View {
             updatedAt: now
         )
         modelContext.insert(duplicate)
+        if let sprintDetail {
+            modelContext.insert(SprintRepDetail(
+                setEntryID: duplicate.id,
+                durationTenths: sprintDetail.durationTenths,
+                targetLowerTenths: sprintDetail.targetLowerTenths,
+                targetUpperTenths: sprintDetail.targetUpperTenths,
+                variantID: sprintDetail.variantID,
+                createdAt: now
+            ))
+        }
         if let sprintGoal {
             modelContext.insert(SprintGoalSnapshot(
                 setEntryID: duplicate.id,
@@ -420,6 +459,31 @@ struct SetDetailView: View {
             MarbleHaptics.success()
             RestActivityController.shared.startRest(for: duplicate)
         }
+    }
+
+    private func loadSprintDetail() {
+        let entryID = entry.id
+        var descriptor = FetchDescriptor<SprintRepDetail>(
+            predicate: #Predicate { $0.setEntryID == entryID }
+        )
+        descriptor.fetchLimit = 1
+        sprintDetail = (try? modelContext.fetch(descriptor))?.first
+    }
+
+    /// Decimal-seconds seam over the detail's canonical tenths; keeps the
+    /// legacy whole-second column in lockstep.
+    private var sprintSecondsBinding: Binding<Double?> {
+        Binding(
+            get: { sprintDetail.map { SprintTiming.seconds(fromTenths: $0.durationTenths) } },
+            set: { newValue in
+                guard let sprintDetail else { return }
+                guard let newValue, newValue > 0 else { return }
+                let tenths = SprintTiming.tenths(fromSeconds: newValue)
+                guard SprintTiming.isPlausible(tenths: tenths) else { return }
+                sprintDetail.durationTenths = tenths
+                entry.durationSeconds = SprintTiming.wholeSeconds(fromTenths: tenths)
+            }
+        )
     }
 
     private func syncOptionalMetricState(for exercise: Exercise? = nil) {

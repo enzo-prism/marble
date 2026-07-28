@@ -85,19 +85,31 @@ final class ExerciseEditorDraftTests: MarbleTestCase {
     func testSprintRangeValidationRejectsReversedBounds() {
         var draft = ExerciseEditorDraft.new(initialName: "150m Sprint")
         draft.apply(.sprint)
-        draft.sprintDistance = 150
-        draft.sprintRepetitionCount = 4
-        draft.sprintTargetMode = .range
-        draft.sprintTargetLowerSeconds = 21
-        draft.sprintTargetUpperSeconds = 19
+        draft.sprintVariants[0].distance = 150
+        draft.sprintVariants[0].repetitionCount = 4
+        draft.sprintVariants[0].targetMode = .range
+        draft.sprintVariants[0].targetLowerSeconds = 21
+        draft.sprintVariants[0].targetUpperSeconds = 19
 
         XCTAssertTrue(draft.sprintErrors.contains(
             "The slow end must be equal to or slower than the fast end."
         ))
 
-        draft.sprintTargetLowerSeconds = 19
-        draft.sprintTargetUpperSeconds = 21
+        draft.sprintVariants[0].targetLowerSeconds = 19
+        draft.sprintVariants[0].targetUpperSeconds = 21
         XCTAssertTrue(draft.sprintErrors.isEmpty)
+    }
+
+    func testSprintVariantDraftResolvesDecimalSecondsToTenths() {
+        var variant = SprintVariantDraft.new()
+        variant.targetMode = .time
+        variant.targetSeconds = 14.5
+        XCTAssertEqual(variant.resolvedTarget, SprintTargetTenths(lowerTenths: 145, upperTenths: 145))
+
+        variant.targetMode = .range
+        variant.targetLowerSeconds = 19
+        variant.targetUpperSeconds = 21.5
+        XCTAssertEqual(variant.resolvedTarget, SprintTargetTenths(lowerTenths: 190, upperTenths: 215))
     }
 
     func testChangingTrackingFieldsFlagsHistoricalInterpretation() {
@@ -133,7 +145,7 @@ final class ExerciseEditorDraftTests: MarbleTestCase {
         let original = ExerciseEditorDraft(exercise: exercise, prescription: prescription)
         var changed = original
 
-        changed.sprintTargetUpperSeconds = 22
+        changed.sprintVariants[0].targetUpperSeconds = 22
 
         XCTAssertTrue(changed.changesPlannedWorkoutBehavior(from: original))
         XCTAssertFalse(original.changesPlannedWorkoutBehavior(from: original))

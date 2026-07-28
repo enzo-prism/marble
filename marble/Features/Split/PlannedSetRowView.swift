@@ -6,6 +6,7 @@ struct PlannedSetRowView: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @Query(sort: \SprintPrescription.createdAt) private var sprintPrescriptions: [SprintPrescription]
+    @Query(sort: \SprintVariant.createdAt) private var sprintVariants: [SprintVariant]
 
     var body: some View {
         HStack(alignment: .top, spacing: MarbleLayout.rowSpacing) {
@@ -28,6 +29,11 @@ struct PlannedSetRowView: View {
     }
 
     private var subtitle: String {
+        // The primary variant carries the tenths-precision target; the mirror
+        // prescription is the rounded fallback for mid-adoption stores.
+        if let primary = SprintVariant.primary(for: plannedSet.exercise.id, in: sprintVariants) {
+            return SprintVariantValue(primary).summary(restSeconds: plannedSet.exercise.defaultRestSeconds)
+        }
         if let prescription = sprintPrescriptions.first(where: { $0.exerciseID == plannedSet.exercise.id }) {
             return prescription.summary(
                 distanceUnit: plannedSet.exercise.preferredDistanceUnit,

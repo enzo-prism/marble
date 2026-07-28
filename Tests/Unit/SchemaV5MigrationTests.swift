@@ -46,11 +46,12 @@ final class SchemaV5MigrationTests: XCTestCase {
         )
     }
 
-    func testMigrationPlanDeclaresV5AsTheLatestSchema() {
+    /// V6 took over "latest" (see `SchemaV6MigrationTests`); V5 must still be
+    /// declared exactly as shipped so a 2.2-era store resolves against it.
+    func testMigrationPlanStillDeclaresV5() {
         let identifiers = MarbleMigrationPlan.schemas.map { $0.versionIdentifier }
 
-        XCTAssertEqual(identifiers.count, 5)
-        XCTAssertEqual(identifiers.last, Schema.Version(5, 0, 0))
+        XCTAssertTrue(identifiers.contains(Schema.Version(5, 0, 0)))
         XCTAssertEqual(MarbleSchemaV5.versionIdentifier, Schema.Version(5, 0, 0))
     }
 

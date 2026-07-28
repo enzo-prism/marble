@@ -83,6 +83,18 @@
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
+## Latest verification (2026-07-28, sprint V6 work on main)
+- `MarbleTests` (`make unit`): **560 passed, 0 failed** — 519 on build 49 plus the sprint
+  V6 suites: `SprintTimingTests` (tenths canon), `SprintVariantTests` (target math, tenths
+  evaluation, primary selection, adoption sweep, legacy mirror, orphan sweeps),
+  `SprintProgressionTests` + `SprintTrendsBuilderTests` (progression nudges, Trends
+  derivation), `SprintTimePRTests` (fastest-time PR trail + stopwatch engine),
+  `SchemaV6MigrationTests` (V5→V6 additive migration, multi-variant coexistence), and the
+  `SprintVariantDraft` cases in `ExerciseEditorDraftTests`.
+- `MarbleUITests/JournalFlowUITests.testSprintExerciseShowsDistanceAndDurationLogging`
+  updated for the tenths flow (decimal `AddSet.Sprint.Time` field replaces the h/m/s
+  duration menus for sprint exercises; `SetDetail.Sprint.Time` for detailed reps).
+
 ## Latest release verification (2026-07-25, 2.2 build 49)
 - `MarbleTests` (`make unit`): **519 passed, 0 failed** — 505 on build 48 plus the V4→V5
   recovery case, three `createdExercises` cases, five monthly-report bodyweight cases, and

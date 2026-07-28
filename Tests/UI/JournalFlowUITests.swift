@@ -508,15 +508,12 @@ final class JournalFlowUITests: MarbleUITestCase {
                 .matching(identifier: "AddSet.Sprint.Distance").firstMatch
             waitFor(prescribedDistance)
 
-            let durationControl = app.otherElements["AddSet.Duration"]
-            waitFor(durationControl)
-
-            let secondsPicker = app.buttons["DurationPicker.Seconds"]
-            waitFor(secondsPicker)
-            secondsPicker.tap()
-            let twentySeconds = app.buttons["20s"]
-            waitFor(twentySeconds)
-            twentySeconds.tap()
+            // V6: sprint time is a tenths-precision decimal field, not the
+            // h/m/s duration menus.
+            let timeField = textInput("AddSet.Sprint.Time")
+            waitFor(timeField)
+            timeField.tap()
+            timeField.typeText("20")
 
             let saveButton = revealAddSetSaveButton()
             forceTap(saveButton)
@@ -533,7 +530,9 @@ final class JournalFlowUITests: MarbleUITestCase {
             waitFor(latestRow, timeout: 8)
             XCTAssertTrue((latestRow.label as String).contains("60 m"))
             XCTAssertTrue((latestRow.label as String).contains("Goal hit"))
-            XCTAssertTrue((latestRow.label as String).contains("Target 19–21s"))
+            // The tenths detail renders the precise target and time.
+            XCTAssertTrue((latestRow.label as String).contains("Target 19.0–21.0s"))
+            XCTAssertTrue((latestRow.label as String).contains("20.0s"))
             takeScreenshot("Sprint range goal hit in Journal")
 
             forceTap(latestRow)
@@ -549,16 +548,31 @@ final class JournalFlowUITests: MarbleUITestCase {
             let detailDistance = textInput("SetDetail.Distance")
             waitFor(detailDistance)
             XCTAssertEqual(detailDistance.value as? String, "60")
-            XCTAssertTrue(app.otherElements["SetDetail.Duration"].waitForExistence(timeout: 2))
 
-            let detailSeconds = app.buttons["DurationPicker.Seconds"]
-            forceTap(detailSeconds)
-            forceTap(app.buttons["25s"])
+            // A tenths-detailed rep edits as decimal seconds in Set Details.
+            let detailTime = textInput("SetDetail.Sprint.Time")
+            waitFor(detailTime)
+            // This field is narrow (96 pt), so `clearAndType`'s far-right
+            // caret tap lands on the styled padding and resigns focus. One
+            // tap at dx 0.8 stays inside the text area, focuses with the
+            // caret after the short value, and the deletes clear it.
+            let caretTap = detailTime.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+            caretTap.tap()
+            if !app.keyboards.firstMatch.waitForExistence(timeout: 2) {
+                caretTap.tap()
+                _ = app.keyboards.firstMatch.waitForExistence(timeout: 3)
+            }
+            let currentTime = (detailTime.value as? String) ?? ""
+            detailTime.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentTime.count + 2))
+            detailTime.typeText("25")
             let missedResult = app.descendants(matching: .any).matching(
                 NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "SetDetail.SprintGoalResult", "Goal missed")
             ).firstMatch
             waitFor(missedResult)
-            XCTAssertTrue((missedResult.label as String).contains("4 seconds slower"))
+            XCTAssertTrue(
+                (missedResult.label as String).contains("4 seconds slower"),
+                "Unexpected result label: \(missedResult.label)"
+            )
             takeScreenshot("Sprint range goal missed details")
         }
     }

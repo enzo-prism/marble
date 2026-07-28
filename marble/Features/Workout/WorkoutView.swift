@@ -18,6 +18,9 @@ struct WorkoutView: View {
     @Query(sort: \SprintPrescription.createdAt)
     private var sprintPrescriptions: [SprintPrescription]
 
+    @Query(sort: \SprintVariant.createdAt)
+    private var sprintVariants: [SprintVariant]
+
     @State private var showingPlan = false
     @State private var showingSettings = false
     @State private var showingFinishConfirmation = false
@@ -46,6 +49,7 @@ struct WorkoutView: View {
                         title: suggestedTitle,
                         plannedSets: todayPlannedSets,
                         sprintPrescriptions: sprintPrescriptions,
+                        sprintVariants: sprintVariants,
                         onStart: { _ = startWorkout() },
                         onStartAndLog: startAndLog,
                         onEditPlan: { showingPlan = true }
@@ -275,6 +279,7 @@ private struct StartWorkoutSection: View {
     let title: String
     let plannedSets: [PlannedSet]
     let sprintPrescriptions: [SprintPrescription]
+    let sprintVariants: [SprintVariant]
     let onStart: () -> Void
     let onStartAndLog: (PlannedSet) -> Void
     let onEditPlan: () -> Void
@@ -315,7 +320,12 @@ private struct StartWorkoutSection: View {
                             Text(plannedSet.exercise.name)
                                 .font(MarbleTypography.rowTitle)
                                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                            if let prescription = sprintPrescriptions.first(where: { $0.exerciseID == plannedSet.exercise.id }) {
+                            if let primary = SprintVariant.primary(for: plannedSet.exercise.id, in: sprintVariants) {
+                                Text(SprintVariantValue(primary).summary(restSeconds: plannedSet.exercise.defaultRestSeconds))
+                                    .font(MarbleTypography.rowMeta)
+                                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else if let prescription = sprintPrescriptions.first(where: { $0.exerciseID == plannedSet.exercise.id }) {
                                 Text(prescription.summary(
                                     distanceUnit: plannedSet.exercise.preferredDistanceUnit,
                                     restSeconds: plannedSet.exercise.defaultRestSeconds

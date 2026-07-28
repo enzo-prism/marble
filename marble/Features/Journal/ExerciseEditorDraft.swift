@@ -119,6 +119,109 @@ enum ExerciseKind: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
+/// One sprint plan being edited. Times are decimal seconds at the UI seam
+/// ("14.8") and resolve to canonical tenths (`SprintTargetTenths`) on save.
+struct SprintVariantDraft: Identifiable, Equatable {
+    /// Stable draft identity — equals the backing `SprintVariant.id` for
+    /// existing rows so persistence can diff update/insert/delete.
+    let id: UUID
+    /// Nil for a plan added in this editing session (insert on save).
+    var existingID: UUID?
+    var title: String
+    var distance: Double?
+    var repetitionCount: Int
+    var targetMode: SprintTargetMode
+    var targetSeconds: Double?
+    var targetLowerSeconds: Double?
+    var targetUpperSeconds: Double?
+
+    static func new() -> SprintVariantDraft {
+        SprintVariantDraft(
+            id: UUID(),
+            existingID: nil,
+            title: "",
+            distance: 60,
+            repetitionCount: 4,
+            targetMode: .time,
+            targetSeconds: 8,
+            targetLowerSeconds: 19,
+            targetUpperSeconds: 21
+        )
+    }
+
+    init(
+        id: UUID,
+        existingID: UUID?,
+        title: String,
+        distance: Double?,
+        repetitionCount: Int,
+        targetMode: SprintTargetMode,
+        targetSeconds: Double?,
+        targetLowerSeconds: Double?,
+        targetUpperSeconds: Double?
+    ) {
+        self.id = id
+        self.existingID = existingID
+        self.title = title
+        self.distance = distance
+        self.repetitionCount = repetitionCount
+        self.targetMode = targetMode
+        self.targetSeconds = targetSeconds
+        self.targetLowerSeconds = targetLowerSeconds
+        self.targetUpperSeconds = targetUpperSeconds
+    }
+
+    init(_ variant: SprintVariant) {
+        id = variant.id
+        existingID = variant.id
+        title = variant.title
+        distance = variant.distance
+        repetitionCount = variant.repetitionCount
+        targetMode = variant.target.mode
+        let lower = SprintTiming.seconds(fromTenths: variant.targetLowerTenths)
+        let upper = SprintTiming.seconds(fromTenths: variant.targetUpperTenths)
+        targetSeconds = lower
+        targetLowerSeconds = lower
+        targetUpperSeconds = upper
+    }
+
+    /// The canonical tenths target this draft resolves to, nil while invalid.
+    var resolvedTarget: SprintTargetTenths? {
+        let lowerSeconds: Double?
+        let upperSeconds: Double?
+        switch targetMode {
+        case .time:
+            lowerSeconds = targetSeconds
+            upperSeconds = targetSeconds
+        case .range:
+            lowerSeconds = targetLowerSeconds
+            upperSeconds = targetUpperSeconds
+        }
+        guard let lowerSeconds, lowerSeconds > 0, let upperSeconds, upperSeconds > 0 else { return nil }
+        let target = SprintTargetTenths(
+            lowerTenths: SprintTiming.tenths(fromSeconds: lowerSeconds),
+            upperTenths: SprintTiming.tenths(fromSeconds: upperSeconds)
+        )
+        return target.isValid ? target : nil
+    }
+
+    var errors: [String] {
+        var errors: [String] = []
+        if (distance ?? 0) <= 0 { errors.append("Enter a sprint distance.") }
+        if !(1...50).contains(repetitionCount) { errors.append("Choose 1–50 repetitions.") }
+        switch targetMode {
+        case .time:
+            if (targetSeconds ?? 0) <= 0 { errors.append("Enter a target time.") }
+        case .range:
+            let lower = targetLowerSeconds ?? 0
+            let upper = targetUpperSeconds ?? 0
+            if lower <= 0 { errors.append("Enter the fast end of the target range.") }
+            if upper < lower { errors.append("The slow end must be equal to or slower than the fast end.") }
+        }
+        return errors
+    }
+}
+
 struct ExerciseEditorDraft: Equatable {
     var name: String
     var kind: ExerciseKind
@@ -136,6 +239,10 @@ struct ExerciseEditorDraft: Equatable {
     var sprintTargetSeconds: Int?
     var sprintTargetLowerSeconds: Int?
     var sprintTargetUpperSeconds: Int?
+    /// The exercise's sprint plans (V6 multi-variant editing). The legacy
+    /// single-prescription fields above stay for kind inference and defaults;
+    /// the editor UI and persistence read THIS array.
+    var sprintVariants: [SprintVariantDraft]
 
     static func new(initialName: String = "") -> ExerciseEditorDraft {
         ExerciseEditorDraft(
@@ -154,11 +261,12 @@ struct ExerciseEditorDraft: Equatable {
             sprintTargetMode: .time,
             sprintTargetSeconds: 8,
             sprintTargetLowerSeconds: 19,
-            sprintTargetUpperSeconds: 21
+            sprintTargetUpperSeconds: 21,
+            sprintVariants: [.new()]
         )
     }
 
-    init(exercise: Exercise, prescription: SprintPrescription?) {
+    init(exercise: Exercise, prescription: SprintPrescription?, variants: [SprintVariant] = []) {
         name = exercise.name
         category = exercise.category
         customIconEmoji = exercise.sanitizedCustomIconEmoji ?? ""
@@ -174,12 +282,33 @@ struct ExerciseEditorDraft: Equatable {
         sprintTargetSeconds = prescription?.targetLowerSeconds ?? 8
         sprintTargetLowerSeconds = prescription?.targetLowerSeconds ?? 19
         sprintTargetUpperSeconds = prescription?.targetUpperSeconds ?? 21
+        if !variants.isEmpty {
+            sprintVariants = variants
+                .sorted { lhs, rhs in
+                    if lhs.lastUsedAt == rhs.lastUsedAt { return lhs.createdAt > rhs.createdAt }
+                    return lhs.lastUsedAt > rhs.lastUsedAt
+                }
+                .map(SprintVariantDraft.init)
+        } else if let prescription, prescription.isValid {
+            // Legacy store mid-adoption: edit the prescription as a
+            // brand-new variant; save materializes it and re-mirrors.
+            var adopted = SprintVariantDraft.new()
+            adopted.distance = prescription.distance
+            adopted.repetitionCount = prescription.repetitionCount
+            adopted.targetMode = prescription.targetMode
+            adopted.targetSeconds = Double(prescription.targetLowerSeconds)
+            adopted.targetLowerSeconds = Double(prescription.targetLowerSeconds)
+            adopted.targetUpperSeconds = Double(prescription.targetUpperSeconds)
+            sprintVariants = [adopted]
+        } else {
+            sprintVariants = [.new()]
+        }
         kind = ExerciseKind.infer(
             name: exercise.name,
             metrics: exercise.metrics,
             resistanceStyle: exercise.resistanceTrackingStyle,
             category: exercise.category,
-            hasSprintPrescription: prescription != nil
+            hasSprintPrescription: prescription != nil || !variants.isEmpty
         )
     }
 
@@ -199,7 +328,8 @@ struct ExerciseEditorDraft: Equatable {
         sprintTargetMode: SprintTargetMode,
         sprintTargetSeconds: Int?,
         sprintTargetLowerSeconds: Int?,
-        sprintTargetUpperSeconds: Int?
+        sprintTargetUpperSeconds: Int?,
+        sprintVariants: [SprintVariantDraft]
     ) {
         self.name = name
         self.kind = kind
@@ -217,6 +347,7 @@ struct ExerciseEditorDraft: Equatable {
         self.sprintTargetSeconds = sprintTargetSeconds
         self.sprintTargetLowerSeconds = sprintTargetLowerSeconds
         self.sprintTargetUpperSeconds = sprintTargetUpperSeconds
+        self.sprintVariants = sprintVariants
     }
 
     var trimmedName: String {
@@ -246,6 +377,7 @@ struct ExerciseEditorDraft: Equatable {
         if newKind == .sprint {
             sprintDistance = sprintDistance ?? 60
             sprintRepetitionCount = max(1, sprintRepetitionCount)
+            if sprintVariants.isEmpty { sprintVariants = [.new()] }
         }
     }
 
@@ -275,16 +407,16 @@ struct ExerciseEditorDraft: Equatable {
         if !metrics.distanceIsRequired || !metrics.durationIsRequired {
             errors.append("Sprints need distance and time on every rep.")
         }
-        if (sprintDistance ?? 0) <= 0 { errors.append("Enter a sprint distance.") }
-        if !(1...50).contains(sprintRepetitionCount) { errors.append("Choose 1–50 repetitions.") }
-        switch sprintTargetMode {
-        case .time:
-            if (sprintTargetSeconds ?? 0) <= 0 { errors.append("Enter a target time.") }
-        case .range:
-            let lower = sprintTargetLowerSeconds ?? 0
-            let upper = sprintTargetUpperSeconds ?? 0
-            if lower <= 0 { errors.append("Enter the fast end of the target range.") }
-            if upper < lower { errors.append("The slow end must be equal to or slower than the fast end.") }
+        if sprintVariants.isEmpty {
+            errors.append("Add at least one sprint plan.")
+        }
+        // Deduplicated so two half-filled plans don't repeat every message.
+        var seen = Set<String>()
+        for variant in sprintVariants {
+            for error in variant.errors where !seen.contains(error) {
+                seen.insert(error)
+                errors.append(error)
+            }
         }
         return errors
     }
@@ -307,13 +439,6 @@ struct ExerciseEditorDraft: Equatable {
         preferredDistanceUnit != original.preferredDistanceUnit ||
         defaultRestSeconds != original.defaultRestSeconds ||
         usesSprintPrescription != original.usesSprintPrescription ||
-        (usesSprintPrescription && (
-            sprintDistance != original.sprintDistance ||
-            sprintRepetitionCount != original.sprintRepetitionCount ||
-            sprintTargetMode != original.sprintTargetMode ||
-            sprintTargetSeconds != original.sprintTargetSeconds ||
-            sprintTargetLowerSeconds != original.sprintTargetLowerSeconds ||
-            sprintTargetUpperSeconds != original.sprintTargetUpperSeconds
-        ))
+        (usesSprintPrescription && sprintVariants != original.sprintVariants)
     }
 }
