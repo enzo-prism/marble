@@ -43,7 +43,35 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-25)
+## Current state (2026-07-28)
+
+- **`main` carries an unreleased 10-fix reliability pass** on top of build 49, from a
+  full-codebase bug audit (models/persistence, views, widgets/intents/timers). Highlights:
+  1. **Number fields no longer corrupt grouped values** — the editing field displayed
+     "1,500" but parsed every comma as a decimal point, so touching a 1,000+ value (or any
+     grouped value in comma-decimal locales) silently collapsed it to 1.5.
+  2. **Deleting a set from Set Details no longer writes to the deleted model** on dismissal
+     (the SwiftData destroyed-backing-data crash pattern).
+  3. **The Control Center "Log a Set" control actually opens the logger** — it now routes
+     through the `marble://quicklog` deep link instead of an in-process notification that the
+     widget-extension process compiles out.
+  4. **Backup restore** dedups HealthKit weigh-ins by `healthKitUUID` (not just row id) and
+     never adopts a set entry into a second workout session.
+  5. **First-run seeding** stamps its one-time flags only after a durable save, so a single
+     failed save can no longer leave a permanently empty exercise library.
+  6. **Calendar backdated sets** no longer attach to today's active workout session.
+  7. **Journal undo-delete** restores the entry's imported-workout lineage and
+     workout-session membership.
+  8. **Weekly-goal reminder** never nags users with zero logged sets; **rest-complete
+     notifications** can no longer fire for a rest that was already ended or replaced
+     (schedule/cancel are serialized).
+  9. **Reps prefill** is no longer silently clamped to 20 (only the slider pins to its track).
+  10. Demo-recording seed hook: `MARBLE_SEED_DEMO_FIXTURES` seeds the screenshots fixture on
+     a normal (non-UI-testing) launch, and the fixture's Workout-tab session now matches
+     whatever split the capture day seeds.
+- Unit suite **519 tests** green after the pass; full test-target compile clean.
+
+## Prior state (2026-07-25)
 
 - **On TestFlight: 2.2 (build 49).** Build 48 plus the five items from the build-48 codebase
   review — see [`ROADMAP.md`](ROADMAP.md) → Known gaps / next up, where every closed gap is

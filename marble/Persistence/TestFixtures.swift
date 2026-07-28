@@ -386,13 +386,23 @@ enum TestFixtures {
         }
 
         // Show the session-led Workout tab in action without changing Journal
-        // chronology. The chosen exercises match the Wednesday sample plan.
+        // chronology. Built from whatever TODAY'S sample plan actually seeded
+        // (title matched to the weekday split) — filtering on a fixed
+        // Wednesday exercise list left an empty, perpetually "active" session
+        // on five of seven capture days. The Run stays out: it's the
+        // quick-log showcase entry, not part of the session.
         let sessionEntries = seededEntries.filter {
-            calendar.isDate($0.performedAt, inSameDayAs: now) &&
-                ["Squat", "Calf Raises", "Plank"].contains($0.exercise.name)
+            calendar.isDate($0.performedAt, inSameDayAs: now) && $0.exercise.name != "Run"
         }.prefix(4)
+        let sessionTitle: String
+        switch calendar.component(.weekday, from: now) {
+        case 2, 5: sessionTitle = "Push Day"
+        case 3, 6: sessionTitle = "Pull Day"
+        case 4, 7: sessionTitle = "Leg Day"
+        default: sessionTitle = "Recovery"
+        }
         context.insert(WorkoutSession(
-            title: "Leg Day",
+            title: sessionTitle,
             startedAt: at(daysAgo: 0, hour: 8, minute: 40),
             notes: "Strength + core",
             createdAt: at(daysAgo: 0, hour: 8, minute: 40),

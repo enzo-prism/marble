@@ -137,11 +137,25 @@ private final class UserNotificationRestEndAlertClient: RestEndAlertClient {
     /// replaces it wholesale — the same anti-spam shape as `WeeklyGoalReminder`.
     static let requestIdentifier = "marble.restTimer.restComplete"
 
+    /// Serializes schedule/cancel the same way `updateLiveActivity` chains ActivityKit
+    /// operations: without this, a synchronous `cancelAlert()` could be overtaken by a
+    /// schedule Task still awaiting its settings round trip, leaving a pending banner for
+    /// a rest that was already ended or replaced (log set → immediately end/replace is
+    /// exactly the between-sets rhythm). The generation stamp kills any queued schedule
+    /// that a later schedule or cancel has superseded.
+    private var pendingOperation: Task<Void, Never>?
+    private var generation = 0
+
     func scheduleAlert(exerciseName: String, endsAt: Date) {
         // Rest surfaces are opt-in under UI testing, and even then a real banner firing
         // mid-flow would perturb unrelated assertions.
         guard !TestHooks.isUITesting else { return }
-        Task {
+        generation += 1
+        let expectedGeneration = generation
+        let previousOperation = pendingOperation
+        pendingOperation = Task {
+            await previousOperation?.value
+            guard expectedGeneration == self.generation else { return }
             let center = UNUserNotificationCenter.current()
             // Never prompt from a rest start — the alert rides on whatever authorization the
             // user already granted for their own reminders and stays silent otherwise
@@ -167,6 +181,7 @@ private final class UserNotificationRestEndAlertClient: RestEndAlertClient {
             // A one-shot calendar trigger pinned to the rest's wall-clock end. If `endsAt`
             // is already past by delivery time the trigger simply never fires.
             let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            guard expectedGeneration == self.generation else { return }
             try? await center.add(
                 UNNotificationRequest(identifier: Self.requestIdentifier, content: content, trigger: trigger)
             )
@@ -174,8 +189,15 @@ private final class UserNotificationRestEndAlertClient: RestEndAlertClient {
     }
 
     func cancelAlert() {
-        UNUserNotificationCenter.current()
-            .removePendingNotificationRequests(withIdentifiers: [Self.requestIdentifier])
+        // Bumping the generation kills any schedule still in flight; chaining the removal
+        // behind it guarantees the remove lands after an add that already passed its check.
+        generation += 1
+        let previousOperation = pendingOperation
+        pendingOperation = Task {
+            await previousOperation?.value
+            UNUserNotificationCenter.current()
+                .removePendingNotificationRequests(withIdentifiers: [Self.requestIdentifier])
+        }
     }
 }
 

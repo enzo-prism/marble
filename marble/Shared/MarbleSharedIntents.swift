@@ -87,10 +87,13 @@ struct OpenQuickLogControlIntent: AppIntent {
     static let openAppWhenRun = true
 
     @MainActor
-    func perform() async throws -> some IntentResult {
-        #if !WIDGET_EXTENSION
-        NotificationCenter.default.post(name: .marbleOpenQuickLog, object: nil)
-        #endif
-        return .result()
+    func perform() async throws -> some IntentResult & OpensIntent {
+        // A plain `AppIntent` fired from a ControlWidget performs in the
+        // *extension* process (unlike `LiveActivityIntent` above), so an
+        // in-process `NotificationCenter` post can never reach the app —
+        // `openAppWhenRun` foregrounded Marble but the logger never presented.
+        // Route through the same `marble://quicklog` deep link the medium
+        // widget uses; `ContentView.onOpenURL` opens the sheet.
+        .result(opensIntent: OpenURLIntent(URL(string: "marble://quicklog")!))
     }
 }

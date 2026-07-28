@@ -243,16 +243,23 @@ enum MarbleBackupService {
         }
 
         let existingSessions = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<WorkoutSession>()).map { ($0.id, $0) })
+        // Same "never steal an owned entry" rule as the import-ledger adoption
+        // below. `WorkoutSession.entries` has no inverse, so adopting an entry
+        // that another session already groups would NOT remove it from that
+        // session — it would silently belong to both and double-count in
+        // history. The current device's grouping is the record of truth.
+        var claimedEntryIDs = Set(existingSessions.values.flatMap { $0.entries.map(\.id) })
         for record in payload.sessions {
             let sessionEntries = record.entryIDs.compactMap { allSets[$0] }
             if let existingSession = existingSessions[record.id] {
-                let existingEntryIDs = Set(existingSession.entries.map(\.id))
-                let missingEntries = sessionEntries.filter { !existingEntryIDs.contains($0.id) }
+                let missingEntries = sessionEntries.filter { !claimedEntryIDs.contains($0.id) }
                 if !missingEntries.isEmpty {
                     existingSession.entries.append(contentsOf: missingEntries)
                     existingSession.updatedAt = max(existingSession.updatedAt, record.updatedAt)
+                    claimedEntryIDs.formUnion(missingEntries.map(\.id))
                 }
             } else {
+                let adoptableEntries = sessionEntries.filter { !claimedEntryIDs.contains($0.id) }
                 let session = WorkoutSession(
                     id: record.id,
                     title: record.title,
@@ -261,9 +268,10 @@ enum MarbleBackupService {
                     notes: record.notes,
                     createdAt: record.createdAt,
                     updatedAt: record.updatedAt,
-                    entries: sessionEntries
+                    entries: adoptableEntries
                 )
                 context.insert(session)
+                claimedEntryIDs.formUnion(adoptableEntries.map(\.id))
                 insertedSessions += 1
             }
         }
@@ -383,12 +391,20 @@ enum MarbleBackupService {
             insertedPlans += 1
         }
 
-        // Standalone by design — no relationship to resolve, so this only needs
-        // the same id-based dedup as `existingSetIDs`. `id` is
-        // `@Attribute(.unique)`, so skipping the check would upsert over a row
-        // the user already has rather than merging alongside it.
-        let existingBodyMetricIDs = Set(try context.fetch(FetchDescriptor<BodyMetricEntry>()).map(\.id))
+        // Standalone by design — no relationship to resolve. Dedup on row `id`
+        // (it's `@Attribute(.unique)`, so skipping the check would upsert over
+        // a row the user already has) AND on the natural `healthKitUUID` key:
+        // the HealthKit provider dedups imports by querying that column, and a
+        // fresh device re-imports samples under new row ids before a restore
+        // runs. Matching only on `id` would insert those same samples a second
+        // time and double every overlapping weigh-in in Trends.
+        let existingBodyMetrics = try context.fetch(FetchDescriptor<BodyMetricEntry>())
+        let existingBodyMetricIDs = Set(existingBodyMetrics.map(\.id))
+        let existingHealthKitUUIDs = Set(existingBodyMetrics.compactMap(\.healthKitUUID))
         for record in payload.bodyMetrics ?? [] where !existingBodyMetricIDs.contains(record.id) {
+            if let healthKitUUID = record.healthKitUUID, existingHealthKitUUIDs.contains(healthKitUUID) {
+                continue
+            }
             context.insert(BodyMetricEntry(
                 id: record.id,
                 measuredAt: record.measuredAt,

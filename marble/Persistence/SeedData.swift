@@ -25,6 +25,15 @@ enum SeedData {
             context.saveOrRollback()
             return
         }
+        #if DEBUG
+        if TestHooks.seedDemoFixtures {
+            // Demo recordings: the screenshots fixture on a normal launch — animations
+            // stay on and no UI-test chrome renders. seedScreenshots clears the store
+            // first, so repeat launches stay deterministic.
+            TestFixtures.seedScreenshots(in: context, now: AppEnvironment.now)
+            return
+        }
+        #endif
         let defaults = UserDefaults.standard
         performOneTimeMaintenanceIfNeeded(in: context, defaults: defaults)
         let didSeed = defaults.bool(forKey: didSeedKey)
@@ -41,7 +50,13 @@ enum SeedData {
                 seedSupplements(in: context)
             }
 
-            defaults.set(true, forKey: didSeedKey)
+            // Stamp only after the rows are durably on disk (same rule as the
+            // backfill below). Stamping first and relying on a later autosave
+            // left a window where one failed save produced a permanently empty
+            // library: the flag survived, the rows didn't.
+            if context.saveOrRollback() {
+                defaults.set(true, forKey: didSeedKey)
+            }
         }
 
         // Create the default split plan at most once, ever. Running this on every launch
@@ -50,7 +65,9 @@ enum SeedData {
         // never had it, then leaves deletion permanent.
         if !defaults.bool(forKey: didEnsureSplitPlanKey) {
             ensureSplitPlan(in: context)
-            defaults.set(true, forKey: didEnsureSplitPlanKey)
+            if context.saveOrRollback() {
+                defaults.set(true, forKey: didEnsureSplitPlanKey)
+            }
         }
 
         if !defaults.bool(forKey: didBackfillSprintGoalsKey) {

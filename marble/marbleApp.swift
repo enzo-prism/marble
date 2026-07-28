@@ -26,8 +26,8 @@ struct MarbleApp: App {
         // inject through `@Dependency`) as well as with `AppIntentsSupport`'s own
         // accessor, which the Spotlight index and entity queries use.
         AppIntentsSupport.register(container: modelContainer)
-        if TestHooks.isUITesting {
-            // UI tests rely on fixtures existing before the first frame.
+        if TestHooks.isUITesting || TestHooks.seedDemoFixtures {
+            // UI tests and demo recordings rely on fixtures existing before the first frame.
             Self.seed(container: modelContainer)
         }
     }
@@ -38,7 +38,7 @@ struct MarbleApp: App {
                 .modelContainer(modelContainer)
                 .task {
                     // First-launch seeding stays off the launch critical path.
-                    guard !TestHooks.isUITesting else { return }
+                    guard !TestHooks.isUITesting, !TestHooks.seedDemoFixtures else { return }
                     Self.seed(container: modelContainer)
                 }
         }

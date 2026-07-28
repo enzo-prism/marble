@@ -15,6 +15,10 @@ struct SetDetailView: View {
     @State private var logReps = false
     @State private var logDistance = false
     @State private var logDuration = false
+    /// Set when the Delete button removes `entry`, so the `onDisappear`
+    /// write-back can't touch a model whose backing data is gone (the classic
+    /// SwiftData destroyed-backing-data crash on the dismissal that follows).
+    @State private var didDelete = false
 
     var body: some View {
         List {
@@ -213,6 +217,7 @@ struct SetDetailView: View {
                 .accessibilityIdentifier("SetDetail.Duplicate")
 
                 Button("Delete", role: .destructive) {
+                    didDelete = true
                     if let sprintGoal { modelContext.delete(sprintGoal) }
                     modelContext.delete(entry)
                     if modelContext.saveOrRollback() {
@@ -235,9 +240,23 @@ struct SetDetailView: View {
             syncOptionalMetricState()
         }
         .onChange(of: entry.exercise) { _, newValue in
+            // Metrics the new exercise doesn't track must be cleared, not just
+            // hidden: the sections below are gated on `metrics.uses…`, so a
+            // stale 5 km distance on a reassigned bench-press entry would be
+            // invisible and uneditable here while still feeding Trends' bests
+            // (those filter on `distance != nil` with no metrics check).
+            let metrics = newValue.metrics
+            if !metrics.usesWeight { entry.weight = nil }
+            if !metrics.usesReps { entry.reps = nil }
+            if !metrics.usesDistance { entry.distance = nil }
+            if !metrics.usesDuration { entry.durationSeconds = nil }
+            // The sprint result is a snapshot of the OLD exercise's prescription;
+            // it makes no sense attached to the reassigned entry.
+            if let sprintGoal { modelContext.delete(sprintGoal) }
             syncOptionalMetricState(for: newValue)
         }
         .onDisappear {
+            guard !didDelete else { return }
             entry.updatedAt = AppEnvironment.now
             modelContext.saveOrRollback()
         }

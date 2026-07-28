@@ -206,7 +206,12 @@ struct JournalView: View {
 
     private func delete(_ entry: SetEntry) {
         let sprintGoal = sprintGoalSnapshots.first { $0.setEntryID == entry.id }
-        let snapshot = SetEntrySnapshot(entry: entry, sprintGoal: sprintGoal)
+        // `WorkoutSession.entries` has no inverse, so membership can only be
+        // recovered by asking the sessions — capture it while the entry lives.
+        let entryID = entry.id
+        let owningSessions = ((try? modelContext.fetch(FetchDescriptor<WorkoutSession>())) ?? [])
+            .filter { session in session.entries.contains { $0.id == entryID } }
+        let snapshot = SetEntrySnapshot(entry: entry, sprintGoal: sprintGoal, owningSessions: owningSessions)
         if let sprintGoal { modelContext.delete(sprintGoal) }
         modelContext.delete(entry)
         guard modelContext.saveOrRollback() else {
@@ -513,8 +518,13 @@ private struct SetEntrySnapshot {
     let createdAt: Date
     let updatedAt: Date
     let sprintGoal: SprintGoalSnapshotValue?
+    /// Live references survive the entry's deletion (only the entry row dies);
+    /// without them, Undo would resurrect the set stripped of its "Imported
+    /// from …" lineage and dropped from the workout session that grouped it.
+    let importedWorkout: ImportedWorkout?
+    let owningSessions: [WorkoutSession]
 
-    init(entry: SetEntry, sprintGoal: SprintGoalSnapshot?) {
+    init(entry: SetEntry, sprintGoal: SprintGoalSnapshot?, owningSessions: [WorkoutSession]) {
         id = entry.id
         exercise = entry.exercise
         performedAt = entry.performedAt
@@ -530,6 +540,8 @@ private struct SetEntrySnapshot {
         createdAt = entry.createdAt
         updatedAt = entry.updatedAt
         self.sprintGoal = sprintGoal.map(SprintGoalSnapshotValue.init)
+        importedWorkout = entry.importedWorkout
+        self.owningSessions = owningSessions
     }
 
     func restore(in context: ModelContext) {
@@ -550,6 +562,10 @@ private struct SetEntrySnapshot {
             updatedAt: updatedAt
         )
         context.insert(restored)
+        restored.importedWorkout = importedWorkout
+        for session in owningSessions {
+            session.append(restored, at: session.updatedAt)
+        }
         sprintGoal?.restore(for: restored, in: context)
     }
 }

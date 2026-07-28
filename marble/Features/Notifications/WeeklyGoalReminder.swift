@@ -89,6 +89,16 @@ enum WeeklyGoalReminder {
         removePending()
         guard sessions < target else { return }
 
+        // The week-scoped fetch can't tell a fresh user (no sets EVER) from a
+        // lifter who just hasn't trained yet this week, and the synthesized
+        // snapshot below hardcodes `.inProgress` — which would defeat
+        // `plan()`'s never-nag-a-fresh-user guard and nudge people about a
+        // goal they never engaged with. One indexed COUNT keeps sync cheap.
+        if sessions == 0 {
+            let lifetimeSets = (try? modelContext.fetchCount(FetchDescriptor<SetEntry>())) ?? 0
+            guard lifetimeSets > 0 else { return }
+        }
+
         let snapshot = TrainingConsistency.Snapshot(
             target: max(1, min(target, 7)),
             thisWeekSessions: sessions,

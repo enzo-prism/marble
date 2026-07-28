@@ -124,7 +124,15 @@ struct ContentView: View {
                 initialPerformedAt: quickLog.prefillDate,
                 initialExercise: fetchExercise(id: quickLog.prefillExerciseID),
                 context: quickLog.context,
-                activeSession: fetchWorkoutSession(id: quickLog.workoutSessionID) ?? activeSessions.first,
+                // Fall back to the live session only for today's logging. The
+                // Calendar's "Log Set for this day" opens this sheet with a
+                // past prefill date and no session — appending that set to
+                // today's active workout would pollute its set count and
+                // sprint rep sequencing with a different day's training.
+                activeSession: fetchWorkoutSession(id: quickLog.workoutSessionID)
+                    ?? (Calendar.current.isDate(quickLog.prefillDate, inSameDayAs: AppEnvironment.now)
+                        ? activeSessions.first
+                        : nil),
                 isPresented: $quickLog.isPresentingAddSet
             )
                 .modelContext(modelContext)
@@ -175,7 +183,7 @@ struct ContentView: View {
                 OnboardingGate.markBegun()
             }
             showingOnboarding = onboarding.presentsOnboarding
-            if TestHooks.isUITesting {
+            if TestHooks.isUITesting || TestHooks.seedDemoFixtures {
                 if let tab = Self.tab(for: TestHooks.initialTab) {
                     tabSelection.selected = tab
                 } else if TestHooks.calendarTestDay != nil {

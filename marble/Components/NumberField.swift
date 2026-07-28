@@ -7,10 +7,20 @@ struct OptionalNumberField: View {
     var accessibilityIdentifier: String?
 
     var body: some View {
+        // Grouping separators must never reach an editable field: the setter
+        // treats every "," as a decimal point (that's how comma-decimal
+        // locales type fractions on the decimal pad), so a displayed "1,500"
+        // edited in place would silently collapse to 1.5.
+        let editingFormatter: NumberFormatter = {
+            guard formatter.usesGroupingSeparator,
+                  let copy = formatter.copy() as? NumberFormatter else { return formatter }
+            copy.usesGroupingSeparator = false
+            return copy
+        }()
         let field = TextField(title, text: Binding(
             get: {
                 guard let value else { return "" }
-                return formatter.string(from: NSNumber(value: value)) ?? ""
+                return editingFormatter.string(from: NSNumber(value: value)) ?? ""
             },
             set: { newValue in
                 let normalized = newValue.replacingOccurrences(of: ",", with: ".")

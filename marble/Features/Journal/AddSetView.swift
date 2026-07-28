@@ -528,13 +528,15 @@ struct AddSetView: View {
         return canSave || TestHooks.isUITesting
     }
 
+    // Deliberately unclamped: a prefilled 30-rep set must read (and save) as
+    // 30, not silently become 20. Only the slider clamps, to its own track.
     private var repsDisplayValue: Int {
-        clampReps(reps ?? defaultRepsValue)
+        reps ?? defaultRepsValue
     }
 
     private var repsSliderValue: Binding<Double> {
         Binding(
-            get: { Double(repsDisplayValue) },
+            get: { Double(clampReps(repsDisplayValue)) },
             set: { newValue in
                 reps = clampReps(Int(newValue.rounded()))
             }
@@ -908,10 +910,14 @@ struct AddSetView: View {
             addedLoad = exercise.metrics.weightIsRequired || lastEntry.weight != nil
             if exercise.metrics.usesReps {
                 if exercise.metrics.reps == .required {
-                    reps = lastEntry.reps.map { clampReps($0) } ?? defaultRepsValue
+                    // Never clamp the prefill: reps beyond the slider's 1…20
+                    // track are legitimate (SetDetail edits, imports) and
+                    // clamping here silently logged a value the user never
+                    // chose while capping the reps-PR trail at 20.
+                    reps = lastEntry.reps ?? defaultRepsValue
                     logReps = true
                 } else {
-                    reps = lastEntry.reps.map { clampReps($0) }
+                    reps = lastEntry.reps
                     logReps = lastEntry.reps != nil
                 }
             } else {

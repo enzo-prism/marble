@@ -43,6 +43,10 @@ nonisolated enum TestHooks {
     static let notificationAuthorizationStatus: String? = environmentValue("MARBLE_NOTIFICATION_AUTHORIZATION")
     static let initialTab: String? = environmentValue("MARBLE_INITIAL_TAB")?.lowercased()
     static let openQuickLogAtLaunch: Bool = environmentFlag("MARBLE_OPEN_QUICK_LOG")
+    /// Seeds the App Store screenshots fixture on a normal (non-UI-testing) launch,
+    /// for demo recordings that need animations, haptic paths, and no test chrome.
+    /// DEBUG-only at the seeding site; the fixture clears the store before seeding.
+    static let seedDemoFixtures: Bool = environmentFlag("MARBLE_SEED_DEMO_FIXTURES")
     /// Rest surfaces (the tab-bar rest pill) stay hidden during UI tests so they
     /// can't overlay unrelated flows; the dedicated rest-pill test opts back in.
     static let enableRestPillInUITests: Bool = environmentFlag("MARBLE_ENABLE_REST_PILL")

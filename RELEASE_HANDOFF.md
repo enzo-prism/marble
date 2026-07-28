@@ -1,8 +1,19 @@
 # Marble Release Handoff
 
-**Last verified: 2026-07-25.** This file is the single source of truth for "where the
+**Last verified: 2026-07-28.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
+
+---
+
+## ⚠️ `main` is ahead of build 49 (2026-07-28)
+
+`main` carries an **unreleased 10-fix reliability pass** (full-codebase bug audit: backup
+restore integrity, number-field input corruption, a Set Details delete crash pattern, the
+inert Control Center control, seeding durability, notification races — see README →
+Current state for the full list) plus the `MARBLE_SEED_DEMO_FIXTURES` demo-recording seed
+hook. **The next build cut from `main` includes these**; build 49 on TestFlight does not.
+519 unit tests green, `build-for-testing` clean as of 2026-07-28.
 
 ---
 
