@@ -8,12 +8,25 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ## ⚠️ `main` is ahead of build 49 (2026-07-28)
 
-`main` carries an **unreleased 10-fix reliability pass** (full-codebase bug audit: backup
-restore integrity, number-field input corruption, a Set Details delete crash pattern, the
-inert Control Center control, seeding durability, notification races — see README →
-Current state for the full list) plus the `MARBLE_SEED_DEMO_FIXTURES` demo-recording seed
-hook. **The next build cut from `main` includes these**; build 49 on TestFlight does not.
-519 unit tests green, `build-for-testing` clean as of 2026-07-28.
+`main` carries two unreleased waves; **the next build cut from `main` includes both** and
+build 49 on TestFlight does not:
+
+1. **The sprint V6 feature wave** (commit `7c014a6`) — **this one bumps the SwiftData
+   schema to `MarbleSchemaV6`** (purely additive: `SprintVariant` + `SprintRepDetail`, no
+   migration stage, same V2–V5 pattern). Tenths-precision sprint timing + stopwatch,
+   multiple sprint plans per exercise (legacy `SprintPrescription` kept as a synced
+   mirror), sequence rollup, fastest-time PR trail, Trends sprint charts, progression
+   nudges. See `SPRINT_WORKOUTS.md`. **Release gates already run on this working tree:**
+   `make migration-release` PASSED against the pinned previous Release (`96736a1` store
+   opens intact, exercises preserved=40); 560 unit tests green including
+   `SchemaV6MigrationTests`; sprint + core AddSet UI flows green. Before the next
+   submission also run `make audit` and re-record any Trends snapshot baselines the new
+   Sprints section needs (`make snapshot-record`, with the change noted).
+2. **A 10-fix reliability pass** (commit `9eea3da`) — full-codebase bug audit: backup
+   restore integrity, number-field input corruption, a Set Details delete crash pattern,
+   the inert Control Center control, seeding durability, notification races — see README →
+   Current state for the full list — plus the `MARBLE_SEED_DEMO_FIXTURES` demo-recording
+   seed hook.
 
 ---
 
