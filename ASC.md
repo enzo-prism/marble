@@ -30,7 +30,8 @@ project-local notes.
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
 - Live App Store version: `2.1` (build 40), released 2026-07-21
-- Working project version: `2.2` (build 47); version review and validation should use `2.2`
+- Working project version: `2.2` (build 50, TestFlight `VALID` 2026-07-28); version
+  review and validation should use `2.2`. Build 48 is the one in App Review.
 
 ## Release Safety
 

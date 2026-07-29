@@ -6,10 +6,19 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
-## ⚠️ `main` is ahead of build 49 (2026-07-28)
+## ✅ 2.2 (build 50) VALID on TestFlight (2026-07-28)
 
-`main` carries two unreleased waves; **the next build cut from `main` includes both** and
-build 49 on TestFlight does not:
+Both waves below shipped to TestFlight as **2.2 build 50** (buildId
+`e3bb38dd-9719-4268-8587-59c92f53f3dc`, uploaded 2026-07-28 17:40 PDT, `VALID`,
+internal group "test group A" receives it automatically). Published via
+`make asc-publish-testflight` with `.asc/ExportOptions.plist` (the pinned build-48
+profiles still sign fine). **2.2 (build 48) remains the build in App Review — build 50
+does not replace it.** First TestFlight build containing schema V6; the
+migration-release gate passed before upload.
+
+## `main` waves in build 50 (2026-07-28)
+
+`main` carries two waves, both in build 50; build 49 on TestFlight has neither:
 
 1. **The sprint V6 feature wave** (commit `7c014a6`) — **this one bumps the SwiftData
    schema to `MarbleSchemaV6`** (purely additive: `SprintVariant` + `SprintRepDetail`, no
