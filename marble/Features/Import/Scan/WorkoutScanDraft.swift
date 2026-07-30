@@ -86,6 +86,10 @@ nonisolated struct ParsedSetDraft: Equatable, Sendable, Identifiable {
     /// Rest taken after this set, when the source text states one ("90s rest",
     /// "rest 2 min"). `nil` falls back to the exercise's default at import time.
     var restSeconds: Int?
+    /// Per-set completion override. `nil` means "use the workout's date" — the
+    /// common case; the review screen only materializes a value here when the
+    /// user explicitly overrides one set's date or time.
+    var performedAt: Date?
 
     init(
         id: UUID = UUID(),
@@ -95,7 +99,8 @@ nonisolated struct ParsedSetDraft: Equatable, Sendable, Identifiable {
         distance: Double? = nil,
         distanceUnit: DistanceUnit = .meters,
         durationSeconds: Int? = nil,
-        restSeconds: Int? = nil
+        restSeconds: Int? = nil,
+        performedAt: Date? = nil
     ) {
         self.id = id
         self.weight = weight
@@ -105,6 +110,7 @@ nonisolated struct ParsedSetDraft: Equatable, Sendable, Identifiable {
         self.distanceUnit = distanceUnit
         self.durationSeconds = durationSeconds
         self.restSeconds = restSeconds
+        self.performedAt = performedAt
     }
 
     var hasAnyValue: Bool {

@@ -83,7 +83,18 @@
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
-## Latest verification (2026-07-30, free-form notation wave on main)
+## Latest verification (2026-07-30, import review timing wave on main)
+- `MarbleTests` (`make unit`): **648 passed (1 skipped), 0 failed** — adds
+  `WorkoutScanImporterTimingTests` (workout date stamps all sets, per-set
+  `performedAt` override wins, `ImportedWorkout` ledger date = earliest effective
+  set date) and extends `WorkoutScanViewModelTests` (addSet template copies the
+  per-set override).
+- `make audit`: green (both review screens gained the `ImportDateSection`
+  pickers/toggle and per-set override affordances).
+- `make typecheck-tests`: clean (pre-existing deprecation warnings only).
+- No schema change (still V6), so the migration-release gate was not required.
+
+## Verification (2026-07-30, free-form notation wave on main)
 - `MarbleTests` (`make unit`): **645 passed (1 skipped), 0 failed** — adds
   `HandwrittenWorkoutParserFreeFormTests` (32 tests: hyphenated units, en-dash rep
   ranges, intensity-% noise, distance B-values, leading-spec lines, "N by M",

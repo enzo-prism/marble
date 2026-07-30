@@ -166,7 +166,8 @@ final class WorkoutTextEntryViewModel {
             distance: template.distance,
             distanceUnit: template.distanceUnit,
             durationSeconds: template.durationSeconds,
-            restSeconds: template.restSeconds
+            restSeconds: template.restSeconds,
+            performedAt: template.performedAt
         ))
     }
 

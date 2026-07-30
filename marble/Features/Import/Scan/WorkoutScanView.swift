@@ -12,6 +12,7 @@ struct WorkoutScanView: View {
 
     @State private var showingScanner = false
     @State private var photoItem: PhotosPickerItem?
+    @State private var showingDiscardDialog = false
 
     var body: some View {
         NavigationStack {
@@ -21,6 +22,17 @@ struct WorkoutScanView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationBarGlassBackground()
                 .toolbar { toolbarContent }
+        }
+        // HIG sheet-dismissal protection: a swipe-down must not silently throw
+        // away a reviewed draft; capture and imported stay freely dismissible.
+        .interactiveDismissDisabled(hasUnsavedEdits)
+        .confirmationDialog(
+            "Discard this import?",
+            isPresented: $showingDiscardDialog,
+            titleVisibility: .visible
+        ) {
+            Button("Discard", role: .destructive) { dismiss() }
+            Button("Keep Editing", role: .cancel) {}
         }
         .fullScreenCover(isPresented: $showingScanner) {
             DocumentScannerView { outcome in
@@ -128,11 +140,11 @@ struct WorkoutScanView: View {
                 TextField("Workout title", text: $viewModel.draft.title)
                     .font(MarbleTypography.rowTitle)
                     .accessibilityIdentifier("Scan.Title")
-                DatePicker("Date", selection: performedAtBinding, displayedComponents: .date)
-                    .accessibilityIdentifier("Scan.Date")
             } header: {
                 SectionHeaderView(title: "Workout")
             }
+
+            ImportDateSection(idPrefix: "Scan", performedAt: $viewModel.draft.performedAt)
 
             if viewModel.alreadyImported {
                 Section {
@@ -146,6 +158,7 @@ struct WorkoutScanView: View {
             ForEach($viewModel.draft.exercises) { $exercise in
                 ScanExerciseSection(
                     exercise: $exercise,
+                    workoutDate: viewModel.draft.performedAt,
                     onAddSet: { viewModel.addSet(toExerciseWithID: exercise.id) },
                     onRemoveExercise: { viewModel.removeExercise(withID: exercise.id) },
                     onRemoveSets: { offsets in viewModel.removeSets(fromExerciseWithID: exercise.id, at: offsets) }
@@ -232,8 +245,14 @@ struct WorkoutScanView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
-            Button(viewModel.phase == .review ? "Cancel" : "Done") { dismiss() }
-                .accessibilityIdentifier("Scan.Dismiss")
+            Button(viewModel.phase == .review ? "Cancel" : "Done") {
+                if hasUnsavedEdits {
+                    showingDiscardDialog = true
+                } else {
+                    dismiss()
+                }
+            }
+            .accessibilityIdentifier("Scan.Dismiss")
         }
         if viewModel.phase == .review {
             ToolbarItem(placement: .topBarTrailing) {
@@ -245,11 +264,11 @@ struct WorkoutScanView: View {
 
     // MARK: - Bindings & actions
 
-    private var performedAtBinding: Binding<Date> {
-        Binding(
-            get: { viewModel.draft.performedAt ?? AppEnvironment.now },
-            set: { viewModel.draft.performedAt = $0 }
-        )
+    /// Unsaved work worth protecting from an accidental dismissal: a reviewed
+    /// draft with importable sets. Capture has nothing to lose, and the
+    /// imported phase never blocks — the work is already saved.
+    private var hasUnsavedEdits: Bool {
+        viewModel.phase == .review && viewModel.draft.hasContent
     }
 
     private func handleScan(_ outcome: DocumentScannerView.Outcome) {
@@ -278,6 +297,8 @@ struct WorkoutScanView: View {
 
 private struct ScanExerciseSection: View {
     @Binding var exercise: ParsedExerciseDraft
+    /// The workout-level date, seeding any per-set date & time override.
+    let workoutDate: Date?
     var onAddSet: () -> Void
     var onRemoveExercise: () -> Void
     var onRemoveSets: (IndexSet) -> Void
@@ -290,10 +311,23 @@ private struct ScanExerciseSection: View {
                 .font(MarbleTypography.rowTitle)
                 .accessibilityIdentifier("Scan.Exercise.Name")
 
+            // No `.onDelete`: `ImportSetTimingRows` attaches `.swipeActions`,
+            // which suppresses the synthesized Delete, so it re-adds an
+            // explicit destructive Delete wired to the same removal closure.
             ForEach($exercise.sets) { $set in
-                ScanSetRow(set: $set, metrics: exercise.metricsProfile)
+                ImportSetTimingRows(
+                    idPrefix: "Scan",
+                    set: $set,
+                    workoutDate: workoutDate,
+                    onDelete: {
+                        if let index = exercise.sets.firstIndex(where: { $0.id == set.id }) {
+                            onRemoveSets(IndexSet(integer: index))
+                        }
+                    }
+                ) {
+                    ScanSetRow(set: $set, metrics: exercise.metricsProfile)
+                }
             }
-            .onDelete(perform: onRemoveSets)
 
             Button(action: onAddSet) {
                 Label("Add set", systemImage: "plus")

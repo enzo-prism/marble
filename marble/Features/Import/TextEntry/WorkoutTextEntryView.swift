@@ -11,6 +11,7 @@ struct WorkoutTextEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var textFocused: Bool
+    @State private var showingDiscardDialog = false
 
     var body: some View {
         NavigationStack {
@@ -20,6 +21,18 @@ struct WorkoutTextEntryView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationBarGlassBackground()
                 .toolbar { toolbarContent }
+        }
+        // HIG sheet-dismissal protection: a swipe-down must not silently throw
+        // away typed text or a reviewed draft; the imported phase stays freely
+        // dismissible.
+        .interactiveDismissDisabled(hasUnsavedEdits)
+        .confirmationDialog(
+            "Discard this import?",
+            isPresented: $showingDiscardDialog,
+            titleVisibility: .visible
+        ) {
+            Button("Discard", role: .destructive) { dismiss() }
+            Button("Keep Editing", role: .cancel) {}
         }
         // Load the on-device model while the user is still typing, so the first
         // parse doesn't pay model-load latency inside the processing spinner.
@@ -121,11 +134,11 @@ struct WorkoutTextEntryView: View {
                 TextField("Workout title", text: $viewModel.draft.title)
                     .font(MarbleTypography.rowTitle)
                     .accessibilityIdentifier("TextEntry.Title")
-                DatePicker("Date", selection: performedAtBinding, displayedComponents: .date)
-                    .accessibilityIdentifier("TextEntry.Date")
             } header: {
                 SectionHeaderView(title: "Workout")
             }
+
+            ImportDateSection(idPrefix: "TextEntry", performedAt: $viewModel.draft.performedAt)
 
             if viewModel.alreadyImported {
                 Section {
@@ -139,6 +152,7 @@ struct WorkoutTextEntryView: View {
             ForEach($viewModel.draft.exercises) { $exercise in
                 TextEntryExerciseSection(
                     exercise: $exercise,
+                    workoutDate: viewModel.draft.performedAt,
                     resolution: viewModel.resolution(for: exercise.id),
                     onChoose: { choice in viewModel.choose(choice, for: exercise.id) },
                     onNameChanged: { viewModel.refreshResolution(forExerciseWithID: exercise.id) },
@@ -155,7 +169,9 @@ struct WorkoutTextEntryView: View {
                     Label("Add exercise", systemImage: "plus.circle")
                 }
                 .accessibilityIdentifier("TextEntry.AddExercise")
-
+            } footer: {
+                // Footer, not an inline row: it annotates the section rather
+                // than being content the user acts on.
                 if viewModel.newExerciseCount > 0 {
                     Text("\(viewModel.newExerciseCount) new exercise\(viewModel.newExerciseCount == 1 ? "" : "s") will be added to your library.")
                         .font(MarbleTypography.caption)
@@ -240,8 +256,14 @@ struct WorkoutTextEntryView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
-            Button(viewModel.phase == .review ? "Cancel" : "Done") { dismiss() }
-                .accessibilityIdentifier("TextEntry.Dismiss")
+            Button(viewModel.phase == .review ? "Cancel" : "Done") {
+                if hasUnsavedEdits {
+                    showingDiscardDialog = true
+                } else {
+                    dismiss()
+                }
+            }
+            .accessibilityIdentifier("TextEntry.Dismiss")
         }
         if viewModel.phase == .review {
             ToolbarItem(placement: .topBarTrailing) {
@@ -251,11 +273,18 @@ struct WorkoutTextEntryView: View {
         }
     }
 
-    private var performedAtBinding: Binding<Date> {
-        Binding(
-            get: { viewModel.draft.performedAt ?? AppEnvironment.now },
-            set: { viewModel.draft.performedAt = $0 }
-        )
+    /// Unsaved work worth protecting from an accidental dismissal: typed text
+    /// (kept through the processing step) or a reviewed draft with importable
+    /// sets. The imported phase never blocks — the work is already saved.
+    private var hasUnsavedEdits: Bool {
+        switch viewModel.phase {
+        case .input, .processing:
+            return !viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .review:
+            return viewModel.draft.hasContent
+        case .imported:
+            return false
+        }
     }
 }
 
@@ -263,6 +292,8 @@ struct WorkoutTextEntryView: View {
 
 private struct TextEntryExerciseSection: View {
     @Binding var exercise: ParsedExerciseDraft
+    /// The workout-level date, seeding any per-set date & time override.
+    let workoutDate: Date?
     let resolution: WorkoutTextEntryViewModel.Resolution?
     var onChoose: (WorkoutTextEntryViewModel.Resolution.Choice) -> Void
     var onNameChanged: () -> Void
@@ -281,10 +312,23 @@ private struct TextEntryExerciseSection: View {
 
             matchRow
 
+            // No `.onDelete`: `ImportSetTimingRows` attaches `.swipeActions`,
+            // which suppresses the synthesized Delete, so it re-adds an
+            // explicit destructive Delete wired to the same removal closure.
             ForEach($exercise.sets) { $set in
-                TextEntrySetRow(set: $set, metrics: exercise.metricsProfile)
+                ImportSetTimingRows(
+                    idPrefix: "TextEntry",
+                    set: $set,
+                    workoutDate: workoutDate,
+                    onDelete: {
+                        if let index = exercise.sets.firstIndex(where: { $0.id == set.id }) {
+                            onRemoveSets(IndexSet(integer: index))
+                        }
+                    }
+                ) {
+                    TextEntrySetRow(set: $set, metrics: exercise.metricsProfile)
+                }
             }
-            .onDelete(perform: onRemoveSets)
 
             Button(action: onAddSet) {
                 Label("Add set", systemImage: "plus")

@@ -102,6 +102,12 @@ final class WorkoutScanViewModelTests: MarbleTestCase {
         viewModel.addSet(toExerciseWithID: exerciseID)
         XCTAssertEqual(viewModel.draft.exercises[0].sets.count, originalSetCount + 1)
 
+        // A new set copies the template's per-set date & time override too.
+        let overrideDate = Date(timeIntervalSince1970: 1_750_000_000)
+        viewModel.draft.exercises[0].sets[viewModel.draft.exercises[0].sets.count - 1].performedAt = overrideDate
+        viewModel.addSet(toExerciseWithID: exerciseID)
+        XCTAssertEqual(viewModel.draft.exercises[0].sets.last?.performedAt, overrideDate)
+
         viewModel.addExercise()
         XCTAssertEqual(viewModel.draft.exercises.count, 2)
 

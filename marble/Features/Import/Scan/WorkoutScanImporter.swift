@@ -68,7 +68,7 @@ enum WorkoutScanImporter {
             for set in exercise.sets {
                 let entry = SetEntry(
                     exercise: resolved,
-                    performedAt: performedAt,
+                    performedAt: set.performedAt ?? performedAt,
                     weight: set.weight,
                     weightUnit: set.weightUnit,
                     reps: set.reps,
@@ -83,11 +83,18 @@ enum WorkoutScanImporter {
             }
         }
 
+        // The ledger's date must match what actually landed in the journal:
+        // with per-set overrides in play that is the earliest effective set
+        // date, not necessarily the workout-level date.
+        let ledgerDate = exercises
+            .flatMap(\.sets)
+            .map { $0.performedAt ?? performedAt }
+            .min() ?? performedAt
         let ledger = ImportedWorkout(
             source: source,
             externalID: externalID,
             title: draft.title,
-            workoutDate: performedAt,
+            workoutDate: ledgerDate,
             setsImported: setCount
         )
         context.insert(ledger)

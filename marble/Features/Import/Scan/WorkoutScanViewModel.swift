@@ -101,12 +101,9 @@ final class WorkoutScanViewModel {
             distance: template.distance,
             distanceUnit: template.distanceUnit,
             durationSeconds: template.durationSeconds,
-            restSeconds: template.restSeconds
+            restSeconds: template.restSeconds,
+            performedAt: template.performedAt
         ))
-    }
-
-    func removeExercises(at offsets: IndexSet) {
-        draft.exercises.remove(atOffsets: offsets)
     }
 
     func removeExercise(withID id: UUID) {

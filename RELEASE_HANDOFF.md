@@ -67,6 +67,30 @@ containing the **free-form notation parsing wave** (next section) — eval 25/25
 Staged foreground publish; "test group A" auto-receives. **2.2 (build 48) remains the
 build in App Review.** No schema change since V6.
 
+## `main` wave after build 53 (2026-07-30) — import review timing & dismissal protection
+
+**Unreleased — ships with the next build.** Adds date & time control to both import
+review screens (Scan + Typed Workout) plus HIG sheet-dismissal protection:
+
+- **Workout-level date & time** — the inline `DatePicker` row is replaced by a shared
+  `ImportDateSection` (`ImportTimingViews.swift`): compact date picker capped at "now",
+  an "Include Time" toggle that progressively reveals a compact time picker.
+- **Per-set override** — new `ParsedSetDraft.performedAt: Date?` (nil = inherit the
+  workout date). `ImportSetTimingRows` wraps each set row: context menu + mirrored
+  leading swipe action activate/remove an override, revealing an indented date+time
+  sub-row and a timestamp caption on divergent sets. Because `.swipeActions` suppresses
+  the `.onDelete`-synthesized Delete, an explicit trailing destructive Delete (and a
+  "Delete Set" menu item) is re-added. `addSet` templates copy `performedAt`; the
+  importer stamps `SetEntry.performedAt` per set (`set.performedAt ?? workoutDate`) and
+  the `ImportedWorkout` ledger date is the earliest *effective* set date. No parser
+  populates per-set `performedAt` — it is a manual review-screen affordance only.
+- **Discard protection** — both sheets use `.interactiveDismissDisabled` + a
+  "Discard this import?" confirmation dialog (`ExerciseEditorView` pattern). Scan guards
+  a reviewed draft with content; Typed Workout also guards non-empty typed text in
+  input/processing; the imported phase never blocks.
+
+No schema change (still V6).
+
 ## `main` wave after build 52 (2026-07-30) — free-form notation parsing
 
 **On `main` (commit `bc934e6`), first shipped in build 53.** Driven by a real user note (pole-vault
