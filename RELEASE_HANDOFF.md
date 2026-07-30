@@ -50,9 +50,18 @@ migration-release gate passed before upload.
    Current state for the full list — plus the `MARBLE_SEED_DEMO_FIXTURES` demo-recording
    seed hook.
 
+## ✅ 2.2 (build 52) VALID on TestFlight (2026-07-30)
+
+**2.2 build 52** (buildId `8551570a-9675-4d19-946f-6badd31458b5`, uploaded 2026-07-30,
+`VALID`, `internalBuildState: IN_BETA_TESTING`, auto-notify on) is the first build
+containing the **on-device parsing quality overhaul** (next section) on top of build
+51's free-text import wave. Published via the staged foreground flow (asc-archive →
+asc-export → builds upload); "test group A" auto-receives. **2.2 (build 48) remains
+the build in App Review.** No schema change since V6.
+
 ## `main` wave after build 51 (2026-07-29) — on-device parsing quality overhaul
 
-**On `main`, not in any TestFlight build yet.** Rebuilds the FoundationModels parsing
+**On `main` (commit `1468a1a`), first shipped in build 52.** Rebuilds the FoundationModels parsing
 pipeline that both Typed Workout and Scan use, after the live eval measured the old
 design at 50% on a 24-case corpus (now 88%):
 
