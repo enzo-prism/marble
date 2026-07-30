@@ -6,6 +6,19 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
+## ✅ 2.2 (build 51) VALID on TestFlight (2026-07-29)
+
+**2.2 build 51** (buildId `23d8691a-09cf-455a-b773-6fce32498ed3`, uploaded 2026-07-29,
+`VALID`, `internalBuildState: IN_BETA_TESTING`) is the first build containing the
+**free-text workout import wave** (see below) on top of everything in build 50. Published
+in stages — `make asc-archive` → `make asc-export` → `asc builds upload` — because the
+one-shot `make asc-publish-testflight` was killed when backgrounded (the known harness
+quirk); the staged foreground path works. The pinned `.asc/ExportOptions.plist` profiles
+still sign fine. "test group A" has `hasAccessToAllBuilds: true`, so internal testers
+receive builds automatically — manual group assignment is unnecessary and the API
+rejects it ("Builds cannot be assigned to this internal group"). **2.2 (build 48)
+remains the build in App Review.** No schema change since V6.
+
 ## ✅ 2.2 (build 50) VALID on TestFlight (2026-07-28)
 
 Both waves below shipped to TestFlight as **2.2 build 50** (buildId
@@ -39,7 +52,7 @@ migration-release gate passed before upload.
 
 ## `main` wave after build 50 (2026-07-29) — free-text workout import
 
-**On `main`, not in any TestFlight build yet.** Adds the "Typed Workout" bulk-import path:
+**On `main` (commit `112afa9`), first shipped in build 51.** Adds the "Typed Workout" bulk-import path:
 `ImportSource.textEntry`, `WorkoutTextEntryView`/`ViewModel` (paste free text → on-device
 parse via the existing FoundationModels/deterministic parsers → review with per-exercise
 library matching → journal), the new pure `ExerciseMatcher` (aliases + typo-tolerant
