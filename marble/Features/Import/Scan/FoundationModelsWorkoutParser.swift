@@ -43,12 +43,15 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
     @available(iOS 26.0, *)
     private func generate(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft? {
         let instructions = """
-            You convert the raw text of a photographed handwritten workout log into \
-            structured data. Only use information present in the text. Do not invent \
-            exercises, sets, weights, or reps. If a value is not written, leave it 0 \
-            (or empty for units). Expand common gym shorthand: "3x5" means 3 sets of 5 \
-            reps; "@135" or "135 lb" is the weight; "5k" is a 5 kilometer distance; \
-            "25:00" is a duration of 25 minutes.
+            You convert the raw text of a workout log — photographed handwriting or \
+            typed notes — into structured data. Only use information present in the \
+            text. Do not invent exercises, sets, weights, or reps. If a value is not \
+            written, leave it 0 (or empty for units). Expand common gym shorthand: \
+            "3x5" means 3 sets of 5 reps; "@135" or "135 lb" is the weight; "5k" is a \
+            5 kilometer distance; "25:00" is a duration of 25 minutes; "90s rest" or \
+            "rest 2 min" is the rest between sets and applies to every set of that \
+            exercise unless stated per set. Expand equipment shorthand in names: \
+            "DB" is dumbbell, "BB" is barbell.
             """
         let session = LanguageModelSession(instructions: instructions)
         let prompt = "Parse this workout into structured data:\n\n\(ocrText)"
@@ -118,12 +121,15 @@ nonisolated struct GeneratedSet {
     var distanceUnit: String
     @Guide(description: "Duration in seconds for a timed or cardio set. 0 if not written.")
     var durationSeconds: Int
+    @Guide(description: "Rest after this set in seconds, e.g. 90 for \"90s rest\". 0 if not written.")
+    var restSeconds: Int
 
     func draft() -> ParsedSetDraft? {
         let resolvedReps = reps > 0 ? reps : nil
         let resolvedWeight = weight > 0 ? weight : nil
         let resolvedDistance = distance > 0 ? distance : nil
         let resolvedDuration = durationSeconds > 0 ? durationSeconds : nil
+        let resolvedRest = restSeconds > 0 ? restSeconds : nil
         guard resolvedReps != nil || resolvedWeight != nil || resolvedDistance != nil || resolvedDuration != nil else {
             return nil
         }
@@ -133,7 +139,8 @@ nonisolated struct GeneratedSet {
             reps: resolvedReps,
             distance: resolvedDistance,
             distanceUnit: Self.distanceUnit(from: distanceUnit),
-            durationSeconds: resolvedDuration
+            durationSeconds: resolvedDuration,
+            restSeconds: resolvedRest
         )
     }
 

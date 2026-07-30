@@ -83,6 +83,9 @@ nonisolated struct ParsedSetDraft: Equatable, Sendable, Identifiable {
     var distance: Double?
     var distanceUnit: DistanceUnit
     var durationSeconds: Int?
+    /// Rest taken after this set, when the source text states one ("90s rest",
+    /// "rest 2 min"). `nil` falls back to the exercise's default at import time.
+    var restSeconds: Int?
 
     init(
         id: UUID = UUID(),
@@ -91,7 +94,8 @@ nonisolated struct ParsedSetDraft: Equatable, Sendable, Identifiable {
         reps: Int? = nil,
         distance: Double? = nil,
         distanceUnit: DistanceUnit = .meters,
-        durationSeconds: Int? = nil
+        durationSeconds: Int? = nil,
+        restSeconds: Int? = nil
     ) {
         self.id = id
         self.weight = weight
@@ -100,6 +104,7 @@ nonisolated struct ParsedSetDraft: Equatable, Sendable, Identifiable {
         self.distance = distance
         self.distanceUnit = distanceUnit
         self.durationSeconds = durationSeconds
+        self.restSeconds = restSeconds
     }
 
     var hasAnyValue: Bool {

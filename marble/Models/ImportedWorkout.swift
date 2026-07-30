@@ -10,6 +10,11 @@ nonisolated enum ImportSource: String, Codable, CaseIterable, Identifiable {
     /// Unlike the other sources it has no remote service or `WorkoutImportProvider`;
     /// it feeds the same dedup + persistence spine through `WorkoutScanImporter`.
     case photoScan
+    /// A workout typed or pasted as free text, parsed on-device and reviewed
+    /// before it becomes journal entries. Like `photoScan` it has no remote
+    /// service or `WorkoutImportProvider`; it feeds the same dedup +
+    /// persistence spine through `WorkoutScanImporter`.
+    case textEntry
 
     var id: String { rawValue }
 
@@ -23,6 +28,8 @@ nonisolated enum ImportSource: String, Codable, CaseIterable, Identifiable {
             return "Strava"
         case .photoScan:
             return "Scanned Workout"
+        case .textEntry:
+            return "Typed Workout"
         }
     }
 
@@ -36,6 +43,8 @@ nonisolated enum ImportSource: String, Codable, CaseIterable, Identifiable {
             return "flame.fill"
         case .photoScan:
             return "doc.text.viewfinder"
+        case .textEntry:
+            return "square.and.pencil"
         }
     }
 }

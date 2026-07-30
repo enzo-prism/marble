@@ -196,7 +196,7 @@ Use these commands (preferred):
 - On the simulator, keychain access groups are not enforced and `SecItem*` can return
   `errSecMissingEntitlement`; every call degrades to "no snapshot" (neutral widget card),
   which is why Debug/simulator and CI stay green.
-- **SwiftData schema is versioned in `Persistence/MarbleSchema.swift` and is currently V5.**
+- **SwiftData schema is versioned in `Persistence/MarbleSchema.swift` and is currently V6.**
   Never edit a shipped schema version's models in place — add a new `MarbleSchemaVN`, append
   it to `MarbleMigrationPlan.schemas`, and bump the single `Schema(versionedSchema:)` line in
   `ModelContainer.swift`.

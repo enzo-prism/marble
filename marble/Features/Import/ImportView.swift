@@ -9,6 +9,7 @@ struct ImportView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openURL) private var openURL
     @State private var showingScan = false
+    @State private var showingTextEntry = false
     @State private var autoImportEnabled = HealthAutoImportService.shared.isEnabled
     @State private var healthExportEnabled = UserDefaults.standard.bool(forKey: HealthSessionExporter.enabledDefaultsKey)
     @State private var detailSelection: DetailSelection?
@@ -43,6 +44,8 @@ struct ImportView: View {
         NavigationStack {
             List {
                 scanSection
+
+                textEntrySection
 
                 ForEach(viewModel.sources, id: \.self) { source in
                     sourceSection(for: source)
@@ -103,6 +106,13 @@ struct ImportView: View {
                     .presentationDragIndicator(.visible)
                     .sheetGlassBackground()
             }
+            .sheet(isPresented: $showingTextEntry) {
+                WorkoutTextEntryView()
+                    .modelContext(modelContext)
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+                    .sheetGlassBackground()
+            }
             .sheet(item: $detailSelection) { selection in
                 NavigationStack {
                     ImportedWorkoutDetailView(
@@ -156,6 +166,35 @@ struct ImportView: View {
                 .buttonStyle(.bordered)
                 .popoverTip(scanTip)
                 .accessibilityIdentifier("Import.Scan.Open")
+            }
+            .marbleRowInsets()
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+        }
+    }
+
+    /// Entry point for typing or pasting a workout as free text. Like the scanner
+    /// it is fully on-device and opens its own review flow.
+    private var textEntrySection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                HStack(spacing: MarbleSpacing.s) {
+                    Image(systemName: ImportSource.textEntry.systemImage)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    Text(ImportSource.textEntry.displayName)
+                        .font(MarbleTypography.rowTitle)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                }
+
+                Text("Write out your workout in plain words — exercises, weights, reps, rest. Marble structures it on your device and matches it to your exercise library for review.")
+                    .font(MarbleTypography.rowMeta)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+
+                Button("Type a Workout") {
+                    showingTextEntry = true
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("Import.TextEntry.Open")
             }
             .marbleRowInsets()
             .listRowBackground(Theme.backgroundColor(for: colorScheme))

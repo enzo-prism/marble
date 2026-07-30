@@ -37,6 +37,19 @@ migration-release gate passed before upload.
    Current state for the full list — plus the `MARBLE_SEED_DEMO_FIXTURES` demo-recording
    seed hook.
 
+## `main` wave after build 50 (2026-07-29) — free-text workout import
+
+**On `main`, not in any TestFlight build yet.** Adds the "Typed Workout" bulk-import path:
+`ImportSource.textEntry`, `WorkoutTextEntryView`/`ViewModel` (paste free text → on-device
+parse via the existing FoundationModels/deterministic parsers → review with per-exercise
+library matching → journal), the new pure `ExerciseMatcher` (aliases + typo-tolerant
+token matching), rest-notation parsing ("rest 90s", "90s rest", rest-only lines) with
+`ParsedSetDraft.restSeconds` flowing into `SetEntry.restAfterSeconds`, and a
+source-parameterised `WorkoutScanImporter`. **No schema change** (V6 untouched — new
+enum case is a raw string; no new `@Model`). Unit suite green (594 tests incl. new
+`ExerciseMatcherTests`, `WorkoutTextEntryViewModelTests`,
+`HandwrittenWorkoutParserRestTests`).
+
 ---
 
 ## ✅ RESOLVED — the App Group archiving blocker is gone (2026-07-21)

@@ -33,6 +33,10 @@ nonisolated struct HeuristicWorkoutScanParser: WorkoutScanParsing {
 ///   • `Name S x Ns` / `S x M:SS` → S timed sets             (e.g. "Plank 3x30s")
 ///   • `Name <distance> <time>`  → one cardio set            (e.g. "Run 5k 25:00")
 ///   • `Name R`                → one set of R reps (bodyweight)
+///   • `… rest 90s` / `… 90s rest` → rest between sets, applied to every set on
+///     the line. A bare number after "rest" is seconds when ≥ 15, minutes below
+///     ("rest 90" → 90 s, "rest 2" → 2 min). A line that is *only* rest notation
+///     ("rest 2 min between sets") applies to the previous exercise's sets.
 nonisolated enum HandwrittenWorkoutParser {
 
     /// A single `AxB` token is treated as weight×reps (one set) rather than sets×reps
@@ -61,6 +65,18 @@ nonisolated enum HandwrittenWorkoutParser {
                 if !titleAssigned, !isWeekday(line) {
                     draft.title = cleanTitle(line)
                     titleAssigned = true
+                }
+                continue
+            }
+
+            // A line that is only rest notation belongs to the previous
+            // exercise; without this, "Rest 90s" would become an exercise.
+            if let rest = restOnlyLineSeconds(line) {
+                if let lastIndex = draft.exercises.indices.last {
+                    for setIndex in draft.exercises[lastIndex].sets.indices {
+                        let existing = draft.exercises[lastIndex].sets[setIndex].restSeconds
+                        draft.exercises[lastIndex].sets[setIndex].restSeconds = existing ?? rest
+                    }
                 }
                 continue
             }
@@ -111,7 +127,10 @@ nonisolated enum HandwrittenWorkoutParser {
         var bareNumbers: [Double] = []
         var expectWeight = false
 
-        for token in mergeSpecTokens(rawTokens) {
+        // Pull rest notation out first so "90s rest" isn't read as a timed set.
+        let (tokens, restSeconds) = extractRest(mergeSpecTokens(rawTokens))
+
+        for token in tokens {
             let lower = token.lowercased()
 
             if lower == "@" { expectWeight = true; continue }
@@ -155,13 +174,69 @@ nonisolated enum HandwrittenWorkoutParser {
             }
         }
 
-        return buildSets(
+        let sets = buildSets(
             axbs: axbs,
             weight: weight,
             distance: distance,
             standaloneDuration: standaloneDuration,
             bareNumbers: bareNumbers
         )
+        guard let restSeconds else { return sets }
+        return sets.map { set in
+            var updated = set
+            updated.restSeconds = restSeconds
+            return updated
+        }
+    }
+
+    // MARK: - Rest notation
+
+    private static let restMarkers: Set<String> = ["rest", "rests", "resting"]
+
+    /// Removes rest notation from the merged spec tokens and returns the rest
+    /// duration it described, if any. Handles "rest 90s", "rest 90", "rest 2min",
+    /// and "90s rest".
+    private static func extractRest(_ tokens: [String]) -> (tokens: [String], restSeconds: Int?) {
+        var remaining = tokens
+        guard let markerIndex = remaining.firstIndex(where: { restMarkers.contains($0.lowercased()) }) else {
+            return (remaining, nil)
+        }
+
+        // "rest 90s" / "rest 90" — the value follows the marker.
+        if markerIndex + 1 < remaining.count {
+            let next = remaining[markerIndex + 1].lowercased()
+            if let duration = parseDuration(next) {
+                remaining.removeSubrange(markerIndex...(markerIndex + 1))
+                return (remaining, duration)
+            }
+            if let value = Double(next), value > 0 {
+                remaining.removeSubrange(markerIndex...(markerIndex + 1))
+                // Bare numbers are seconds when ≥ 15 ("rest 90"), minutes below
+                // ("rest 2") — nobody rests 2 seconds or 90 minutes between sets.
+                return (remaining, value >= 15 ? Int(value) : Int(value * 60))
+            }
+        }
+
+        // "90s rest" — the value precedes the marker.
+        if markerIndex > 0, let duration = parseDuration(remaining[markerIndex - 1].lowercased()) {
+            remaining.removeSubrange((markerIndex - 1)...markerIndex)
+            return (remaining, duration)
+        }
+
+        remaining.remove(at: markerIndex)
+        return (remaining, nil)
+    }
+
+    /// When a whole line is nothing but rest notation ("rest 2 min between sets"),
+    /// returns its duration; the caller applies it to the previous exercise.
+    private static func restOnlyLineSeconds(_ line: String) -> Int? {
+        let tokens = mergeSpecTokens(line.split(separator: " ").map(String.init))
+        guard tokens.contains(where: { restMarkers.contains($0.lowercased()) }) else { return nil }
+        let (remaining, restSeconds) = extractRest(tokens)
+        guard let restSeconds else { return nil }
+        // Anything left with a digit means the line carried real work too.
+        guard !remaining.contains(where: { $0.contains(where: \.isNumber) }) else { return nil }
+        return restSeconds
     }
 
     private static func buildSets(

@@ -38,7 +38,10 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
   relative-strength score. The monthly report reads the month's first and last weigh-in.
 - **Data safety** — export and restore exercises, sets, supplements, sessions, and plans as
   JSON. Progress photos and videos remain on-device and are intentionally excluded.
-- **Import** — bring workouts in from Apple Health (Apple Watch, Garmin, …) and Strava. See
+- **Import** — bring workouts in from Apple Health (Apple Watch, Garmin, …) and Strava, scan
+  a handwritten workout page with the camera, or type/paste a workout as free text — both
+  read on-device (Apple Intelligence when available, deterministic parser otherwise) and
+  reviewed, with library matching, before anything is logged. See
   [`INTEGRATIONS.md`](INTEGRATIONS.md).
 - **Rest timer** — after interactive set logging, a tab-bar pill counts the rest down inside
   the app (iOS 26 bottom accessory, with an End button), while a WidgetKit Live Activity
@@ -46,9 +49,23 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-28)
+## Current state (2026-07-29)
 
-- **`main` carries the sprint V6 feature wave** (unreleased): schema V6 adds
+- **`main` carries the free-text workout import wave** (unreleased, on top of build 50):
+  a "Typed Workout" path on the Import screen — type or paste a workout in plain words
+  ("Bench press 3x8 @ 185, rest 90s"), parsed on-device (FoundationModels when Apple
+  Intelligence is available, the deterministic notation parser otherwise) into a review
+  screen where every exercise shows whether it logs to an existing library exercise or
+  creates a new one, adjustable per exercise before committing. Ships with:
+  1. **`ExerciseMatcher`** — alias-aware (db/bb/ohp/rdl…), word-order-independent,
+     typo-tolerant matching of parsed names to the library, so imports stop silently
+     creating near-duplicate exercises.
+  2. **Rest-notation parsing** — "rest 90s", "90s rest", "rest 2 min", and rest-only
+     lines now land in `SetEntry.restAfterSeconds` (scan flow gains this too).
+  3. **`ImportSource.textEntry`** + a source-parameterised `WorkoutScanImporter`; same
+     dedup ledger (identical text re-imports warn), **no schema change** (still V6).
+  Unit suite **594 tests** green; accessibility audit green.
+- **`main` also carries the sprint V6 feature wave** (unreleased): schema V6 adds
   `SprintVariant` + `SprintRepDetail` (pure additive, no migration stage), bringing:
   1. **Tenths-precision sprint timing** — targets and times are canonical tenths
      (`SprintTiming`; 14.8 beats 15), entered as decimal seconds; the shipped whole-second

@@ -13,10 +13,16 @@ import SwiftData
 enum WorkoutScanImporter {
 
     static let importNote = "Imported from a scanned workout"
+    static let textEntryNote = "Imported from a typed workout"
 
-    /// Has this exact scan (same image hash) already been imported?
-    static func alreadyImported(externalID: String, in context: ModelContext) throws -> Bool {
-        let key = ImportedWorkout.deduplicationKey(source: .photoScan, externalID: externalID)
+    static func note(for source: ImportSource) -> String {
+        source == .textEntry ? textEntryNote : importNote
+    }
+
+    /// Has this exact scan (same image hash) or typed text (same content hash)
+    /// already been imported?
+    static func alreadyImported(externalID: String, source: ImportSource = .photoScan, in context: ModelContext) throws -> Bool {
+        let key = ImportedWorkout.deduplicationKey(source: source, externalID: externalID)
         var descriptor = FetchDescriptor<ImportedWorkout>(
             predicate: #Predicate<ImportedWorkout> { $0.deduplicationKey == key }
         )
@@ -30,6 +36,7 @@ enum WorkoutScanImporter {
     static func `import`(
         _ draft: ParsedWorkoutDraft,
         externalID: String,
+        source: ImportSource = .photoScan,
         in context: ModelContext,
         save: (ModelContext) throws -> Void = { try $0.save() }
     ) throws -> WorkoutImporter.Summary {
@@ -38,7 +45,7 @@ enum WorkoutScanImporter {
         let exercises = draft.importableExercises
         guard !exercises.isEmpty else { return summary }
 
-        if try alreadyImported(externalID: externalID, in: context) {
+        if try alreadyImported(externalID: externalID, source: source, in: context) {
             summary.skipped = 1
             return summary
         }
@@ -68,8 +75,8 @@ enum WorkoutScanImporter {
                     distance: set.distance,
                     distanceUnit: set.distanceUnit,
                     durationSeconds: set.durationSeconds,
-                    restAfterSeconds: resolved.defaultRestSeconds,
-                    notes: importNote
+                    restAfterSeconds: set.restSeconds ?? resolved.defaultRestSeconds,
+                    notes: note(for: source)
                 )
                 context.insert(entry)
                 setCount += 1
@@ -77,7 +84,7 @@ enum WorkoutScanImporter {
         }
 
         let ledger = ImportedWorkout(
-            source: .photoScan,
+            source: source,
             externalID: externalID,
             title: draft.title,
             workoutDate: performedAt,

@@ -100,7 +100,8 @@ final class WorkoutScanViewModel {
             reps: template.reps,
             distance: template.distance,
             distanceUnit: template.distanceUnit,
-            durationSeconds: template.durationSeconds
+            durationSeconds: template.durationSeconds,
+            restSeconds: template.restSeconds
         ))
     }
 

@@ -10,6 +10,7 @@
 >
 > | Phase | State |
 > |---|---|
+> | — main (2026-07-29) | **Unreleased free-text workout import wave**: "Typed Workout" on the Import screen — free text → on-device parse (FoundationModels with deterministic fallback) → review with per-exercise library matching (`ExerciseMatcher`: aliases, typo tolerance) → journal; rest-notation parsing ("rest 90s") into `SetEntry.restAfterSeconds` for scan too; `ImportSource.textEntry`; no schema change (still V6). Ships with the next build. |
 > | — main (2026-07-28) | **Unreleased sprint V6 feature wave**: tenths-precision timing + stopwatch, multiple sprint plans per exercise (schema V6, additive), sequence rollup, fastest-time PR trail, Trends sprint charts, progression nudges. See SPRINT_WORKOUTS.md. Ships with the next build. |
 > | — main (2026-07-28) | **Unreleased 10-fix reliability pass** on top of build 49 — number-field grouping corruption, Set Details delete-then-save crash pattern, the inert Control Center "Log a Set" control, backup-restore dedup/ownership, seed-flag durability, calendar/session cross-day attachment, undo-delete link loss, fresh-user reminder spam, rest-alert scheduling race, reps clamp. See README → Current state. Ships with the next build. |
 > | — build 49 | **On TestFlight `VALID` 2026-07-25** (buildId `5fe06de0-…`), not attached to the in-review version. Closes the known gaps below. |

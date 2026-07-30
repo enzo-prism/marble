@@ -83,7 +83,17 @@
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
-## Latest verification (2026-07-28, sprint V6 work on main)
+## Latest verification (2026-07-29, free-text import wave on main)
+- `MarbleTests` (`make unit`): **594 passed, 0 failed** — the 560 below plus the
+  free-text import suites: `ExerciseMatcherTests` (normalization, aliases, typo/word-order
+  tolerance, ranking), `WorkoutTextEntryViewModelTests` (parse → match → review → commit,
+  overrides, dedup), and `HandwrittenWorkoutParserRestTests` (rest notation incl.
+  rest-only continuation lines).
+- `make audit` (accessibility audit UI tests): green after the Import screen gained the
+  Typed Workout section.
+- `make typecheck-tests`: clean.
+
+## Verification (2026-07-28, sprint V6 work on main)
 - `MarbleTests` (`make unit`): **560 passed, 0 failed** — 519 on build 49 plus the sprint
   V6 suites: `SprintTimingTests` (tenths canon), `SprintVariantTests` (target math, tenths
   evaluation, primary selection, adoption sweep, legacy mirror, orphan sweeps),
