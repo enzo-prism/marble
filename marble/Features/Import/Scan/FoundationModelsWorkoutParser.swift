@@ -107,8 +107,17 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
         units: "5 kilometers" → distance 5, distanceUnit "km"; "3 miles" → 3 "mi".
         - durationSeconds and restSeconds are always SECONDS: "45 seconds" → 45, \
         "in 25 minutes" → 1500, "rest 2 min" → restSeconds 120. durationSeconds is \
-        the length of ONE set or effort, never the whole session.
-        - For a rep range like "8-12", use the lower bound (8).
+        the length of ONE set or effort, never the whole session. When a header \
+        gives a total time AND the sets have their own time ("20 minute plank \
+        circuit, 3 planks of 45 seconds each"), use the per-set time: setCount 3, \
+        durationSeconds 45 — the 20 minutes is ignored.
+        - For a rep range like "8-12" or "8–10", use the lower bound (8).
+        - "4 x 20-meter accelerations" is DISTANCE work: setCount 4, distance 20, \
+        distanceUnit "m", reps nil. A number attached to meters/km/miles is never \
+        reps.
+        - Percentages like "at 85-90%" are effort intensity — ignore them entirely; \
+        never a weight, reps, or distance. "each leg" / "each side" does not change \
+        setCount or reps. "with 20-pound dumbbells" → weight 20, weightUnit "lb".
         - Use perSetWeights/perSetReps ONLY when the sets differ from each other: \
         "Bench 135x5 155x3 175x1" → setCount 3, perSetWeights [135, 155, 175], \
         perSetReps [5, 3, 1]. Otherwise leave them nil.
@@ -137,8 +146,12 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
         - Timed sets: "Name SETSxSECONDSs" → "Plank 3x45s".
         - Cardio: "Name DISTANCEunit MM:SS" → "Run 5km 25:00".
         - Rest between sets: append "rest Ns" → "Squat 5x5 @ 225 lb rest 90s".
+        - Sprints/drills over a distance: "Name SETSxDISTANCEm" → "4 × 20-meter \
+        accelerations at 85-90%" becomes "Accelerations 4x20m".
         Rules: "3 rounds of 10 pushups, 15 squats" → "Pushups 3x10" and "Squats \
         3x15". "worked up to 225 on bench for a double" → "Bench 1x2 @ 225 lb". \
+        Drop intensity percentages ("at 85-90%") and "each leg"/"each side" — they \
+        are not numbers for the line. "with 20-pound dumbbells" → "@ 20 lb". \
         Expand shorthand: "DB" → Dumbbell, "BB" → Barbell, "KB" → Kettlebell.
         Example — "I did three sets of eight on bench at 185, then some curls, 3 \
         sets of 10 with 25 pound dumbbells, resting about 90 seconds" → dateText \
@@ -184,6 +197,18 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
 
     @available(iOS 26.0, *)
     func generate(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft? {
+        // Same intermittent-refusal reality as the rewrite pass: one fresh-session
+        // retry meaningfully raises the hit rate.
+        for _ in 0..<2 {
+            if let draft = await generateOnce(ocrText: ocrText, referenceDate: referenceDate) {
+                return draft
+            }
+        }
+        return nil
+    }
+
+    @available(iOS 26.0, *)
+    private func generateOnce(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft? {
         let session = LanguageModelSession(model: Self.transformationModel, instructions: Self.instructions)
         let prompt = "Extract the structured workout from this text:\n\n\(ocrText)"
 

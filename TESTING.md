@@ -83,7 +83,18 @@
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
-## Latest verification (2026-07-29 late, parsing-quality wave on main)
+## Latest verification (2026-07-30, free-form notation wave on main)
+- `MarbleTests` (`make unit`): **645 passed (1 skipped), 0 failed** — adds
+  `HandwrittenWorkoutParserFreeFormTests` (32 tests: hyphenated units, en-dash rep
+  ranges, intensity-% noise, distance B-values, leading-spec lines, "N by M",
+  single/double/triple rep words, name-filler stripping, bare-number weight/reps
+  threshold, and the verbatim pole-vault user note).
+- Live on-device model eval: **25/25 (100%)**, twice consecutively (corpus now
+  16 notation + 9 prose after re-tiering cases the deterministic parser learned).
+  Arbiter scoring gained colon-duration tokens and a coverage component so
+  plausible-but-incomplete drafts can't beat drafts that explain more of the text.
+
+## Verification (2026-07-29 late, parsing-quality wave on main)
 - `MarbleTests` (`make unit`): **612 passed (1 skipped), 0 failed** — adds
   `WorkoutDraftArbiterTests` and `WorkoutParseCorpusTests` (24-case corpus: notation
   cases pinned against the deterministic parser; prose cases pinned as

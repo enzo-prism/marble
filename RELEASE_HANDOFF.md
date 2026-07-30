@@ -59,6 +59,23 @@ containing the **on-device parsing quality overhaul** (next section) on top of b
 asc-export → builds upload); "test group A" auto-receives. **2.2 (build 48) remains
 the build in App Review.** No schema change since V6.
 
+## `main` wave after build 52 (2026-07-30) — free-form notation parsing
+
+**On `main`, not in any TestFlight build yet.** Driven by a real user note (pole-vault
+session) that build 52 mangled — "4 × 20-meter accelerations at 85–90%" became 20 reps.
+The deterministic parser learned: hyphenated units ("20-meter"/"20-pound"), en/em-dash
+rep ranges ("8–10" → lower bound), intensity percentages as noise, distance B-values
+("4x20m" → 4 distance sets), spec-first lines (name after the numbers), "N by M",
+single/double/triple rep words, word weight units (pound/kilogram), leading name-filler
+stripping ("worked up to … on bench" → "Bench"), and a bare-number weight/reps sanity
+threshold. `WorkoutDraftArbiter` scoring gained colon-duration tokens ("1:30" → 90) and
+a coverage component (a draft must *explain* the text's numbers, not just avoid
+inventing any). FM instructions gained distance-vs-reps, intensity, and
+session-total-vs-per-set rules; the structured pass now retries once like the rewrite
+pass. **Eval: 25/25 (100%), two consecutive runs** (corpus grew to 16 notation + 9
+prose; five-by-five, worked-up-to-a-double, and goblet-squats re-tiered to notation now
+that the deterministic parser nails them). 645 unit tests green. No schema change.
+
 ## `main` wave after build 51 (2026-07-29) — on-device parsing quality overhaul
 
 **On `main` (commit `1468a1a`), first shipped in build 52.** Rebuilds the FoundationModels parsing

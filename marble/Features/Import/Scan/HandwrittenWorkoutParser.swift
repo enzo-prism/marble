@@ -32,7 +32,17 @@ nonisolated struct HeuristicWorkoutScanParser: WorkoutScanParsing {
 ///   • `Name W1xR1 W2xR2 …`    → one weight×reps set per pair (e.g. "Bench 135x5 155x3 175x1")
 ///   • `Name S x Ns` / `S x M:SS` → S timed sets             (e.g. "Plank 3x30s")
 ///   • `Name <distance> <time>`  → one cardio set            (e.g. "Run 5k 25:00")
-///   • `Name R`                → one set of R reps (bodyweight)
+///   • `Name R`                → one set of R reps (bodyweight); a lone number ≥ 25
+///     is a load instead ("Bench 225" → weight, "Pushups 20" → reps)
+///   • `Name S by R`           → "by" between numbers reads as "x" (e.g. "press 5 by 5")
+///   • `Name W for a single/double/triple` → one set of 1/2/3 reps at W
+///   • `Name S x R1-R2`        → rep range; the lower bound wins (e.g. "Calf raises 4x8-10")
+///   • `Name S x D<unit>`      → S distance sets (e.g. "Sprints 4x20m", "4 × 20-meter")
+///   • `SxB Name …`            → spec-first lines fall back to the run of word tokens
+///     for the name (e.g. "4x20m accelerations at 85-90%" → "accelerations")
+///   • Intensity percentages ("85%", "85-90%") are noise — never a load or rep count.
+///   • En/em dashes normalize to "-"; a hyphen gluing a number to a unit word is
+///     dropped ("20-meter" → "20meter") while digit-digit hyphens ("8-10") survive.
 ///   • `… rest 90s` / `… 90s rest` → rest between sets, applied to every set on
 ///     the line. A bare number after "rest" is seconds when ≥ 15, minutes below
 ///     ("rest 90" → 90 s, "rest 2" → 2 min). A line that is *only* rest notation
@@ -94,9 +104,63 @@ nonisolated enum HandwrittenWorkoutParser {
     private static func parseExerciseLine(_ line: String) -> ParsedExerciseDraft? {
         let tokens = line.split(separator: " ").map(String.init)
         guard let specStart = tokens.firstIndex(where: isSpecStart) else { return nil }
-        let nameTokens = Array(tokens[..<specStart])
+        var nameTokens = Array(tokens[..<specStart])
         let specTokens = Array(tokens[specStart...])
-        guard !nameTokens.isEmpty else { return nil }
+        // Leading narration verbs/particles ("worked up to 225 on bench", "did pull
+        // ups 4x10") are not exercise names. Only the prefix is stripped, so names
+        // like "Warm up" or "Step to box" keep their inner words.
+        while let first = nameTokens.first, nameFillerPrefixes.contains(first.lowercased()) {
+            nameTokens.removeFirst()
+        }
+        guard !nameTokens.isEmpty else { return parseLeadingSpecLine(tokens) }
+
+        let name = cleanName(nameTokens.joined(separator: " "))
+        guard !name.isEmpty else { return nil }
+
+        let sets = parseSpec(specTokens)
+        guard !sets.isEmpty else { return nil }
+        return ParsedExerciseDraft(name: name, sets: sets)
+    }
+
+    /// Narration words that may prefix a name but are never part of it
+    /// ("worked up to …", "did pull ups …", "I …", "then some curls …").
+    private static let nameFillerPrefixes: Set<String> = [
+        "worked", "up", "to", "did", "i", "then", "some"
+    ]
+
+    /// Words that connect a spec to its exercise name without being part of it
+    /// ("4x20m accelerations at 85-90%", "3x10 goblet squats with a 50 pound dumbbell").
+    private static let specFillerWords: Set<String> = [
+        "at", "with", "a", "an", "the", "of", "for", "per", "each", "using",
+        "on", "side", "leg", "legs", "arm", "arms",
+        "worked", "up", "to", "did", "i", "then", "some"
+    ]
+
+    /// Fallback for lines that lead with the numbers instead of the name
+    /// ("4x20meter accelerations at 85-90%", "worked up to 225 on bench for a
+    /// double"). The name is the first contiguous run of word-only tokens that
+    /// yields anything once fillers are excluded; the spec is every token carrying
+    /// a digit (plus rep words like "double"), in original order. An empty
+    /// fallback name drops the line as before.
+    private static func parseLeadingSpecLine(_ tokens: [String]) -> ParsedExerciseDraft? {
+        let merged = mergeSpecTokens(tokens)
+        var nameTokens: [String] = []
+        var specTokens: [String] = []
+        var nameRunEnded = false
+        for token in merged {
+            let lower = token.lowercased()
+            if token.contains(where: \.isNumber) || repWordValues[lower] != nil {
+                specTokens.append(token)
+                // A spec token only closes the name once a name actually started,
+                // so "worked up to 225 on bench …" still reaches "bench".
+                if !nameTokens.isEmpty { nameRunEnded = true }
+                continue
+            }
+            guard token.contains(where: \.isLetter), !nameRunEnded else { continue }
+            if !specFillerWords.contains(lower) {
+                nameTokens.append(token)
+            }
+        }
 
         let name = cleanName(nameTokens.joined(separator: " "))
         guard !name.isEmpty else { return nil }
@@ -111,6 +175,7 @@ nonisolated enum HandwrittenWorkoutParser {
     private enum BValue: Equatable {
         case reps(Int)
         case duration(Int)
+        case distance(Double, DistanceUnit)
     }
 
     private struct AxB {
@@ -124,6 +189,8 @@ nonisolated enum HandwrittenWorkoutParser {
         var weight: (value: Double, unit: WeightUnit)?
         var distance: (value: Double, unit: DistanceUnit)?
         var standaloneDuration: Int?
+        var repRange: Int?
+        var wordReps: Int?
         var bareNumbers: [Double] = []
         var expectWeight = false
 
@@ -132,6 +199,10 @@ nonisolated enum HandwrittenWorkoutParser {
 
         for token in tokens {
             let lower = token.lowercased()
+
+            // Intensity percentages ("85%", "85-90%") are noise — never a load,
+            // rep count, or bare number.
+            if lower.hasSuffix("%") { continue }
 
             if lower == "@" { expectWeight = true; continue }
 
@@ -168,6 +239,16 @@ nonisolated enum HandwrittenWorkoutParser {
                 weight = weight ?? w
                 continue
             }
+            if let range = parseRepRange(lower) {
+                // "8-10" as its own token is a rep range, never a load.
+                repRange = repRange ?? range
+                continue
+            }
+            if let reps = repWordValues[lower] {
+                // "for a single/double/triple" — a spelled-out rep count.
+                wordReps = wordReps ?? reps
+                continue
+            }
             if let n = Double(lower) {
                 bareNumbers.append(n)
                 continue
@@ -179,6 +260,8 @@ nonisolated enum HandwrittenWorkoutParser {
             weight: weight,
             distance: distance,
             standaloneDuration: standaloneDuration,
+            repRange: repRange,
+            wordReps: wordReps,
             bareNumbers: bareNumbers
         )
         guard let restSeconds else { return sets }
@@ -244,6 +327,8 @@ nonisolated enum HandwrittenWorkoutParser {
         weight: (value: Double, unit: WeightUnit)?,
         distance: (value: Double, unit: DistanceUnit)?,
         standaloneDuration: Int?,
+        repRange: Int?,
+        wordReps: Int?,
         bareNumbers: [Double]
     ) -> [ParsedSetDraft] {
         if axbs.count == 1 {
@@ -271,6 +356,13 @@ nonisolated enum HandwrittenWorkoutParser {
                     weightUnit: resolvedWeight?.1 ?? .lb,
                     durationSeconds: seconds
                 )
+            case .distance(let value, let unit):
+                template = ParsedSetDraft(
+                    weight: resolvedWeight?.0,
+                    weightUnit: resolvedWeight?.1 ?? .lb,
+                    distance: value,
+                    distanceUnit: unit
+                )
             }
             return Array(repeating: template, count: count).map { var s = $0; s.id = UUID(); return s }
         }
@@ -293,8 +385,28 @@ nonisolated enum HandwrittenWorkoutParser {
                 durationSeconds: standaloneDuration
             )]
         }
-        if bareNumbers.count == 1, let reps = intIfWhole(bareNumbers[0]) {
-            return [ParsedSetDraft(weight: weight?.value, weightUnit: weight?.unit ?? .lb, reps: reps)]
+        if bareNumbers.count == 1 {
+            let bare = bareNumbers[0]
+            // "225 … for a double" — the bare number is the load, the word the reps.
+            if let wordReps {
+                return [ParsedSetDraft(weight: bare, weightUnit: weight?.unit ?? .lb, reps: wordReps)]
+            }
+            // A lone big number is a load ("Bench 225"), a small one a rep
+            // count ("Pushups 20") — same threshold as the AxB disambiguation.
+            if weight == nil, bare >= weightDisambiguationThreshold {
+                return [ParsedSetDraft(weight: bare, weightUnit: .lb)]
+            }
+            if let reps = intIfWhole(bare) {
+                return [ParsedSetDraft(weight: weight?.value, weightUnit: weight?.unit ?? .lb, reps: reps)]
+            }
+        }
+        // A lone rep range ("Curls 8-10") — the lower bound is the target.
+        if let repRange {
+            return [ParsedSetDraft(weight: weight?.value, weightUnit: weight?.unit ?? .lb, reps: repRange)]
+        }
+        // A rep word with an explicit load ("Bench 225lb for a double") or alone.
+        if let wordReps {
+            return [ParsedSetDraft(weight: weight?.value, weightUnit: weight?.unit ?? .lb, reps: wordReps)]
         }
         if let weight {
             return [ParsedSetDraft(weight: weight.value, weightUnit: weight.unit)]
@@ -314,6 +426,15 @@ nonisolated enum HandwrittenWorkoutParser {
     /// Glue split tokens back together so human spacing doesn't defeat the classifiers:
     /// `3 x 5` → `3x5`, `@ 135 lb` → `@135lb`, `100 kg` → `100kg`, `5 k` → `5k`.
     private static func mergeSpecTokens(_ tokens: [String]) -> [String] {
+        var tokens = tokens
+        // "5 by 5" reads as "5 x 5" — but only between numbers, so a "by" inside an
+        // exercise name ("pull by cable") stays put.
+        for index in tokens.indices where tokens[index].lowercased() == "by" {
+            guard index > 0, index + 1 < tokens.count,
+                  tokens[index - 1].last?.isNumber == true,
+                  tokens[index + 1].first?.isNumber == true else { continue }
+            tokens[index] = "x"
+        }
         var result: [String] = []
         var index = 0
         while index < tokens.count {
@@ -341,6 +462,7 @@ nonisolated enum HandwrittenWorkoutParser {
 
     private static let pureUnits: Set<String> = [
         "lb", "lbs", "kg", "kgs", "#",
+        "pound", "pounds", "kilogram", "kilograms", "kilo", "kilos",
         "km", "k", "mi", "mile", "miles", "m", "meter", "meters", "yd", "yard", "yards", "ft", "feet",
         "h", "hr", "hrs", "hour", "hours", "min", "mins", "minute", "minutes",
         "s", "sec", "secs", "second", "seconds"
@@ -366,15 +488,39 @@ nonisolated enum HandwrittenWorkoutParser {
     private static func parseBValue(_ s: String) -> BValue? {
         if let dur = parseDuration(s) { return .duration(dur) }
         if let reps = intIfWhole(Double(s)) { return .reps(reps) }
+        if let lower = parseRepRange(s) { return .reps(lower) }
+        if let dist = parseDistance(s) { return .distance(dist.0, dist.1) }
         return nil
     }
 
+    /// Spelled-out rep counts used with a max-effort load ("for a double").
+    private static let repWordValues: [String: Int] = [
+        "single": 1, "double": 2, "triple": 3
+    ]
+
+    /// "8-10" — a rep range; the lower bound is the concrete target.
+    private static func parseRepRange(_ token: String) -> Int? {
+        let parts = token.split(separator: "-", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count == 2,
+              let low = intIfWhole(Double(parts[0])),
+              let high = intIfWhole(Double(parts[1])),
+              low > 0, high >= low else { return nil }
+        return low
+    }
+
+    /// Longest-first so "pounds" is claimed before "pound" could shadow it.
+    private static let weightUnitSuffixes: [String] = [
+        "kilograms", "kilogram", "pounds", "pound", "kilos", "kilo",
+        "lbs", "kgs", "lb", "kg", "#"
+    ]
+
     private static func parseWeight(_ token: String) -> (Double, WeightUnit)? {
-        if let unitRange = token.rangeOfUnitSuffix(["lbs", "lb", "kgs", "kg", "#"]) {
+        if let unitRange = token.rangeOfUnitSuffix(weightUnitSuffixes) {
             let numberPart = String(token[..<unitRange.lowerBound])
             guard let value = Double(numberPart) else { return nil }
             let unit = token[unitRange].lowercased()
-            return (value, (unit == "kg" || unit == "kgs") ? .kg : .lb)
+            // kg, kgs, kilo(s), kilogram(s) all lead with "k"; everything else is pounds.
+            return (value, unit.hasPrefix("k") ? .kg : .lb)
         }
         return nil
     }
@@ -500,9 +646,30 @@ nonisolated enum HandwrittenWorkoutParser {
         for multiply in ["×", "✕", "✗", "*", "·"] {
             result = result.replacingOccurrences(of: multiply, with: "x")
         }
+        for dash in ["–", "—"] {
+            result = result.replacingOccurrences(of: dash, with: "-")
+        }
+        result = attachHyphenatedUnits(result)
         result = result.replacingOccurrences(of: ",", with: " ")
         let collapsed = result.split(whereSeparator: { $0 == " " || $0 == "\t" }).joined(separator: " ")
         return collapsed.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Drops a hyphen that glues a number to a unit word so the token reads as one
+    /// unit ("20-meter" → "20meter", "20-pound" → "20pound"). Digit-digit hyphens
+    /// ("8-10", ISO dates) and word-word hyphens ("Rear-delt") are untouched.
+    private static func attachHyphenatedUnits(_ line: String) -> String {
+        let characters = Array(line)
+        var result = ""
+        result.reserveCapacity(characters.count)
+        for (index, character) in characters.enumerated() {
+            if character == "-", index > 0, index + 1 < characters.count,
+               characters[index - 1].isNumber, characters[index + 1].isLetter {
+                continue
+            }
+            result.append(character)
+        }
+        return result
     }
 
     private static func isSpecStart(_ token: String) -> Bool {

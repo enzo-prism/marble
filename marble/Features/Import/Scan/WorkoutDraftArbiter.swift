@@ -76,11 +76,11 @@ nonisolated enum WorkoutDraftArbiter {
         // through those conversions too — a correct "in 25 minutes" → 1500 must
         // not score worse than a wrong verbatim 25.
         let (exactValues, secondsValues) = numericValues(in: draft)
+        let tokens = numberTokens(in: sourceText)
         let fidelity: Double
         if exactValues.isEmpty && secondsValues.isEmpty {
             fidelity = 0.5 // nothing to verify — neutral
         } else {
-            let tokens = numberTokens(in: sourceText)
             var matched = exactValues.filter { tokens.contains($0) }.count
             matched += secondsValues.filter { seconds in
                 tokens.contains(seconds) || tokens.contains(seconds / 60) || tokens.contains(seconds / 3600)
@@ -88,7 +88,36 @@ nonisolated enum WorkoutDraftArbiter {
             fidelity = Double(matched) / Double(exactValues.count + secondsValues.count)
         }
 
-        return presence + 3 * agreement + 3 * fidelity
+        // Coverage: precision alone lets a draft win by claiming only the numbers
+        // it is sure of ("20 minute plank" while ignoring "3 planks of 45 seconds").
+        // A draft should also *explain* the text's numbers: set counts, values, and
+        // second-values (matching through minute/hour conversion) all count, as do
+        // the resolved date's components.
+        let coverage: Double
+        if tokens.isEmpty {
+            coverage = 0.5 // nothing to explain — neutral
+        } else {
+            var claimed = Set(exactValues)
+            for exercise in draft.importableExercises {
+                claimed.insert(Double(exercise.sets.count))
+            }
+            for seconds in secondsValues {
+                claimed.insert(seconds)
+                claimed.insert(seconds / 60)
+                claimed.insert(seconds / 3600)
+            }
+            if let performedAt = draft.performedAt {
+                let components = Calendar.current.dateComponents([.year, .month, .day], from: performedAt)
+                for value in [components.year, components.month, components.day].compactMap({ $0 }) {
+                    claimed.insert(Double(value))
+                    claimed.insert(Double(value % 100)) // "‘26" style two-digit years
+                }
+            }
+            let covered = tokens.filter { claimed.contains($0) }.count
+            coverage = Double(covered) / Double(tokens.count)
+        }
+
+        return presence + 3 * agreement + 3 * fidelity + 2 * coverage
     }
 
     /// Total sets implied by explicit NxM notation tokens in the text, nil when none.
@@ -173,7 +202,13 @@ nonisolated enum WorkoutDraftArbiter {
         "single": 1, "double": 2, "triple": 3
     ]
 
+    private static let colonDurationRegex = try? NSRegularExpression(
+        pattern: #"\b(\d+):(\d{2})(?::(\d{2}))?\b"#
+    )
+
     /// All numbers in the text as Doubles so "185" matches a weight of 185.0.
+    /// Colon durations also contribute their value in seconds ("1:30" → 90), so a
+    /// draft that correctly resolved them isn't scored as inventing numbers.
     private static func numberTokens(in sourceText: String) -> Set<Double> {
         guard let regex = numberTokenRegex else { return [] }
         let matches = regex.matches(in: sourceText, range: NSRange(sourceText.startIndex..., in: sourceText))
@@ -182,6 +217,22 @@ nonisolated enum WorkoutDraftArbiter {
         })
         for word in sourceText.lowercased().split(whereSeparator: { !$0.isLetter }) {
             if let value = numberWords[String(word)] { tokens.insert(value) }
+        }
+        if let colonRegex = colonDurationRegex {
+            for match in colonRegex.matches(in: sourceText, range: NSRange(sourceText.startIndex..., in: sourceText)) {
+                let groups = (1...3).map { index -> Int? in
+                    guard match.range(at: index).location != NSNotFound,
+                          let range = Range(match.range(at: index), in: sourceText) else { return nil }
+                    return Int(sourceText[range])
+                }
+                if let first = groups[0], let second = groups[1] {
+                    if let third = groups[2] {
+                        tokens.insert(Double(first * 3600 + second * 60 + third))
+                    } else {
+                        tokens.insert(Double(first * 60 + second))
+                    }
+                }
+            }
         }
         return tokens
     }

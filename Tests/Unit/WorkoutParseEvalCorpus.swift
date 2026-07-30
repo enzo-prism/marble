@@ -307,6 +307,59 @@ extension WorkoutParseEvalCase {
             expected: ExpectedWorkout(exercises: [
                 ExpectedExercise(name: "KB swings", setCount: 3, reps: 20, weight: 53, restSeconds: 90)
             ])
+        ),
+        WorkoutParseEvalCase(
+            name: "five by five",
+            // Re-tiered from .prose: "by" between numbers now reads as "x" and
+            // "pounds" is a weight unit.
+            input: "overhead press 5 by 5 at 95 pounds",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Overhead Press", setCount: 5, reps: 5, weight: 95)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "worked up to a double",
+            // Re-tiered from .prose: rep words + name-filler stripping make this
+            // deterministic.
+            input: "worked up to 225 on bench for a double",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Bench", setCount: 1, reps: 2, weight: 225)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "notation-first goblet squats",
+            // Re-tiered from .prose: leading-spec fallback + word weight units make
+            // this deterministic.
+            input: "3x10 goblet squats with a 50 pound dumbbell",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Goblet Squats", setCount: 3, reps: 10, weight: 50)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "pole vault day free-form",
+            input: """
+            4 × 20-meter accelerations at 85–90%
+            3 × 30-meter accelerations at 85–90%
+            Split squats: 3 × 5 each leg
+            Calf raises: 4 × 8–10
+            Pull-ups: 1 × 10
+            Rear-delt dumbbell flyes: 2 × 15 with 20-pound dumbbells
+            Swinging Bubka high-bar drill: 2 × 5
+            """,
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                // The same name appearing twice is correct: two separate blocks, in order.
+                ExpectedExercise(name: "Accelerations", setCount: 4, distance: 20, distanceUnit: .meters),
+                ExpectedExercise(name: "Accelerations", setCount: 3, distance: 30, distanceUnit: .meters),
+                ExpectedExercise(name: "Split Squats", setCount: 3, reps: 5),
+                ExpectedExercise(name: "Calf Raises", setCount: 4, reps: 8),
+                ExpectedExercise(name: "Pull-ups", setCount: 1, reps: 10),
+                ExpectedExercise(name: "Rear-delt Dumbbell Flyes", setCount: 2, reps: 15, weight: 20),
+                ExpectedExercise(name: "Swinging Bubka High-bar Drill", setCount: 2, reps: 5)
+            ])
         )
     ]
 
@@ -353,14 +406,6 @@ extension WorkoutParseEvalCase {
             ])
         ),
         WorkoutParseEvalCase(
-            name: "prose worked up to a double",
-            input: "worked up to 225 on bench for a double",
-            tier: .prose,
-            expected: ExpectedWorkout(exercises: [
-                ExpectedExercise(name: "Bench", setCount: 1, reps: 2, weight: 225)
-            ])
-        ),
-        WorkoutParseEvalCase(
             name: "prose leg day with spelled numbers",
             input: "leg day: squats five sets of five at 225, leg press three sets of fifteen",
             tier: .prose,
@@ -404,22 +449,6 @@ extension WorkoutParseEvalCase {
             tier: .prose,
             expected: ExpectedWorkout(exercises: [
                 ExpectedExercise(name: "Deadlifts", setCount: 5, reps: 3, weight: 315)
-            ])
-        ),
-        WorkoutParseEvalCase(
-            name: "prose five by five",
-            input: "overhead press 5 by 5 at 95 pounds",
-            tier: .prose,
-            expected: ExpectedWorkout(exercises: [
-                ExpectedExercise(name: "Overhead Press", setCount: 5, reps: 5, weight: 95)
-            ])
-        ),
-        WorkoutParseEvalCase(
-            name: "prose notation-first goblet squats",
-            input: "3x10 goblet squats with a 50 pound dumbbell",
-            tier: .prose,
-            expected: ExpectedWorkout(exercises: [
-                ExpectedExercise(name: "Goblet Squats", setCount: 3, reps: 10, weight: 50)
             ])
         )
     ]
