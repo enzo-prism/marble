@@ -49,9 +49,22 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-29)
+## Current state (2026-07-30)
 
-- **`main` carries the on-device parsing quality overhaul** (unreleased, after build 51):
+- **`main` carries the import review timing wave** (unreleased, after build 53): both
+  import review screens (Scan + Typed Workout) gain workout-level date & time control
+  (compact pickers, progressive "Include Time" toggle) and per-set date & time overrides
+  (context menu / leading swipe on a set row) so multi-day pages and mixed sessions land
+  on the right days; the import-history ledger records the earliest effective set date;
+  and both sheets get dismissal protection ("Discard this import?") so a swipe-down
+  can't silently throw away a reviewed draft. No schema change (still V6). Unit suite
+  **648 tests** green; accessibility audit green.
+- **`main` carries the free-form notation parsing wave** (first shipped in build 53):
+  driven by a real pole-vault note build 52 mangled — the deterministic parser learned
+  hyphenated units, en-dash rep ranges, intensity-% noise, distance sets ("4×20m"),
+  spec-first lines, "5 by 5", rep words, and name-filler stripping; the arbiter gained
+  coverage scoring. Live eval: **25/25 (100%)** stable (see TESTING.md).
+- **`main` carries the on-device parsing quality overhaul** (shipped in build 52):
   the FoundationModels pipeline behind Typed Workout and Scan was rebuilt — the model now
   reports counts/values (`setCount`) and code expands sets; a second model pass rewrites
   prose into gym notation for the deterministic parser; a new `WorkoutDraftArbiter`
@@ -59,7 +72,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   wins on notation input; guardrail refusals on benign gym prose are handled with
   Apple's permissive-transformation mode plus one retry. Measured on a 24-case eval
   corpus: 50% → **88%** exact-parse rate (see TESTING.md for the opt-in live eval).
-- **`main` carries the free-text workout import wave** (unreleased, on top of build 50):
+- **`main` carries the free-text workout import wave** (shipped in build 51):
   a "Typed Workout" path on the Import screen — type or paste a workout in plain words
   ("Bench press 3x8 @ 185, rest 90s"), parsed on-device (FoundationModels when Apple
   Intelligence is available, the deterministic notation parser otherwise) into a review
@@ -73,7 +86,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   3. **`ImportSource.textEntry`** + a source-parameterised `WorkoutScanImporter`; same
      dedup ledger (identical text re-imports warn), **no schema change** (still V6).
   Unit suite **594 tests** green; accessibility audit green.
-- **`main` also carries the sprint V6 feature wave** (unreleased): schema V6 adds
+- **`main` also carries the sprint V6 feature wave** (shipped in build 50): schema V6 adds
   `SprintVariant` + `SprintRepDetail` (pure additive, no migration stage), bringing:
   1. **Tenths-precision sprint timing** — targets and times are canonical tenths
      (`SprintTiming`; 14.8 beats 15), entered as decimal seconds; the shipped whole-second
