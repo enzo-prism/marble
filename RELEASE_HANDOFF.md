@@ -59,9 +59,17 @@ containing the **on-device parsing quality overhaul** (next section) on top of b
 asc-export → builds upload); "test group A" auto-receives. **2.2 (build 48) remains
 the build in App Review.** No schema change since V6.
 
+## ✅ 2.2 (build 53) VALID on TestFlight (2026-07-30)
+
+**2.2 build 53** (buildId `b3db3359-1645-4081-b229-3cf95b22bf7c`, uploaded 2026-07-30,
+`VALID`, `internalBuildState: IN_BETA_TESTING`, auto-notify on) is the first build
+containing the **free-form notation parsing wave** (next section) — eval 25/25.
+Staged foreground publish; "test group A" auto-receives. **2.2 (build 48) remains the
+build in App Review.** No schema change since V6.
+
 ## `main` wave after build 52 (2026-07-30) — free-form notation parsing
 
-**On `main`, not in any TestFlight build yet.** Driven by a real user note (pole-vault
+**On `main` (commit `bc934e6`), first shipped in build 53.** Driven by a real user note (pole-vault
 session) that build 52 mangled — "4 × 20-meter accelerations at 85–90%" became 20 reps.
 The deterministic parser learned: hyphenated units ("20-meter"/"20-pound"), en/em-dash
 rep ranges ("8–10" → lower bound), intensity percentages as noise, distance B-values
