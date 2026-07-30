@@ -50,6 +50,36 @@ migration-release gate passed before upload.
    Current state for the full list — plus the `MARBLE_SEED_DEMO_FIXTURES` demo-recording
    seed hook.
 
+## `main` wave after build 51 (2026-07-29) — on-device parsing quality overhaul
+
+**On `main`, not in any TestFlight build yet.** Rebuilds the FoundationModels parsing
+pipeline that both Typed Workout and Scan use, after the live eval measured the old
+design at 50% on a 24-case corpus (now 88%):
+
+- **Doctrine restored (model reads, code computes):** the `@Generable` schema now emits
+  `setCount` + per-exercise values (Optionals, `.anyOf` units, `.range` counts) and code
+  expands the sets — the old schema needed N identical array elements for "NxM" and the
+  ~3B model reliably emitted one. Date text is extracted by the model but resolved in
+  code (relative words + `HandwrittenWorkoutParser.explicitDate`).
+- **`WorkoutDraftArbiter`** (new, pure): the deterministic parser always runs; model
+  drafts win only when they score higher against the source text (set-count agreement
+  with NxM tokens, unit-aware numeric fidelity incl. spelled numbers, distinct-name
+  presence). Notation input now always keeps its exact deterministic parse (12/12).
+- **Second model pass:** prose is also rewritten into gym notation lines
+  (`rewriteInstructions` → `GeneratedNotation`) and parsed deterministically —
+  transliteration beats 12-field extraction on the small model.
+- **Guardrail refusals:** default guardrails refuse benign gym prose ("May contain
+  sensitive content"); sessions now use
+  `SystemLanguageModel(guardrails: .permissiveContentTransformations)`, avoid
+  copy/verbatim phrasing in instructions (an anti-regurgitation refusal trigger), and
+  retry once — refusals are intermittent. Greedy sampling everywhere; prewarm on sheet
+  appear.
+- **Eval harness:** 24-case corpus (`WorkoutParseEvalCorpus`) with notation cases pinned
+  against the deterministic parser in CI, and an opt-in live-model eval
+  (`TEST_RUNNER_MARBLE_FM_EVAL=1 make only TEST=MarbleTests/FoundationModelsLiveEvalTests`,
+  needs Apple Silicon + Apple Intelligence) asserting ≥80% pass rate — currently 88%,
+  remaining failures are ambiguous prose + intermittent refusals.
+
 ## `main` wave after build 50 (2026-07-29) — free-text workout import
 
 **On `main` (commit `112afa9`), first shipped in build 51.** Adds the "Typed Workout" bulk-import path:

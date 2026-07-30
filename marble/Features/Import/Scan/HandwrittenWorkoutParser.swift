@@ -423,6 +423,18 @@ nonisolated enum HandwrittenWorkoutParser {
 
     // MARK: - Dates
 
+    /// First explicit date found anywhere in `text` (`M/D`, `M/D/YY`, `YYYY-MM-DD`).
+    /// Exposed so the model-backed parser can resolve the date it extracted with the
+    /// same deterministic rules instead of asking the model to do calendar math.
+    static func explicitDate(in text: String, referenceDate: Date) -> Date? {
+        for line in text.split(whereSeparator: { $0.isNewline }) {
+            if let match = detectDate(in: String(line), referenceDate: referenceDate) {
+                return match.date
+            }
+        }
+        return nil
+    }
+
     private struct DateMatch { var date: Date; var range: Range<String.Index> }
 
     private static let slashDateRegex = try? NSRegularExpression(

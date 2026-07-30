@@ -21,6 +21,9 @@ struct WorkoutTextEntryView: View {
                 .navigationBarGlassBackground()
                 .toolbar { toolbarContent }
         }
+        // Load the on-device model while the user is still typing, so the first
+        // parse doesn't pay model-load latency inside the processing spinner.
+        .task { FoundationModelsWorkoutScanParser.prewarm() }
     }
 
     // MARK: - Phases

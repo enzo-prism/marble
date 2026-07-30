@@ -83,7 +83,19 @@
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
-## Latest verification (2026-07-29, free-text import wave on main)
+## Latest verification (2026-07-29 late, parsing-quality wave on main)
+- `MarbleTests` (`make unit`): **612 passed (1 skipped), 0 failed** — adds
+  `WorkoutDraftArbiterTests` and `WorkoutParseCorpusTests` (24-case corpus: notation
+  cases pinned against the deterministic parser; prose cases pinned as
+  deterministic-parser failures so the model path's reason-to-exist stays visible).
+- Live on-device model eval (opt-in, not CI):
+  `TEST_RUNNER_MARBLE_FM_EVAL=1 make only TEST=MarbleTests/FoundationModelsLiveEvalTests`
+  on an Apple Silicon Mac with Apple Intelligence enabled. Pass rate **21/24 (88%)**
+  against the ≥80% threshold; run-to-run jitter of ±1 case is expected (intermittent
+  model refusals despite greedy sampling). Baseline before the overhaul: 50%.
+- `make audit`: green (prewarm hooks touched Scan/TextEntry sheets).
+
+## Verification (2026-07-29, free-text import wave on main)
 - `MarbleTests` (`make unit`): **594 passed, 0 failed** — the 560 below plus the
   free-text import suites: `ExerciseMatcherTests` (normalization, aliases, typo/word-order
   tolerance, ranking), `WorkoutTextEntryViewModelTests` (parse → match → review → commit,

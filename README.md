@@ -51,6 +51,14 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-07-29)
 
+- **`main` carries the on-device parsing quality overhaul** (unreleased, after build 51):
+  the FoundationModels pipeline behind Typed Workout and Scan was rebuilt — the model now
+  reports counts/values (`setCount`) and code expands sets; a second model pass rewrites
+  prose into gym notation for the deterministic parser; a new `WorkoutDraftArbiter`
+  scores every candidate draft against the source text so the deterministic parse always
+  wins on notation input; guardrail refusals on benign gym prose are handled with
+  Apple's permissive-transformation mode plus one retry. Measured on a 24-case eval
+  corpus: 50% → **88%** exact-parse rate (see TESTING.md for the opt-in live eval).
 - **`main` carries the free-text workout import wave** (unreleased, on top of build 50):
   a "Typed Workout" path on the Import screen — type or paste a workout in plain words
   ("Bench press 3x8 @ 185, rest 90s"), parsed on-device (FoundationModels when Apple

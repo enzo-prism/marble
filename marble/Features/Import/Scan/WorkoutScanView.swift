@@ -33,6 +33,9 @@ struct WorkoutScanView: View {
             guard let newItem else { return }
             Task { await loadPhoto(newItem) }
         }
+        // Load the on-device model while the user is still capturing, so the first
+        // parse doesn't pay model-load latency inside the processing spinner.
+        .task { FoundationModelsWorkoutScanParser.prewarm() }
     }
 
     // MARK: - Phases
