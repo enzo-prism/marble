@@ -67,9 +67,17 @@ containing the **free-form notation parsing wave** (next section) — eval 25/25
 Staged foreground publish; "test group A" auto-receives. **2.2 (build 48) remains the
 build in App Review.** No schema change since V6.
 
+## ✅ 2.2 (build 54) VALID on TestFlight (2026-07-30)
+
+**2.2 build 54** (buildId `fe58f7a6-70d4-448a-a3df-b90d7971d338`, uploaded 2026-07-30
+12:45 PT, `VALID`) is the first build containing the **import review timing wave**
+(next section). Staged foreground publish (asc-archive → asc-export → builds upload);
+"test group A" auto-receives. **2.2 (build 48) remains the build in App Review.**
+No schema change since V6.
+
 ## `main` wave after build 53 (2026-07-30) — import review timing & dismissal protection
 
-**Unreleased — ships with the next build.** Adds date & time control to both import
+**On `main` (commit `18e599a`), first shipped in build 54.** Adds date & time control to both import
 review screens (Scan + Typed Workout) plus HIG sheet-dismissal protection:
 
 - **Workout-level date & time** — the inline `DatePicker` row is replaced by a shared
@@ -89,7 +97,7 @@ review screens (Scan + Typed Workout) plus HIG sheet-dismissal protection:
   a reviewed draft with content; Typed Workout also guards non-empty typed text in
   input/processing; the imported phase never blocks.
 
-No schema change (still V6).
+No schema change (still V6). 648 unit tests green, `make audit` green.
 
 ## `main` wave after build 52 (2026-07-30) — free-form notation parsing
 
