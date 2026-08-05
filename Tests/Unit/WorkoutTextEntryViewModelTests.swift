@@ -213,4 +213,93 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertEqual(viewModel.phase, .input)
         XCTAssertEqual(viewModel.text, "Squat 5x5")
     }
+
+    // MARK: - Unparsed lines
+
+    func testPreviewSurfacesUnparsedLines() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 3x8 @ 185\nround 2 of 3 felt easy"
+
+        await viewModel.preview(in: context)
+
+        XCTAssertEqual(viewModel.phase, .review)
+        XCTAssertEqual(viewModel.unparsedLines, ["round 2 of 3 felt easy"])
+    }
+
+    func testPreviewWithoutDropsHasNoUnparsedLines() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = "Push day\nBench 3x8 @ 185 rest 90s"
+
+        await viewModel.preview(in: context)
+
+        XCTAssertTrue(viewModel.unparsedLines.isEmpty)
+    }
+
+    func testRetryUnparsedLineJoinsDraftWhenFixed() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 3x8 @ 185\nround 2 of 3 felt easy"
+        await viewModel.preview(in: context)
+        XCTAssertEqual(viewModel.draft.exercises.count, 1)
+
+        await viewModel.retryUnparsedLine(at: 0, replacement: "Squat 5x5 @ 225")
+
+        XCTAssertTrue(viewModel.unparsedLines.isEmpty)
+        XCTAssertEqual(viewModel.draft.exercises.count, 2)
+        XCTAssertEqual(viewModel.draft.exercises[1].name, "Squat")
+        XCTAssertNotNil(viewModel.resolution(for: viewModel.draft.exercises[1].id))
+    }
+
+    func testRetryUnparsedLineStaysListedWhenStillUnparseable() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 3x8 @ 185\nround 2 of 3 felt easy"
+        await viewModel.preview(in: context)
+
+        await viewModel.retryUnparsedLine(at: 0, replacement: "still not notation honestly")
+
+        XCTAssertEqual(viewModel.unparsedLines, ["still not notation honestly"])
+        XCTAssertEqual(viewModel.draft.exercises.count, 1)
+    }
+
+    // MARK: - Live preview
+
+    func testLivePreviewRecognizesAndFlagsLines() {
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 3x8 @ 185\nround 2 of 3 felt easy"
+
+        viewModel.updateLivePreview()
+
+        XCTAssertEqual(viewModel.livePreview?.recognized.map(\.name), ["Bench"])
+        XCTAssertEqual(viewModel.livePreview?.recognized.first?.setCount, 3)
+        XCTAssertEqual(viewModel.livePreview?.unrecognized, ["round 2 of 3 felt easy"])
+    }
+
+    func testLivePreviewClearsOnEmptyText() {
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 3x8"
+        viewModel.updateLivePreview()
+        XCTAssertNotNil(viewModel.livePreview)
+
+        viewModel.text = "  "
+        viewModel.updateLivePreview()
+        XCTAssertNil(viewModel.livePreview)
+    }
+
+    // MARK: - Preferred weight unit
+
+    func testUnitlessWeightsUseInjectedDefaultUnit() async {
+        let context = makeInMemoryContext()
+        let viewModel = WorkoutTextEntryViewModel(
+            parser: HeuristicWorkoutScanParser(defaultWeightUnit: .kg),
+            defaultWeightUnit: .kg
+        )
+        viewModel.text = "Bench 3x8 @ 100"
+
+        await viewModel.preview(in: context)
+
+        XCTAssertTrue(viewModel.draft.exercises[0].sets.allSatisfy { $0.weightUnit == .kg })
+    }
 }

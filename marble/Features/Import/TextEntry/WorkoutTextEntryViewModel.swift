@@ -49,17 +49,45 @@ final class WorkoutTextEntryViewModel {
     /// Set when identical text was already imported — a heads-up, not a block.
     private(set) var alreadyImported = false
     private(set) var externalID = ""
+    /// Source lines the parse produced nothing for, shown in review so a paste
+    /// never loses work silently. Editable inline; a fixed line re-parses into
+    /// the draft.
+    private(set) var unparsedLines: [String] = []
+    /// Debounced parse of the in-progress text for the input step's live
+    /// per-line feedback. Deterministic parser only — it is pure and cheap, and
+    /// the feedback must work on devices without the on-device model.
+    private(set) var livePreview: LivePreview?
+
+    struct LivePreview: Equatable {
+        struct Recognized: Equatable, Identifiable {
+            var id: UUID
+            var name: String
+            var setCount: Int
+        }
+        var recognized: [Recognized]
+        var unrecognized: [String]
+    }
 
     private let parser: WorkoutScanParsing
     /// Test seam: when nil, `commit` calls `WorkoutScanImporter` directly.
     private let importHandler: ImportHandler?
+    /// Unit assumed for weights written without one ("Bench 3x8 @ 100") — the
+    /// user's preferred unit, not a hardcoded lb.
+    private let defaultWeightUnit: WeightUnit
     private var matcher = ExerciseMatcher(candidates: [])
 
+    /// The weight unit the user picked in onboarding / settings.
+    static var preferredWeightUnit: WeightUnit {
+        WeightUnit(rawValue: SharedDefaults.suite.string(forKey: SharedDefaults.Key.preferredWeightUnit) ?? "") ?? .lb
+    }
+
     init(
-        parser: WorkoutScanParsing = FoundationModelsWorkoutScanParser(),
-        importHandler: ImportHandler? = nil
+        parser: WorkoutScanParsing? = nil,
+        importHandler: ImportHandler? = nil,
+        defaultWeightUnit: WeightUnit = WorkoutTextEntryViewModel.preferredWeightUnit
     ) {
-        self.parser = parser
+        self.defaultWeightUnit = defaultWeightUnit
+        self.parser = parser ?? FoundationModelsWorkoutScanParser(defaultWeightUnit: defaultWeightUnit)
         self.importHandler = importHandler
     }
 
@@ -91,6 +119,23 @@ final class WorkoutTextEntryViewModel {
             errorMessage = "Couldn't find any exercises in that text. Try one exercise per line, like \"Bench Press 3x8 @ 185, rest 90s\"."
             phase = .input
             return
+        }
+
+        // Lines nothing claimed, from the deterministic pass over the original
+        // text. A line the winning draft obviously used (it names a parsed
+        // exercise) is not "unparsed" — this keeps the section honest when the
+        // on-device model read prose the notation parser could not.
+        let diagnostics = HandwrittenWorkoutParser.parseDetailed(
+            trimmed,
+            referenceDate: AppEnvironment.now,
+            defaultWeightUnit: defaultWeightUnit
+        )
+        unparsedLines = diagnostics.droppedLines.filter { line in
+            let lowered = line.lowercased()
+            return !draft.importableExercises.contains { exercise in
+                let name = exercise.trimmedName.lowercased()
+                return !name.isEmpty && (lowered.contains(name) || name.contains(lowered))
+            }
         }
 
         reloadMatcher(in: context)
@@ -143,6 +188,54 @@ final class WorkoutTextEntryViewModel {
     func refreshResolution(forExerciseWithID id: UUID) {
         guard let exercise = draft.exercises.first(where: { $0.id == id }) else { return }
         resolutions[id] = makeResolution(for: exercise.name)
+    }
+
+    // MARK: - Unparsed lines
+
+    /// Re-parse one "couldn't read" line after the user edits it. A line that
+    /// now yields exercises joins the draft (with fresh library matching) and
+    /// leaves the list; one that still doesn't parse stays, updated in place.
+    func retryUnparsedLine(at index: Int, replacement: String) async {
+        guard unparsedLines.indices.contains(index) else { return }
+        let trimmed = replacement.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            unparsedLines.remove(at: index)
+            return
+        }
+        let parsed = await parser.parse(ocrText: trimmed, referenceDate: AppEnvironment.now)
+        let newExercises = parsed.importableExercises
+        guard !newExercises.isEmpty else {
+            unparsedLines[index] = trimmed
+            return
+        }
+        for exercise in newExercises {
+            draft.exercises.append(exercise)
+            resolutions[exercise.id] = makeResolution(for: exercise.name)
+        }
+        unparsedLines.remove(at: index)
+    }
+
+    // MARK: - Live preview
+
+    /// Recomputes the input step's per-line feedback. Synchronous and cheap:
+    /// the deterministic parser is pure string work, so per-keystroke is fine.
+    func updateLivePreview() {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            livePreview = nil
+            return
+        }
+        let result = HandwrittenWorkoutParser.parseDetailed(
+            trimmed,
+            referenceDate: AppEnvironment.now,
+            defaultWeightUnit: defaultWeightUnit
+        )
+        livePreview = LivePreview(
+            recognized: result.draft.importableExercises.map {
+                LivePreview.Recognized(id: $0.id, name: $0.trimmedName, setCount: $0.sets.count)
+            },
+            unrecognized: result.droppedLines
+        )
     }
 
     /// Exercises that will create a new library row as things stand.
@@ -241,5 +334,7 @@ final class WorkoutTextEntryViewModel {
         errorMessage = nil
         alreadyImported = false
         externalID = ""
+        unparsedLines = []
+        livePreview = nil
     }
 }
