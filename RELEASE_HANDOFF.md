@@ -1,10 +1,65 @@
 # Marble Release Handoff
 
-**Last verified: 2026-07-28.** This file is the single source of truth for "where the
+**Last verified: 2026-08-05.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
+
+## ✅ 2.3 (build 55) VALID on TestFlight (2026-08-05)
+
+**2.3 build 55** (buildId `d4d59691-076e-4663-9084-44475372af1b`, uploaded 2026-08-05,
+`VALID`) is the first build on the **2.3 train** and the first TestFlight build carrying
+BOTH Typed Workout waves below (the app-export paste wave merged 2026-08-05 morning but
+its publish never landed — build 54 was still the latest processed build). Staged
+foreground publish (asc-archive → asc-export → builds upload); "test group A"
+auto-receives. **2.2 is `READY_FOR_DISTRIBUTION` (approved, manual release pending) —
+that closed the 2.2 train: the first build-55 upload failed processing with
+ITMS-90186/90062 (new builds must carry a higher version string than the approved one),
+so `MARKETING_VERSION` moved 2.2 → 2.3 and `ASC_APPSTORE_VERSION` follows. No schema
+change since V6.**
+
+## `main` wave after build 54 (2026-08-05) — Typed Workout order/progress/delight
+
+**On `main` (merge `a4b9451`, PR #16, commit `afc2498`), first shipped in build 55.**
+From direct user feedback on the Typed Workout feature:
+
+- **Saved order matches review order** — imported sets all shared one `performedAt`
+  and the journal sorts only by it, so tied rows came back scrambled.
+  `WorkoutScanImporter` now spaces sets by a millisecond ordinal cascade (first
+  reviewed set = newest), so the newest-first journal reproduces the exact review
+  order. The cascade steps forward from the effective date (a date-only midnight pick
+  never spills into the previous day) and explicit per-set times still win. Scan
+  imports gain the same ordering.
+- **Staged progress for preview generation** — `WorkoutScanParsing` gained a defaulted
+  staged-parse variant reporting `WorkoutParseStage` (notation pass → each Apple
+  Intelligence pass → finalizing); the processing step is a determinate bar with stage
+  label + percent, timer-eased toward the current stage anchor.
+- **UX accelerators + delight** — system `PasteButton` in the input step (no
+  paste-permission prompt, no programmatic clipboard reads); exercise reorder controls
+  in review (draft order is import order, so they fix saved order too); the imported
+  screen shows total volume (Σ weight × reps in the user's preferred unit) and
+  celebrates beaten PRs via `PersonalRecords.projectedBadge`, computed pre-import.
+- **Parser coverage** — rep ladders/pyramids ("225x5/3/1", "5/3/1 @ 225", "3x10-8-6" →
+  one set per rung); tempo notation stripped as noise (fixes the corruption where
+  "3x5 tempo 31x1" became sets of 3 lb and 31 lb); round/circuit headers ("3 rounds:",
+  "Circuit 1", "three rounds:") consumed as structure, counted headers multiplying the
+  following movements' sets. Prose-tier corpus boundary unchanged.
+
+No schema change (still V6). Unit suite **706 tests** green.
+
+## `main` wave after build 54 (2026-08-05) — app-export paste + zero silent loss
+
+**On `main` (merge `2dfd2d8`, PR #15, commit `622bb25`), first shipped in build 55.**
+Hevy ("Set 1: 60 kg x 10") and Strong exports paste correctly with weight and reps;
+Notes-style blocks (name line, then "185 x 8" per set) import; headers like
+"Exercise: Bench Press (Barbell)" clean up. Zero silent loss: every line the parser
+can't read is surfaced in review with inline edit + re-parse; "1,025 lb" no longer
+becomes 1 lb; AMRAP/failure keep their set count; EMOM expands; prose is flagged for
+review instead of mangled; "yesterday" sets the date; emoji/unspaced names parse
+clean. The input step marks each line recognized/not per keystroke (live deterministic
+feedback), and unitless weights default to the user's preferredWeightUnit instead of
+hardcoded lb. 682 unit tests green at merge.
 
 ## ✅ 2.2 (build 51) VALID on TestFlight (2026-07-29)
 
@@ -707,8 +762,8 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # expect MARKETING_VERSION 2.2, CURRENT_PROJECT_VERSION 48
+make asc-version      # expect MARKETING_VERSION 2.3, CURRENT_PROJECT_VERSION 55
 make asc-status
 make asc-builds
-make asc-next-build   # expect 49 unless another build was uploaded
+make asc-next-build   # expect 56 unless another build was uploaded
 ```

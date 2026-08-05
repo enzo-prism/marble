@@ -51,8 +51,9 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-08-05)
 
-- **`main` carries the Typed Workout order/progress/delight wave** (unreleased, after
-  build 54): the journal now lists an imported workout in the exact order the review
+- **`main` carries the Typed Workout order/progress/delight wave** (shipped in 2.3
+  build 55, TestFlight `VALID` 2026-08-05): the journal now lists an imported workout
+  in the exact order the review
   screen showed (the importer spaces otherwise-identical set timestamps by a
   millisecond ordinal cascade — newest-first sort reproduces review order, explicit
   per-set times still win); preview generation shows a staged determinate progress
@@ -67,8 +68,9 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   round/circuit headers ("3 rounds:", "Circuit 1", "three rounds:") as structure —
   counted headers multiply the following movements' sets instead of becoming junk
   exercises. No schema change (still V6). Unit suite **706 tests** green.
-- **`main` carries the app-export paste + zero-silent-loss wave** (merged 2026-08-05,
-  unreleased): Hevy ("Set 1: 60 kg x 10") and Strong exports paste correctly with
+- **`main` carries the app-export paste + zero-silent-loss wave** (shipped in 2.3
+  build 55, TestFlight `VALID` 2026-08-05): Hevy ("Set 1: 60 kg x 10") and Strong
+  exports paste correctly with
   weight and reps; Notes-style blocks (a name line then "185 x 8" per set) import;
   every line the parser can't read is surfaced in review with inline edit +
   re-parse; "1,025 lb" no longer becomes 1 lb; AMRAP/failure keep their set count;
