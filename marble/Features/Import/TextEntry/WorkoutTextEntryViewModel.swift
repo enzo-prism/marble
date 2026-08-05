@@ -57,6 +57,22 @@ final class WorkoutTextEntryViewModel {
     /// per-line feedback. Deterministic parser only — it is pure and cheap, and
     /// the feedback must work on devices without the on-device model.
     private(set) var livePreview: LivePreview?
+    /// Current pipeline stage while `phase == .processing` — drives the
+    /// determinate progress bar. Reset to the first stage on every preview.
+    private(set) var parseStage: WorkoutParseStage = .readingNotation
+    /// Post-import celebration details for the imported screen.
+    private(set) var celebration = ImportCelebration(volumeText: nil, prExercises: [])
+
+    /// Extras for the imported screen beyond the raw counts: how much work the
+    /// workout added up to, and which existing records it beat.
+    struct ImportCelebration: Equatable {
+        /// Total tonnage (Σ weight × reps) in the user's preferred unit,
+        /// e.g. "14,805 lb". nil when the workout carried no weighted reps.
+        var volumeText: String?
+        /// Names of existing library exercises whose records the imported sets
+        /// beat, in draft order. New exercises have no record to beat.
+        var prExercises: [String]
+    }
 
     struct LivePreview: Equatable {
         struct Recognized: Equatable, Identifiable {
@@ -106,12 +122,15 @@ final class WorkoutTextEntryViewModel {
             return
         }
         phase = .processing
+        parseStage = .readingNotation
         errorMessage = nil
         // The text itself is the import identity: pasting the same log twice
         // dedupes exactly like re-scanning the same photo.
         externalID = WorkoutScanImageHash.hash(Data(trimmed.utf8))
 
-        var parsed = await parser.parse(ocrText: trimmed, referenceDate: AppEnvironment.now)
+        var parsed = await parser.parse(ocrText: trimmed, referenceDate: AppEnvironment.now) { stage in
+            await MainActor.run { self.parseStage = stage }
+        }
         if parsed.title == ParsedWorkoutDraft().title { parsed.title = Self.defaultTitle }
         draft = parsed
 
@@ -138,6 +157,7 @@ final class WorkoutTextEntryViewModel {
             }
         }
 
+        parseStage = .finalizing
         reloadMatcher(in: context)
         resolutions = [:]
         for exercise in draft.exercises {
@@ -249,6 +269,25 @@ final class WorkoutTextEntryViewModel {
         resolutions[exercise.id] = Resolution(choice: .createNew, suggestions: [], autoConfidence: nil)
     }
 
+    /// Move one exercise earlier/later in the review list. Draft order is
+    /// import order — the importer's ordinal cascade preserves it in the
+    /// journal — so this is also how a user fixes the saved workout's order.
+    /// (Button-based rather than `.onMove`: the review list renders one
+    /// `Section` per exercise, and SwiftUI move handles only work within a
+    /// single section.)
+    func moveExercise(withID id: UUID, by delta: Int) {
+        guard let index = draft.exercises.firstIndex(where: { $0.id == id }) else { return }
+        let target = index + delta
+        guard draft.exercises.indices.contains(target) else { return }
+        draft.exercises.swapAt(index, target)
+    }
+
+    /// Position of an exercise in the review list, for enabling/disabling the
+    /// move controls.
+    func exerciseIndex(withID id: UUID) -> Int? {
+        draft.exercises.firstIndex { $0.id == id }
+    }
+
     func addSet(toExerciseWithID id: UUID) {
         guard let index = draft.exercises.firstIndex(where: { $0.id == id }) else { return }
         let template = draft.exercises[index].sets.last ?? ParsedSetDraft(reps: 1)
@@ -297,6 +336,10 @@ final class WorkoutTextEntryViewModel {
             }
         }
 
+        // Compute the celebration BEFORE the import lands: records to beat are
+        // the ones on file prior to this workout.
+        celebration = computeCelebration(for: toImport, in: context)
+
         do {
             let summary = try importHandler?(toImport, externalID, context)
                 ?? WorkoutScanImporter.import(toImport, externalID: externalID, source: .textEntry, in: context)
@@ -325,6 +368,65 @@ final class WorkoutTextEntryViewModel {
         errorMessage = nil
     }
 
+    /// Volume + PR detection for the imported screen. Pure lookups against the
+    /// same tested record engine the journal uses; runs pre-import so "records
+    /// to beat" means records on file before this workout.
+    private func computeCelebration(for draft: ParsedWorkoutDraft, in context: ModelContext) -> ImportCelebration {
+        var volumeKilograms = 0.0
+        var prExercises: [String] = []
+
+        for exercise in draft.importableExercises {
+            for set in exercise.sets {
+                if let weight = set.weight, weight > 0, let reps = set.reps, reps > 0 {
+                    volumeKilograms += PersonalRecords.kilograms(weight, unit: set.weightUnit) * Double(reps)
+                }
+            }
+
+            // Only an existing library exercise has records to beat; a freshly
+            // created one is celebrated as "new in your library" instead.
+            let name = exercise.trimmedName
+            var descriptor = FetchDescriptor<Exercise>(predicate: #Predicate { $0.name == name })
+            descriptor.fetchLimit = 1
+            guard let existing = (try? context.fetch(descriptor))?.first else { continue }
+            // A plain local UUID: the predicate macro can't capture member
+            // access (`existing.id`) into a fetched object.
+            let existingID = existing.id
+            let entries = (try? context.fetch(FetchDescriptor<SetEntry>(
+                predicate: #Predicate { $0.exercise.id == existingID }
+            ))) ?? []
+            let records = PersonalRecords.records(for: existing, entries: entries)
+            guard records.hasAnyBest else { continue }
+            let beatsRecord = exercise.sets.contains { set in
+                !PersonalRecords.projectedBadge(
+                    storedWeight: set.weight,
+                    weightUnit: set.weightUnit,
+                    reps: set.reps,
+                    beating: records,
+                    metrics: existing.metrics
+                ).isEmpty
+            }
+            if beatsRecord { prExercises.append(existing.name) }
+        }
+
+        var volumeText: String?
+        if volumeKilograms > 0 {
+            let poundsPerKilogram = 1 / 0.45359237
+            let inPreferred = defaultWeightUnit == .kg ? volumeKilograms : volumeKilograms * poundsPerKilogram
+            let rounded = Self.volumeFormatter.string(from: NSNumber(value: inPreferred)) ?? "\(Int(inPreferred.rounded()))"
+            volumeText = "\(rounded) \(defaultWeightUnit.symbol)"
+        }
+        return ImportCelebration(volumeText: volumeText, prExercises: prExercises)
+    }
+
+    /// Integer with thousands separators ("14,805") — tonnage reads as a big
+    /// round achievement number, decimals would only add noise.
+    private static let volumeFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 0
+        return formatter
+    }()
+
     func reset() {
         phase = .input
         text = ""
@@ -336,5 +438,7 @@ final class WorkoutTextEntryViewModel {
         externalID = ""
         unparsedLines = []
         livePreview = nil
+        parseStage = .readingNotation
+        celebration = ImportCelebration(volumeText: nil, prExercises: [])
     }
 }

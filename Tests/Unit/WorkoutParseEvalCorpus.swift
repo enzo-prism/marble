@@ -460,6 +460,93 @@ extension WorkoutParseEvalCase {
             expected: ExpectedWorkout(exercises: [
                 ExpectedExercise(name: "Squat", setCount: 5, reps: 5)
             ])
+        ),
+
+        // MARK: Rep ladders, tempo noise, and round headers
+
+        WorkoutParseEvalCase(
+            name: "rep ladder with weight prefix",
+            // One set per rung, all at the prefixed load.
+            input: "Bench 225x5/3/1",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Bench", setCount: 3, reps: 5, weight: 225)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "rep ladder with at-weight",
+            // A bare slash ladder is not a partial M/D date.
+            input: "Squat 5/3/1 @ 225",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Squat", setCount: 3, reps: 5, weight: 225)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "dash rep ladder",
+            input: "Bench 3x10-8-6",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Bench", setCount: 3, reps: 10)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "rep ladder rungs beat the leading count",
+            // "1x" claims one set; the three rungs are the actual data and win.
+            input: "Deadlift 1x5/3/1 @ 405",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Deadlift", setCount: 3, reps: 5, weight: 405)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "tempo token is noise",
+            // "31x1" must not become a second weight×reps pair.
+            input: "Squat 3x5 tempo 31x1",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Squat", setCount: 3, reps: 5)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "tempo after an at-weight",
+            input: "Bench 3x8 @ 185 tempo 3-0-1",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Bench", setCount: 3, reps: 8, weight: 185)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "parenthesized tempo is noise",
+            input: "Squat 3x5 @ 225 (31X1)",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Squat", setCount: 3, reps: 5, weight: 225)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "rounds header multiplies the round's movements",
+            input: """
+            3 rounds:
+            Pushups 10
+            Air squats 15
+            """,
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Pushups", setCount: 3, reps: 10),
+                ExpectedExercise(name: "Air Squats", setCount: 3, reps: 15)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "circuit label header is consumed",
+            input: """
+            Circuit 1
+            Bench 3x8 @ 185
+            """,
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Bench", setCount: 3, reps: 8, weight: 185)
+            ])
         )
     ]
 

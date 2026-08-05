@@ -173,6 +173,103 @@ final class HandwrittenWorkoutParserFreeFormTests: MarbleTestCase {
         XCTAssertTrue(draft.exercises[0].sets.allSatisfy { $0.reps == 8 })
     }
 
+    // MARK: - Rep ladders / pyramids
+
+    func testWeightPrefixedSlashLadder() {
+        let draft = parse("Bench 225x5/3/1")
+        let exercise = draft.exercises[0]
+        XCTAssertEqual(exercise.name, "Bench")
+        XCTAssertEqual(exercise.sets.count, 3)
+        XCTAssertEqual(exercise.sets.map(\.reps), [5, 3, 1])
+        XCTAssertTrue(exercise.sets.allSatisfy { $0.weight == 225 && $0.weightUnit == .lb })
+    }
+
+    func testBareSlashLadderTakesAtWeight() {
+        let draft = parse("Squat 5/3/1 @ 225")
+        let exercise = draft.exercises[0]
+        XCTAssertEqual(exercise.sets.count, 3)
+        XCTAssertEqual(exercise.sets.map(\.reps), [5, 3, 1])
+        XCTAssertTrue(exercise.sets.allSatisfy { $0.weight == 225 })
+        XCTAssertNil(draft.performedAt, "A 3-segment rep ladder is not a partial M/D date")
+    }
+
+    func testDashLadderWithLeadingCount() {
+        let draft = parse("Bench 3x10-8-6")
+        let sets = draft.exercises[0].sets
+        XCTAssertEqual(sets.count, 3)
+        XCTAssertEqual(sets.map(\.reps), [10, 8, 6])
+        XCTAssertTrue(sets.allSatisfy { $0.weight == nil })
+    }
+
+    func testLeadingCountDisagreementPrefersRungs() {
+        // "1x" claims one set but the ladder lists three rungs — the rungs are
+        // the actual data, so they win.
+        let draft = parse("Deadlift 1x5/3/1 @ 405")
+        let sets = draft.exercises[0].sets
+        XCTAssertEqual(sets.count, 3)
+        XCTAssertEqual(sets.map(\.reps), [5, 3, 1])
+        XCTAssertTrue(sets.allSatisfy { $0.weight == 405 })
+    }
+
+    func testTwoSegmentSlashStaysADate() {
+        // Ladders need 3+ rungs; "6/22" remains a date header.
+        let draft = parse("6/22 Bench 3x8")
+        XCTAssertNotNil(draft.performedAt)
+        XCTAssertEqual(draft.exercises[0].sets.count, 3)
+    }
+
+    func testFullSlashDateStillDetectedWithLadderGuard() {
+        let draft = parse("6/22/25 Bench 3x8")
+        let components = Self.stableCalendar.dateComponents(
+            [.year, .month, .day],
+            from: try! XCTUnwrap(draft.performedAt)
+        )
+        XCTAssertEqual(components.year, 2025)
+        XCTAssertEqual(components.month, 6)
+        XCTAssertEqual(components.day, 22)
+        XCTAssertEqual(draft.exercises.count, 1)
+    }
+
+    // MARK: - Tempo notation
+
+    func testTempoKeywordPairIsNoise() {
+        // Without stripping, "31x1" reads as a second weight×reps pair and the
+        // sets come out as "3 lb x 5" and "31 lb x 1".
+        let draft = parse("Squat 3x5 tempo 31x1")
+        let sets = draft.exercises[0].sets
+        XCTAssertEqual(sets.count, 3)
+        XCTAssertTrue(sets.allSatisfy { $0.reps == 5 && $0.weight == nil })
+    }
+
+    func testTempoDashPatternAfterKeyword() {
+        let draft = parse("Bench 3x8 @ 185 tempo 3-0-1")
+        let sets = draft.exercises[0].sets
+        XCTAssertEqual(sets.count, 3)
+        XCTAssertTrue(sets.allSatisfy { $0.reps == 8 && $0.weight == 185 })
+    }
+
+    func testParenthesizedTempoIsNoise() {
+        let draft = parse("Squat 3x5 @ 225 (31X1)")
+        let sets = draft.exercises[0].sets
+        XCTAssertEqual(sets.count, 3)
+        XCTAssertTrue(sets.allSatisfy { $0.reps == 5 && $0.weight == 225 })
+    }
+
+    func testFourSegmentTempo() {
+        let draft = parse("Squat 3x5 tempo 4-1-2-0")
+        let sets = draft.exercises[0].sets
+        XCTAssertEqual(sets.count, 3)
+        XCTAssertTrue(sets.allSatisfy { $0.reps == 5 && $0.weight == nil })
+    }
+
+    func testBareWeightRepsPairsAreNotTempo() {
+        // Conservative stripping: no keyword, no parentheses → the pairs stay.
+        let draft = parse("Bench 135x5 155x3")
+        let sets = draft.exercises[0].sets
+        XCTAssertEqual(sets.map(\.weight), [135, 155])
+        XCTAssertEqual(sets.map(\.reps), [5, 3])
+    }
+
     // MARK: - "N by M" notation
 
     func testByBetweenNumbersReadsAsX() {

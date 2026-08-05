@@ -129,6 +129,66 @@ final class WorkoutScanImporterTests: MarbleTestCase {
         _ = try WorkoutScanImporter.import(draft, externalID: "hash-dated", in: context)
 
         let entries = try context.fetch(FetchDescriptor<SetEntry>())
-        XCTAssertTrue(entries.allSatisfy { $0.performedAt == date })
+        // The order-preservation cascade keeps every set within a sub-second
+        // span of the workout date (see testImportPreservesReviewOrder).
+        XCTAssertTrue(entries.allSatisfy { abs($0.performedAt.timeIntervalSince(date)) < 1 })
+    }
+
+    /// The journal sorts sets by `performedAt` descending; identical timestamps
+    /// come back in undefined order. The importer must space the sets so a
+    /// newest-first listing reproduces the exact order of the reviewed draft —
+    /// the first exercise typed is the first one shown.
+    func testImportPreservesReviewOrder() throws {
+        let context = makeInMemoryContext()
+        let date = Self.stableCalendar.date(from: DateComponents(year: 2025, month: 6, day: 22, hour: 12))!
+        let draft = ParsedWorkoutDraft(performedAt: date, exercises: [
+            ParsedExerciseDraft(name: "Bench", sets: [
+                ParsedSetDraft(weight: 185, reps: 8),
+                ParsedSetDraft(weight: 185, reps: 8)
+            ]),
+            ParsedExerciseDraft(name: "Row", sets: [
+                ParsedSetDraft(weight: 135, reps: 10)
+            ]),
+            ParsedExerciseDraft(name: "Plank", sets: [
+                ParsedSetDraft(durationSeconds: 45),
+                ParsedSetDraft(durationSeconds: 45)
+            ])
+        ])
+        _ = try WorkoutScanImporter.import(draft, externalID: "hash-order", in: context)
+
+        let entries = try context.fetch(FetchDescriptor<SetEntry>(
+            sortBy: [SortDescriptor(\.performedAt, order: .reverse)]
+        ))
+        XCTAssertEqual(entries.count, 5)
+        XCTAssertEqual(entries.map(\.exercise.name), ["Bench", "Bench", "Row", "Plank", "Plank"],
+                       "Newest-first journal order must match the reviewed draft order")
+        // Strictly decreasing: no ties left for the store to scramble.
+        for (a, b) in zip(entries, entries.dropFirst()) {
+            XCTAssertGreaterThan(a.performedAt, b.performedAt)
+        }
+        // The whole cascade stays inside the same second and the same day.
+        XCTAssertEqual(entries.last?.performedAt, date)
+        XCTAssertLessThan(entries.first!.performedAt.timeIntervalSince(date), 1)
+        XCTAssertEqual(Self.stableCalendar.startOfDay(for: entries.first!.performedAt),
+                       Self.stableCalendar.startOfDay(for: date))
+    }
+
+    /// Sets with their own explicit date & time keep chronological priority:
+    /// the cascade only orders otherwise-identical timestamps.
+    func testExplicitPerSetDatesStillOrderChronologically() throws {
+        let context = makeInMemoryContext()
+        let base = Self.stableCalendar.date(from: DateComponents(year: 2025, month: 6, day: 22, hour: 12))!
+        let later = base.addingTimeInterval(3600)
+        let draft = ParsedWorkoutDraft(performedAt: base, exercises: [
+            ParsedExerciseDraft(name: "Bench", sets: [ParsedSetDraft(weight: 185, reps: 8, performedAt: later)]),
+            ParsedExerciseDraft(name: "Row", sets: [ParsedSetDraft(weight: 135, reps: 10)])
+        ])
+        _ = try WorkoutScanImporter.import(draft, externalID: "hash-explicit", in: context)
+
+        let entries = try context.fetch(FetchDescriptor<SetEntry>(
+            sortBy: [SortDescriptor(\.performedAt, order: .reverse)]
+        ))
+        XCTAssertEqual(entries.map(\.exercise.name), ["Bench", "Row"],
+                       "An explicit later set time must still sort above an inherited earlier one")
     }
 }

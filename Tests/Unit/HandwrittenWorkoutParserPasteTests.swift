@@ -234,6 +234,79 @@ final class HandwrittenWorkoutParserPasteTests: MarbleTestCase {
         XCTAssertEqual(result.droppedLines.count, 1)
     }
 
+    // MARK: - Circuit / round headers
+
+    func testCountedRoundsHeaderIsConsumedAndMultiplies() {
+        let result = parseDetailed("""
+        3 rounds:
+        Pushups 10
+        Air squats 15
+        """)
+        XCTAssertEqual(result.draft.exercises.map(\.name), ["Pushups", "Air squats"])
+        XCTAssertEqual(result.draft.exercises[0].sets.count, 3)
+        XCTAssertTrue(result.draft.exercises[0].sets.allSatisfy { $0.reps == 10 })
+        XCTAssertEqual(result.draft.exercises[1].sets.count, 3)
+        XCTAssertTrue(result.draft.exercises[1].sets.allSatisfy { $0.reps == 15 })
+        XCTAssertTrue(result.droppedLines.isEmpty, "A round header is a section marker, never a dropped line")
+    }
+
+    func testCircuitLabelHeaderIsConsumed() {
+        let result = parseDetailed("""
+        Circuit 1
+        Bench 3x8 @ 185
+        """)
+        XCTAssertEqual(result.draft.exercises.count, 1)
+        XCTAssertEqual(result.draft.exercises[0].sets.count, 3)
+        XCTAssertTrue(result.droppedLines.isEmpty)
+    }
+
+    func testSpelledRoundsHeaderIsConsumedAndMultiplies() {
+        let result = parseDetailed("""
+        three rounds:
+        Pushups 10
+        """)
+        XCTAssertEqual(result.draft.exercises.count, 1)
+        XCTAssertEqual(result.draft.exercises[0].name, "Pushups")
+        XCTAssertEqual(result.draft.exercises[0].sets.count, 3)
+        XCTAssertTrue(result.droppedLines.isEmpty)
+        XCTAssertEqual(result.draft.title, "Scanned workout", "A word-only round header is not the title")
+    }
+
+    func testRoundsOfVariantIsConsumed() {
+        let result = parseDetailed("""
+        3 rounds of:
+        Squats 10
+        """)
+        XCTAssertEqual(result.draft.exercises.count, 1)
+        XCTAssertEqual(result.draft.exercises[0].sets.count, 3)
+        XCTAssertTrue(result.droppedLines.isEmpty)
+    }
+
+    func testNextHeaderResetsTheMultiplier() {
+        let result = parseDetailed("""
+        3 rounds:
+        Pushups 10
+        Circuit 2
+        Bench 3x8
+        """)
+        XCTAssertEqual(result.draft.exercises.count, 2)
+        XCTAssertEqual(result.draft.exercises[0].sets.count, 3)
+        XCTAssertEqual(result.draft.exercises[1].sets.count, 3)
+        XCTAssertTrue(result.draft.exercises[1].sets.allSatisfy { $0.reps == 8 })
+    }
+
+    func testRoundHeaderWithTrailingContentKeepsExistingHandling() {
+        // Only a line that is ONLY a header is consumed; "round 2 of 3 felt
+        // easy" stays a dropped line as before.
+        let result = parseDetailed("""
+        Bench 3x8 @ 185
+        round 2 of 3 felt easy
+        Squat 5x5
+        """)
+        XCTAssertEqual(result.draft.exercises.count, 2)
+        XCTAssertEqual(result.droppedLines, ["round 2 of 3 felt easy"])
+    }
+
     // MARK: - Dropped-line diagnostics
 
     func testUnparseableLinesAreReportedInOrder() {

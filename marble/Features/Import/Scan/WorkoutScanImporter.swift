@@ -15,6 +15,10 @@ enum WorkoutScanImporter {
     static let importNote = "Imported from a scanned workout"
     static let textEntryNote = "Imported from a typed workout"
 
+    /// Millisecond spacing of the review-order cascade (see `import`). 1 ms per
+    /// set keeps even a 200-set paste inside one-fifth of a second.
+    static let orderPreservationStep: TimeInterval = 0.001
+
     static func note(for source: ImportSource) -> String {
         source == .textEntry ? textEntryNote : importNote
     }
@@ -54,6 +58,18 @@ enum WorkoutScanImporter {
         let exercisesBefore = WorkoutImporter.exerciseCount(in: context)
         var setCount = 0
 
+        // Review-order preservation: imported sets usually share one workout-level
+        // date, and the journal sorts by `performedAt` descending — ties come back
+        // in undefined storage order, scrambling multi-exercise workouts. Give the
+        // sets a deterministic millisecond cascade so the first set of the reviewed
+        // draft is the newest and the journal lists the workout exactly as reviewed.
+        // The cascade steps *forward* from the effective date, so a date-only pick
+        // (midnight) never pushes sets into the previous day, and the whole span
+        // stays sub-second: invisible at minute display precision and far below any
+        // explicit per-set time gap, so real timestamps still win.
+        let totalSets = exercises.reduce(0) { $0 + $1.sets.count }
+        var setOrdinal = 0
+
         for exercise in exercises {
             let name = exercise.trimmedName
             let profile = exercise.metricsProfile
@@ -66,9 +82,12 @@ enum WorkoutScanImporter {
             )
 
             for set in exercise.sets {
+                let orderedDate = (set.performedAt ?? performedAt)
+                    .addingTimeInterval(Self.orderPreservationStep * Double(totalSets - 1 - setOrdinal))
+                setOrdinal += 1
                 let entry = SetEntry(
                     exercise: resolved,
-                    performedAt: set.performedAt ?? performedAt,
+                    performedAt: orderedDate,
                     weight: set.weight,
                     weightUnit: set.weightUnit,
                     reps: set.reps,

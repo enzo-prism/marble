@@ -302,4 +302,128 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
 
         XCTAssertTrue(viewModel.draft.exercises[0].sets.allSatisfy { $0.weightUnit == .kg })
     }
+
+    // MARK: - Parse progress
+
+    /// Emits every pipeline stage like the on-device parser does, so the view
+    /// model's progress plumbing is verifiable without Apple Intelligence.
+    private struct StageStubParser: WorkoutScanParsing {
+        func parse(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft {
+            ParsedWorkoutDraft(exercises: [
+                ParsedExerciseDraft(name: "Bench", sets: [ParsedSetDraft(reps: 5)])
+            ])
+        }
+
+        func parse(
+            ocrText: String,
+            referenceDate: Date,
+            onStage: @Sendable (WorkoutParseStage) async -> Void
+        ) async -> ParsedWorkoutDraft {
+            await onStage(.readingNotation)
+            await onStage(.interpreting(pass: 1, of: 2))
+            await onStage(.interpreting(pass: 2, of: 2))
+            await onStage(.finalizing)
+            return await parse(ocrText: ocrText, referenceDate: referenceDate)
+        }
+    }
+
+    func testParseStageTracksParserCallbacksAndEndsFinalizing() async {
+        let context = makeInMemoryContext()
+        let viewModel = WorkoutTextEntryViewModel(parser: StageStubParser())
+        viewModel.text = "Bench 1x5"
+        XCTAssertEqual(viewModel.parseStage, .readingNotation)
+
+        await viewModel.preview(in: context)
+
+        XCTAssertEqual(viewModel.phase, .review)
+        XCTAssertEqual(viewModel.parseStage, .finalizing,
+                       "The stub's last stage (finalizing) must be reflected on the view model")
+    }
+
+    // MARK: - Reordering
+
+    func testMoveExerciseReordersDraft() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 3x8\nSquat 5x5\nRow 3x10"
+        await viewModel.preview(in: context)
+        XCTAssertEqual(viewModel.draft.exercises.map(\.name), ["Bench", "Squat", "Row"])
+
+        let rowID = viewModel.draft.exercises[2].id
+        viewModel.moveExercise(withID: rowID, by: -1)
+        XCTAssertEqual(viewModel.draft.exercises.map(\.name), ["Bench", "Row", "Squat"])
+
+        // Out-of-range moves are no-ops.
+        viewModel.moveExercise(withID: viewModel.draft.exercises[0].id, by: -1)
+        XCTAssertEqual(viewModel.draft.exercises.map(\.name), ["Bench", "Row", "Squat"])
+        XCTAssertEqual(viewModel.exerciseIndex(withID: rowID), 1)
+    }
+
+    // MARK: - Import celebration
+
+    func testCelebrationReportsTotalVolumeInPreferredUnit() async {
+        let context = makeInMemoryContext()
+        let viewModel = WorkoutTextEntryViewModel(
+            parser: HeuristicWorkoutScanParser(defaultWeightUnit: .lb),
+            defaultWeightUnit: .lb
+        )
+        viewModel.text = "Bench 3x8 @ 185"
+
+        await viewModel.preview(in: context)
+        viewModel.commit(into: context)
+
+        XCTAssertEqual(viewModel.phase, .imported)
+        XCTAssertEqual(viewModel.celebration.volumeText, "4,440 lb")
+        XCTAssertTrue(viewModel.celebration.prExercises.isEmpty,
+                      "A brand-new exercise has no record to beat")
+    }
+
+    func testCelebrationDetectsBeatenRecords() async {
+        let context = makeInMemoryContext()
+        let existing = insertExercise("Bench Press", in: context)
+        context.insert(SetEntry(
+            exercise: existing,
+            performedAt: Date(timeIntervalSinceNow: -86400),
+            weight: 135,
+            weightUnit: .lb,
+            reps: 5,
+            restAfterSeconds: 90
+        ))
+        try? context.save()
+        let viewModel = WorkoutTextEntryViewModel(
+            parser: HeuristicWorkoutScanParser(defaultWeightUnit: .lb),
+            defaultWeightUnit: .lb
+        )
+        viewModel.text = "bench press 1x5 @ 225"
+
+        await viewModel.preview(in: context)
+        viewModel.commit(into: context)
+
+        XCTAssertEqual(viewModel.celebration.prExercises, ["Bench Press"])
+    }
+
+    func testCelebrationStaysQuietWhenNoRecordBeaten() async {
+        let context = makeInMemoryContext()
+        let existing = insertExercise("Bench Press", in: context)
+        context.insert(SetEntry(
+            exercise: existing,
+            performedAt: Date(timeIntervalSinceNow: -86400),
+            weight: 225,
+            weightUnit: .lb,
+            reps: 5,
+            restAfterSeconds: 90
+        ))
+        try? context.save()
+        let viewModel = WorkoutTextEntryViewModel(
+            parser: HeuristicWorkoutScanParser(defaultWeightUnit: .lb),
+            defaultWeightUnit: .lb
+        )
+        viewModel.text = "bench press 1x3 @ 100"
+
+        await viewModel.preview(in: context)
+        viewModel.commit(into: context)
+
+        XCTAssertTrue(viewModel.celebration.prExercises.isEmpty)
+        XCTAssertEqual(viewModel.celebration.volumeText, "300 lb")
+    }
 }
