@@ -360,6 +360,106 @@ extension WorkoutParseEvalCase {
                 ExpectedExercise(name: "Rear-delt Dumbbell Flyes", setCount: 2, reps: 15, weight: 20),
                 ExpectedExercise(name: "Swinging Bubka High-bar Drill", setCount: 2, reps: 5)
             ])
+        ),
+
+        // MARK: Paste formats (Hevy / Strong / Notes) and robustness pins
+
+        WorkoutParseEvalCase(
+            name: "hevy app export",
+            // Hevy's share-sheet text: an "Exercise:" header, then one row per set.
+            input: """
+            Exercise: Bench Press (Barbell)
+            Set 1: 60 kg x 10
+            Set 2: 70 kg x 8
+            """,
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Bench Press", setCount: 2, reps: 10, weight: 60)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "strong app export",
+            // Strong's layout: bare name line, then "Set N:" rows.
+            input: """
+            Squat
+            Set 1: 225 lb x 5
+            Set 2: 225 lb x 5
+            Set 3: 225 lb x 5
+            """,
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Squat", setCount: 3, reps: 5, weight: 225)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "notes multi-line set block",
+            // The natural Notes layout: name line, then one "weight x reps" line
+            // per set with no name repeated.
+            input: """
+            Bench Press
+            185 x 8
+            185 x 8
+            185 x 6
+            """,
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Bench Press", setCount: 3, reps: 8, weight: 185)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "thousands separator weight",
+            // "1,025" is one load, never a 1 followed by noise.
+            input: "Squat 3x5 @ 1,025 lb",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Squat", setCount: 3, reps: 5, weight: 1025)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "amrap and failure sets keep their count",
+            input: """
+            Pushups 3xAMRAP
+            Pull-ups 2x failure
+            """,
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Pushups", setCount: 3),
+                ExpectedExercise(name: "Pull-ups", setCount: 2)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "emom expands to one set per minute",
+            input: "EMOM 10 min: 5 burpees",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Burpees", setCount: 10, reps: 5)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "yesterday strips from the name",
+            // The relative date is pinned in HandwrittenWorkoutParserPasteTests
+            // (it needs a reference date); here the name must not keep the word.
+            input: "yesterday bench 3x8 @ 185",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Bench", setCount: 3, reps: 8, weight: 185)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "emoji bullet strips from the name",
+            input: "💪 Bench 3x8 @ 185",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Bench", setCount: 3, reps: 8, weight: 185)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "unspaced name and spec",
+            input: "squat5x5",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Squat", setCount: 5, reps: 5)
+            ])
         )
     ]
 

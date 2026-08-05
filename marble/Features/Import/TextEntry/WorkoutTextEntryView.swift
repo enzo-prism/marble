@@ -80,6 +80,11 @@ struct WorkoutTextEntryView: View {
                         }
                     }
                     .accessibilityIdentifier("TextEntry.Editor")
+                    .onChange(of: viewModel.text) { _, _ in viewModel.updateLivePreview() }
+
+                if let preview = viewModel.livePreview {
+                    livePreviewView(preview)
+                }
 
                 Button {
                     textFocused = false
@@ -128,6 +133,37 @@ struct WorkoutTextEntryView: View {
         .accessibilityIdentifier("TextEntry.Processing")
     }
 
+    /// Per-line feedback under the editor, recomputed per keystroke by the
+    /// deterministic parser: recognized exercises read as a confirmation, and
+    /// unrecognized lines are flagged while fixing them is cheapest — before
+    /// Preview, not after.
+    @ViewBuilder
+    private func livePreviewView(_ preview: WorkoutTextEntryViewModel.LivePreview) -> some View {
+        if !preview.recognized.isEmpty || !preview.unrecognized.isEmpty {
+            VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                ForEach(preview.recognized) { line in
+                    Label(
+                        "\(line.name) · \(line.setCount) set\(line.setCount == 1 ? "" : "s")",
+                        systemImage: "checkmark.circle.fill"
+                    )
+                    .font(MarbleTypography.caption)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+                ForEach(Array(preview.unrecognized.enumerated()), id: \.offset) { _, line in
+                    Label(line, systemImage: "exclamationmark.circle")
+                        .font(MarbleTypography.caption)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+                if !preview.unrecognized.isEmpty {
+                    Text("\(preview.unrecognized.count) line\(preview.unrecognized.count == 1 ? "" : "s") not recognized yet — try \"Name 3x8 @ 185\".")
+                        .font(MarbleTypography.caption)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.8))
+                }
+            }
+            .accessibilityIdentifier("TextEntry.LivePreview")
+        }
+    }
+
     private var reviewView: some View {
         List {
             Section {
@@ -147,6 +183,23 @@ struct WorkoutTextEntryView: View {
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .accessibilityIdentifier("TextEntry.AlreadyImported")
                 }
+            }
+
+            if !viewModel.unparsedLines.isEmpty {
+                Section {
+                    ForEach(Array(viewModel.unparsedLines.enumerated()), id: \.offset) { index, line in
+                        UnparsedLineRow(text: line) { edited in
+                            Task { await viewModel.retryUnparsedLine(at: index, replacement: edited) }
+                        }
+                    }
+                } header: {
+                    SectionHeaderView(title: "Couldn't read \(viewModel.unparsedLines.count) line\(viewModel.unparsedLines.count == 1 ? "" : "s")")
+                } footer: {
+                    Text("Edit a line into standard notation (like \"Bench 3x8 @ 185\") and it joins the workout above.")
+                        .font(MarbleTypography.caption)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+                .accessibilityIdentifier("TextEntry.Unparsed")
             }
 
             ForEach($viewModel.draft.exercises) { $exercise in
@@ -284,6 +337,38 @@ struct WorkoutTextEntryView: View {
             return viewModel.draft.hasContent
         case .imported:
             return false
+        }
+    }
+}
+
+// MARK: - Unparsed line row
+
+/// One "couldn't read" line in review: the raw text, editable in place. Submitting
+/// hands the edited text back to the parser; a line that now parses joins the
+/// draft, one that still doesn't stays listed with the new text.
+private struct UnparsedLineRow: View {
+    let text: String
+    var onSubmit: (String) -> Void
+
+    @State private var editedText: String
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(text: String, onSubmit: @escaping (String) -> Void) {
+        self.text = text
+        self.onSubmit = onSubmit
+        _editedText = State(initialValue: text)
+    }
+
+    var body: some View {
+        HStack(spacing: MarbleSpacing.s) {
+            Image(systemName: "exclamationmark.circle")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            TextField("Line notation", text: $editedText)
+                .font(MarbleTypography.rowSubtitle)
+                .onSubmit { onSubmit(editedText) }
+                .submitLabel(.done)
+                .accessibilityIdentifier("TextEntry.Unparsed.Line")
         }
     }
 }

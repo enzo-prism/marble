@@ -12,9 +12,27 @@ protocol WorkoutScanParsing: Sendable {
 /// The always-available, deterministic parser. Pure synchronous logic lives in
 /// `HandwrittenWorkoutParser`; this is the async protocol wrapper.
 nonisolated struct HeuristicWorkoutScanParser: WorkoutScanParsing {
+    /// Unit assumed for weights written without one ("Bench 3x8 @ 100"). The
+    /// caller passes the user's preference; `.lb` preserves the historic default.
+    var defaultWeightUnit: WeightUnit = .lb
+
     func parse(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft {
-        HandwrittenWorkoutParser.parse(ocrText, referenceDate: referenceDate)
+        HandwrittenWorkoutParser.parseDetailed(
+            ocrText,
+            referenceDate: referenceDate,
+            defaultWeightUnit: defaultWeightUnit
+        ).draft
     }
+}
+
+/// The draft plus the source lines nothing claimed. `droppedLines` powers the
+/// review screen's "couldn't read these lines" section so a paste never loses
+/// work silently.
+nonisolated struct WorkoutParseResult: Equatable, Sendable {
+    var draft: ParsedWorkoutDraft
+    /// Non-empty lines that produced no exercise, title, date, or rest note.
+    /// Raw (pre-normalization) text, trimmed, in source order.
+    var droppedLines: [String]
 }
 
 /// Deterministic parser for common handwritten gym notation. Pure and synchronous so
@@ -22,8 +40,11 @@ nonisolated struct HeuristicWorkoutScanParser: WorkoutScanParsing {
 ///
 /// Supported per-line patterns (the rules are intentionally explicit so behavior is
 /// predictable and regression-tested):
-///   • Date headers — `M/D`, `M/D/YY`, `M/D/YYYY`, `YYYY-MM-DD` set the session date.
-///   • Word-only lines (no digits) become the workout title.
+///   • Date headers — `M/D`, `M/D/YY`, `M/D/YYYY`, `YYYY-MM-DD` set the session date,
+///     as do the relative words "yesterday"/"today"/"tonight"/"last night".
+///   • Word-only lines (no digits) become the workout title — unless set rows or
+///     bare set lines follow, in which case the line is the exercise name (the
+///     Strong/Hevy/Notes layout: a name line, then its sets).
 ///   • `Name S x R`            → S sets of R reps           (e.g. "Squat 5x5")
 ///   • `Name S x R @ W[unit]`  → S sets of R reps at weight (e.g. "Bench 3x5 @ 135 lb")
 ///   • `Name S x R W`          → trailing bare number is the weight (e.g. "Squat 5x5 225")
@@ -38,11 +59,21 @@ nonisolated struct HeuristicWorkoutScanParser: WorkoutScanParsing {
 ///   • `Name W for a single/double/triple` → one set of 1/2/3 reps at W
 ///   • `Name S x R1-R2`        → rep range; the lower bound wins (e.g. "Calf raises 4x8-10")
 ///   • `Name S x D<unit>`      → S distance sets (e.g. "Sprints 4x20m", "4 × 20-meter")
+///   • `Name S x AMRAP` / `S x failure` → S sets with no rep target ("Pushups 3xAMRAP")
+///   • `Set N: W x R`          → one set row (app export style), attached to the
+///     current exercise (e.g. "Set 1: 60 kg x 10"); "Set N: R" is bodyweight reps
+///   • `EMOM N min: R name`    → N sets of R reps of the named movement
+///   • Bare spec lines (`185 x 8`) continue the previous exercise's sets.
 ///   • `SxB Name …`            → spec-first lines fall back to the run of word tokens
 ///     for the name (e.g. "4x20m accelerations at 85-90%" → "accelerations")
 ///   • Intensity percentages ("85%", "85-90%") are noise — never a load or rep count.
+///   • Spelled-out set phrases ("three sets of eight") mark the line as prose: the
+///     line is left for the on-device model / unparsed-lines review rather than
+///     being mangled into a plausible-looking wrong exercise.
 ///   • En/em dashes normalize to "-"; a hyphen gluing a number to a unit word is
 ///     dropped ("20-meter" → "20meter") while digit-digit hyphens ("8-10") survive.
+///   • Digit-grouping commas are thousands separators, not token breaks
+///     ("1,025 lb" → 1025, never 1).
 ///   • `… rest 90s` / `… 90s rest` → rest between sets, applied to every set on
 ///     the line. A bare number after "rest" is seconds when ≥ 15, minutes below
 ///     ("rest 90" → 90 s, "rest 2" → 2 min). A line that is *only* rest notation
@@ -55,12 +86,63 @@ nonisolated enum HandwrittenWorkoutParser {
     private static let weightDisambiguationThreshold: Double = 25
 
     static func parse(_ text: String, referenceDate: Date) -> ParsedWorkoutDraft {
+        parseDetailed(text, referenceDate: referenceDate).draft
+    }
+
+    static func parseDetailed(
+        _ text: String,
+        referenceDate: Date,
+        defaultWeightUnit: WeightUnit = .lb
+    ) -> WorkoutParseResult {
         var draft = ParsedWorkoutDraft()
+        var dropped: [String] = []
         var titleAssigned = false
+        /// A word-only line whose role is not yet known: the first one usually
+        /// becomes the title, but a name line followed by set rows ("Squat" then
+        /// "Set 1: 225 lb x 5") is an exercise name instead. Resolved when the
+        /// next content line says which.
+        var pendingWordLine: String? = nil
+
+        /// Gives a pending word-only line its title role: the first one wins
+        /// (existing behavior), later ones are noise unless a set row promotes
+        /// them to an exercise name.
+        func resolvePendingAsTitle() {
+            guard let pending = pendingWordLine else { return }
+            pendingWordLine = nil
+            if !titleAssigned, !isWeekday(pending) {
+                draft.title = cleanTitle(pending)
+                titleAssigned = true
+            }
+        }
+
+        /// Turns a pending word-only line into an exercise so following set rows
+        /// / bare set lines attach to it. A promoted first line means there is no
+        /// title, so the default stands.
+        func promotePendingToExercise() {
+            guard let pending = pendingWordLine, !isWeekday(pending) else { return }
+            pendingWordLine = nil
+            let name = promotedExerciseName(pending)
+            guard !name.isEmpty else { return }
+            draft.exercises.append(ParsedExerciseDraft(name: name, sets: []))
+            if !titleAssigned { titleAssigned = true }
+        }
+
+        func recordDrop(_ rawLine: String) {
+            let trimmed = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { dropped.append(trimmed) }
+        }
 
         for rawLine in text.split(whereSeparator: { $0.isNewline }).map(String.init) {
             var line = normalize(rawLine)
             guard !line.isEmpty else { continue }
+
+            // Relative date words ("yesterday", "today") act like explicit date
+            // headers: set the session date and leave the line.
+            if let relative = detectRelativeDate(in: line, referenceDate: referenceDate) {
+                if draft.performedAt == nil { draft.performedAt = relative.date }
+                line = normalize(line.replacingCharacters(in: relative.range, with: " "))
+                guard !line.isEmpty else { continue }
+            }
 
             // Pull a date out of the line (first one wins for the session date) and strip
             // it so a "Tuesday 3/5" header isn't mistaken for an exercise.
@@ -70,12 +152,11 @@ nonisolated enum HandwrittenWorkoutParser {
                 guard !line.isEmpty else { continue }
             }
 
-            // Word-only line → title.
+            // Word-only line → pending: title once resolved, or an exercise name
+            // when set rows follow.
             if isWordOnly(line) {
-                if !titleAssigned, !isWeekday(line) {
-                    draft.title = cleanTitle(line)
-                    titleAssigned = true
-                }
+                resolvePendingAsTitle()
+                pendingWordLine = line
                 continue
             }
 
@@ -91,17 +172,61 @@ nonisolated enum HandwrittenWorkoutParser {
                 continue
             }
 
-            if let exercise = parseExerciseLine(line) {
-                draft.exercises.append(exercise)
+            // App-export set rows ("Set 1: 60 kg x 10") attach to the current
+            // exercise, promoting a pending name line if one is waiting.
+            if let set = parseSetRow(line, defaultWeightUnit: defaultWeightUnit) {
+                promotePendingToExercise()
+                if let lastIndex = draft.exercises.indices.last {
+                    draft.exercises[lastIndex].sets.append(set)
+                } else {
+                    recordDrop(rawLine)
+                }
+                continue
             }
+
+            // EMOM lines ("EMOM 10 min: 5 burpees") are a full exercise.
+            if let emom = parseEmomLine(line) {
+                resolvePendingAsTitle()
+                draft.exercises.append(emom)
+                continue
+            }
+
+            if let exercise = parseExerciseLine(line, defaultWeightUnit: defaultWeightUnit) {
+                resolvePendingAsTitle()
+                draft.exercises.append(exercise)
+                continue
+            }
+
+            // Bare spec lines ("185 x 8") continue the previous exercise — the
+            // natural one-exercise-per-block notes layout.
+            if let sets = parseNamelessSpec(line, defaultWeightUnit: defaultWeightUnit) {
+                promotePendingToExercise()
+                if let lastIndex = draft.exercises.indices.last {
+                    draft.exercises[lastIndex].sets.append(contentsOf: sets)
+                } else {
+                    recordDrop(rawLine)
+                }
+                continue
+            }
+
+            recordDrop(rawLine)
         }
 
-        return draft
+        resolvePendingAsTitle()
+        return WorkoutParseResult(draft: draft, droppedLines: dropped)
     }
 
     // MARK: - Line classification
 
-    private static func parseExerciseLine(_ line: String) -> ParsedExerciseDraft? {
+    private static func parseExerciseLine(
+        _ line: String,
+        defaultWeightUnit: WeightUnit
+    ) -> ParsedExerciseDraft? {
+        // Spelled-out set phrases ("three sets of eight") are prose; mangling them
+        // into a plausible-looking exercise is worse than listing the line as
+        // unparsed, where the review screen (or the on-device model) can read it.
+        guard !containsSpelledOutSets(line) else { return nil }
+
         let tokens = line.split(separator: " ").map(String.init)
         guard let specStart = tokens.firstIndex(where: isSpecStart) else { return nil }
         var nameTokens = Array(tokens[..<specStart])
@@ -112,12 +237,14 @@ nonisolated enum HandwrittenWorkoutParser {
         while let first = nameTokens.first, nameFillerPrefixes.contains(first.lowercased()) {
             nameTokens.removeFirst()
         }
-        guard !nameTokens.isEmpty else { return parseLeadingSpecLine(tokens) }
+        guard !nameTokens.isEmpty else {
+            return parseLeadingSpecLine(tokens, defaultWeightUnit: defaultWeightUnit)
+        }
 
         let name = cleanName(nameTokens.joined(separator: " "))
         guard !name.isEmpty else { return nil }
 
-        let sets = parseSpec(specTokens)
+        let sets = parseSpec(specTokens, defaultWeightUnit: defaultWeightUnit)
         guard !sets.isEmpty else { return nil }
         return ParsedExerciseDraft(name: name, sets: sets)
     }
@@ -138,11 +265,14 @@ nonisolated enum HandwrittenWorkoutParser {
 
     /// Fallback for lines that lead with the numbers instead of the name
     /// ("4x20meter accelerations at 85-90%", "worked up to 225 on bench for a
-    /// double"). The name is the first contiguous run of word-only tokens that
+    /// double"). The name is the first contiguous run of word tokens that
     /// yields anything once fillers are excluded; the spec is every token carrying
     /// a digit (plus rep words like "double"), in original order. An empty
     /// fallback name drops the line as before.
-    private static func parseLeadingSpecLine(_ tokens: [String]) -> ParsedExerciseDraft? {
+    private static func parseLeadingSpecLine(
+        _ tokens: [String],
+        defaultWeightUnit: WeightUnit
+    ) -> ParsedExerciseDraft? {
         let merged = mergeSpecTokens(tokens)
         var nameTokens: [String] = []
         var specTokens: [String] = []
@@ -165,10 +295,117 @@ nonisolated enum HandwrittenWorkoutParser {
         let name = cleanName(nameTokens.joined(separator: " "))
         guard !name.isEmpty else { return nil }
 
-        let sets = parseSpec(specTokens)
+        let sets = parseSpec(specTokens, defaultWeightUnit: defaultWeightUnit)
         guard !sets.isEmpty else { return nil }
         return ParsedExerciseDraft(name: name, sets: sets)
     }
+
+    /// A line of nothing but set notation ("185 x 8", "185x8 @ 90s rest"): every
+    /// token is spec-ish and the spec yields at least one set. The caller attaches
+    /// the sets to the previous exercise.
+    private static func parseNamelessSpec(
+        _ line: String,
+        defaultWeightUnit: WeightUnit
+    ) -> [ParsedSetDraft]? {
+        let tokens = line.split(separator: " ").map(String.init)
+        let merged = mergeSpecTokens(tokens)
+        guard merged.allSatisfy(isSpecishToken) else { return nil }
+        let sets = parseSpec(merged, defaultWeightUnit: defaultWeightUnit)
+        return sets.isEmpty ? nil : sets
+    }
+
+    /// Tokens that can make up a nameless spec line: anything carrying a digit,
+    /// "@", unit words, rest markers, and intensity percentages.
+    private static func isSpecishToken(_ token: String) -> Bool {
+        let lower = token.lowercased()
+        if token.contains(where: \.isNumber) { return true }
+        if lower == "@" || lower.hasPrefix("@") { return true }
+        if lower == "x" { return true }
+        if isPureUnit(lower) { return true }
+        if restMarkers.contains(lower) { return true }
+        if lower.hasSuffix("%") { return true }
+        return false
+    }
+
+    // MARK: - App-export set rows
+
+    private static let setRowRegex = try? NSRegularExpression(
+        pattern: #"(?i)^set\s*\d*\s*[:.)\-]?\s+(.+)$"#
+    )
+    /// "60 kg x 10", "225 lb x 5", "10 reps", "10". The weight group is optional
+    /// so bodyweight rows parse too.
+    private static let setRowSpecRegex = try? NSRegularExpression(
+        pattern: #"(?i)^(?:(\d+(?:\.\d+)?)\s*(lb|lbs|kg|kgs|pound|pounds|kilo|kilos|kilogram|kilograms|#)?\s*[x×]\s*)?(\d+)\s*(?:reps?)?$"#
+    )
+
+    /// Hevy/Strong-style rows: "Set 1: 60 kg x 10". One row is one set; the
+    /// exercise name comes from the surrounding block, not the row.
+    private static func parseSetRow(
+        _ line: String,
+        defaultWeightUnit: WeightUnit
+    ) -> ParsedSetDraft? {
+        guard let regex = setRowRegex,
+              let match = firstMatch(regex, in: line),
+              let specRange = Range(match.range(at: 1), in: line) else { return nil }
+        let spec = String(line[specRange])
+
+        // Rest rides along when written on the row ("Set 1: 225 x 5, rest 90s" —
+        // the comma is already normalized to a space).
+        let (tokens, restSeconds) = extractRest(
+            mergeSpecTokens(spec.split(separator: " ").map(String.init))
+        )
+        let body = tokens.joined(separator: " ")
+        guard let specRegex = setRowSpecRegex,
+              let specMatch = firstMatch(specRegex, in: body),
+              let repsRange = Range(specMatch.range(at: 3), in: body),
+              let reps = Int(body[repsRange]) else { return nil }
+
+        var weight: Double?
+        var unit = defaultWeightUnit
+        if let weightRange = Range(specMatch.range(at: 1), in: body),
+           let value = Double(body[weightRange]) {
+            weight = value
+            if let unitRange = Range(specMatch.range(at: 2), in: body) {
+                unit = body[unitRange].lowercased().hasPrefix("k") ? .kg : .lb
+            }
+        }
+        return ParsedSetDraft(weight: weight, weightUnit: unit, reps: reps, restSeconds: restSeconds)
+    }
+
+    // MARK: - EMOM
+
+    private static let emomRegex = try? NSRegularExpression(
+        pattern: #"(?i)^emom\s+(\d+)\s*(?:min|mins|minutes?)?\s*[:.\-–—]?\s*(\d+)\s+(.+)$"#
+    )
+
+    /// "EMOM 10 min: 5 burpees" → 10 sets of 5 burpees (one set per minute).
+    private static func parseEmomLine(_ line: String) -> ParsedExerciseDraft? {
+        guard let regex = emomRegex,
+              let match = firstMatch(regex, in: line),
+              let minutesRange = Range(match.range(at: 1), in: line),
+              let minutes = Int(line[minutesRange]), minutes > 0,
+              let repsRange = Range(match.range(at: 2), in: line),
+              let reps = Int(line[repsRange]), reps > 0,
+              let nameRange = Range(match.range(at: 3), in: line) else { return nil }
+        let name = cleanName(String(line[nameRange]))
+        guard !name.isEmpty else { return nil }
+        let sets = (0..<minutes).map { _ in ParsedSetDraft(reps: reps) }
+        return ParsedExerciseDraft(name: name, sets: sets)
+    }
+
+    // MARK: - Spelled-out set phrases
+
+    /// Lines like "three sets of eight" or "five sets" are prose, not notation —
+    /// flag them so the caller can route them to the model / unparsed review
+    /// instead of building a plausible-looking wrong exercise.
+    private static func containsSpelledOutSets(_ line: String) -> Bool {
+        guard let regex = spelledSetsRegex else { return false }
+        return regex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) != nil
+    }
+
+    private static let spelledSetsRegex = try? NSRegularExpression(
+        pattern: #"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\s+(sets?|reps?|rounds?)\b|\bsets?\s+of\s+(?=[a-z])"#
+    )
 
     // MARK: - Spec parsing
 
@@ -176,6 +413,8 @@ nonisolated enum HandwrittenWorkoutParser {
         case reps(Int)
         case duration(Int)
         case distance(Double, DistanceUnit)
+        /// "3xAMRAP" / "2xfailure" — a set count with no rep target.
+        case toFailure
     }
 
     private struct AxB {
@@ -184,7 +423,10 @@ nonisolated enum HandwrittenWorkoutParser {
         var embeddedWeight: (Double, WeightUnit)?
     }
 
-    private static func parseSpec(_ rawTokens: [String]) -> [ParsedSetDraft] {
+    private static func parseSpec(
+        _ rawTokens: [String],
+        defaultWeightUnit: WeightUnit
+    ) -> [ParsedSetDraft] {
         var axbs: [AxB] = []
         var weight: (value: Double, unit: WeightUnit)?
         var distance: (value: Double, unit: DistanceUnit)?
@@ -209,7 +451,7 @@ nonisolated enum HandwrittenWorkoutParser {
             if expectWeight {
                 expectWeight = false
                 // A number right after "@" is the load, with or without an explicit unit.
-                if let w = parseWeight(lower) ?? Double(lower).map({ ($0, WeightUnit.lb) }) {
+                if let w = parseWeight(lower) ?? Double(lower).map({ ($0, defaultWeightUnit) }) {
                     weight = weight ?? w
                     continue
                 }
@@ -218,13 +460,20 @@ nonisolated enum HandwrittenWorkoutParser {
 
             if lower.hasPrefix("@") {
                 let rest = String(lower.dropFirst())
-                if let w = parseWeight(rest) ?? Double(rest).map({ ($0, WeightUnit.lb) }) {
+                if let w = parseWeight(rest) ?? Double(rest).map({ ($0, defaultWeightUnit) }) {
                     weight = weight ?? w
                     continue
                 }
             }
-            if let axb = parseAxB(lower) {
+            if let axb = parseAxB(lower, defaultWeightUnit: defaultWeightUnit) {
                 axbs.append(axb)
+                continue
+            }
+            // An x-prefixed number is a rep count whose "x" lost its partner to
+            // spacing ("60 kg x 10" → "60kg", "x10").
+            if lower.hasPrefix("x"), lower.count > 1,
+               let reps = Double(lower.dropFirst()), reps > 0 {
+                bareNumbers.append(reps)
                 continue
             }
             if let dur = parseDuration(lower) {
@@ -262,7 +511,8 @@ nonisolated enum HandwrittenWorkoutParser {
             standaloneDuration: standaloneDuration,
             repRange: repRange,
             wordReps: wordReps,
-            bareNumbers: bareNumbers
+            bareNumbers: bareNumbers,
+            defaultWeightUnit: defaultWeightUnit
         )
         guard let restSeconds else { return sets }
         return sets.map { set in
@@ -329,39 +579,47 @@ nonisolated enum HandwrittenWorkoutParser {
         standaloneDuration: Int?,
         repRange: Int?,
         wordReps: Int?,
-        bareNumbers: [Double]
+        bareNumbers: [Double],
+        defaultWeightUnit: WeightUnit
     ) -> [ParsedSetDraft] {
         if axbs.count == 1 {
             let axb = axbs[0]
             // "315x5" — A is the load, not a set count.
             if axb.a >= weightDisambiguationThreshold, case let .reps(reps) = axb.b, axb.embeddedWeight == nil {
-                return [ParsedSetDraft(weight: axb.a, weightUnit: weight?.unit ?? .lb, reps: reps)]
+                return [ParsedSetDraft(weight: axb.a, weightUnit: weight?.unit ?? defaultWeightUnit, reps: reps)]
             }
 
             // Sets × reps (or sets × per-set duration).
             let count = max(1, Int(axb.a))
             let resolvedWeight = axb.embeddedWeight ?? weight.map { ($0.value, $0.unit) }
-                ?? trailingWeight(from: bareNumbers, hasDuration: { if case .duration = axb.b { return true } else { return false } }())
+                ?? trailingWeight(from: bareNumbers, hasDuration: { if case .duration = axb.b { return true } else { return false } }(), defaultWeightUnit: defaultWeightUnit)
             let template: ParsedSetDraft
             switch axb.b {
             case .reps(let reps):
                 template = ParsedSetDraft(
                     weight: resolvedWeight?.0,
-                    weightUnit: resolvedWeight?.1 ?? .lb,
+                    weightUnit: resolvedWeight?.1 ?? defaultWeightUnit,
                     reps: reps
                 )
             case .duration(let seconds):
                 template = ParsedSetDraft(
                     weight: resolvedWeight?.0,
-                    weightUnit: resolvedWeight?.1 ?? .lb,
+                    weightUnit: resolvedWeight?.1 ?? defaultWeightUnit,
                     durationSeconds: seconds
                 )
             case .distance(let value, let unit):
                 template = ParsedSetDraft(
                     weight: resolvedWeight?.0,
-                    weightUnit: resolvedWeight?.1 ?? .lb,
+                    weightUnit: resolvedWeight?.1 ?? defaultWeightUnit,
                     distance: value,
                     distanceUnit: unit
+                )
+            case .toFailure:
+                // AMRAP / to-failure sets: count known, rep target deliberately nil —
+                // the review screen fills it in.
+                template = ParsedSetDraft(
+                    weight: resolvedWeight?.0,
+                    weightUnit: resolvedWeight?.1 ?? defaultWeightUnit
                 )
             }
             return Array(repeating: template, count: count).map { var s = $0; s.id = UUID(); return s }
@@ -371,7 +629,7 @@ nonisolated enum HandwrittenWorkoutParser {
             // Weight × reps pairs: "135x5 155x3 175x1".
             return axbs.compactMap { axb in
                 guard case let .reps(reps) = axb.b else { return nil }
-                return ParsedSetDraft(weight: axb.a, weightUnit: weight?.unit ?? .lb, reps: reps)
+                return ParsedSetDraft(weight: axb.a, weightUnit: weight?.unit ?? defaultWeightUnit, reps: reps)
             }
         }
 
@@ -379,7 +637,7 @@ nonisolated enum HandwrittenWorkoutParser {
         if distance != nil || standaloneDuration != nil {
             return [ParsedSetDraft(
                 weight: weight?.value,
-                weightUnit: weight?.unit ?? .lb,
+                weightUnit: weight?.unit ?? defaultWeightUnit,
                 distance: distance?.value,
                 distanceUnit: distance?.unit ?? .meters,
                 durationSeconds: standaloneDuration
@@ -389,24 +647,24 @@ nonisolated enum HandwrittenWorkoutParser {
             let bare = bareNumbers[0]
             // "225 … for a double" — the bare number is the load, the word the reps.
             if let wordReps {
-                return [ParsedSetDraft(weight: bare, weightUnit: weight?.unit ?? .lb, reps: wordReps)]
+                return [ParsedSetDraft(weight: bare, weightUnit: weight?.unit ?? defaultWeightUnit, reps: wordReps)]
             }
             // A lone big number is a load ("Bench 225"), a small one a rep
             // count ("Pushups 20") — same threshold as the AxB disambiguation.
             if weight == nil, bare >= weightDisambiguationThreshold {
-                return [ParsedSetDraft(weight: bare, weightUnit: .lb)]
+                return [ParsedSetDraft(weight: bare, weightUnit: defaultWeightUnit)]
             }
             if let reps = intIfWhole(bare) {
-                return [ParsedSetDraft(weight: weight?.value, weightUnit: weight?.unit ?? .lb, reps: reps)]
+                return [ParsedSetDraft(weight: weight?.value, weightUnit: weight?.unit ?? defaultWeightUnit, reps: reps)]
             }
         }
         // A lone rep range ("Curls 8-10") — the lower bound is the target.
         if let repRange {
-            return [ParsedSetDraft(weight: weight?.value, weightUnit: weight?.unit ?? .lb, reps: repRange)]
+            return [ParsedSetDraft(weight: weight?.value, weightUnit: weight?.unit ?? defaultWeightUnit, reps: repRange)]
         }
         // A rep word with an explicit load ("Bench 225lb for a double") or alone.
         if let wordReps {
-            return [ParsedSetDraft(weight: weight?.value, weightUnit: weight?.unit ?? .lb, reps: wordReps)]
+            return [ParsedSetDraft(weight: weight?.value, weightUnit: weight?.unit ?? defaultWeightUnit, reps: wordReps)]
         }
         if let weight {
             return [ParsedSetDraft(weight: weight.value, weightUnit: weight.unit)]
@@ -416,9 +674,13 @@ nonisolated enum HandwrittenWorkoutParser {
 
     /// A single trailing bare number after a sets×reps token is read as the load
     /// ("Squat 5x5 225"). Skipped when the set already carries a duration.
-    private static func trailingWeight(from bareNumbers: [Double], hasDuration: Bool) -> (Double, WeightUnit)? {
+    private static func trailingWeight(
+        from bareNumbers: [Double],
+        hasDuration: Bool,
+        defaultWeightUnit: WeightUnit
+    ) -> (Double, WeightUnit)? {
         guard !hasDuration, bareNumbers.count == 1 else { return nil }
-        return (bareNumbers[0], .lb)
+        return (bareNumbers[0], defaultWeightUnit)
     }
 
     // MARK: - Token parsers
@@ -472,7 +734,7 @@ nonisolated enum HandwrittenWorkoutParser {
         pureUnits.contains(token.lowercased())
     }
 
-    private static func parseAxB(_ token: String) -> AxB? {
+    private static func parseAxB(_ token: String, defaultWeightUnit: WeightUnit) -> AxB? {
         guard token.contains("x") else { return nil }
         let parts = token.split(separator: "x", omittingEmptySubsequences: false).map(String.init)
         guard parts.count == 2 || parts.count == 3 else { return nil }
@@ -480,12 +742,13 @@ nonisolated enum HandwrittenWorkoutParser {
         guard let b = parseBValue(parts[1]) else { return nil }
         var embedded: (Double, WeightUnit)?
         if parts.count == 3 {
-            embedded = parseWeight(parts[2]) ?? Double(parts[2]).map { ($0, .lb) }
+            embedded = parseWeight(parts[2]) ?? Double(parts[2]).map { ($0, defaultWeightUnit) }
         }
         return AxB(a: a, b: b, embeddedWeight: embedded)
     }
 
     private static func parseBValue(_ s: String) -> BValue? {
+        if s == "amrap" || s == "failure" { return .toFailure }
         if let dur = parseDuration(s) { return .duration(dur) }
         if let reps = intIfWhole(Double(s)) { return .reps(reps) }
         if let lower = parseRepRange(s) { return .reps(lower) }
@@ -590,6 +853,24 @@ nonisolated enum HandwrittenWorkoutParser {
         pattern: #"\b(\d{4})-(\d{1,2})-(\d{1,2})\b"#
     )
 
+    private static let relativeDateRegex = try? NSRegularExpression(
+        pattern: #"(?i)\b(yesterday|last night|this morning|tonight|today)\b"#
+    )
+
+    /// The relative date words users actually write in notes ("yesterday bench …").
+    /// Longer phrases first in the alternation so "last night" wins over "night".
+    private static func detectRelativeDate(in line: String, referenceDate: Date) -> DateMatch? {
+        guard let regex = relativeDateRegex,
+              let match = firstMatch(regex, in: line),
+              let range = Range(match.range, in: line) else { return nil }
+        let word = line[range].lowercased()
+        let offset = (word == "yesterday" || word == "last night") ? -1 : 0
+        guard let shifted = Calendar.current.date(byAdding: .day, value: offset, to: referenceDate) else {
+            return nil
+        }
+        return DateMatch(date: shifted, range: range)
+    }
+
     private static func detectDate(in line: String, referenceDate: Date) -> DateMatch? {
         if let iso = isoDateRegex, let match = firstMatch(iso, in: line),
            let y = intGroup(match, 1, line), let mo = intGroup(match, 2, line), let d = intGroup(match, 3, line),
@@ -650,6 +931,28 @@ nonisolated enum HandwrittenWorkoutParser {
             result = result.replacingOccurrences(of: dash, with: "-")
         }
         result = attachHyphenatedUnits(result)
+        // Unspaced name/spec joins ("Squat5x5" → "Squat 5x5"). Lowercase letters
+        // only, so superset tags like "A1:" keep their digit.
+        result = result.replacingOccurrences(
+            of: #"(?<=[a-z])(?=\d)"#,
+            with: " ",
+            options: .regularExpression
+        )
+        // "3x AMRAP" / "2x failure" — glue the target word to its set count so the
+        // AxB tokenizer sees one token.
+        result = result.replacingOccurrences(
+            of: #"(?i)\b(\d+x)\s+(amrap|failure)\b"#,
+            with: "$1$2",
+            options: .regularExpression
+        )
+        // Digit-grouping commas are thousands separators ("1,025" → "1025"), never
+        // token breaks — the generic comma→space rule below would silently turn
+        // the load into 1.
+        result = result.replacingOccurrences(
+            of: #"(?<=\d),(?=\d{3}\b)"#,
+            with: "",
+            options: .regularExpression
+        )
         result = result.replacingOccurrences(of: ",", with: " ")
         let collapsed = result.split(whereSeparator: { $0 == " " || $0 == "\t" }).joined(separator: " ")
         return collapsed.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -683,7 +986,30 @@ nonisolated enum HandwrittenWorkoutParser {
     }
 
     private static func cleanName(_ name: String) -> String {
-        name.trimmingCharacters(in: CharacterSet(charactersIn: " :-–—•*").union(.whitespaces))
+        var result = name.trimmingCharacters(in: CharacterSet(charactersIn: " :-–—•*").union(.whitespaces))
+        // Leading/trailing symbols that survive the trim — emoji bullets ("💪 Bench"),
+        // stray punctuation — are never part of an exercise name, and would
+        // otherwise land in the user's library verbatim.
+        while let first = result.first, !(first.isLetter || first.isNumber) { result.removeFirst() }
+        while let last = result.last, !(last.isLetter || last.isNumber) { result.removeLast() }
+        return result
+    }
+
+    /// A pending word-only line promoted to an exercise name: strip an export
+    /// header's "Exercise:" label and trailing equipment parenthetical
+    /// ("Exercise: Bench Press (Barbell)" → "Bench Press").
+    private static func promotedExerciseName(_ line: String) -> String {
+        var result = line
+        if let range = result.range(
+            of: #"^\s*exercise\s*:\s*"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) {
+            result.removeSubrange(range)
+        }
+        if let range = result.range(of: #"\s*\([^()]*\)\s*$"#, options: .regularExpression) {
+            result.removeSubrange(range)
+        }
+        return cleanName(result)
     }
 
     private static func cleanTitle(_ line: String) -> String {

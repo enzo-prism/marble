@@ -21,9 +21,17 @@ import FoundationModels
 /// (conversational prose the notation parser cannot read).
 nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
     private let fallback: WorkoutScanParsing
+    /// Unit assumed for weights written without one, passed to every
+    /// deterministic re-parse (fallback and notation-rewrite) so the user's
+    /// preferred unit reaches the notation parser.
+    private let defaultWeightUnit: WeightUnit
 
-    init(fallback: WorkoutScanParsing = HeuristicWorkoutScanParser()) {
-        self.fallback = fallback
+    init(
+        fallback: WorkoutScanParsing? = nil,
+        defaultWeightUnit: WeightUnit = .lb
+    ) {
+        self.fallback = fallback ?? HeuristicWorkoutScanParser(defaultWeightUnit: defaultWeightUnit)
+        self.defaultWeightUnit = defaultWeightUnit
     }
 
     /// True only when the on-device model is ready to use right now.
@@ -185,7 +193,11 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
             let notation = response.content
             let text = notation.lines.joined(separator: "\n")
             guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-            var draft = HandwrittenWorkoutParser.parse(text, referenceDate: referenceDate)
+            var draft = HandwrittenWorkoutParser.parseDetailed(
+                text,
+                referenceDate: referenceDate,
+                defaultWeightUnit: defaultWeightUnit
+            ).draft
             if draft.performedAt == nil {
                 draft.performedAt = GeneratedWorkout.resolveDate(notation.dateText, referenceDate: referenceDate)
             }
