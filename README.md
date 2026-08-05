@@ -49,8 +49,33 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-07-30)
+## Current state (2026-08-05)
 
+- **`main` carries the Typed Workout order/progress/delight wave** (unreleased, after
+  build 54): the journal now lists an imported workout in the exact order the review
+  screen showed (the importer spaces otherwise-identical set timestamps by a
+  millisecond ordinal cascade — newest-first sort reproduces review order, explicit
+  per-set times still win); preview generation shows a staged determinate progress
+  bar with percent (real pipeline stages, each Apple Intelligence pass reported);
+  the input step gains a system Paste button (no clipboard-permission prompt, no
+  programmatic clipboard reads); review gains exercise reorder controls (saved order
+  follows it); and the imported screen celebrates total volume (Σ weight × reps in
+  the user's preferred unit) plus any beaten PRs via the existing records engine.
+  The deterministic parser also learned rep ladders/pyramids ("225x5/3/1", "5/3/1 @
+  225", "3x10-8-6" — one set per rung), strips tempo notation as noise (fixes the
+  corruption where "3x5 tempo 31x1" became sets of 3 lb and 31 lb), and reads
+  round/circuit headers ("3 rounds:", "Circuit 1", "three rounds:") as structure —
+  counted headers multiply the following movements' sets instead of becoming junk
+  exercises. No schema change (still V6). Unit suite **706 tests** green.
+- **`main` carries the app-export paste + zero-silent-loss wave** (merged 2026-08-05,
+  unreleased): Hevy ("Set 1: 60 kg x 10") and Strong exports paste correctly with
+  weight and reps; Notes-style blocks (a name line then "185 x 8" per set) import;
+  every line the parser can't read is surfaced in review with inline edit +
+  re-parse; "1,025 lb" no longer becomes 1 lb; AMRAP/failure keep their set count;
+  EMOM expands; prose is flagged for review instead of mangled into fake exercises;
+  "yesterday" sets the date; the input step marks each line recognized/not per
+  keystroke; and unitless weights default to the user's preferredWeightUnit instead
+  of hardcoded lb. Unit suite 682 tests green at merge.
 - **`main` carries the import review timing wave** (unreleased, after build 53): both
   import review screens (Scan + Typed Workout) gain workout-level date & time control
   (compact pickers, progressive "Include Time" toggle) and per-set date & time overrides

@@ -29,7 +29,9 @@ final class WorkoutScanImporterTimingTests: MarbleTestCase {
 
         let entries = try context.fetch(FetchDescriptor<SetEntry>())
         XCTAssertEqual(entries.count, 2)
-        XCTAssertTrue(entries.allSatisfy { $0.performedAt == workoutDate })
+        // The order-preservation cascade keeps every set within a sub-second
+        // span of the workout date (see WorkoutScanImporterTests).
+        XCTAssertTrue(entries.allSatisfy { abs($0.performedAt.timeIntervalSince(workoutDate)) < 1 })
     }
 
     func testPerSetOverrideWinsOverWorkoutDate() throws {
@@ -51,8 +53,8 @@ final class WorkoutScanImporterTimingTests: MarbleTestCase {
 
         let entries = try context.fetch(FetchDescriptor<SetEntry>()).sorted { $0.performedAt < $1.performedAt }
         XCTAssertEqual(entries.count, 2)
-        XCTAssertEqual(entries[0].performedAt, workoutDate)
-        XCTAssertEqual(entries[1].performedAt, overrideDate)
+        XCTAssertEqual(entries[0].performedAt.timeIntervalSince(workoutDate), 0, accuracy: 0.01)
+        XCTAssertEqual(entries[1].performedAt.timeIntervalSince(overrideDate), 0, accuracy: 0.01)
 
         // No override precedes the workout date, so the ledger keeps it.
         let ledger = try XCTUnwrap(context.fetch(FetchDescriptor<ImportedWorkout>()).first)

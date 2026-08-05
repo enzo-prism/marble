@@ -69,6 +69,18 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
     }
 
     func parse(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft {
+        await parse(ocrText: ocrText, referenceDate: referenceDate) { _ in }
+    }
+
+    /// Reports each pipeline stage so the processing UI can show real progress:
+    /// the deterministic pass, then each on-device model reading, then the
+    /// reconcile/library-match wrap-up.
+    func parse(
+        ocrText: String,
+        referenceDate: Date,
+        onStage: @Sendable (WorkoutParseStage) async -> Void
+    ) async -> ParsedWorkoutDraft {
+        await onStage(.readingNotation)
         let deterministic = await fallback.parse(ocrText: ocrText, referenceDate: referenceDate)
 
         var candidates: [ParsedWorkoutDraft?] = []
@@ -79,11 +91,14 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
             // The rewrite is the simpler task and its numbers pass through the
             // deterministic parser, so it gets tie priority (candidate order);
             // the arbiter scores both against the source text.
+            await onStage(.interpreting(pass: 1, of: 2))
             candidates.append(await rewriteAndParse(ocrText: ocrText, referenceDate: referenceDate))
+            await onStage(.interpreting(pass: 2, of: 2))
             candidates.append(await generate(ocrText: ocrText, referenceDate: referenceDate))
         }
         #endif
 
+        await onStage(.finalizing)
         return WorkoutDraftArbiter.choose(
             deterministic: deterministic,
             candidates: candidates,

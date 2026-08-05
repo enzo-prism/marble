@@ -5,8 +5,35 @@ import Foundation
 /// Conformers are interchangeable so the scan flow can prefer the on-device model
 /// when it's available (`FoundationModelsWorkoutScanParser`) and fall back to the
 /// deterministic notation parser (`HeuristicWorkoutScanParser`) otherwise.
+/// Coarse stages of a text parse, surfaced as determinate progress in the
+/// processing UI. The deterministic pass is instant and the post-parse work
+/// (library matching) is near-instant; the on-device model passes are where
+/// the seconds go, so they are reported individually.
+enum WorkoutParseStage: Sendable, Equatable {
+    /// The deterministic notation pass (always runs, sub-millisecond).
+    case readingNotation
+    /// An on-device model reading: pass 1 is the notation rewrite, pass 2 the
+    /// direct structured extraction. Only emitted when Apple Intelligence runs.
+    case interpreting(pass: Int, of: Int)
+    /// Reconciling candidates, then matching exercises against the library.
+    case finalizing
+}
+
 protocol WorkoutScanParsing: Sendable {
     func parse(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft
+}
+
+extension WorkoutScanParsing {
+    /// Staged variant for progress UI. The default forwards to the plain parse:
+    /// conformers with a single fast pass (the deterministic parser) have no
+    /// intermediate stages worth reporting.
+    func parse(
+        ocrText: String,
+        referenceDate: Date,
+        onStage: @Sendable (WorkoutParseStage) async -> Void
+    ) async -> ParsedWorkoutDraft {
+        await parse(ocrText: ocrText, referenceDate: referenceDate)
+    }
 }
 
 /// The always-available, deterministic parser. Pure synchronous logic lives in
@@ -58,6 +85,13 @@ nonisolated struct WorkoutParseResult: Equatable, Sendable {
 ///   • `Name S by R`           → "by" between numbers reads as "x" (e.g. "press 5 by 5")
 ///   • `Name W for a single/double/triple` → one set of 1/2/3 reps at W
 ///   • `Name S x R1-R2`        → rep range; the lower bound wins (e.g. "Calf raises 4x8-10")
+///   • Rep ladders / pyramids — one set per rung: `Name W x R1/R2/…` carries
+///     the weight in the token (e.g. "Bench 225x5/3/1"), while a bare
+///     "R1/R2/R3" or "S x R1-R2-R3" ladder takes its weight from "@ W". The
+///     rungs are the ground truth: a leading count that disagrees with the
+///     rung count loses ("Deadlift 1x5/3/1 @ 405" → 3 sets). Slash ladders
+///     need 3+ rungs so "8/12" stays a date; dash ladders need 3+ so "8-10"
+///     stays a rep range.
 ///   • `Name S x D<unit>`      → S distance sets (e.g. "Sprints 4x20m", "4 × 20-meter")
 ///   • `Name S x AMRAP` / `S x failure` → S sets with no rep target ("Pushups 3xAMRAP")
 ///   • `Set N: W x R`          → one set row (app export style), attached to the
@@ -67,6 +101,14 @@ nonisolated struct WorkoutParseResult: Equatable, Sendable {
 ///   • `SxB Name …`            → spec-first lines fall back to the run of word tokens
 ///     for the name (e.g. "4x20m accelerations at 85-90%" → "accelerations")
 ///   • Intensity percentages ("85%", "85-90%") are noise — never a load or rep count.
+///   • Tempo notation is noise like percentages: "tempo 31x1", "tempo 3-0-1",
+///     or a parenthesized "(31x1)" never becomes a second weight×reps pair.
+///     Stripping is conservative — a bare "135x5" without the "tempo" keyword
+///     or parentheses is still a real pair.
+///   • Circuit/round header lines ("3 rounds:", "3 rounds of", "Circuit 1",
+///     "three rounds:") are section markers, not exercises or titles. A
+///     counted header multiplies the set count of the exercises that follow
+///     until the next header; a bare label resets the count to one.
 ///   • Spelled-out set phrases ("three sets of eight") mark the line as prose: the
 ///     line is left for the on-device model / unparsed-lines review rather than
 ///     being mangled into a plausible-looking wrong exercise.
@@ -97,6 +139,10 @@ nonisolated enum HandwrittenWorkoutParser {
         var draft = ParsedWorkoutDraft()
         var dropped: [String] = []
         var titleAssigned = false
+        /// Set-count multiplier from a counted round header ("3 rounds:"):
+        /// every movement in the round gets its parsed sets repeated once per
+        /// round until the next header resets it.
+        var roundMultiplier = 1
         /// A word-only line whose role is not yet known: the first one usually
         /// becomes the title, but a name line followed by set rows ("Squat" then
         /// "Set 1: 225 lb x 5") is an exercise name instead. Resolved when the
@@ -152,6 +198,19 @@ nonisolated enum HandwrittenWorkoutParser {
                 guard !line.isEmpty else { continue }
             }
 
+            // Circuit/round header lines ("3 rounds:", "Circuit 1", "three
+            // rounds:") are section markers, not exercises, titles, or drops.
+            // Checked before the word-only branch because "three rounds:" has
+            // no digits and would otherwise park as a pending title.
+            if let header = parseRoundHeader(line) {
+                resolvePendingAsTitle()
+                switch header {
+                case .counted(let count): roundMultiplier = max(1, count)
+                case .labeled: roundMultiplier = 1
+                }
+                continue
+            }
+
             // Word-only line → pending: title once resolved, or an exercise name
             // when set rows follow.
             if isWordOnly(line) {
@@ -191,8 +250,15 @@ nonisolated enum HandwrittenWorkoutParser {
                 continue
             }
 
-            if let exercise = parseExerciseLine(line, defaultWeightUnit: defaultWeightUnit) {
+            if var exercise = parseExerciseLine(line, defaultWeightUnit: defaultWeightUnit) {
                 resolvePendingAsTitle()
+                if roundMultiplier > 1 {
+                    // "3 rounds: … pushups 10" — every movement in the round is
+                    // performed once per round, so its sets repeat that many times.
+                    exercise.sets = (0..<roundMultiplier).flatMap { _ in
+                        exercise.sets.map { var copy = $0; copy.id = UUID(); return copy }
+                    }
+                }
                 draft.exercises.append(exercise)
                 continue
             }
@@ -407,6 +473,51 @@ nonisolated enum HandwrittenWorkoutParser {
         pattern: #"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\s+(sets?|reps?|rounds?)\b|\bsets?\s+of\s+(?=[a-z])"#
     )
 
+    // MARK: - Circuit / round headers
+
+    /// A circuit/round header line: `.counted` carries the round count ("3
+    /// rounds:"), `.labeled` is a bare section label ("Circuit 1").
+    private enum RoundHeader {
+        case counted(Int)
+        case labeled
+    }
+
+    private static let countedRoundHeaderRegex = try? NSRegularExpression(
+        pattern: #"(?i)^(\d+)\s+(?:rounds?|circuits?)(?:\s+of)?\s*:?$"#
+    )
+    private static let spelledRoundHeaderRegex = try? NSRegularExpression(
+        pattern: #"(?i)^(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:rounds?|circuits?)(?:\s+of)?\s*:?$"#
+    )
+    private static let labeledRoundHeaderRegex = try? NSRegularExpression(
+        pattern: #"(?i)^(?:circuit|round)\s*\d*\s*:?$"#
+    )
+    private static let spelledRoundCounts: [String: Int] = [
+        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+        "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12
+    ]
+
+    /// Matches a line that is ONLY a circuit/round header — trailing content
+    /// ("three rounds of 10 pushups, …", "round 2 of 3 felt easy") keeps its
+    /// existing prose/dropped handling instead of being eaten here.
+    private static func parseRoundHeader(_ line: String) -> RoundHeader? {
+        if let regex = countedRoundHeaderRegex,
+           let match = firstMatch(regex, in: line),
+           let range = Range(match.range(at: 1), in: line),
+           let count = Int(line[range]) {
+            return .counted(count)
+        }
+        if let regex = spelledRoundHeaderRegex,
+           let match = firstMatch(regex, in: line),
+           let range = Range(match.range(at: 1), in: line),
+           let count = spelledRoundCounts[String(line[range]).lowercased()] {
+            return .counted(count)
+        }
+        if let regex = labeledRoundHeaderRegex, firstMatch(regex, in: line) != nil {
+            return .labeled
+        }
+        return nil
+    }
+
     // MARK: - Spec parsing
 
     private enum BValue: Equatable {
@@ -432,12 +543,15 @@ nonisolated enum HandwrittenWorkoutParser {
         var distance: (value: Double, unit: DistanceUnit)?
         var standaloneDuration: Int?
         var repRange: Int?
+        var repLadder: RepLadder?
         var wordReps: Int?
         var bareNumbers: [Double] = []
         var expectWeight = false
 
-        // Pull rest notation out first so "90s rest" isn't read as a timed set.
-        let (tokens, restSeconds) = extractRest(mergeSpecTokens(rawTokens))
+        // Pull rest notation out first so "90s rest" isn't read as a timed set,
+        // and tempo notation so "tempo 31x1" isn't read as a second pair.
+        let (restStripped, restSeconds) = extractRest(mergeSpecTokens(rawTokens))
+        let tokens = stripTempo(restStripped)
 
         for token in tokens {
             let lower = token.lowercased()
@@ -464,6 +578,12 @@ nonisolated enum HandwrittenWorkoutParser {
                     weight = weight ?? w
                     continue
                 }
+            }
+            // Rep ladders ("225x5/3/1", "3x10-8-6", "5/3/1") before AxB: the
+            // rung list makes them more than a single sets×reps token.
+            if let ladder = parseRepLadder(lower, defaultWeightUnit: defaultWeightUnit) {
+                repLadder = repLadder ?? ladder
+                continue
             }
             if let axb = parseAxB(lower, defaultWeightUnit: defaultWeightUnit) {
                 axbs.append(axb)
@@ -510,6 +630,7 @@ nonisolated enum HandwrittenWorkoutParser {
             distance: distance,
             standaloneDuration: standaloneDuration,
             repRange: repRange,
+            repLadder: repLadder,
             wordReps: wordReps,
             bareNumbers: bareNumbers,
             defaultWeightUnit: defaultWeightUnit
@@ -572,16 +693,76 @@ nonisolated enum HandwrittenWorkoutParser {
         return restSeconds
     }
 
+    // MARK: - Tempo notation
+
+    /// A tempo prescription token: digits and x/- separators only, with at
+    /// least one separator ("31x1", "3-0-1", "4-1-2-0"). This shape also
+    /// matches a real weight×reps pair ("135x5"), so it is only ever applied
+    /// behind the "tempo" keyword or inside parentheses — never bare.
+    private static let tempoRegex = try? NSRegularExpression(
+        pattern: #"^(?=.*[x-])\d[\dx-]*\d$"#
+    )
+
+    private static func isTempoLike(_ token: String) -> Bool {
+        var body = token
+        if body.hasPrefix("("), body.hasSuffix(")") {
+            body = String(body.dropFirst().dropLast())
+        }
+        guard let regex = tempoRegex else { return false }
+        return regex.firstMatch(in: body, range: NSRange(body.startIndex..., in: body)) != nil
+    }
+
+    /// Removes tempo notation from the merged spec tokens. Conservative on
+    /// purpose: a token is only stripped when the "tempo" keyword precedes it
+    /// ("tempo 31x1", "tempo 3-0-1") or it is parenthesized AND looks like
+    /// tempo ("(31x1)") — so a real "135x5" weight×reps pair is never eaten.
+    private static func stripTempo(_ tokens: [String]) -> [String] {
+        var result: [String] = []
+        var index = 0
+        while index < tokens.count {
+            let lower = tokens[index].lowercased()
+            if lower == "tempo" {
+                // The tempo value itself follows the keyword; drop both when it
+                // looks like tempo, just the keyword otherwise.
+                if index + 1 < tokens.count, isTempoLike(tokens[index + 1].lowercased()) {
+                    index += 2
+                } else {
+                    index += 1
+                }
+                continue
+            }
+            if lower.hasPrefix("("), lower.hasSuffix(")"), isTempoLike(lower) {
+                index += 1
+                continue
+            }
+            result.append(tokens[index])
+            index += 1
+        }
+        return result
+    }
+
     private static func buildSets(
         axbs: [AxB],
         weight: (value: Double, unit: WeightUnit)?,
         distance: (value: Double, unit: DistanceUnit)?,
         standaloneDuration: Int?,
         repRange: Int?,
+        repLadder: RepLadder?,
         wordReps: Int?,
         bareNumbers: [Double],
         defaultWeightUnit: WeightUnit
     ) -> [ParsedSetDraft] {
+        // A rep ladder is the most specific shape on the line: one set per rung.
+        // Weight comes from the ladder token itself ("225x5/3/1"), an explicit
+        // load ("Squat 5/3/1 @ 225"), or a single trailing bare number.
+        if let repLadder {
+            let resolvedWeight = repLadder.weight ?? weight.map { ($0.value, $0.unit) }
+                ?? (bareNumbers.count == 1 ? (bareNumbers[0], defaultWeightUnit) : nil)
+            return repLadder.rungs.map {
+                ParsedSetDraft(weight: resolvedWeight?.0, weightUnit: resolvedWeight?.1 ?? defaultWeightUnit, reps: $0)
+            }
+        }
+
         if axbs.count == 1 {
             let axb = axbs[0]
             // "315x5" — A is the load, not a set count.
@@ -684,6 +865,44 @@ nonisolated enum HandwrittenWorkoutParser {
     }
 
     // MARK: - Token parsers
+
+    /// A rep ladder / pyramid token: "225x5/3/1" (weight × rungs), "3x10-8-6"
+    /// (leading count × dash rungs), or a bare "5/3/1". The rungs are the
+    /// ground truth — one set each — so a leading count that disagrees with
+    /// the rung count is ignored in the rungs' favor.
+    private struct RepLadder {
+        var rungs: [Int]
+        /// Set only when the leading number reads as a load ("225x5/3/1") —
+        /// a small leading count ("1x5/3/1") is not a weight.
+        var weight: (Double, WeightUnit)?
+    }
+
+    private static func parseRepLadder(_ token: String, defaultWeightUnit: WeightUnit) -> RepLadder? {
+        var body = token
+        var leading: Double?
+        if let xIndex = token.firstIndex(of: "x") {
+            guard let a = Double(token[..<xIndex]), a > 0 else { return nil }
+            leading = a
+            body = String(token[token.index(after: xIndex)...])
+            // A second "x" is embedded-weight notation ("5x5x225"), not a ladder.
+            guard !body.contains("x") else { return nil }
+        }
+        let separator: Character = body.contains("/") ? "/" : "-"
+        let parts = body.split(separator: separator, omittingEmptySubsequences: false)
+        // 3+ rungs required: a 2-part slash token is a date ("8/12") and a
+        // 2-part dash token is a rep range ("8-10") — both have owners already.
+        guard parts.count >= 3 else { return nil }
+        var rungs: [Int] = []
+        for part in parts {
+            guard let rep = intIfWhole(Double(part)), rep > 0 else { return nil }
+            rungs.append(rep)
+        }
+        var weight: (Double, WeightUnit)?
+        if let leading, leading >= weightDisambiguationThreshold {
+            weight = (leading, defaultWeightUnit)
+        }
+        return RepLadder(rungs: rungs, weight: weight)
+    }
 
     /// Glue split tokens back together so human spacing doesn't defeat the classifiers:
     /// `3 x 5` → `3x5`, `@ 135 lb` → `@135lb`, `100 kg` → `100kg`, `5 k` → `5k`.
@@ -846,8 +1065,12 @@ nonisolated enum HandwrittenWorkoutParser {
 
     private struct DateMatch { var date: Date; var range: Range<String.Index> }
 
+    /// The lookaround guards keep a rep ladder ("5/3/1", "225x5/3/1") from being
+    /// read as a partial M/D date: no match may start right after a digit or
+    /// slash, nor end right before another "/digit" segment. A full M/D/YY
+    /// ("1/20/25") still matches because its year segment is consumed.
     private static let slashDateRegex = try? NSRegularExpression(
-        pattern: #"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b"#
+        pattern: #"(?<![\d/])(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b(?!/\d)"#
     )
     private static let isoDateRegex = try? NSRegularExpression(
         pattern: #"\b(\d{4})-(\d{1,2})-(\d{1,2})\b"#

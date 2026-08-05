@@ -1,5 +1,7 @@
+import Combine
 import SwiftData
 import SwiftUI
+import UIKit
 
 /// The end-to-end "type or paste a workout" flow: free text → on-device parse →
 /// review matches/edit → add to journal. Presented as a sheet from the import
@@ -12,6 +14,10 @@ struct WorkoutTextEntryView: View {
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var textFocused: Bool
     @State private var showingDiscardDialog = false
+    /// Whether the clipboard holds text worth offering a Paste button for.
+    /// `hasStrings` reads no content, so it never trips the paste-permission
+    /// prompt; refreshed when the sheet appears and when the app foregrounds.
+    @State private var clipboardHasText = false
 
     var body: some View {
         NavigationStack {
@@ -37,6 +43,10 @@ struct WorkoutTextEntryView: View {
         // Load the on-device model while the user is still typing, so the first
         // parse doesn't pay model-load latency inside the processing spinner.
         .task { FoundationModelsWorkoutScanParser.prewarm() }
+        .task { clipboardHasText = UIPasteboard.general.hasStrings }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            clipboardHasText = UIPasteboard.general.hasStrings
+        }
     }
 
     // MARK: - Phases
@@ -58,6 +68,25 @@ struct WorkoutTextEntryView: View {
                     .font(MarbleTypography.rowMeta)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .fixedSize(horizontal: false, vertical: true)
+
+                // System PasteButton: one tap moves a copied workout (Hevy,
+                // Strong, Notes) into the editor with no clipboard-permission
+                // prompt and no programmatic clipboard reads — the privacy
+                // posture the feature promises.
+                if clipboardHasText {
+                    HStack {
+                        Spacer()
+                        PasteButton(payloadType: String.self) { strings in
+                            guard let pasted = strings.first?.trimmingCharacters(in: .whitespacesAndNewlines),
+                                  !pasted.isEmpty else { return }
+                            let existing = viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            viewModel.text = existing.isEmpty ? pasted : existing + "\n" + pasted
+                        }
+                        .labelStyle(.titleAndIcon)
+                        .tint(Theme.secondaryTextColor(for: colorScheme))
+                        .accessibilityIdentifier("TextEntry.Paste")
+                    }
+                }
 
                 TextEditor(text: $viewModel.text)
                     .font(MarbleTypography.rowSubtitle)
@@ -121,16 +150,52 @@ struct WorkoutTextEntryView: View {
         .accessibilityIdentifier("TextEntry.Input")
     }
 
-    private var processingView: some View {
-        VStack(spacing: MarbleSpacing.m) {
-            ProgressView()
-                .controlSize(.large)
-            Text("Reading your workout…")
-                .font(MarbleTypography.rowSubtitle)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+    /// Eased display value for the processing bar. Real parse stages anchor it;
+    /// the timer eases toward the current anchor so the bar keeps moving during
+    /// a long on-device model pass without ever crossing into the next stage.
+    @State private var processingProgress: Double = 0
+    private let processingTimer = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
+
+    /// Fraction each parse stage anchors the progress bar to. Exact percentages
+    /// are unknowable (the model exposes no token count), so the anchors split
+    /// the pipeline where the time actually goes: the two model readings.
+    private var processingTarget: Double {
+        switch viewModel.parseStage {
+        case .readingNotation: return 0.18
+        case .interpreting(let pass, _): return pass <= 1 ? 0.52 : 0.8
+        case .finalizing: return 0.95
         }
+    }
+
+    private var processingStageLabel: String {
+        switch viewModel.parseStage {
+        case .readingNotation: return "Reading your text…"
+        case .interpreting: return "Interpreting with Apple Intelligence…"
+        case .finalizing: return "Matching your exercise library…"
+        }
+    }
+
+    private var processingView: some View {
+        VStack(spacing: MarbleSpacing.s) {
+            ProgressView(value: processingProgress)
+                .tint(Theme.primaryTextColor(for: colorScheme))
+            HStack {
+                Text(processingStageLabel)
+                Spacer()
+                Text("\(Int((processingProgress * 100).rounded()))%")
+                    .monospacedDigit()
+            }
+            .font(MarbleTypography.caption)
+            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+        }
+        .frame(maxWidth: 260)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("TextEntry.Processing")
+        .onAppear { processingProgress = 0.03 }
+        .onReceive(processingTimer) { _ in
+            guard viewModel.phase == .processing else { return }
+            processingProgress += (processingTarget - processingProgress) * 0.045
+        }
     }
 
     /// Per-line feedback under the editor, recomputed per keystroke by the
@@ -211,7 +276,10 @@ struct WorkoutTextEntryView: View {
                     onNameChanged: { viewModel.refreshResolution(forExerciseWithID: exercise.id) },
                     onAddSet: { viewModel.addSet(toExerciseWithID: exercise.id) },
                     onRemoveExercise: { viewModel.removeExercise(withID: exercise.id) },
-                    onRemoveSets: { offsets in viewModel.removeSets(fromExerciseWithID: exercise.id, at: offsets) }
+                    onRemoveSets: { offsets in viewModel.removeSets(fromExerciseWithID: exercise.id, at: offsets) },
+                    canMoveUp: viewModel.exerciseIndex(withID: exercise.id).map { $0 > 0 } ?? false,
+                    canMoveDown: viewModel.exerciseIndex(withID: exercise.id).map { $0 < viewModel.draft.exercises.count - 1 } ?? false,
+                    onMove: { delta in viewModel.moveExercise(withID: exercise.id, by: delta) }
                 )
             }
 
@@ -283,6 +351,21 @@ struct WorkoutTextEntryView: View {
                 Text("Added \(summary.importedSets) set\(summary.importedSets == 1 ? "" : "s")")
                     .font(MarbleTypography.emptyTitle)
                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                if let volume = viewModel.celebration.volumeText {
+                    Text("\(volume) total volume")
+                        .font(MarbleTypography.rowSubtitle)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        .accessibilityIdentifier("TextEntry.ImportedVolume")
+                }
+                if !viewModel.celebration.prExercises.isEmpty {
+                    Label(
+                        "New PR\(viewModel.celebration.prExercises.count == 1 ? "" : "s"): \(viewModel.celebration.prExercises.joined(separator: ", "))",
+                        systemImage: "trophy.fill"
+                    )
+                    .font(MarbleTypography.rowSubtitle)
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityIdentifier("TextEntry.ImportedPRs")
+                }
                 if summary.createdExercises > 0 {
                     Text("\(summary.createdExercises) new exercise\(summary.createdExercises == 1 ? "" : "s") added to your library.")
                         .font(MarbleTypography.rowMeta)
@@ -385,6 +468,13 @@ private struct TextEntryExerciseSection: View {
     var onAddSet: () -> Void
     var onRemoveExercise: () -> Void
     var onRemoveSets: (IndexSet) -> Void
+    /// Reorder affordances: review order is the order the workout saves in, so
+    /// a paste that listed exercises out of order is fixable here. Button-based
+    /// because the list renders one Section per exercise and SwiftUI move
+    /// handles only work within a single section.
+    var canMoveUp: Bool
+    var canMoveDown: Bool
+    var onMove: (Int) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -421,9 +511,29 @@ private struct TextEntryExerciseSection: View {
             }
             .accessibilityIdentifier("TextEntry.Exercise.AddSet")
         } header: {
-            HStack {
+            HStack(spacing: MarbleSpacing.s) {
                 SectionHeaderView(title: "Exercise")
                 Spacer()
+                Button { onMove(-1) } label: {
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .disabled(!canMoveUp)
+                .opacity(canMoveUp ? 1 : 0.3)
+                .accessibilityLabel("Move exercise up")
+                .accessibilityIdentifier("TextEntry.Exercise.MoveUp")
+                Button { onMove(1) } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .disabled(!canMoveDown)
+                .opacity(canMoveDown ? 1 : 0.3)
+                .accessibilityLabel("Move exercise down")
+                .accessibilityIdentifier("TextEntry.Exercise.MoveDown")
                 Button(role: .destructive, action: onRemoveExercise) {
                     Label("Remove", systemImage: "trash")
                         .labelStyle(.iconOnly)
