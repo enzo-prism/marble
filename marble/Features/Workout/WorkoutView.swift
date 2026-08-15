@@ -203,6 +203,9 @@ struct WorkoutView: View {
         }
         RestActivityController.shared.cancelRest()
         MarbleHaptics.success()
+        if !activeSession.entries.isEmpty {
+            ReviewPrompt.consider(after: .finishedWorkout)
+        }
     }
 }
 

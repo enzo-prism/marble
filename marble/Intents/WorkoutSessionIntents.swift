@@ -134,6 +134,10 @@ struct FinishWorkoutIntent: AppIntent {
         // change coming to publish the sets this session collected.
         await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
 
+        if setCount > 0 {
+            ReviewPrompt.consider(after: .finishedWorkout)
+        }
+
         let setsText = setCount == 1 ? "1 set" : "\(setCount) sets"
         let durationText = DateHelper.formattedDuration(seconds: Int(session.duration.rounded()))
         return .result(dialog: "Finished \(title) — \(setsText) in \(durationText).")

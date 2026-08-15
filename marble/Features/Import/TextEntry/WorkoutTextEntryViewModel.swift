@@ -346,6 +346,11 @@ final class WorkoutTextEntryViewModel {
             lastSummary = summary
             if summary.importedSets > 0 {
                 MarbleHaptics.success()
+                if celebration.prExercises.isEmpty {
+                    ReviewPrompt.consider(after: .importedWorkout)
+                } else {
+                    ReviewPrompt.consider(after: .personalRecord)
+                }
             } else {
                 MarbleHaptics.lightImpact()
             }

@@ -132,6 +132,7 @@ final class WorkoutScanViewModel {
             lastSummary = summary
             if summary.importedSets > 0 {
                 MarbleHaptics.success()
+                ReviewPrompt.consider(after: .importedWorkout)
             } else {
                 MarbleHaptics.lightImpact()
             }
