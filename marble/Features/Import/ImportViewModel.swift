@@ -154,6 +154,7 @@ final class ImportViewModel {
             lastSummarySource = records.first?.source
             if summary.importedSets > 0 {
                 MarbleHaptics.success()
+                ReviewPrompt.consider(after: .importedWorkout)
             } else {
                 MarbleHaptics.lightImpact()
             }
