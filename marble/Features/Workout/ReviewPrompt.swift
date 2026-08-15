@@ -7,8 +7,8 @@ import UIKit
 /// Local-only: a date and a couple of counters in `UserDefaults`. Nothing
 /// is sent anywhere, and there is no custom rate-us UI — the system dialog
 /// is the only prompt. Call only after a real success. Never from launch.
-enum ReviewPrompt {
-    enum Event: Equatable {
+nonisolated enum ReviewPrompt {
+    nonisolated enum Event: Equatable {
         /// A workout session that was finished with at least one set.
         case finishedWorkout
         /// An imported workout that actually saved sets. Only the first one
