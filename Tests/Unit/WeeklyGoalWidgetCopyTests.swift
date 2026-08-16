@@ -37,6 +37,17 @@ final class WeeklyGoalWidgetCopyTests: XCTestCase {
         XCTAssertEqual(WeeklyGoalCopy.flex(state(flex: 2)), "2 flex weeks banked")
     }
 
+    func testLockScreenCopyDropsTwoDigitStreaks() {
+        XCTAssertEqual(
+            WeeklyGoalCopy.compactLockScreenProgress(state(sessions: 1, streak: 6)),
+            "1 of 3 · 6-week streak"
+        )
+        XCTAssertEqual(
+            WeeklyGoalCopy.compactLockScreenProgress(state(sessions: 1, streak: 12)),
+            "1 of 3"
+        )
+    }
+
     func testEveryGoalStateHasItsOwnLine() {
         XCTAssertEqual(WeeklyGoalCopy.stateLine(state(stateRaw: "fresh")), "Log a set to start the week.")
         XCTAssertEqual(WeeklyGoalCopy.stateLine(state(stateRaw: "hit")), "Target hit. Week banked.")

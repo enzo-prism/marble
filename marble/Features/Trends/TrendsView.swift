@@ -353,17 +353,13 @@ struct TrendsContentView: View {
             .scrollDisabled(isScrubbingChart)
             .accessibilityIdentifier("Trends.Scroll")
             .background(Theme.backgroundColor(for: colorScheme).ignoresSafeArea())
-            .navigationTitle("Trends")
+            .navigationTitle("Progress")
             .navigationSubtitle(selectedExerciseName)
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     exerciseSearchButton
-                }
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                ToolbarItem(placement: .topBarTrailing) {
-                    AddSetToolbarButton()
                 }
             }
             .background(Theme.backgroundColor(for: colorScheme).ignoresSafeArea())

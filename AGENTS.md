@@ -139,6 +139,13 @@ Use these commands (preferred):
   `Trends`, `Workout`. The import feature is a `WorkoutImportProvider` abstraction over Apple
   Health, Garmin (via Health), and Strava (official OAuth). **See `INTEGRATIONS.md` for the
   full design and rationale.**
+- **Tab IA (iOS 26):** three tab-bar destinations — **Train** (`AppTab.split`, identifier
+  `Tab.Split`), **Log** (`AppTab.journal`, identifier `Tab.Journal`; Calendar and Supplements
+  are Log modes via `LogModePicker`, identifiers `Tab.Calendar` / `Tab.Supplements`), and
+  **Progress** (`AppTab.trends`, identifier `Tab.Trends`). Deep links `marble://calendar` and
+  `marble://supplements` still open those modes. Default tab is Train. UI-test helpers
+  (`navigateToTab`) tap Log first for Calendar/Supplements; visible labels are Train / Log /
+  Progress while identifiers stay `Tab.Split` / `Tab.Journal` / `Tab.Trends`.
 - `marble/Shared/` — code that is a member of **both** the app and widget targets:
   `SharedDefaults.swift` (+ `SharedKeychain`), `WeeklyGoalWidgetState.swift`,
   `WeeklyGoalWidgetViews.swift` (the five Weekly Goal family layouts — they live here so the
@@ -255,3 +262,19 @@ Prefer the repo-level `asc` wiring over ad hoc commands.
 - The app target deploys to iOS `26.0` and needs an installed iOS 26.x simulator runtime. If `xcodebuild`/`asc` reports “no destinations”, install that platform/runtime from Xcode > Settings > Components before debugging further.
 
 See `ASC.md` for the fuller Marble-specific command reference.
+
+## Cursor Cloud specific instructions
+
+Linux Cloud Agent VMs cannot build or ship this app. There is no `xcodebuild`, no iOS
+26 simulator, and no signing. Do not put `make test`, `make unit`, `make ui`,
+`make audit`, `make asc-archive`, or `pnpm dev`-style service startup in the VM
+update script.
+
+- **Lint / unit / snapshots / UI / archive:** GitHub Actions `CI / unit-tests`
+  (`make unit` on `macos-26`) is the automated compile gate. Snapshots, UI, and
+  accessibility still need a Mac (`make test`, `make ui`, `make audit`).
+- **TestFlight / App Store:** follow `RELEASE_HANDOFF.md` on a Mac. Staged
+  `make asc-archive` → `ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export`
+  → `asc builds upload`. Do not background `make asc-publish-testflight`.
+- **Tab IA:** Train / Log / Progress. Calendar and Supplements are Log modes, not
+  tab-bar items.

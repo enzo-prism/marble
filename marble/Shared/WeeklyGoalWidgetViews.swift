@@ -25,6 +25,15 @@ nonisolated enum WeeklyGoalCopy {
         "\(state.thisWeekSessions) of \(state.target)"
     }
 
+    static func compactLockScreenProgress(_ state: WeeklyGoalWidgetState) -> String {
+        // Two-digit streaks overflow accessoryRectangular ("12-week st…").
+        // Drop the streak once it no longer fits beside the session count.
+        if state.streakWeeks >= 10 {
+            return progress(state)
+        }
+        return "\(progress(state)) · \(streak(state))"
+    }
+
     static func sessions(_ state: WeeklyGoalWidgetState) -> String {
         "\(progress(state)) sessions"
     }
@@ -210,7 +219,7 @@ struct WeeklyGoalRectangularView: View {
                     .font(.headline)
                     .lineLimit(1)
                     .accessibilityIdentifier("weeklyGoalWidget.accessoryTitle")
-                Text("\(WeeklyGoalCopy.progress(state)) · \(WeeklyGoalCopy.streak(state))")
+                Text(WeeklyGoalCopy.compactLockScreenProgress(state))
                     .lineLimit(1)
                     .accessibilityIdentifier("weeklyGoalWidget.accessoryProgress")
                 Text(WeeklyGoalCopy.stateLine(state))

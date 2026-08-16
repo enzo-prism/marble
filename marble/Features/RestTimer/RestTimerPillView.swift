@@ -63,32 +63,98 @@ struct RestTimerPillView: View {
     }
 }
 
+/// Now-playing chrome for an active Train session when rest is not running.
+/// Tapping it returns to the Train tab. Rest always wins over this pill.
+struct SessionAccessoryView: View {
+    let session: WorkoutSession
+    let onOpen: () -> Void
+
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Button(action: onOpen) {
+            HStack(spacing: MarbleSpacing.s) {
+                Image(systemName: "figure.strengthtraining.traditional")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityHidden(true)
+
+                if placement != .inline {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Training")
+                            .font(MarbleTypography.smallLabel)
+                            .textCase(.uppercase)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        Text(session.title)
+                            .font(MarbleTypography.rowSubtitle.weight(.semibold))
+                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: MarbleSpacing.xs)
+
+                if TestHooks.isAppStoreScreenshotting {
+                    Text("48:12")
+                        .font(MarbleTypography.rowTitle.monospacedDigit())
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                } else {
+                    Text(session.startedAt, style: .timer)
+                        .font(MarbleTypography.rowTitle.monospacedDigit())
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, MarbleSpacing.m)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("SessionPill")
+        .accessibilityLabel("Active workout, \(session.title)")
+        .accessibilityHint("Opens the Train tab")
+    }
+}
+
 extension View {
-    /// Installs the rest-timer pill as the tab bar's bottom accessory. Skipped
-    /// entirely under UI testing (even disabled, the accessory perturbs the tab
-    /// bar's accessibility layout and fails audits); the dedicated rest-pill
-    /// test opts back in via `MARBLE_ENABLE_REST_PILL`.
+    /// Rest pill while a timer runs; otherwise the active-session pill.
+    /// Skipped under UI testing unless `MARBLE_ENABLE_REST_PILL` is set — the
+    /// accessory perturbs tab-bar hit targets for unrelated flows.
     @ViewBuilder
-    func marbleRestPillAccessory(rest: ActiveRest?, onEnd: @escaping () -> Void) -> some View {
+    func marbleSessionAccessory(
+        rest: ActiveRest?,
+        session: WorkoutSession?,
+        onEndRest: @escaping () -> Void,
+        onOpenSession: @escaping () -> Void
+    ) -> some View {
+        let showsRest = rest != nil
+        let showsSession = rest == nil && session != nil
+        let isEnabled = showsRest || showsSession
+
         if TestHooks.isUITesting && !TestHooks.enableRestPillInUITests {
             self
         } else if #available(iOS 26.1, *) {
-            // `isEnabled:` (26.1) keeps the accessory installed and lets the
-            // system animate it in and out, which is why it is preferred.
-            self.tabViewBottomAccessory(isEnabled: rest != nil) {
+            self.tabViewBottomAccessory(isEnabled: isEnabled) {
                 if let rest {
-                    RestTimerPillView(rest: rest, onEnd: onEnd)
+                    RestTimerPillView(rest: rest, onEnd: onEndRest)
+                } else if let session {
+                    SessionAccessoryView(session: session, onOpen: onOpenSession)
                 }
             }
         } else if let rest {
-            // iOS 26.0 has only the unconditional overload, so the accessory is
-            // installed exactly while a rest is running. Same pill, same
-            // behaviour — it just appears rather than fading in.
             self.tabViewBottomAccessory {
-                RestTimerPillView(rest: rest, onEnd: onEnd)
+                RestTimerPillView(rest: rest, onEnd: onEndRest)
+            }
+        } else if let session {
+            self.tabViewBottomAccessory {
+                SessionAccessoryView(session: session, onOpen: onOpenSession)
             }
         } else {
             self
         }
+    }
+
+    @ViewBuilder
+    func marbleRestPillAccessory(rest: ActiveRest?, onEnd: @escaping () -> Void) -> some View {
+        marbleSessionAccessory(rest: rest, session: nil, onEndRest: onEnd, onOpenSession: {})
     }
 }

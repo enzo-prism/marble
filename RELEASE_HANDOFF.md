@@ -1,10 +1,45 @@
 # Marble Release Handoff
 
-**Last verified: 2026-08-05.** This file is the single source of truth for "where the
+**Last verified: 2026-08-16.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
+
+## 2.3 Train / Log / Progress IA (project build 56) — TestFlight upload is Mac-only
+
+**Code is on `cursor/streamline-train-log-progress-ia-9473` (PR #19).** Marketing version
+stays **2.3**. Xcode `CURRENT_PROJECT_VERSION` is **56**. Last processed TestFlight build
+is still **2.3 build 55 `VALID`** (2026-08-05). The next upload must use
+`make asc-next-build` (likely 56 if ASC agrees) — do not guess.
+
+What this wave is:
+
+- Tab bar: **Train / Log / Progress**. Calendar and Supplements are Log modes
+  (`LogModePicker`, identifiers `Tab.Calendar` / `Tab.Supplements`). Default tab is Train.
+- Planned row with history: `SetLogging.repeatLatest` (no sheet). Log Set sheet is
+  `.medium` + `.large` and morphs from the primary `+`.
+- Session tab-bar accessory when a workout is live; rest pill still wins.
+- Lock Screen rectangular widget copy drops the streak at `streakWeeks >= 10`.
+- No schema change (still V6). No App Store review submit in this wave.
+
+**Do not release 2.2 to the App Store as a stand-in for this IA.** 2.2 is
+`READY_FOR_DISTRIBUTION` (approved, manual release pending) and does not include Train/Log/Progress. This wave ships as **2.3 TestFlight**. Releasing 2.2 is a separate
+product decision.
+
+**Upload from a Mac with Xcode 26 + iOS 26 runtime + ASC keys** (Linux Cloud Agents
+cannot `xcodebuild` archive):
+
+```bash
+git fetch origin && git checkout main && git pull
+make asc-auth && make asc-doctor && make asc-version && make asc-next-build
+make asc-archive
+ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export
+# then asc builds upload of .asc/artifacts/marble.ipa — staged foreground, do not
+# background make asc-publish-testflight. "test group A" auto-receives.
+```
+
+After Apple processing (`VALID`), update this file with the buildId.
 
 ## ✅ 2.3 (build 55) VALID on TestFlight (2026-08-05)
 

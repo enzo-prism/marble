@@ -16,51 +16,46 @@ struct ContentView: View {
     @State private var activeDay = DateHelper.startOfDay(for: AppEnvironment.now)
     @State private var persistenceIssues = PersistenceIssueCenter.shared
     @State private var showingOnboarding = false
+    @Namespace private var logSetZoom
 
     private let restTimer = RestActivityController.shared
 
     var body: some View {
-        TabView(selection: $tabSelection.selected) {
-            JournalView()
-                .tabItem {
-                    Label("Journal", systemImage: "list.bullet.rectangle")
-                        .accessibilityIdentifier("Tab.Journal")
-                }
-                .tag(AppTab.journal)
-
-            CalendarView()
-                .tabItem {
-                    Label("Calendar", systemImage: "calendar")
-                        .accessibilityIdentifier("Tab.Calendar")
-                }
-                .tag(AppTab.calendar)
-
+        TabView(selection: tabBarSelection) {
             WorkoutView()
                 .tabItem {
-                    Label("Workout", systemImage: "figure.strengthtraining.traditional")
+                    Label("Train", systemImage: "figure.strengthtraining.traditional")
                         .accessibilityIdentifier("Tab.Split")
                 }
                 .tag(AppTab.split)
 
-            SupplementsView()
+            LogHubView()
                 .tabItem {
-                    Label("Supplements", systemImage: "pills")
-                        .accessibilityIdentifier("Tab.Supplements")
+                    Label("Log", systemImage: "list.bullet.rectangle")
+                        .accessibilityIdentifier("Tab.Journal")
                 }
-                .tag(AppTab.supplements)
+                .tag(AppTab.journal)
 
             TrendsView()
                 .tabItem {
-                    Label("Trends", systemImage: "chart.line.uptrend.xyaxis")
+                    Label("Progress", systemImage: "chart.line.uptrend.xyaxis")
                         .accessibilityIdentifier("Tab.Trends")
                 }
                 .tag(AppTab.trends)
         }
-        .marbleRestPillAccessory(rest: restTimer.activeRest) {
-            RestActivityController.shared.cancelRest()
-        }
+        .marbleSessionAccessory(
+            rest: restTimer.activeRest,
+            session: activeSessions.first,
+            onEndRest: {
+                RestActivityController.shared.cancelRest()
+            },
+            onOpenSession: {
+                tabSelection.selected = .split
+            }
+        )
         .environment(tabSelection)
         .environment(quickLog)
+        .environment(\.logSetZoomNamespace, logSetZoom)
         .environment(\.marbleActiveDay, activeDay)
         .tabBarGlassBackground()
         .marbleTabBarMinimizeBehavior()
@@ -137,7 +132,12 @@ struct ContentView: View {
             )
                 .modelContext(modelContext)
                 .environment(quickLog)
-                .presentationDetents([.large])
+                .navigationTransition(.zoom(sourceID: "log-set", in: logSetZoom))
+                .presentationDetents([.medium, .large], selection: Binding(
+                    get: { quickLog.sheetDetent },
+                    set: { quickLog.sheetDetent = $0 }
+                ))
+                .presentationContentInteraction(.scrolls)
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()
         }
@@ -186,8 +186,11 @@ struct ContentView: View {
             if TestHooks.isUITesting || TestHooks.seedDemoFixtures {
                 if let tab = Self.tab(for: TestHooks.initialTab) {
                     tabSelection.selected = tab
+                    if tab.isLogSection {
+                        tabSelection.lastLogTab = tab
+                    }
                 } else if TestHooks.calendarTestDay != nil {
-                    tabSelection.selected = .calendar
+                    tabSelection.selectLogMode(.calendar)
                 }
                 if TestHooks.openQuickLogAtLaunch {
                     quickLog.open()
@@ -199,17 +202,24 @@ struct ContentView: View {
         }
     }
 
+    private var tabBarSelection: Binding<AppTab> {
+        Binding(
+            get: { tabSelection.tabBarSelection },
+            set: { tabSelection.tabBarSelection = $0 }
+        )
+    }
+
     private static func tab(for identifier: String?) -> AppTab? {
         switch identifier {
-        case "journal":
+        case "journal", "log":
             return .journal
         case "calendar":
             return .calendar
-        case "split":
+        case "split", "train", "workout":
             return .split
         case "supplements":
             return .supplements
-        case "trends":
+        case "trends", "progress":
             return .trends
         default:
             return nil

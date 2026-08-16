@@ -15,3 +15,30 @@ struct AddSetToolbarButton: View {
         .accessibilityLabel("Log Set")
     }
 }
+
+/// Primary `+` in its own glass capsule. The zoom source lives on the
+/// button view (same pattern as Import), so `ToolbarContent` does not
+/// need its own `@Namespace`.
+struct LogSetToolbarItems: ToolbarContent {
+    @Environment(\.logSetZoomNamespace) private var logSetZoomNamespace
+
+    var body: some ToolbarContent {
+        ToolbarSpacer(.fixed, placement: .topBarTrailing)
+        ToolbarItem(placement: .topBarTrailing) {
+            AddSetToolbarButton()
+                .modifier(LogSetZoomSource(namespace: logSetZoomNamespace))
+        }
+    }
+}
+
+private struct LogSetZoomSource: ViewModifier {
+    var namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        if let namespace {
+            content.matchedTransitionSource(id: "log-set", in: namespace)
+        } else {
+            content
+        }
+    }
+}

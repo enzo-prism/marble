@@ -10,6 +10,7 @@
 >
 > | Phase | State |
 > |---|---|
+> | — PR #19 (2026-08-16) | **Train / Log / Progress IA (2.3 project build 56, TestFlight pending Mac archive):** three tab-bar destinations; Calendar + Supplements are Log modes; one-tap complete-set on planned rows with history (`SetLogging`); medium morphing Log Set sheet; session accessory; lock-screen widget drops two-digit streaks. No schema change (still V6). Linux agents cannot upload TestFlight. |
 > | — main (2026-08-05) | **Typed Workout order/progress/delight wave (shipped in build 55, TestFlight `VALID` 2026-08-05)**: journal order now matches review order (millisecond ordinal cascade in `WorkoutScanImporter`; explicit per-set times still win); staged determinate progress bar + percent for preview generation (`WorkoutParseStage` callback on `WorkoutScanParsing`); system `PasteButton` in the input step; exercise reorder controls in review; imported screen shows total volume + beaten PRs (`PersonalRecords.projectedBadge`). Parser learned rep ladders ("225x5/3/1"), tempo-noise stripping (fixes 3 lb / 31 lb corruption), and round/circuit headers with set multiplication. No schema change (still V6). Unit suite **706 tests** green. First build on the **2.3 train** — 2.2 went `READY_FOR_DISTRIBUTION`, closing 2.2 to new uploads. |
 > | — main (2026-08-05) | **App-export paste + zero-silent-loss wave (shipped in build 55, TestFlight `VALID` 2026-08-05)**: Hevy/Strong export formats, Notes-style blocks, unparsed-lines surfacing with inline fix + re-parse, thousand-separator + AMRAP/EMOM/prose handling, live per-line parse feedback, preferredWeightUnit defaults, "yesterday" dates. 682 tests at merge. |
 > | — main (2026-07-30) | **Import review timing wave (shipped in build 54, TestFlight `VALID` 2026-07-30)**: workout-level date & time control (`ImportDateSection`, compact pickers, "Include Time" progressive disclosure) and per-set date & time overrides (`ParsedSetDraft.performedAt`, context-menu/swipe activation, indented override sub-row) on both import review screens; `ImportedWorkout` ledger date = earliest effective set date; HIG sheet-dismissal protection ("Discard this import?") on Scan + Typed Workout. No schema change (still V6). |
@@ -172,16 +173,19 @@ Still open:
   join CI (it is host-rendering sensitive, which is why it was excluded).
 - **Found by the new widget snapshot suite (2026-07-25):** the `accessoryRectangular` family
   truncates its middle line once the streak reaches two digits — "1 of 6 · 12-week st…" — and
-  the state line clips at two lines. Baselines are recorded as-is rather than papered over;
-  fixing it means shortening that copy (drop the streak when the progress text is long), not
-  widening the widget. The medium family's quick-log `Link` rendering in the system accent
-  blue instead of monochrome **was** fixed in build 49 (`.foregroundStyle(.primary)`).
+  the state line clips at two lines. ~~Fixing it means shortening that copy~~ **Resolved
+  2026-08-16** — `WeeklyGoalCopy.compactLockScreenProgress` drops the streak when
+  `streakWeeks >= 10`. Re-record widget snapshots on a Mac (`make snapshot-record`) after
+  merge; CI does not run snapshots.
 - **Toast-vs-inline is an open product decision.** Failure surfaces currently mix
   `ToastView` (Journal, Supplements) with inline errors elsewhere; pick one before adding
   more failure UI.
-- **Icon Composer layered icon.** The app still ships a classic `AppIcon.appiconset`; no
-  `.icon` bundle exists, so tinted/clear Home Screen icon treatments fall back to the
-  system-generated derivation.
+- **Icon Composer layered icon.** Attempted 2026-08-16: adding `marble/AppIcon.icon/`
+  (filesystem-synchronized under `marble/`) made CI `actool` crash
+  (`attempt to insert nil object`). Removed. Keep the classic `AppIcon.appiconset`
+  until a Mac session can add a proper `.icon` **package file reference** outside the
+  synchronized group (the `RestTimerAttributes.swift` dual-membership precedent), then
+  confirm tinted/clear Home Screen treatments.
 - **Accessibility Nutrition Labels declaration.** The completed worksheet lives at
   `AppStore/ACCESSIBILITY_NUTRITION_LABELS.md`; the declaration itself still has to be made
   in App Store Connect.

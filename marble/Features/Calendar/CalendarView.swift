@@ -45,6 +45,8 @@ struct CalendarView: View {
                             testControlsRow
                         }
 
+                        LogModePicker()
+
                         calendarHeader(streak: derived.streak)
 
                         calendarActionRow(metrics: derived.daySummary)
@@ -62,9 +64,7 @@ struct CalendarView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    AddSetToolbarButton()
-                }
+                LogSetToolbarItems()
             }
         }
         .sheet(item: $selectedDay) { selectedDay in
