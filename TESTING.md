@@ -42,7 +42,7 @@
   Journal grouping, and the Exercise Picker against histories of 5,000–10,000 entries.
 - `ExercisePickerDerivedDataTests` pins recent/favorite/all partitioning after the picker moved
   to one cached derivation pass, and `WorkoutSessionQueryTests` pins the one-active/five-completed
-  fetch limits used by the Workout tab.
+  fetch limits used by the Train tab.
 - `SeedDataTests.testOrphanMaintenanceRunsOncePerVersion` protects the versioned maintenance
   gate that keeps full-store orphan sweeps off routine launches.
 - `DailyHighlightQueriesTests` is the correctness tripwire for the scoped Daily Highlights
@@ -85,6 +85,16 @@
 - Counts here are derived by counting source, not by hand-editing the previous number
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
+
+## Latest verification (2026-08-16, Train / Log / Progress IA on main)
+- GitHub Actions `CI / unit-tests` (`make unit` on macos-26): **green** on PR #19
+  (run `31967686916`) after restoring `WeeklyGoalCopy.progress` and removing
+  `marble/AppIcon.icon/` (`actool` nil-object crash).
+- Snapshots, UI flows, and `make audit` were not run here (Linux Cloud Agent;
+  no Xcode). Re-record widget/Log/Progress snapshots on a Mac before treating
+  `make test` as green.
+- No schema change (still V6). TestFlight still 2.3 build 55 until a Mac archives
+  project version 56.
 
 ## Latest verification (2026-07-30, import review timing wave on main)
 - `MarbleTests` (`make unit`): **648 passed (1 skipped), 0 failed** — adds

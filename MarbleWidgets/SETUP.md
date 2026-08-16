@@ -51,11 +51,12 @@ widget, and a Control Center control.
   "Log a Set" is mappable to Control Center, the Lock Screen, and the Action button.
 
 ### Tests
-- `Tests/Unit/RestActivityControllerTests.swift` (pure start/timing logic) and
-  `Tests/Unit/WeeklyGoalWidgetStateTests.swift` (snapshot mapping + the Smart Stack
-  relevance scoring).
-- ⚠️ **There is no widget snapshot suite.** None of the five families has automated rendering
-  coverage — they are verified only by the device checklist in `TESTING.md`.
+- `Tests/Unit/RestActivityControllerTests.swift` (pure start/timing logic),
+  `Tests/Unit/WeeklyGoalWidgetStateTests.swift` (snapshot mapping + Smart Stack
+  relevance), `Tests/Unit/WeeklyGoalWidgetCopyTests.swift` (including
+  `compactLockScreenProgress`, which drops the streak at `streakWeeks >= 10`), and
+  `Tests/Snapshots/WeeklyGoalWidgetSnapshotTests.swift` (five families). Snapshots
+  are local-only (`make test` / `make snapshot-record`); CI runs `make unit`.
 
 ## Release signing
 
