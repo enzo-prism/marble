@@ -180,12 +180,12 @@ Still open:
 - **Toast-vs-inline is an open product decision.** Failure surfaces currently mix
   `ToastView` (Journal, Supplements) with inline errors elsewhere; pick one before adding
   more failure UI.
-- **Icon Composer layered icon.** `marble/AppIcon.icon/` is a first pass (Foreground.png +
-  `icon.json`) sitting beside the classic `AppIcon.appiconset`. Confirm in Xcode 26 that
-  the synchronized `marble/` group treats `.icon` as a package and does not ingest
-  `icon.json` as a loose compile input. Until that is verified on a Mac, keep the
-  classic set; `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon` still points at the catalog
-  name.
+- **Icon Composer layered icon.** Attempted 2026-08-16: adding `marble/AppIcon.icon/`
+  (filesystem-synchronized under `marble/`) made CI `actool` crash
+  (`attempt to insert nil object`). Removed. Keep the classic `AppIcon.appiconset`
+  until a Mac session can add a proper `.icon` **package file reference** outside the
+  synchronized group (the `RestTimerAttributes.swift` dual-membership precedent), then
+  confirm tinted/clear Home Screen treatments.
 - **Accessibility Nutrition Labels declaration.** The completed worksheet lives at
   `AppStore/ACCESSIBILITY_NUTRITION_LABELS.md`; the declaration itself still has to be made
   in App Store Connect.
