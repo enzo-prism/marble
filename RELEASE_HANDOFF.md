@@ -796,8 +796,8 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # expect MARKETING_VERSION 2.3, CURRENT_PROJECT_VERSION 55
+make asc-version      # expect MARKETING_VERSION 2.3, CURRENT_PROJECT_VERSION 56
 make asc-status
 make asc-builds
-make asc-next-build   # expect 56 unless another build was uploaded
+make asc-next-build   # expect 56 unless 56 (or later) was already uploaded
 ```

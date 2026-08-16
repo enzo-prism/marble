@@ -30,8 +30,8 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   "150 m tempo") with a repetition count and an exact or ranged target time in **tenths of
   a second**; log every sprint with a built-in stopwatch or typed decimal time, RPE, rest,
   rep progress, and immediate goal feedback, then get a sequence rollup after the final
-  rep. Journal previews show an accessible green hit, red miss, or neutral unscored state
-  plus a "Fastest" PR trail per distance; Trends charts best-time progression and weekly
+  rep. Log previews show an accessible green hit, red miss, or neutral unscored state
+  plus a "Fastest" PR trail per distance; Progress charts best-time progression and weekly
   goal hit rate, and plans that keep getting beaten earn a progression nudge.
   See [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md).
 - **Daily Highlights** — from 8:00 PM through 11:59 PM by default, Progress celebrates
@@ -313,16 +313,18 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Architecture
 
-- **SwiftUI + SwiftData, local-only.** Feature folders under `marble/Features/`: `Body`,
-  `Calendar`, `Import`, `Journal`, `Notifications`, `Onboarding`, `RestTimer`, `Settings`,
-  `Split`, `Supplements`, `Trends`, and `Workout`. Code shared with the widget extension
-  lives in `marble/Shared/`; App Intents live in `marble/Intents/`.
+- **SwiftUI + SwiftData, local-only.** Tab bar: **Train / Log / Progress** (Calendar and
+  Supplements are Log modes). Feature folders under `marble/Features/` still use the
+  historical names: `Body`, `Calendar`, `Import`, `Journal`, `Notifications`, `Onboarding`,
+  `RestTimer`, `Settings`, `Split`, `Supplements`, `Trends`, and `Workout`. Code shared
+  with the widget extension lives in `marble/Shared/`; App Intents live in `marble/Intents/`.
 - **Models** (`marble/Models/`) are SwiftData `@Model` types plus a rich domain core in
   `Enums.swift` (the configurable per-exercise metric profiles).
-- **Versioned schema — currently V5.** `marble/Persistence/MarbleSchema.swift` declares V1,
+- **Versioned schema — currently V6.** `marble/Persistence/MarbleSchema.swift` declares V1,
   additive V2 workout-session storage, additive V3 sprint prescriptions, additive V4 per-rep
-  sprint goal snapshots, additive V5 `BodyMetricEntry`, and `MarbleMigrationPlan`. Every
-  change so far has been additive, so `MarbleMigrationPlan.stages` is `[]` and must stay that
+  sprint goal snapshots, additive V5 `BodyMetricEntry`, additive V6 `SprintVariant` +
+  `SprintRepDetail`, and `MarbleMigrationPlan`. Every change so far has been additive, so
+  `MarbleMigrationPlan.stages` is `[]` and must stay that
   way — an explicit stage for an additive change is what crashed build 35 on launch.
   The container **self-recovers** from a failed migration without overwriting older recovery
   copies.

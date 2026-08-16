@@ -1,6 +1,7 @@
 # Daily Highlights
 
-Daily Highlights is Marble's end-of-day celebration in Trends. It turns the work already
+Daily Highlights is Marble's end-of-day celebration on the **Progress** tab
+(`TrendsView`). It turns the work already
 stored on the device into a clean, screenshots-ready recap without adding an account,
 server, background process, or sharing integration.
 

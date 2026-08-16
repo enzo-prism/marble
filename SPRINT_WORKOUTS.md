@@ -58,10 +58,10 @@ After an athlete hits a plan's goal on at least 80% of scored reps in each of th
 two sessions, the goal card shows a **progression nudge** suggesting a 0.2 s tighter
 target (`SprintProgression`).
 
-## Review sprint results in Journal
+## Review sprint results in Log
 
 Every logged sprint shows its recorded distance and time plus a compact result line in the
-Journal and Quick Log preview:
+Log (Sets) list and Quick Log preview:
 
 - **Goal hit** uses a green checkmark and includes the saved target.
 - **Goal missed** uses a red x-mark and includes the saved target.

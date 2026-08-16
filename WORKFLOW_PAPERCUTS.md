@@ -65,3 +65,9 @@
   Papercut: Two `xcodebuild test` runs against the same booted simulator (a verification pass and a record pass started in parallel) killed one group with "Early unexpected exit, operation never finished bootstrapping".
   Impact: One group of an otherwise green 27-group verification had to be re-run, and the failure looked like a product defect rather than contention.
   Suggested fix: Serialise simulator work — `run_snapshot_suite.sh` could take a lock file so a second invocation waits instead of racing.
+
+- Date: 2026-08-16
+  Workflow: Cloud Agent docs + iOS CI
+  Papercut: Linux Cloud Agents cannot run `xcodebuild`. Putting `marble/AppIcon.icon/` in the filesystem-synchronized `marble/` group crashed CI `actool` (`attempt to insert nil object`).
+  Impact: Unit CI failed after compile of the widget target succeeded; TestFlight cannot be uploaded from this VM.
+  Suggested fix: Keep Icon Composer packages as explicit Xcode package file refs, not loose files under `marble/`. Archive/upload only on a Mac (`RELEASE_HANDOFF.md`).
