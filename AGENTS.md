@@ -255,3 +255,20 @@ Prefer the repo-level `asc` wiring over ad hoc commands.
 - The app target deploys to iOS `26.0` and needs an installed iOS 26.x simulator runtime. If `xcodebuild`/`asc` reports “no destinations”, install that platform/runtime from Xcode > Settings > Components before debugging further.
 
 See `ASC.md` for the fuller Marble-specific command reference.
+
+## Cursor Cloud specific instructions
+- **This repository cannot be built, run, linted, or tested inside a Cursor Cloud Agent.**
+  Cloud Agent VMs are Linux (Ubuntu x86_64); Marble is a native iOS app whose build system is
+  `xcodebuild`-only (there is **no** `Package.swift`) and whose sources depend on
+  Apple-platform-only frameworks (`SwiftUI`, `SwiftData`, `UIKit`, `WidgetKit`, `HealthKit`,
+  `ActivityKit`, `StoreKit`, `AppIntents`, `VisionKit`, `FoundationModels`, …). None of these,
+  nor `xcodebuild`/the iOS Simulator, exist on Linux, and the open-source Swift-for-Linux
+  toolchain cannot substitute for them.
+- Every `make` target that builds/tests (`make test`, `make unit`, `make ui`, `make audit`,
+  `make snapshot*`, `make only`, `make typecheck-tests`) and the `asc-*` archive/publish
+  targets require **macOS with Xcode 26.x + the iOS 26.x simulator runtime** — see the `## Setup`
+  section above and `.github/workflows/ci.yml` (`runs-on: macos-26`).
+- There is no server, web, or other Linux-runnable component, so there is nothing for a Cloud
+  Agent update/install script to build. Do not add a Cloud Agent environment (Dockerfile,
+  `.cursor/environment.json`, or update script) that pretends otherwise. Run this project on a
+  Mac (locally or a macOS CI runner) instead.
