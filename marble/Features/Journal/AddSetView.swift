@@ -524,9 +524,24 @@ struct AddSetView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
                 isKeyboardVisible = true
+                expandSheetIfNeeded()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
                 isKeyboardVisible = false
+            }
+            .onChange(of: showDetails) { _, expanded in
+                if expanded { expandSheetIfNeeded() }
+            }
+            .onChange(of: showSprintSummary) { _, showing in
+                if showing { expandSheetIfNeeded() }
+            }
+            .onChange(of: selectedSprintVariant) { _, variant in
+                if variant != nil { expandSheetIfNeeded() }
+            }
+            .onAppear {
+                if selectedSprintVariant != nil {
+                    expandSheetIfNeeded()
+                }
             }
             .alert("Unable to Save", isPresented: $showSaveError) {
                 Button("OK", role: .cancel) {}
@@ -1206,6 +1221,10 @@ struct AddSetView: View {
     private func closeSheet() {
         quickLog.isPresentingAddSet = false
         isPresented = false
+    }
+
+    private func expandSheetIfNeeded() {
+        quickLog.sheetDetent = .large
     }
 
     private func dismissKeyboard() {

@@ -95,16 +95,34 @@ class MarbleUITestCase: XCTestCase {
     }
 
     func navigateToTab(_ tab: MarbleTab) {
-        let tabLabel = NSPredicate(format: "identifier == %@ OR label == %@", tab.rawValue, tab.rawValue)
-        let fallback = app.tabBars.buttons.matching(tabLabel).firstMatch
-        if fallback.waitForExistence(timeout: 4) {
-            forceTap(fallback)
-            return
+        switch tab {
+        case .calendar, .supplements:
+            tapTabBarItem(.journal)
+            let modeIdentifier = tab == .calendar ? "Tab.Calendar" : "Tab.Supplements"
+            let mode = app.descendants(matching: .any).matching(identifier: modeIdentifier).firstMatch
+            if mode.waitForExistence(timeout: 6) {
+                forceTap(mode)
+                return
+            }
+            let labeled = app.segmentedControls.buttons[tab.rawValue]
+            if labeled.waitForExistence(timeout: 4) {
+                forceTap(labeled)
+            }
+        default:
+            tapTabBarItem(tab)
         }
+    }
+
+    func tapTabBarItem(_ tab: MarbleTab) {
         let identified = app.buttons.matching(identifier: tab.identifier).firstMatch
         if identified.waitForExistence(timeout: 4) {
             forceTap(identified)
             return
+        }
+        let tabLabel = NSPredicate(format: "identifier == %@ OR label == %@", tab.rawValue, tab.rawValue)
+        let fallback = app.tabBars.buttons.matching(tabLabel).firstMatch
+        if fallback.waitForExistence(timeout: 4) {
+            forceTap(fallback)
         }
     }
 

@@ -12,6 +12,7 @@ final class SupplementsSnapshotTests: SnapshotTestCase {
         let view = SupplementsView()
             .modelContainer(container)
             .environment(QuickLogCoordinator())
+            .environment(TabSelection())
         assertSnapshot(view, named: "Supplements_Empty")
     }
 
@@ -23,6 +24,7 @@ final class SupplementsSnapshotTests: SnapshotTestCase {
         let view = SupplementsView()
             .modelContainer(container)
             .environment(QuickLogCoordinator())
+            .environment(TabSelection())
         assertSnapshot(view, named: "Supplements_Populated")
     }
 }

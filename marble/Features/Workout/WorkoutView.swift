@@ -40,7 +40,11 @@ struct WorkoutView: View {
                 if let activeSession {
                     ActiveWorkoutSection(
                         session: activeSession,
+                        plannedSets: todayPlannedSets,
+                        sprintPrescriptions: sprintPrescriptions,
+                        sprintVariants: sprintVariants,
                         onAddSet: openAddSet,
+                        onCompletePlanned: completePlannedSet,
                         onRepeatSet: repeatSet,
                         onFinish: { showingFinishConfirmation = true }
                     )
@@ -51,7 +55,7 @@ struct WorkoutView: View {
                         sprintPrescriptions: sprintPrescriptions,
                         sprintVariants: sprintVariants,
                         onStart: { _ = startWorkout() },
-                        onStartAndLog: startAndLog,
+                        onCompletePlanned: completePlannedSet,
                         onEditPlan: { showingPlan = true }
                     )
                 }
@@ -71,7 +75,7 @@ struct WorkoutView: View {
                 .scrollContentBackground(.hidden)
                 .background(Theme.backgroundColor(for: colorScheme))
                 .accessibilityIdentifier("Workout.List")
-                .navigationTitle("Workout")
+                .navigationTitle("Train")
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationBarGlassBackground()
                 .toolbar {
@@ -99,10 +103,7 @@ struct WorkoutView: View {
                         .accessibilityIdentifier("Workout.Data")
                     }
 
-                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                    ToolbarItem(placement: .topBarTrailing) {
-                        AddSetToolbarButton()
-                    }
+                    LogSetToolbarItems()
                 }
             }
         }
@@ -170,28 +171,35 @@ struct WorkoutView: View {
         return session
     }
 
-    private func startAndLog(_ plannedSet: PlannedSet) {
-        guard let session = startWorkout() else { return }
+    private func completePlannedSet(_ plannedSet: PlannedSet) {
+        let session = activeSession ?? startWorkout()
+        guard let session else { return }
+        if let last = SetEntryQueries.mostRecentEntry(for: plannedSet.exercise.id, in: modelContext) {
+            if SetLogging.repeatLatest(of: last, into: session, in: modelContext) == nil {
+                errorMessage = "Marble couldn't log that set."
+            }
+            return
+        }
         quickLog.open(
             prefillExerciseID: plannedSet.exercise.id,
             workoutSessionID: session.id,
-            context: QuickLogContext(title: "Workout", source: suggestedTitle)
+            context: QuickLogContext(title: "Train", source: suggestedTitle)
         )
     }
 
     private func openAddSet() {
         quickLog.open(
             workoutSessionID: activeSession?.id,
-            context: QuickLogContext(title: "Workout", source: activeSession?.title ?? suggestedTitle)
+            context: QuickLogContext(title: "Train", source: activeSession?.title ?? suggestedTitle)
         )
     }
 
     private func repeatSet(_ entry: SetEntry) {
-        quickLog.open(
-            prefillExerciseID: entry.exercise.id,
-            workoutSessionID: activeSession?.id,
-            context: QuickLogContext(title: "Workout", source: activeSession?.title ?? suggestedTitle)
-        )
+        if SetLogging.repeatLatest(of: entry, into: activeSession, in: modelContext) != nil {
+            MarbleHaptics.success()
+        } else {
+            errorMessage = "Marble couldn't log that set."
+        }
     }
 
     private func finishWorkout() {
@@ -211,11 +219,16 @@ struct WorkoutView: View {
 
 private struct ActiveWorkoutSection: View {
     let session: WorkoutSession
+    let plannedSets: [PlannedSet]
+    let sprintPrescriptions: [SprintPrescription]
+    let sprintVariants: [SprintVariant]
     let onAddSet: () -> Void
+    let onCompletePlanned: (PlannedSet) -> Void
     let onRepeatSet: (SetEntry) -> Void
     let onFinish: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.logSetZoomNamespace) private var logSetZoomNamespace
 
     var body: some View {
         Section {
@@ -244,9 +257,7 @@ private struct ActiveWorkoutSection: View {
                 }
 
                 HStack(spacing: MarbleSpacing.xs) {
-                    Button("Add Set", systemImage: "plus", action: onAddSet)
-                        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .primary))
-                        .accessibilityIdentifier("Workout.AddSet")
+                    addSetButton
                     Button("Finish", systemImage: "checkmark", action: onFinish)
                         .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
                         .accessibilityIdentifier("Workout.Finish")
@@ -258,8 +269,17 @@ private struct ActiveWorkoutSection: View {
             .listRowBackground(Theme.backgroundColor(for: colorScheme))
             .marbleRowInsets()
 
+            ForEach(plannedSets) { plannedSet in
+                Button { onCompletePlanned(plannedSet) } label: {
+                    plannedSetRow(plannedSet, accessory: "plus.circle")
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("Workout.PlannedSet.\(plannedSet.id.uuidString)")
+                .accessibilityHint("Logs the last weight and reps for this exercise")
+            }
+
             if session.orderedEntries.isEmpty {
-                EmptyStateView(title: "No sets yet", message: "Add your first set to begin the workout.", systemImage: "plus.circle")
+                EmptyStateView(title: "No sets yet", message: "Complete a planned set or add a set to begin.", systemImage: "plus.circle")
                     .listRowSeparator(.hidden)
                     .listRowBackground(Theme.backgroundColor(for: colorScheme))
                     .marbleRowInsets()
@@ -269,11 +289,61 @@ private struct ActiveWorkoutSection: View {
                         SetRowView(entry: entry, accessibilityIdentifier: "Workout.Set.\(entry.id.uuidString)")
                     }
                     .buttonStyle(.plain)
-                    .accessibilityHint("Log another set for this exercise")
+                    .accessibilityHint("Logs the same weight and reps again")
                 }
             }
         } header: {
             SectionHeaderView(title: "Active Workout")
+        }
+    }
+
+    @ViewBuilder
+    private var addSetButton: some View {
+        let button = Button("Add Set", systemImage: "plus", action: onAddSet)
+            .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .primary))
+            .accessibilityIdentifier("Workout.AddSet")
+        if let namespace = logSetZoomNamespace {
+            button.matchedTransitionSource(id: "log-set", in: namespace)
+        } else {
+            button
+        }
+    }
+
+    private func plannedSetRow(_ plannedSet: PlannedSet, accessory: String) -> some View {
+        HStack {
+            ExerciseIconView(exercise: plannedSet.exercise, fontSize: 17, frameSize: 28)
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                Text(plannedSet.exercise.name)
+                    .font(MarbleTypography.rowTitle)
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                plannedSubtitle(for: plannedSet)
+            }
+            Spacer()
+            Image(systemName: accessory)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+        }
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private func plannedSubtitle(for plannedSet: PlannedSet) -> some View {
+        if let primary = SprintVariant.primary(for: plannedSet.exercise.id, in: sprintVariants) {
+            Text(SprintVariantValue(primary).summary(restSeconds: plannedSet.exercise.defaultRestSeconds))
+                .font(MarbleTypography.rowMeta)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .fixedSize(horizontal: false, vertical: true)
+        } else if let prescription = sprintPrescriptions.first(where: { $0.exerciseID == plannedSet.exercise.id }) {
+            Text(prescription.summary(
+                distanceUnit: plannedSet.exercise.preferredDistanceUnit,
+                restSeconds: plannedSet.exercise.defaultRestSeconds
+            ))
+            .font(MarbleTypography.rowMeta)
+            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Text("Complete set")
+                .font(MarbleTypography.rowMeta)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
     }
 }
@@ -284,7 +354,7 @@ private struct StartWorkoutSection: View {
     let sprintPrescriptions: [SprintPrescription]
     let sprintVariants: [SprintVariant]
     let onStart: () -> Void
-    let onStartAndLog: (PlannedSet) -> Void
+    let onCompletePlanned: (PlannedSet) -> Void
     let onEditPlan: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -316,7 +386,7 @@ private struct StartWorkoutSection: View {
             .marbleRowInsets()
 
             ForEach(plannedSets) { plannedSet in
-                Button { onStartAndLog(plannedSet) } label: {
+                Button { onCompletePlanned(plannedSet) } label: {
                     HStack {
                         ExerciseIconView(exercise: plannedSet.exercise, fontSize: 17, frameSize: 28)
                         VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
@@ -336,16 +406,21 @@ private struct StartWorkoutSection: View {
                                 .font(MarbleTypography.rowMeta)
                                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                                 .fixedSize(horizontal: false, vertical: true)
+                            } else {
+                                Text("Complete set")
+                                    .font(MarbleTypography.rowMeta)
+                                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                             }
                         }
                         Spacer()
-                        Image(systemName: "play.circle")
+                        Image(systemName: "plus.circle")
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("Workout.PlannedSet.\(plannedSet.id.uuidString)")
+                .accessibilityHint("Starts the workout and logs the last weight and reps")
             }
 
             Button(action: onEditPlan) {

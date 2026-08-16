@@ -83,6 +83,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         waitForIdentifier("Trends.DailyHighlights", timeout: 8)
         try runAudit(name: "Trends_Populated_\(appearance.envValue)_\(sizeLabel)")
 
+        navigateToTab(.journal)
         openAddSet()
 
         let exercisePicker = app.buttons["AddSet.ExercisePicker"]

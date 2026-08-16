@@ -43,6 +43,13 @@ struct JournalView: View {
         return NavigationStack(path: $navPath) {
             List {
                 Section {
+                    LogModePicker()
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        .marbleRowInsets()
+                }
+
+                Section {
                     QuickLogCardView(
                         entry: entries.first,
                         prBadge: entries.first.flatMap { derived.prBadges[$0.id] } ?? [],
@@ -96,7 +103,7 @@ struct JournalView: View {
             .contentMargins(.top, MarbleSpacing.xs, for: .scrollContent)
             .background(Theme.backgroundColor(for: colorScheme))
             .accessibilityIdentifier("Journal.List")
-            .navigationTitle("Journal")
+            .navigationTitle("Log")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
             .toolbar {
@@ -123,12 +130,7 @@ struct JournalView: View {
                     .accessibilityIdentifier("Journal.Notifications")
                 }
 
-                // The primary "+" sits in its own glass capsule, visually apart
-                // from the secondary import/notification actions.
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                ToolbarItem(placement: .topBarTrailing) {
-                    AddSetToolbarButton()
-                }
+                LogSetToolbarItems()
             }
             .sheet(isPresented: $showingImport) {
                 ImportView.default()
@@ -260,16 +262,11 @@ struct JournalView: View {
 
     private func quickLogAgain() {
         guard let latest = entries.first else { return }
-        let duplicate = latest.duplicated(at: AppEnvironment.now)
-        modelContext.insert(duplicate)
-        copySprintGoal(from: latest, to: duplicate)
-        copySprintDetail(from: latest, to: duplicate)
-        guard modelContext.saveOrRollback() else {
+        guard let duplicate = SetLogging.repeatLatest(of: latest, into: nil, in: modelContext) else {
             toast = ToastData(message: "Couldn't log set", actionTitle: nil, onAction: nil)
             return
         }
         MarbleHaptics.success()
-        RestActivityController.shared.startRest(for: duplicate)
         pendingUndo = nil
         quickLogUndoID = duplicate.id
         toast = ToastData(message: "Set logged again", actionTitle: "Undo") {
@@ -308,44 +305,11 @@ struct JournalView: View {
     }
 
     private func duplicate(_ entry: SetEntry) {
-        let duplicate = entry.duplicated(at: AppEnvironment.now)
-        modelContext.insert(duplicate)
-        copySprintGoal(from: entry, to: duplicate)
-        copySprintDetail(from: entry, to: duplicate)
-        if modelContext.saveOrRollback() {
+        if SetLogging.repeatLatest(of: entry, into: nil, in: modelContext) != nil {
             MarbleHaptics.success()
-            RestActivityController.shared.startRest(for: duplicate)
         } else {
             toast = ToastData(message: "Couldn't duplicate set", actionTitle: nil, onAction: nil)
         }
-    }
-
-    private func copySprintGoal(from source: SetEntry, to destination: SetEntry) {
-        guard let sourceGoal = sprintGoalSnapshots.first(where: { $0.setEntryID == source.id }) else { return }
-        modelContext.insert(SprintGoalSnapshot(
-            setEntryID: destination.id,
-            exerciseID: destination.exercise.id,
-            distance: sourceGoal.distance,
-            distanceUnit: sourceGoal.distanceUnit,
-            repetitionNumber: nil,
-            repetitionCount: sourceGoal.repetitionCount,
-            targetLowerSeconds: sourceGoal.targetLowerSeconds,
-            targetUpperSeconds: sourceGoal.targetUpperSeconds,
-            isInferred: sourceGoal.isInferred,
-            createdAt: destination.createdAt
-        ))
-    }
-
-    private func copySprintDetail(from source: SetEntry, to destination: SetEntry) {
-        guard let sourceDetail = sprintRepDetails.first(where: { $0.setEntryID == source.id }) else { return }
-        modelContext.insert(SprintRepDetail(
-            setEntryID: destination.id,
-            durationTenths: sourceDetail.durationTenths,
-            targetLowerTenths: sourceDetail.targetLowerTenths,
-            targetUpperTenths: sourceDetail.targetUpperTenths,
-            variantID: sourceDetail.variantID,
-            createdAt: destination.createdAt
-        ))
     }
 
     private func deleteSprintDetail(for entryID: UUID) {

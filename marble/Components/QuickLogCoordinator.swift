@@ -13,6 +13,7 @@ final class QuickLogCoordinator {
     var prefillExerciseID: UUID?
     var workoutSessionID: UUID?
     var context: QuickLogContext?
+    var sheetDetent: PresentationDetent = .medium
 
     func open(
         prefillDate: Date = AppEnvironment.now,
@@ -24,6 +25,7 @@ final class QuickLogCoordinator {
         self.prefillExerciseID = prefillExerciseID
         self.workoutSessionID = workoutSessionID
         self.context = context
+        sheetDetent = .medium
         isPresentingAddSet = true
     }
 

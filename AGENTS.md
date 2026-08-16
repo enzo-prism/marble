@@ -139,6 +139,11 @@ Use these commands (preferred):
   `Trends`, `Workout`. The import feature is a `WorkoutImportProvider` abstraction over Apple
   Health, Garmin (via Health), and Strava (official OAuth). **See `INTEGRATIONS.md` for the
   full design and rationale.**
+- **Tab IA (iOS 26):** three tab-bar destinations — **Train** (`AppTab.split`, identifier
+  `Tab.Split`), **Log** (`AppTab.journal`, identifier `Tab.Journal`; Calendar and Supplements
+  are Log modes via `LogModePicker`, identifiers `Tab.Calendar` / `Tab.Supplements`), and
+  **Progress** (`AppTab.trends`, identifier `Tab.Trends`). Deep links `marble://calendar` and
+  `marble://supplements` still open those modes. Default tab is Train.
 - `marble/Shared/` — code that is a member of **both** the app and widget targets:
   `SharedDefaults.swift` (+ `SharedKeychain`), `WeeklyGoalWidgetState.swift`,
   `WeeklyGoalWidgetViews.swift` (the five Weekly Goal family layouts — they live here so the

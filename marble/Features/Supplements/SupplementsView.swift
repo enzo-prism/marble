@@ -26,6 +26,13 @@ struct SupplementsView: View {
         NavigationStack {
             List {
                 Section {
+                    LogModePicker()
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                        .marbleRowInsets()
+                }
+
+                Section {
                     quickAddRow
                         .marbleRowInsets()
                 }
@@ -87,10 +94,6 @@ struct SupplementsView: View {
                     }
                     .accessibilityLabel("Manage Supplement Types")
                     .accessibilityIdentifier("Supplements.ManageTypes")
-                }
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                ToolbarItem(placement: .topBarTrailing) {
-                    AddSetToolbarButton()
                 }
             }
             .overlay(alignment: .bottom) {

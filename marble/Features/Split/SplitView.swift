@@ -20,11 +20,6 @@ struct SplitView: View {
             .navigationTitle("Split")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    AddSetToolbarButton()
-                }
-            }
         }
     }
 
