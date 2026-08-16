@@ -57,15 +57,16 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-08-16)
 
-- **Train / Log / Progress IA** (2.3, project build 56, pending TestFlight after
-  `make asc-next-build` on a Mac): three tab-bar destinations; Calendar and Supplements
-  are Log modes; planned sets with history complete in one tap (`SetLogging.repeatLatest`);
-  Log Set is a medium morphing sheet from `+`; session accessory when a workout is live;
-  lock-screen widget copy drops two-digit streaks. No schema change (still V6). CI is
-  `make unit` on `macos-26`. This Linux Cloud Agent environment cannot archive or upload;
-  staged TestFlight remains `make asc-archive` → `ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export` → `asc builds upload`. **2.2 stays `READY_FOR_DISTRIBUTION`
-  (manual App Store release pending) — this wave is 2.3 TestFlight, not a 2.2 App Store
-  push.** See [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
+- **Train / Log / Progress IA** (on `main`, PR #19 merge `c0cef9e`, 2.3 project build 56,
+  pending TestFlight after `make asc-next-build` on a Mac): three tab-bar destinations;
+  Calendar and Supplements are Log modes; planned sets with history complete in one tap
+  (`SetLogging.repeatLatest`); Log Set is a medium morphing sheet from `+`; session
+  accessory when a workout is live; lock-screen widget copy drops two-digit streaks. No
+  schema change (still V6). CI `make unit` on `macos-26` is green. This Linux Cloud Agent
+  environment cannot archive or upload; staged TestFlight remains `make asc-archive` →
+  `ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export` → `asc builds upload`.
+  **2.2 stays `READY_FOR_DISTRIBUTION` (manual App Store release pending) — this wave is
+  2.3 TestFlight, not a 2.2 App Store push.** See [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
 - **`main` carries the Typed Workout order/progress/delight wave** (shipped in 2.3
   build 55, TestFlight `VALID` 2026-08-05): the journal now lists an imported workout
   in the exact order the review

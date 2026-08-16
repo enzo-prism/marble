@@ -6,12 +6,11 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
-## 2.3 Train / Log / Progress IA (project build 56) — TestFlight upload is Mac-only
+## 2.3 Train / Log / Progress IA — on `main` (PR #19 merge `c0cef9e`, 2026-08-16)
 
-**Code is on `cursor/streamline-train-log-progress-ia-9473` (PR #19).** Marketing version
-stays **2.3**. Xcode `CURRENT_PROJECT_VERSION` is **56**. Last processed TestFlight build
-is still **2.3 build 55 `VALID`** (2026-08-05). The next upload must use
-`make asc-next-build` (likely 56 if ASC agrees) — do not guess.
+**On `main`.** Marketing version stays **2.3**. Xcode `CURRENT_PROJECT_VERSION` is **56**.
+Last processed TestFlight build is still **2.3 build 55 `VALID`** (2026-08-05). The next
+upload must use `make asc-next-build` (likely 56 if ASC agrees) — do not guess.
 
 What this wave is:
 
