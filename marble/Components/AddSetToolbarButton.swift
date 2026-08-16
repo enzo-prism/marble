@@ -16,17 +16,29 @@ struct AddSetToolbarButton: View {
     }
 }
 
-/// Primary `+` in its own glass capsule. The zoom source sits on the
-/// `ToolbarItem` (not the button), matching the Import morph pattern.
+/// Primary `+` in its own glass capsule. The zoom source lives on the
+/// button view (same pattern as Import), so `ToolbarContent` does not
+/// need its own `@Namespace`.
 struct LogSetToolbarItems: ToolbarContent {
     @Environment(\.logSetZoomNamespace) private var logSetZoomNamespace
-    @Namespace private var fallbackNamespace
 
     var body: some ToolbarContent {
         ToolbarSpacer(.fixed, placement: .topBarTrailing)
         ToolbarItem(placement: .topBarTrailing) {
             AddSetToolbarButton()
+                .modifier(LogSetZoomSource(namespace: logSetZoomNamespace))
         }
-        .matchedTransitionSource(id: "log-set", in: logSetZoomNamespace ?? fallbackNamespace)
+    }
+}
+
+private struct LogSetZoomSource: ViewModifier {
+    var namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        if let namespace {
+            content.matchedTransitionSource(id: "log-set", in: namespace)
+        } else {
+            content
+        }
     }
 }

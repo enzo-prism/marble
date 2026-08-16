@@ -21,6 +21,10 @@ import WidgetKit
 /// `nonisolated` because it is pure string formatting that both a `@MainActor`
 /// view body and the widget's nonisolated `TimelineProvider` read.
 nonisolated enum WeeklyGoalCopy {
+    static func progress(_ state: WeeklyGoalWidgetState) -> String {
+        "\(state.thisWeekSessions) of \(state.target)"
+    }
+
     static func compactLockScreenProgress(_ state: WeeklyGoalWidgetState) -> String {
         // Two-digit streaks overflow accessoryRectangular ("12-week st…").
         // Drop the streak once it no longer fits beside the session count.

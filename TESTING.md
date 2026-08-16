@@ -14,7 +14,10 @@
   (`WeeklyGoalWidgetSnapshotTests`).
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots), including first-run onboarding
   (`OnboardingFlowUITests`) and Settings, with the weigh-in log → edit → delete round trip
-  (`SettingsFlowUITests`).
+  (`SettingsFlowUITests`). Tab bar is **Train / Log / Progress** (`Tab.Split` /
+  `Tab.Journal` / `Tab.Trends`). Calendar and Supplements are Log modes: `navigateToTab`
+  taps Log first, then `Tab.Calendar` / `Tab.Supplements` on `LogModePicker` segments.
+  Visible labels are Train / Log / Progress; identifiers stay on the historical names.
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
 ### Daily Highlights coverage

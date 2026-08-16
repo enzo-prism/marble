@@ -26,6 +26,17 @@ enum MarbleTab: String, CaseIterable {
         self == .split ? "Tab.Split" : "Tab.\(rawValue)"
     }
 
+    /// Visible tab-bar label after the Train / Log / Progress IA.
+    /// Calendar and Supplements are Log modes, not tab-bar items.
+    var tabBarLabel: String {
+        switch self {
+        case .journal: return "Log"
+        case .split: return "Train"
+        case .trends: return "Progress"
+        case .calendar, .supplements: return rawValue
+        }
+    }
+
 }
 
 class MarbleUITestCase: XCTestCase {
@@ -119,7 +130,13 @@ class MarbleUITestCase: XCTestCase {
             forceTap(identified)
             return
         }
-        let tabLabel = NSPredicate(format: "identifier == %@ OR label == %@", tab.rawValue, tab.rawValue)
+        let tabLabel = NSPredicate(
+            format: "identifier == %@ OR identifier == %@ OR label == %@ OR label == %@",
+            tab.identifier,
+            tab.rawValue,
+            tab.rawValue,
+            tab.tabBarLabel
+        )
         let fallback = app.tabBars.buttons.matching(tabLabel).firstMatch
         if fallback.waitForExistence(timeout: 4) {
             forceTap(fallback)

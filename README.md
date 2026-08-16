@@ -5,18 +5,27 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 ## What it is
 
-- **Journal** — fast logging of sets (weight, reps, distance, duration, RPE, rest) with
-  per-exercise metric profiles, plus a supplements log. **Personal-best (PR) badges**
-  celebrate record sets right in the history, and the logging screen shows your current PR
-  (heaviest + most reps) and usual range so you can shoot to beat it — with a live "New PR!"
-  cue the moment your entry passes your best.
+The tab bar is three destinations: **Train**, **Log**, and **Progress**. Calendar and
+Supplements are modes inside Log (not separate tabs). Deep links `marble://calendar` and
+`marble://supplements` still open those modes.
+
+- **Train** — start and finish timed workout sessions, complete a planned set in one tap
+  when that exercise already has history, and review recent sessions. The weekly split
+  remains the editable plan behind Settings. An active session shows a tab-bar accessory
+  (rest timer wins over the session pill).
+- **Log** — fast logging of sets (weight, reps, distance, duration, RPE, rest) with
+  per-exercise metric profiles, plus Calendar and Supplements as Log modes.
+  **Personal-best (PR) badges** celebrate record sets right in the history, and the logging
+  screen shows your current PR (heaviest + most reps) and usual range so you can shoot to
+  beat it — with a live "New PR!" cue the moment your entry passes your best.
+- **Progress** — a focused weekly goal, priority lift, and monthly report first; detailed
+  consistency, volume, per-exercise, supplement, and PR charts remain one tap away.
 - **Exercise library** — a searchable, category-filterable home for creating, favoriting,
   and safely editing reusable exercises. Explicit tracking types keep standard setup short,
   while Custom exposes every metric requirement. See
   [`EXERCISE_LIBRARY.md`](EXERCISE_LIBRARY.md).
-- **Calendar** — month view with workout-day markers, day detail, and progress photos/videos.
-- **Workout** — start and finish timed workout sessions, log planned sets in one tap, and
-  review recent sessions; the weekly split remains the editable plan behind the tab.
+- **Calendar** — month view with workout-day markers, day detail, and progress photos/videos
+  (Log → Calendar).
 - **Sprint workouts** — create multiple reusable sprint plans per exercise ("60 m speed",
   "150 m tempo") with a repetition count and an exact or ranged target time in **tenths of
   a second**; log every sprint with a built-in stopwatch or typed decimal time, RPE, rest,
@@ -25,16 +34,13 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
   plus a "Fastest" PR trail per distance; Trends charts best-time progression and weekly
   goal hit rate, and plans that keep getting beaten earn a progression nudge.
   See [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md).
-- **Trends** — a focused weekly goal, priority lift, and monthly report first; detailed
-  consistency, volume, per-exercise, supplement, and PR charts remain one tap away. From
-  8:00 PM through 11:59 PM by default, **Daily Highlights** celebrates that day's genuine
-  PRs and progress in a clean monochrome card with three daily quotes presented as a quiet
-  rotating footer;
-  the window is customizable and the feature remains entirely on-device.
+- **Daily Highlights** — from 8:00 PM through 11:59 PM by default, Progress celebrates
+  that day's genuine PRs in a clean monochrome card with three daily quotes as a quiet
+  rotating footer. The window is customizable and the feature remains entirely on-device.
   See [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md).
 - **Body** — log bodyweight (and body fat) in whichever unit you think in, stored as
-  canonical kilograms. Weigh-ins are **editable and deletable** from Trends, Settings, and the
-  Calendar day summary, so a typo can't quietly skew your bodyweight trend or your DOTS
+  canonical kilograms. Weigh-ins are **editable and deletable** from Progress, Settings, and
+  the Calendar day summary, so a typo can't quietly skew your bodyweight trend or your DOTS
   relative-strength score. The monthly report reads the month's first and last weigh-in.
 - **Data safety** — export and restore exercises, sets, supplements, sessions, and plans as
   JSON. Progress photos and videos remain on-device and are intentionally excluded.
@@ -49,8 +55,17 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-08-05)
+## Current state (2026-08-16)
 
+- **Train / Log / Progress IA** (2.3, project build 56, pending TestFlight after
+  `make asc-next-build` on a Mac): three tab-bar destinations; Calendar and Supplements
+  are Log modes; planned sets with history complete in one tap (`SetLogging.repeatLatest`);
+  Log Set is a medium morphing sheet from `+`; session accessory when a workout is live;
+  lock-screen widget copy drops two-digit streaks. No schema change (still V6). CI is
+  `make unit` on `macos-26`. This Linux Cloud Agent environment cannot archive or upload;
+  staged TestFlight remains `make asc-archive` → `ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export` → `asc builds upload`. **2.2 stays `READY_FOR_DISTRIBUTION`
+  (manual App Store release pending) — this wave is 2.3 TestFlight, not a 2.2 App Store
+  push.** See [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
 - **`main` carries the Typed Workout order/progress/delight wave** (shipped in 2.3
   build 55, TestFlight `VALID` 2026-08-05): the journal now lists an imported workout
   in the exact order the review
