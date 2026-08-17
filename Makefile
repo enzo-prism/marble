@@ -22,6 +22,7 @@ ASC_TESTFLIGHT_FLAGS ?=
 .PHONY: test unit ui ui-smoke audit snapshot snapshot-quick snapshot-record quick only migration-release verify-widget-plist
 .PHONY: asc-auth asc-doctor asc-app asc-builds asc-version asc-status asc-review asc-validate asc-next-build
 .PHONY: asc-archive asc-export asc-publish-testflight asc-publish-appstore
+.PHONY: cloud-preflight cloud-status cloud-testflight cloud-appstore-validate cloud-appstore-submit cloud-appstore-release
 
 verify-widget-plist:
 	@test -f MarbleWidgets/Info.plist || { echo "Missing MarbleWidgets/Info.plist; the widget target uses GENERATE_INFOPLIST_FILE=NO."; exit 1; }
@@ -123,3 +124,27 @@ asc-publish-appstore:
 	mkdir -p "$(ASC_ARTIFACTS_DIR)"
 	rm -rf "$(ASC_ARCHIVE_PATH)" "$(ASC_IPA_PATH)"
 	asc publish appstore --app "$(ASC_APP)" --project "$(PROJECT)" --scheme "$(SCHEME)" --configuration Release --archive-path "$(ASC_ARCHIVE_PATH)" --export-options "$(ASC_EXPORT_OPTIONS)" --ipa-path "$(ASC_IPA_PATH)" --archive-xcodebuild-flag=-destination --archive-xcodebuild-flag=generic/platform=iOS --version "$(ASC_APPSTORE_PUBLISH_VERSION)" --wait --poll-interval "$(ASC_POLL_INTERVAL)" --timeout "$(ASC_UPLOAD_TIMEOUT)" --output json --pretty $(ASC_APPSTORE_SUBMIT_FLAGS)
+
+# Cloud Agent publish path. Linux VMs cannot xcodebuild; these targets
+# dispatch GitHub Actions (macos-26 for TestFlight binaries, ubuntu for
+# App Store API) or run API-only asc commands when ASC_* secrets are present.
+# See CLOUD_RELEASE.md. Mutations still require explicit --confirm.
+cloud-preflight:
+	scripts/cloud_release.sh preflight
+
+cloud-status:
+	scripts/cloud_release.sh status
+
+cloud-testflight:
+	scripts/cloud_release.sh testflight $(if $(filter 1 true yes,$(DRY_RUN)),--dry-run,)
+
+cloud-appstore-validate:
+	scripts/cloud_release.sh appstore-validate $(if $(VERSION),--version $(VERSION),)
+
+cloud-appstore-submit:
+	@if [[ "$(CONFIRM)" != "submit" ]]; then echo "Set CONFIRM=submit (explicit user approval)"; exit 1; fi
+	scripts/cloud_release.sh appstore-submit --confirm $(if $(VERSION),--version $(VERSION),) $(if $(BUILD),--build $(BUILD),)
+
+cloud-appstore-release:
+	@if [[ "$(CONFIRM)" != "release" ]]; then echo "Set CONFIRM=release (explicit user approval)"; exit 1; fi
+	scripts/cloud_release.sh appstore-release --confirm $(if $(VERSION),--version $(VERSION),)

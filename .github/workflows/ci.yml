@@ -5,6 +5,9 @@ name: CI
 # compile errors did. Snapshot and UI suites are intentionally excluded: snapshot
 # comparisons are sub-pixel sensitive to the rendering host and belong to the local
 # `make snapshot` / `make ui` workflows, not a portable gate.
+#
+# TestFlight / App Store uploads are NOT this workflow. See
+# .github/workflows/release-testflight.yml, release-appstore.yml, and CLOUD_RELEASE.md.
 
 on:
   push:

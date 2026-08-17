@@ -26,8 +26,19 @@ What this wave is:
 `READY_FOR_DISTRIBUTION` (approved, manual release pending) and does not include Train/Log/Progress. This wave ships as **2.3 TestFlight**. Releasing 2.2 is a separate
 product decision.
 
-**Upload from a Mac with Xcode 26 + iOS 26 runtime + ASC keys** (Linux Cloud Agents
-cannot `xcodebuild` archive):
+**Upload from a Cloud Agent** (Linux cannot `xcodebuild`; see `CLOUD_RELEASE.md`):
+
+```bash
+make cloud-preflight
+make cloud-testflight
+# after VALID: make cloud-appstore-submit CONFIRM=submit VERSION=2.3
+# approved manual release: make cloud-appstore-release CONFIRM=release VERSION=2.3
+```
+
+That dispatches GitHub Actions `macos-26` for archive/export/upload. It needs the
+one-time GitHub Actions secrets from `scripts/bootstrap_github_release_secrets.sh`.
+
+**Upload from a Mac with Xcode 26 + iOS 26 runtime + ASC keys:**
 
 ```bash
 git fetch origin && git checkout main && git pull

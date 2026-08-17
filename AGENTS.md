@@ -265,16 +265,23 @@ See `ASC.md` for the fuller Marble-specific command reference.
 
 ## Cursor Cloud specific instructions
 
-Linux Cloud Agent VMs cannot build or ship this app. There is no `xcodebuild`, no iOS
-26 simulator, and no signing. Do not put `make test`, `make unit`, `make ui`,
-`make audit`, `make asc-archive`, or `pnpm dev`-style service startup in the VM
-update script.
+Linux Cloud Agent VMs cannot run `xcodebuild`, the iOS 26 simulator, or code
+signing. Do not put `make test`, `make unit`, `make ui`, `make audit`,
+`make asc-archive`, or `pnpm dev`-style service startup in the VM update script
+(`.cursor/environment.json` `install` only installs the `asc` CLI).
 
-- **Lint / unit / snapshots / UI / archive:** GitHub Actions `CI / unit-tests`
-  (`make unit` on `macos-26`) is the automated compile gate. Snapshots, UI, and
-  accessibility still need a Mac (`make test`, `make ui`, `make audit`).
-- **TestFlight / App Store:** follow `RELEASE_HANDOFF.md` on a Mac. Staged
-  `make asc-archive` → `ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export`
-  → `asc builds upload`. Do not background `make asc-publish-testflight`.
+- **Lint / unit:** GitHub Actions `CI / unit-tests` (`make unit` on `macos-26`)
+  is the compile gate. Snapshots, UI, and accessibility still need a Mac
+  (`make test`, `make ui`, `make audit`).
+- **TestFlight / App Store:** follow `CLOUD_RELEASE.md`. Linux agents ship
+  through `make cloud-*` (GitHub Actions `macos-26` for archive/upload; ASC API
+  on this VM or `ubuntu-latest` for validate / review submit / release). Never
+  archive on the Linux VM. Never background `make asc-publish-testflight`.
+  Do not bump builds, upload, submit review, or release without explicit user
+  approval.
+- **Secrets:** Cursor Cloud Secrets need `ASC_KEY_ID`, `ASC_ISSUER_ID`,
+  `ASC_PRIVATE_KEY_B64` for API work. GitHub Actions also needs the Apple
+  Distribution `.p12` (one-time `scripts/bootstrap_github_release_secrets.sh`
+  on the Mac that already ships). The agent token cannot create those secrets.
 - **Tab IA:** Train / Log / Progress. Calendar and Supplements are Log modes, not
   tab-bar items.
