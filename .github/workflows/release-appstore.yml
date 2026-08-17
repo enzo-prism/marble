@@ -1,0 +1,171 @@
+name: App Store
+
+# API-only App Store actions (validate, attach/submit, release an approved
+# version). No Xcode. Cloud Agents with ASC secrets can also run
+# scripts/ci_appstore.sh locally; this workflow is the fallback when those
+# secrets live only in GitHub Actions.
+#
+# Mutations require confirm=submit|release, or a publish/appstore-* tag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "validate | submit | release"
+        required: true
+        type: choice
+        options:
+          - validate
+          - submit
+          - release
+      version:
+        description: "App Store version string (e.g. 2.3)"
+        required: true
+        type: string
+      build_id:
+        description: "Optional processed build id to attach (submit only)"
+        required: false
+        type: string
+      confirm:
+        description: 'For submit type "submit"; for release type "release"'
+        required: false
+        type: string
+        default: "no"
+      dry_run:
+        description: "Plan only; do not mutate"
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "publish/appstore-validate/**"
+      - "publish/appstore-submit/**"
+      - "publish/appstore-release/**"
+
+concurrency:
+  group: marble-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  ASC_APP: "6757725234"
+  ASC_APP_ID: "6757725234"
+  ASC_BYPASS_KEYCHAIN: "true"
+  ASC_DEFAULT_OUTPUT: json
+
+jobs:
+  appstore:
+    name: App Store Connect
+    runs-on: ubuntu-latest
+    environment: app-store
+    timeout-minutes: 30
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY_B64: ${{ secrets.ASC_PRIVATE_KEY_B64 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup App Store Connect CLI
+        uses: rudrankriyam/setup-asc@v1
+        with:
+          version: latest
+
+      - name: Resolve action
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_ACTION: ${{ github.event.inputs.action }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_BUILD: ${{ github.event.inputs.build_id }}
+          INPUT_CONFIRM: ${{ github.event.inputs.confirm }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          action=""
+          version=""
+          confirm="no"
+          dry_run="false"
+          build_id=""
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            action="$INPUT_ACTION"
+            version="$INPUT_VERSION"
+            confirm="$INPUT_CONFIRM"
+            dry_run="${INPUT_DRY_RUN:-false}"
+            build_id="${INPUT_BUILD:-}"
+          else
+            # publish/appstore-<action>/<version>/...
+            action="$(echo "$REF_NAME" | awk -F/ '{print $2}' | sed 's/^appstore-//')"
+            version="$(echo "$REF_NAME" | awk -F/ '{print $3}')"
+            confirm="$action"
+            dry_run="false"
+          fi
+          if [[ -z "$action" || -z "$version" ]]; then
+            echo "Could not resolve action/version from event"
+            exit 1
+          fi
+          echo "action=$action" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "confirm=$confirm" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
+          echo "build_id=$build_id" >> "$GITHUB_OUTPUT"
+          echo "Resolved action=$action version=$version confirm=$confirm dry_run=$dry_run"
+
+      - name: Check ASC secrets
+        run: |
+          missing=0
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY_B64; do
+            if [[ -z "${!name}" ]]; then
+              echo "MISSING secret: $name"
+              missing=1
+            else
+              echo "present: $name"
+            fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            echo "::error::Add ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY_B64 (see CLOUD_RELEASE.md)."
+            exit 1
+          fi
+
+      - name: Run App Store action
+        env:
+          PLAN_ACTION: ${{ steps.plan.outputs.action }}
+          PLAN_VERSION: ${{ steps.plan.outputs.version }}
+          PLAN_CONFIRM: ${{ steps.plan.outputs.confirm }}
+          PLAN_DRY_RUN: ${{ steps.plan.outputs.dry_run }}
+          PLAN_BUILD: ${{ steps.plan.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          extra=(--version "$PLAN_VERSION")
+          if [[ -n "$PLAN_BUILD" ]]; then
+            extra+=(--build "$PLAN_BUILD")
+          fi
+          if [[ "$PLAN_DRY_RUN" == "true" ]]; then
+            extra+=(--dry-run)
+          fi
+          case "$PLAN_ACTION" in
+            validate)
+              scripts/ci_appstore.sh validate "${extra[@]}"
+              ;;
+            submit)
+              if [[ "$PLAN_CONFIRM" != "submit" ]]; then
+                echo "Refusing submit: confirm must be 'submit'"
+                exit 1
+              fi
+              scripts/ci_appstore.sh submit "${extra[@]}" --confirm
+              ;;
+            release)
+              if [[ "$PLAN_CONFIRM" != "release" ]]; then
+                echo "Refusing release: confirm must be 'release'"
+                exit 1
+              fi
+              scripts/ci_appstore.sh release "${extra[@]}" --confirm
+              ;;
+            *)
+              echo "Unknown action: $PLAN_ACTION"
+              exit 1
+              ;;
+          esac

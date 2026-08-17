@@ -66,6 +66,12 @@
   Impact: One group of an otherwise green 27-group verification had to be re-run, and the failure looked like a product defect rather than contention.
   Suggested fix: Serialise simulator work — `run_snapshot_suite.sh` could take a lock file so a second invocation waits instead of racing.
 
+- Date: 2026-08-17
+  Workflow: Cloud Agent TestFlight / App Store publishing
+  Papercut: Linux Cloud Agents cannot `xcodebuild` archive, and the Cloud Agent GitHub token cannot list or set Actions secrets (`Resource not accessible by integration`).
+  Impact: Agents could not ship 2.3 build 56 even with a green unit CI.
+  Suggested fix: Keep archive/export/upload on GitHub Actions `macos-26` (`release-testflight.yml`); keep submit/release as ASC API (`release-appstore.yml` / `scripts/ci_appstore.sh`). A human runs `scripts/bootstrap_github_release_secrets.sh` once on the Mac that already signs. Agents use `make cloud-*` (see `CLOUD_RELEASE.md`).
+
 - Date: 2026-08-16
   Workflow: Cloud Agent docs + iOS CI
   Papercut: Linux Cloud Agents cannot run `xcodebuild`. Putting `marble/AppIcon.icon/` in the filesystem-synchronized `marble/` group crashed CI `actool` (`attempt to insert nil object`).

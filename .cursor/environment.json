@@ -1,0 +1,4 @@
+{
+  "name": "marble-cloud",
+  "install": "scripts/cursor-cloud-install.sh"
+}

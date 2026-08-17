@@ -62,11 +62,11 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   Calendar and Supplements are Log modes; planned sets with history complete in one tap
   (`SetLogging.repeatLatest`); Log Set is a medium morphing sheet from `+`; session
   accessory when a workout is live; lock-screen widget copy drops two-digit streaks. No
-  schema change (still V6). CI `make unit` on `macos-26` is green. This Linux Cloud Agent
-  environment cannot archive or upload; staged TestFlight remains `make asc-archive` →
-  `ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export` → `asc builds upload`.
-  **2.2 stays `READY_FOR_DISTRIBUTION` (manual App Store release pending) — this wave is
-  2.3 TestFlight, not a 2.2 App Store push.** See [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
+  schema change (still V6). CI `make unit` on `macos-26` is green. Cloud Agents
+  ship TestFlight/App Store through `make cloud-*` (see [`CLOUD_RELEASE.md`](CLOUD_RELEASE.md));
+  this Linux VM still cannot archive locally. **2.2 stays `READY_FOR_DISTRIBUTION`
+  (manual App Store release pending) — this wave is 2.3 TestFlight, not a 2.2 App
+  Store push.** See [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
 - **`main` carries the Typed Workout order/progress/delight wave** (shipped in 2.3
   build 55, TestFlight `VALID` 2026-08-05): the journal now lists an imported workout
   in the exact order the review
@@ -347,6 +347,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 | [`EXERCISE_LIBRARY.md`](EXERCISE_LIBRARY.md) | Exercise creation, attributes, discovery, editing, and deletion safety |
 | [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md) | End-of-day celebration rules, time-window semantics, privacy, and tests |
 | [`ROADMAP.md`](ROADMAP.md) | H2 2026 plan: what shipped in 2.2, **known gaps / next up**, and why the Watch app was deferred |
+| [`CLOUD_RELEASE.md`](CLOUD_RELEASE.md) | How Cloud Agents publish to TestFlight and the App Store |
 | [`AGENTS.md`](AGENTS.md) | Coding, UI, testing, and release rules for contributors/agents |
 | [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) | Dated source of truth for release/version/signing state |
 | [`TESTING.md`](TESTING.md) | Test suites, deterministic launch hooks, snapshot rules, on-device checklist |
@@ -366,3 +367,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 `.github/workflows/ci.yml` runs `make unit` on PRs and pushes to `main`/`release/**`. It
 needs a runner with Xcode 26.x + the iOS 26 simulator runtime. Snapshot/UI suites are
 intentionally local-only (sub-pixel sensitive to the rendering host).
+
+TestFlight and App Store publishing are separate manual workflows
+(`.github/workflows/release-testflight.yml`, `release-appstore.yml`). See
+[`CLOUD_RELEASE.md`](CLOUD_RELEASE.md).

@@ -89,12 +89,19 @@ make asc-validate
 make asc-next-build
 ```
 
-Those targets already know the Marble app ID, scheme, project path, artifact
+**Cloud Agents** should start with `CLOUD_RELEASE.md` and `make cloud-preflight`.
+Linux VMs cannot archive; `make cloud-testflight` dispatches
+`.github/workflows/release-testflight.yml` on `macos-26`. App Store submit/release
+are API-only (`make cloud-appstore-submit` / `make cloud-appstore-release`) once
+`ASC_KEY_ID` / `ASC_ISSUER_ID` / `ASC_PRIVATE_KEY_B64` are in Cursor secrets or
+GitHub Actions secrets.
+
+Those `make asc-*` targets already know the Marble app ID, scheme, project path, artifact
 paths, the required archive destination wiring, and the marketing-version
 fallback for this Xcode setup. `make asc-review` and `make asc-validate` use
-`ASC_APPSTORE_VERSION` (should be `2.2`); `make asc-next-build` and
+`ASC_APPSTORE_VERSION` (should be `2.3`); `make asc-next-build` and
 `make asc-publish-testflight` use `ASC_TESTFLIGHT_VERSION` (defaulting to the local
-marketing version, currently `2.2`) for the next upload number.
+marketing version) for the next upload number.
 
 ## New Machine Checklist
 
@@ -104,6 +111,7 @@ marketing version, currently `2.2`) for the next upload number.
 4. Confirm `.asc/ExportOptions.plist` is present (it is tracked in git, so a clean clone has it).
 5. Confirm Apple agreements are current.
 6. Confirm signing/provisioning exists for the containing app and widget extension.
+7. For Cloud Agents: run `scripts/bootstrap_github_release_secrets.sh` once (see `CLOUD_RELEASE.md`).
 
 Recommended checks:
 
