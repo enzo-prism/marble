@@ -8,10 +8,12 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ## 2.3 Bulk import fidelity — on `main` (PR #23 merge `cbd5116`, 2026-08-20)
 
-**On `main`.** Marketing version stays **2.3**. Xcode `CURRENT_PROJECT_VERSION` is **56**.
-Last processed TestFlight build is still **2.3 build 55 `VALID`** until this wave's
-archive processes. Upload with `make cloud-testflight` / `make asc-next-build`
-(likely 56 if ASC agrees).
+**On `main`.** Marketing version stays **2.3**. Live ASC (2026-08-20): **2.3 build 56
+is already `VALID`**, and the App Store 2.3 version is `READY_FOR_DISTRIBUTION`
+(approved, manual release pending — that binary is the Train/Log/Progress IA, **not**
+this import wave). Releasing 2.3 now would ship without bulk import, so this wave
+uploads **TestFlight build 57**. Do not App Store-release 2.3 as a stand-in.
+Xcode `CURRENT_PROJECT_VERSION` is **57**.
 
 What this wave is:
 
@@ -30,9 +32,12 @@ run `32330557151`).
 
 ## 2.3 Train / Log / Progress IA — on `main` (PR #19 merge `c0cef9e`, 2026-08-16)
 
-**On `main`.** Marketing version stays **2.3**. Xcode `CURRENT_PROJECT_VERSION` is **56**.
-Last processed TestFlight build is still **2.3 build 55 `VALID`** (2026-08-05). The next
-upload must use `make asc-next-build` (likely 56 if ASC agrees) — do not guess.
+**On `main`.** Marketing version stays **2.3**. Xcode `CURRENT_PROJECT_VERSION` later
+moved to **57** for the bulk-import TestFlight. This IA first shipped as **2.3
+build 56 `VALID`** (2026-08-16, buildId `9d4830c6-e713-40c1-a60a-33c13951a9ce`).
+The App Store 2.3 version is `READY_FOR_DISTRIBUTION` (review COMPLETE, manual
+release pending). **Do not release that 2.3 binary as a stand-in for later waves**
+— it does not include bulk import.
 
 What this wave is:
 
