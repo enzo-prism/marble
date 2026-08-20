@@ -58,10 +58,11 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-08-20)
 
-- **Bulk import fidelity** (PR #23, not yet on `main`): Hevy/Strong CSV skips warmup
+- **Bulk import fidelity** (on `main`, PR #23 merge `cbd5116`): Hevy/Strong CSV skips warmup
   sets, maps RPE and notes, and keeps the session clock; multi-page scans concatenate OCR
   and hand a dated week to Paste or Type; batch review is honest about library / new /
-  weak matches. No schema change (still V6). Linux CI gate is `make unit` on `macos-26`.
+  weak matches. No schema change (still V6). Linux CI gate is `make unit` on `macos-26`
+  (774 tests green).
 - **Train / Log / Progress IA** (on `main`, PR #19 merge `c0cef9e`, 2.3 project build 56,
   pending TestFlight after `make asc-next-build` on a Mac): three tab-bar destinations;
   Calendar and Supplements are Log modes; planned sets with history complete in one tap

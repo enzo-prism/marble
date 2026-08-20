@@ -93,8 +93,8 @@
 - New unit coverage: Hevy/Strong warmup skip, RPE/notes/session clock, multi-page
   OCR join + N>1 scan handoff, OCR weekday punctuation headers, unique
   new-exercise counts, batch match breakdown (library / new / weak).
-- GitHub Actions `CI / unit-tests` (`make unit` on macos-26) is the compile gate
-  on Linux. Snapshots, UI, and `make audit` still need a Mac.
+- GitHub Actions `CI / unit-tests` (`make unit` on macos-26): **green** on PR #23
+  (run `32330557151`, SHA `cbd5116`) — **774 tests, 1 skipped, 0 failures**.
 - Hub button under test is **Paste or Type** (`Import.TextEntry.Open`); do not
   look for "Typed Workout". File picker accepts `.txt` / `.csv` only.
 - No schema change (still V6).

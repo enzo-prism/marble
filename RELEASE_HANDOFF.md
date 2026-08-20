@@ -6,12 +6,12 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
-## 2.3 Bulk import fidelity — PR #23 (2026-08-20)
+## 2.3 Bulk import fidelity — on `main` (PR #23 merge `cbd5116`, 2026-08-20)
 
-**On `cursor/bulk-text-workout-import-a61a` (PR #23), pending `main`.** Marketing
-version stays **2.3**. Xcode `CURRENT_PROJECT_VERSION` is **56**. Last processed
-TestFlight build is still **2.3 build 55 `VALID`**. After merge, upload with
-`make cloud-testflight` / `make asc-next-build` (likely 56 if ASC agrees).
+**On `main`.** Marketing version stays **2.3**. Xcode `CURRENT_PROJECT_VERSION` is **56**.
+Last processed TestFlight build is still **2.3 build 55 `VALID`** until this wave's
+archive processes. Upload with `make cloud-testflight` / `make asc-next-build`
+(likely 56 if ASC agrees).
 
 What this wave is:
 
@@ -22,6 +22,9 @@ What this wave is:
 - File picker is `.txt` / `.csv` only (no JSON workout schema).
 - No schema change (still V6). No App Store review submit in this wave.
   **Do not release 2.2.**
+
+CI: `CI / unit-tests` green on merge SHA (`774` tests, 1 skipped, 0 failures;
+run `32330557151`).
 
 ---
 
