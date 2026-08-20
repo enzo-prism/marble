@@ -277,6 +277,20 @@ final class WorkoutCSVParserTests: MarbleTestCase {
         let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
         XCTAssertEqual(result.workouts[0].draft.exercises[0].name, "Squat")
     }
+
+    func testDifferentEquipmentSuffixesStaySeparateExercises() {
+        let csv = """
+        Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE
+        2025-01-15 18:00:00,Leg Day,60m,Squat (Barbell),1,225,5,0,0,,,
+        2025-01-15 18:00:00,Leg Day,60m,Squat (Dumbbell),1,50,10,0,0,,,
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        let exercises = result.workouts[0].draft.exercises
+        XCTAssertEqual(exercises.map(\.name), ["Squat", "Squat"])
+        XCTAssertEqual(exercises[0].sets.map(\.weight), [225])
+        XCTAssertEqual(exercises[1].sets.map(\.weight), [50])
+        XCTAssertEqual(exercises[1].sets[0].reps, 10)
+    }
 }
 
 @MainActor

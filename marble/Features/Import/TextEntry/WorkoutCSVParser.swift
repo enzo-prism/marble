@@ -247,7 +247,7 @@ nonisolated enum WorkoutCSVParser {
             workoutDurationSeconds = CSVNumber.workoutDurationToken(field(columns.workoutDuration))
             let description = field(columns.workoutNotes)
             workoutNotes = description.isEmpty ? nil : description
-            exerciseName = CSVExerciseName.normalized(name)
+            exerciseName = name
             setIndex = Int(field(columns.setIndex)) ?? 0
             weight = CSVNumber.positiveDouble(field(columns.weight), decimalComma: columns.decimalComma)
             weightUnit = columns.weightUnit
@@ -321,7 +321,7 @@ nonisolated enum WorkoutCSVParser {
         func makeWorkout(kind: WorkoutImportPayloadKind) -> Workout? {
             let parsedExercises: [ParsedExerciseDraft] = runs.compactMap { bucket in
                 guard !bucket.sets.isEmpty else { return nil }
-                return ParsedExerciseDraft(name: bucket.name, sets: bucket.sets)
+                return ParsedExerciseDraft(name: CSVExerciseName.normalized(bucket.name), sets: bucket.sets)
             }
             guard !parsedExercises.isEmpty else { return nil }
 
@@ -412,8 +412,10 @@ nonisolated enum CSVSetType {
     }
 }
 
-/// Strong exports often append equipment (`Squat (Barbell)`). Strip it so
-/// library matching sees the same name as a handwritten promotion.
+/// Strong exports often append equipment (`Squat (Barbell)`). Strip it on the
+/// draft name so library matching sees the same name as a handwritten
+/// promotion. Grouping still uses the raw export name so `Squat (Barbell)`
+/// and `Squat (Dumbbell)` stay two exercises.
 nonisolated enum CSVExerciseName {
     static func normalized(_ raw: String) -> String {
         var result = raw.trimmingCharacters(in: .whitespacesAndNewlines)
