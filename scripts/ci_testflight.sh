@@ -90,7 +90,10 @@ upload_args=(
   --pretty
 )
 if [[ "$WAIT" -eq 1 ]]; then
-  upload_args+=(--wait --timeout "${ASC_UPLOAD_TIMEOUT:-45m}")
+  # asc 4.5 dropped `--timeout` on `builds upload`. `--wait` polls until
+  # processing finishes; `--verify-timeout` only watches the post-commit
+  # window for immediate upload failures.
+  upload_args+=(--wait --poll-interval "${ASC_POLL_INTERVAL:-30s}" --verify-timeout "${ASC_VERIFY_TIMEOUT:-2m}")
 fi
 
 asc "${upload_args[@]}"
