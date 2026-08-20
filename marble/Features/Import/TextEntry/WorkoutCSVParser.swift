@@ -213,9 +213,10 @@ nonisolated enum WorkoutCSVParser {
         var durationSeconds: Int?
         var difficulty: Int?
         var notes: String?
+        var isFailureSet: Bool
 
         var hasSetValues: Bool {
-            weight != nil || reps != nil || distance != nil || durationSeconds != nil
+            weight != nil || reps != nil || distance != nil || durationSeconds != nil || isFailureSet
         }
 
         init?(fields: [String], columns: ColumnMap) {
@@ -246,11 +247,18 @@ nonisolated enum WorkoutCSVParser {
             workoutDurationSeconds = CSVNumber.workoutDurationToken(field(columns.workoutDuration))
             let description = field(columns.workoutNotes)
             workoutNotes = description.isEmpty ? nil : description
-            exerciseName = name
+            exerciseName = CSVExerciseName.normalized(name)
             setIndex = Int(field(columns.setIndex)) ?? 0
             weight = CSVNumber.positiveDouble(field(columns.weight), decimalComma: columns.decimalComma)
             weightUnit = columns.weightUnit
-            reps = CSVNumber.positiveInt(field(columns.reps), decimalComma: columns.decimalComma)
+            isFailureSet = CSVSetType.isFailure(setType)
+            let parsedReps = CSVNumber.nonNegativeInt(field(columns.reps), decimalComma: columns.decimalComma)
+            if parsedReps == 0 {
+                // Cardio rows log 0 reps; failed attempts keep the zero.
+                reps = isFailureSet ? 0 : nil
+            } else {
+                reps = parsedReps
+            }
             distance = CSVNumber.positiveDouble(field(columns.distance), decimalComma: columns.decimalComma)
             distanceUnit = columns.distanceUnit
             durationSeconds = CSVNumber.positiveInt(field(columns.duration), decimalComma: columns.decimalComma)
@@ -384,6 +392,13 @@ nonisolated enum CSVSetType {
         return normalized == "warmup" || normalized == "wu"
     }
 
+    static func isFailure(_ raw: String) -> Bool {
+        switch compacted(raw) {
+        case "failure", "fail", "tofailure": return true
+        default: return false
+        }
+    }
+
     static func noteTag(_ raw: String) -> String? {
         switch compacted(raw) {
         case "dropset", "drop": return "Drop set"
@@ -394,6 +409,20 @@ nonisolated enum CSVSetType {
 
     private static func compacted(_ raw: String) -> String {
         raw.lowercased().filter { $0.isLetter }
+    }
+}
+
+/// Strong exports often append equipment (`Squat (Barbell)`). Strip it so
+/// library matching sees the same name as a handwritten promotion.
+nonisolated enum CSVExerciseName {
+    static func normalized(_ raw: String) -> String {
+        var result = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let range = result.range(of: #"\s*\([^()]*\)\s*$"#, options: .regularExpression) {
+            let stripped = result.replacingCharacters(in: range, with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !stripped.isEmpty { result = stripped }
+        }
+        return result
     }
 }
 
@@ -540,6 +569,21 @@ nonisolated enum CSVNumber {
 
     static func positiveInt(_ raw: String, decimalComma: Bool = false) -> Int? {
         guard let value = positiveDouble(raw, decimalComma: decimalComma) else { return nil }
+        return Int(value.rounded())
+    }
+
+    /// Zero is a real failed-rep count; empty still returns nil.
+    static func nonNegativeInt(_ raw: String, decimalComma: Bool = false) -> Int? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let cleaned: String
+        if decimalComma {
+            cleaned = trimmed.replacingOccurrences(of: ".", with: "")
+                .replacingOccurrences(of: ",", with: ".")
+        } else {
+            cleaned = trimmed.replacingOccurrences(of: ",", with: "")
+        }
+        guard let value = Double(cleaned), value >= 0 else { return nil }
         return Int(value.rounded())
     }
 

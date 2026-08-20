@@ -176,7 +176,10 @@ struct WorkoutScanView: View {
                     onNameChanged: { viewModel.refreshResolution(forExerciseWithID: exercise.id) },
                     onAddSet: { viewModel.addSet(toExerciseWithID: exercise.id) },
                     onRemoveExercise: { viewModel.removeExercise(withID: exercise.id) },
-                    onRemoveSets: { offsets in viewModel.removeSets(fromExerciseWithID: exercise.id, at: offsets) }
+                    onRemoveSets: { offsets in viewModel.removeSets(fromExerciseWithID: exercise.id, at: offsets) },
+                    canMoveUp: viewModel.exerciseIndex(withID: exercise.id).map { $0 > 0 } ?? false,
+                    canMoveDown: viewModel.exerciseIndex(withID: exercise.id).map { $0 < viewModel.draft.exercises.count - 1 } ?? false,
+                    onMove: { delta in viewModel.moveExercise(withID: exercise.id, by: delta) }
                 )
             }
 
@@ -326,6 +329,9 @@ private struct ScanExerciseSection: View {
     var onAddSet: () -> Void
     var onRemoveExercise: () -> Void
     var onRemoveSets: (IndexSet) -> Void
+    var canMoveUp: Bool
+    var canMoveDown: Bool
+    var onMove: (Int) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -368,9 +374,29 @@ private struct ScanExerciseSection: View {
             }
             .accessibilityIdentifier("Scan.Exercise.AddSet.\(exercise.id.uuidString)")
         } header: {
-            HStack {
+            HStack(spacing: MarbleSpacing.s) {
                 SectionHeaderView(title: "Exercise")
                 Spacer()
+                Button { onMove(-1) } label: {
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .disabled(!canMoveUp)
+                .opacity(canMoveUp ? 1 : 0.3)
+                .accessibilityLabel("Move exercise up")
+                .accessibilityIdentifier("Scan.Exercise.MoveUp.\(exercise.id.uuidString)")
+                Button { onMove(1) } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .disabled(!canMoveDown)
+                .opacity(canMoveDown ? 1 : 0.3)
+                .accessibilityLabel("Move exercise down")
+                .accessibilityIdentifier("Scan.Exercise.MoveDown.\(exercise.id.uuidString)")
                 Button(role: .destructive, action: onRemoveExercise) {
                     Label("Remove", systemImage: "trash")
                         .labelStyle(.iconOnly)

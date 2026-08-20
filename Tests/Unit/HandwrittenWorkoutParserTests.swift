@@ -229,4 +229,42 @@ final class HandwrittenWorkoutParserTests: MarbleTestCase {
         let draft = parse("Bench 3x8 @ 185")
         XCTAssertTrue(draft.exercises[0].sets.allSatisfy { $0.difficulty == nil && $0.weight == 185 })
     }
+
+    func testSpacedAtRPEMapsToDifficultyNotWeight() {
+        let draft = parse("Bench 3x8 @ 185 @RPE 8")
+        XCTAssertEqual(draft.exercises[0].sets.count, 3)
+        XCTAssertTrue(draft.exercises[0].sets.allSatisfy { $0.difficulty == 8 && $0.weight == 185 && $0.reps == 8 })
+    }
+
+    func testNumberedDayHeaderIsNotAnExercise() {
+        let draft = parse("""
+        Day 1
+        Bench 3x8 @ 185
+        """)
+        XCTAssertEqual(draft.title, "Day 1")
+        XCTAssertEqual(draft.exercises.map(\.name), ["Bench"])
+        XCTAssertEqual(draft.exercises[0].sets.count, 3)
+        XCTAssertEqual(draft.exercises[0].sets[0].weight, 185)
+    }
+
+    func testNumberedSessionHeaderRemainderBecomesTitle() {
+        let draft = parse("""
+        Day 2: Legs
+        Squat 5x5
+        """)
+        XCTAssertEqual(draft.title, "Legs")
+        XCTAssertEqual(draft.exercises.map(\.name), ["Squat"])
+        XCTAssertEqual(draft.exercises[0].sets.count, 5)
+    }
+
+    func testNumberedHeaderWithSetSpecIsNotConsumedAsHeader() {
+        XCTAssertFalse(HandwrittenWorkoutParser.isNumberedSessionHeader("Day 1 Bench 3x8 @ 185"))
+        let draft = parse("Day 1 Bench 3x8 @ 185")
+        XCTAssertTrue(draft.hasContent)
+        XCTAssertTrue(
+            draft.exercises.contains { exercise in
+                exercise.sets.contains { $0.weight == 185 }
+            }
+        )
+    }
 }

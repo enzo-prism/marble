@@ -212,4 +212,19 @@ final class WorkoutScanViewModelTests: MarbleTestCase {
         viewModel.addSet(toExerciseWithID: exerciseID)
         XCTAssertEqual(viewModel.draft.exercises[0].sets.last?.notes, "belt")
     }
+
+    func testMoveExerciseReordersScanDraft() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel(text: "Bench 3x8\nSquat 5x5\nRow 3x10")
+        await viewModel.process(cgImage: makeCGImage(), imageData: Data("page".utf8), in: context)
+        XCTAssertEqual(viewModel.draft.exercises.map(\.name), ["Bench", "Squat", "Row"])
+
+        let rowID = viewModel.draft.exercises[2].id
+        viewModel.moveExercise(withID: rowID, by: -1)
+        XCTAssertEqual(viewModel.draft.exercises.map(\.name), ["Bench", "Row", "Squat"])
+
+        viewModel.moveExercise(withID: viewModel.draft.exercises[0].id, by: -1)
+        XCTAssertEqual(viewModel.draft.exercises.map(\.name), ["Bench", "Row", "Squat"])
+        XCTAssertEqual(viewModel.exerciseIndex(withID: rowID), 1)
+    }
 }

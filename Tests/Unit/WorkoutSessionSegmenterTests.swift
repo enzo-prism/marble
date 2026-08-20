@@ -154,6 +154,9 @@ final class HandwrittenWorkoutParserSessionHeaderTests: MarbleTestCase {
         XCTAssertTrue(HandwrittenWorkoutParser.isSessionSplitHeader("Workout 2", referenceDate: now))
         XCTAssertFalse(HandwrittenWorkoutParser.isNumberedSessionHeader("Day 1 Bench 3x8 @ 185"))
         XCTAssertFalse(HandwrittenWorkoutParser.isSessionDateHeader("Day 1", referenceDate: now))
+        XCTAssertEqual(HandwrittenWorkoutParser.numberedSessionHeaderRemainder("Day 2: Legs"), "Legs")
+        XCTAssertEqual(HandwrittenWorkoutParser.numberedSessionHeaderRemainder("Day 1"), "")
+        XCTAssertNil(HandwrittenWorkoutParser.numberedSessionHeaderRemainder("Day 1 Bench 3x8 @ 185"))
     }
 
     func testFalseMondayOnASetLineDoesNotSplit() {

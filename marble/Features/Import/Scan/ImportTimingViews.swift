@@ -71,6 +71,7 @@ struct ImportDateSection: View {
                 if let durationLine {
                     Text(durationLine)
                 }
+                Text("Blank RPE saves as 8. Blank rest uses the exercise default.")
             }
             .font(MarbleTypography.caption)
             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))

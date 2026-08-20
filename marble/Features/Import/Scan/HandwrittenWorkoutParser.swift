@@ -109,6 +109,8 @@ nonisolated struct WorkoutParseResult: Equatable, Sendable {
 ///     "three rounds:") are section markers, not exercises or titles. A
 ///     counted header multiplies the set count of the exercises that follow
 ///     until the next header; a bare label resets the count to one.
+///   • Numbered session labels (`Day 1`, `Session 2: Legs`) are consumed as
+///     titles, not as bodyweight exercises named "Day" / "Session".
 ///   • Spelled-out set phrases ("three sets of eight") mark the line as prose: the
 ///     line is left for the on-device model / unparsed-lines review rather than
 ///     being mangled into a plausible-looking wrong exercise.
@@ -196,6 +198,19 @@ nonisolated enum HandwrittenWorkoutParser {
                 if draft.performedAt == nil { draft.performedAt = match.date }
                 line = normalize(line.replacingCharacters(in: match.range, with: " "))
                 guard !line.isEmpty else { continue }
+            }
+
+            // Numbered session labels (`Day 1`, `Session 2: Legs`) split a
+            // paste, then stay in each segment. Consume them here so they
+            // cannot parse as a bodyweight set named "Day" / "Session".
+            if let remainder = numberedSessionHeaderRemainder(line) {
+                resolvePendingAsTitle()
+                if !titleAssigned {
+                    let titleSource = remainder.isEmpty ? line : remainder
+                    draft.title = cleanTitle(titleSource)
+                    titleAssigned = true
+                }
+                continue
             }
 
             // Circuit/round header lines ("3 rounds:", "Circuit 1", "three
@@ -701,7 +716,7 @@ nonisolated enum HandwrittenWorkoutParser {
     // MARK: - RPE notation
 
     /// Removes RPE tokens so they cannot be read as load. Safe patterns only:
-    /// "RPE 8", "rpe8", "@RPE 8.5". Bare "@ 8" stays weight.
+    /// "RPE 8", "rpe8", "@RPE 8", "@RPE 8.5". Bare "@ 8" stays weight.
     private static func extractRPE(_ tokens: [String]) -> (tokens: [String], difficulty: Int?) {
         var remaining = tokens
         for (index, token) in remaining.enumerated() {
@@ -710,7 +725,7 @@ nonisolated enum HandwrittenWorkoutParser {
                 return (remaining, value)
             }
         }
-        guard let markerIndex = remaining.firstIndex(where: { $0.lowercased() == "rpe" }) else {
+        guard let markerIndex = remaining.firstIndex(where: { isRPEMarker($0) }) else {
             return (remaining, nil)
         }
         if markerIndex + 1 < remaining.count,
@@ -733,6 +748,15 @@ nonisolated enum HandwrittenWorkoutParser {
         body = String(body.dropFirst(3))
         if body.hasPrefix("@") { body.removeFirst() }
         return CSVNumber.rpe(body)
+    }
+
+    /// `rpe` and `@rpe` (spaced `@RPE 8`). Trailing punctuation from OCR is ignored.
+    private static func isRPEMarker(_ token: String) -> Bool {
+        var body = token.lowercased()
+        while let last = body.last, !last.isLetter { body.removeLast() }
+        while let first = body.first, first != "@", !first.isLetter { body.removeFirst() }
+        if body.hasPrefix("@") { body.removeFirst() }
+        return body == "rpe"
     }
 
     /// When a whole line is nothing but rest notation ("rest 2 min between sets"),
@@ -1144,7 +1168,8 @@ nonisolated enum HandwrittenWorkoutParser {
     }
 
     /// Date headers plus numbered session labels (`Day 1`, `Session 2: Legs`).
-    /// Used by the paste splitter only — these labels are not calendar dates.
+    /// Used by the paste splitter; the parser also consumes these so they are
+    /// not mistaken for exercises. They are not calendar dates.
     static func isSessionSplitHeader(_ rawLine: String, referenceDate: Date) -> Bool {
         if isSessionDateHeader(rawLine, referenceDate: referenceDate) { return true }
         return isNumberedSessionHeader(rawLine)
@@ -1153,16 +1178,24 @@ nonisolated enum HandwrittenWorkoutParser {
     /// "Day 1", "Session 2: Upper", "Workout 3 — Legs". A trailing set spec
     /// (`Day 1 Bench 3x8`) stays inside the current session.
     static func isNumberedSessionHeader(_ rawLine: String) -> Bool {
+        numberedSessionHeaderRemainder(rawLine) != nil
+    }
+
+    /// Leftover title after a numbered session label (`"Legs"` from `"Day 2: Legs"`).
+    /// `""` when the label has no remainder (`"Day 1"`). `nil` when the line is not a header.
+    static func numberedSessionHeaderRemainder(_ rawLine: String) -> String? {
         let line = normalize(rawLine)
-        guard !line.isEmpty, let regex = numberedSessionHeaderRegex else { return false }
+        guard !line.isEmpty, let regex = numberedSessionHeaderRegex else { return nil }
         let nsRange = NSRange(line.startIndex..., in: line)
-        guard let match = regex.firstMatch(in: line, range: nsRange) else { return false }
+        guard let match = regex.firstMatch(in: line, range: nsRange) else { return nil }
         guard match.range(at: 3).location != NSNotFound,
               let remainderRange = Range(match.range(at: 3), in: line) else {
-            return true
+            return ""
         }
         let remainder = line[remainderRange].trimmingCharacters(in: .whitespacesAndNewlines)
-        return remainder.isEmpty || isWordOnly(remainder)
+        if remainder.isEmpty { return "" }
+        guard isWordOnly(remainder) else { return nil }
+        return remainder
     }
 
     private struct DateMatch { var date: Date; var range: Range<String.Index> }

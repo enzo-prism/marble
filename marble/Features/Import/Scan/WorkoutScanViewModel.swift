@@ -166,6 +166,18 @@ final class WorkoutScanViewModel {
         ))
     }
 
+    /// Same as Paste or Type: draft order is import order.
+    func moveExercise(withID id: UUID, by delta: Int) {
+        guard let index = draft.exercises.firstIndex(where: { $0.id == id }) else { return }
+        let target = index + delta
+        guard draft.exercises.indices.contains(target) else { return }
+        draft.exercises.swapAt(index, target)
+    }
+
+    func exerciseIndex(withID id: UUID) -> Int? {
+        draft.exercises.firstIndex { $0.id == id }
+    }
+
     func removeExercise(withID id: UUID) {
         draft.exercises.removeAll { $0.id == id }
         resolutions[id] = nil

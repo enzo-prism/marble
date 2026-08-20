@@ -227,6 +227,7 @@ final class WorkoutCSVParserTests: MarbleTestCase {
         XCTAssertEqual(set.weightUnit, .kg)
         XCTAssertEqual(set.reps, 5)
         XCTAssertEqual(set.difficulty, 9)
+        XCTAssertEqual(result.workouts[0].draft.exercises[0].name, "Squat")
         XCTAssertEqual(result.workouts[0].draft.durationSeconds, 3600)
     }
 
@@ -239,6 +240,42 @@ final class WorkoutCSVParserTests: MarbleTestCase {
         let set = result.workouts[0].draft.exercises[0].sets[0]
         XCTAssertEqual(set.weight, 100)
         XCTAssertEqual(set.weightUnit, .kg)
+        XCTAssertEqual(result.workouts[0].draft.exercises[0].name, "Squat")
+    }
+
+    func testHevyFailureZeroRepsAreKept() {
+        let csv = """
+        title,start_time,exercise_title,set_index,set_type,weight_lbs,reps
+        Push Day,2025-03-28 17:00:00,Bench Press,0,normal,185,8
+        Push Day,2025-03-28 17:00:00,Bench Press,1,failure,185,0
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        let sets = result.workouts[0].draft.exercises[0].sets
+        XCTAssertEqual(sets.count, 2)
+        XCTAssertEqual(sets[1].weight, 185)
+        XCTAssertEqual(sets[1].reps, 0)
+        XCTAssertEqual(sets[1].notes, "Failure")
+    }
+
+    func testHevyFailureRowWithoutLoadIsKept() {
+        let csv = """
+        title,start_time,exercise_title,set_index,set_type,weight_lbs,reps
+        Push Day,2025-03-28 17:00:00,Bench Press,0,failure,,
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        let set = result.workouts[0].draft.exercises[0].sets[0]
+        XCTAssertNil(set.weight)
+        XCTAssertNil(set.reps)
+        XCTAssertEqual(set.notes, "Failure")
+    }
+
+    func testStrongEquipmentSuffixIsStrippedFromExerciseName() {
+        let csv = """
+        Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE
+        2025-01-15 18:00:00,Leg Day,60m,Squat (Barbell),1,225,5,0,0,,,
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        XCTAssertEqual(result.workouts[0].draft.exercises[0].name, "Squat")
     }
 }
 
