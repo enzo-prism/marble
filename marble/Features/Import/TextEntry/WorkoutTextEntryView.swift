@@ -2,13 +2,14 @@ import Combine
 import SwiftData
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 /// The end-to-end "type or paste a workout" flow: free text → on-device parse →
 /// review matches/edit → add to journal. Presented as a sheet from the import
 /// screen; the review step is the scan flow's reviewer plus per-exercise library
 /// matching, so the user approves exactly which rows are reused or created.
 struct WorkoutTextEntryView: View {
-    @State private var viewModel = WorkoutTextEntryViewModel()
+    @State private var viewModel: WorkoutTextEntryViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
@@ -18,12 +19,22 @@ struct WorkoutTextEntryView: View {
     /// `hasStrings` reads no content, so it never trips the paste-permission
     /// prompt; refreshed when the sheet appears and when the app foregrounds.
     @State private var clipboardHasText = false
+    @State private var showingFileImporter = false
+
+    init(initialText: String = "") {
+        _viewModel = State(wrappedValue: WorkoutTextEntryViewModel(initialText: initialText))
+    }
+
+    /// Test seam so unit-driven previews aren't required to go through `init(initialText:)`.
+    init(viewModel: WorkoutTextEntryViewModel) {
+        _viewModel = State(wrappedValue: viewModel)
+    }
 
     var body: some View {
         NavigationStack {
             content
                 .background(Theme.backgroundColor(for: colorScheme))
-                .navigationTitle("Type a Workout")
+                .navigationTitle(navigationTitle)
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationBarGlassBackground()
                 .toolbar { toolbarContent }
@@ -47,6 +58,13 @@ struct WorkoutTextEntryView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             clipboardHasText = UIPasteboard.general.hasStrings
         }
+        .fileImporter(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.commaSeparatedText, .plainText, .json],
+            allowsMultipleSelection: true
+        ) { result in
+            ingestFiles(result)
+        }
     }
 
     // MARK: - Phases
@@ -56,6 +74,12 @@ struct WorkoutTextEntryView: View {
         switch viewModel.phase {
         case .input: inputView
         case .processing: processingView
+        case .batchReview:
+            WorkoutTextBatchReview(
+                viewModel: viewModel,
+                onReview: { viewModel.openSession($0) },
+                onImport: { viewModel.commitSelected(into: modelContext) }
+            )
         case .review: reviewView
         case .imported: importedView
         }
@@ -64,26 +88,34 @@ struct WorkoutTextEntryView: View {
     private var inputView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: MarbleSpacing.m) {
-                Text("Describe your workout in your own words — exercises, weight, reps, and rest. Marble reads it on your device and turns it into sets you can review before logging.")
+                Text("Paste a workout, a week of notes, or a Hevy/Strong export. Marble reads it on your device, splits it into workouts, and matches your exercise library before anything is logged.")
                     .font(MarbleTypography.rowMeta)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("TextEntry.Input")
 
                 // System PasteButton: one tap moves a copied workout (Hevy,
                 // Strong, Notes) into the editor with no clipboard-permission
                 // prompt and no programmatic clipboard reads — the privacy
                 // posture the feature promises.
-                if clipboardHasText {
-                    HStack {
-                        Spacer()
+                HStack {
+                    Button {
+                        showingFileImporter = true
+                    } label: {
+                        Label("Choose File", systemImage: "folder")
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("TextEntry.ChooseFile")
+                    Spacer()
+                    if clipboardHasText {
                         PasteButton(payloadType: String.self) { strings in
-                            guard let pasted = strings.first?.trimmingCharacters(in: .whitespacesAndNewlines),
-                                  !pasted.isEmpty else { return }
-                            let existing = viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                            viewModel.text = existing.isEmpty ? pasted : existing + "\n" + pasted
+                            guard let pasted = strings.first else { return }
+                            viewModel.ingestPastedText(pasted)
                         }
                         .labelStyle(.titleAndIcon)
                         .tint(Theme.secondaryTextColor(for: colorScheme))
+                        .frame(minHeight: 44)
                         .accessibilityIdentifier("TextEntry.Paste")
                     }
                 }
@@ -92,6 +124,7 @@ struct WorkoutTextEntryView: View {
                     .font(MarbleTypography.rowSubtitle)
                     .focused($textFocused)
                     .scrollContentBackground(.hidden)
+                    .writingToolsBehavior(.disabled)
                     .padding(MarbleSpacing.s)
                     .frame(minHeight: 200)
                     .background(
@@ -110,6 +143,11 @@ struct WorkoutTextEntryView: View {
                     }
                     .accessibilityIdentifier("TextEntry.Editor")
                     .onChange(of: viewModel.text) { _, _ in viewModel.updateLivePreview() }
+                    .dropDestination(for: String.self) { items, _ in
+                        guard let pasted = items.first else { return false }
+                        viewModel.ingestPastedText(pasted)
+                        return true
+                    }
 
                 if let preview = viewModel.livePreview {
                     livePreviewView(preview)
@@ -119,7 +157,7 @@ struct WorkoutTextEntryView: View {
                     textFocused = false
                     Task { await viewModel.preview(in: modelContext) }
                 } label: {
-                    Text("Preview Workout")
+                    Text(previewButtonTitle)
                 }
                 .buttonStyle(MarbleActionButtonStyle(
                     isEnabledOverride: !viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -130,9 +168,7 @@ struct WorkoutTextEntryView: View {
                 .accessibilityIdentifier("TextEntry.Preview")
 
                 Label(
-                    viewModel.usesOnDeviceModel
-                        ? "Read on your device with Apple Intelligence — nothing is uploaded."
-                        : "Read on your device — nothing is uploaded.",
+                    viewModel.privacyCaption,
                     systemImage: "lock.fill"
                 )
                 .font(MarbleTypography.caption)
@@ -147,7 +183,13 @@ struct WorkoutTextEntryView: View {
             }
             .padding(MarbleSpacing.m)
         }
-        .accessibilityIdentifier("TextEntry.Input")
+    }
+
+    private var previewButtonTitle: String {
+        if let preview = viewModel.livePreview, preview.sessionCount > 1 {
+            return "Preview Workouts"
+        }
+        return "Preview Workout"
     }
 
     /// Eased display value for the processing bar. Real parse stages anchor it;
@@ -160,6 +202,9 @@ struct WorkoutTextEntryView: View {
     /// are unknowable (the model exposes no token count), so the anchors split
     /// the pipeline where the time actually goes: the two model readings.
     private var processingTarget: Double {
+        if let batch = viewModel.batchProgress, batch.total > 1 {
+            return min(0.95, Double(batch.current) / Double(batch.total))
+        }
         switch viewModel.parseStage {
         case .readingNotation: return 0.18
         case .interpreting(let pass, _): return pass <= 1 ? 0.52 : 0.8
@@ -168,6 +213,9 @@ struct WorkoutTextEntryView: View {
     }
 
     private var processingStageLabel: String {
+        if let batch = viewModel.batchProgress, batch.total > 1 {
+            return "Reading workout \(batch.current) of \(batch.total)…"
+        }
         switch viewModel.parseStage {
         case .readingNotation: return "Reading your text…"
         case .interpreting: return "Interpreting with Apple Intelligence…"
@@ -187,10 +235,10 @@ struct WorkoutTextEntryView: View {
             }
             .font(MarbleTypography.caption)
             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            .accessibilityIdentifier("TextEntry.Processing")
         }
         .frame(maxWidth: 260)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityIdentifier("TextEntry.Processing")
         .onAppear { processingProgress = 0.03 }
         .onReceive(processingTimer) { _ in
             guard viewModel.phase == .processing else { return }
@@ -204,28 +252,42 @@ struct WorkoutTextEntryView: View {
     /// Preview, not after.
     @ViewBuilder
     private func livePreviewView(_ preview: WorkoutTextEntryViewModel.LivePreview) -> some View {
-        if !preview.recognized.isEmpty || !preview.unrecognized.isEmpty {
+        if !preview.recognized.isEmpty || !preview.unrecognized.isEmpty || preview.sessionCount > 1 {
             VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                ForEach(preview.recognized) { line in
+                if preview.sessionCount > 1 {
                     Label(
-                        "\(line.name) · \(line.setCount) set\(line.setCount == 1 ? "" : "s")",
+                        "Looks like \(preview.sessionCount) workouts · \(preview.totalSets) sets",
                         systemImage: "checkmark.circle.fill"
                     )
                     .font(MarbleTypography.caption)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                }
-                ForEach(Array(preview.unrecognized.enumerated()), id: \.offset) { _, line in
-                    Label(line, systemImage: "exclamationmark.circle")
+                    .accessibilityIdentifier("TextEntry.LivePreview")
+                    ForEach(Array(preview.recognized.prefix(8))) { line in
+                        Text("\(line.name) · \(line.setCount) set\(line.setCount == 1 ? "" : "s")")
+                            .font(MarbleTypography.caption)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    }
+                } else {
+                    ForEach(preview.recognized) { line in
+                        Label(
+                            "\(line.name) · \(line.setCount) set\(line.setCount == 1 ? "" : "s")",
+                            systemImage: "checkmark.circle.fill"
+                        )
                         .font(MarbleTypography.caption)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                }
-                if !preview.unrecognized.isEmpty {
-                    Text("\(preview.unrecognized.count) line\(preview.unrecognized.count == 1 ? "" : "s") not recognized yet — try \"Name 3x8 @ 185\".")
-                        .font(MarbleTypography.caption)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.8))
+                    }
+                    ForEach(Array(preview.unrecognized.enumerated()), id: \.offset) { _, line in
+                        Label(line, systemImage: "exclamationmark.circle")
+                            .font(MarbleTypography.caption)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    }
+                    if !preview.unrecognized.isEmpty {
+                        Text("\(preview.unrecognized.count) line\(preview.unrecognized.count == 1 ? "" : "s") not recognized yet — try \"Name 3x8 @ 185\".")
+                            .font(MarbleTypography.caption)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.8))
+                    }
                 }
             }
-            .accessibilityIdentifier("TextEntry.LivePreview")
         }
     }
 
@@ -243,7 +305,7 @@ struct WorkoutTextEntryView: View {
 
             if viewModel.alreadyImported {
                 Section {
-                    Label("This workout text was already added to your journal. Importing again will add the sets a second time.", systemImage: "exclamationmark.triangle")
+                    Label("This workout is already in your journal. Importing again will skip it.", systemImage: "exclamationmark.triangle")
                         .font(MarbleTypography.rowMeta)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .accessibilityIdentifier("TextEntry.AlreadyImported")
@@ -253,7 +315,7 @@ struct WorkoutTextEntryView: View {
             if !viewModel.unparsedLines.isEmpty {
                 Section {
                     ForEach(Array(viewModel.unparsedLines.enumerated()), id: \.offset) { index, line in
-                        UnparsedLineRow(text: line) { edited in
+                        UnparsedLineRow(text: line, index: index) { edited in
                             Task { await viewModel.retryUnparsedLine(at: index, replacement: edited) }
                         }
                     }
@@ -264,7 +326,6 @@ struct WorkoutTextEntryView: View {
                         .font(MarbleTypography.caption)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 }
-                .accessibilityIdentifier("TextEntry.Unparsed")
             }
 
             ForEach($viewModel.draft.exercises) { $exercise in
@@ -314,9 +375,10 @@ struct WorkoutTextEntryView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme))
         .safeAreaInset(edge: .bottom) {
-            importButton
+            if !viewModel.isDrillingInFromBatch {
+                importButton
+            }
         }
-        .accessibilityIdentifier("TextEntry.Review")
     }
 
     private var importButton: some View {
@@ -348,9 +410,10 @@ struct WorkoutTextEntryView: View {
                 .font(.system(size: 52, weight: .light))
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
             if let summary = viewModel.lastSummary {
-                Text("Added \(summary.importedSets) set\(summary.importedSets == 1 ? "" : "s")")
+                Text(importedHeadline(summary))
                     .font(MarbleTypography.emptyTitle)
                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityIdentifier("TextEntry.Imported")
                 if let volume = viewModel.celebration.volumeText {
                     Text("\(volume) total volume")
                         .font(MarbleTypography.rowSubtitle)
@@ -372,7 +435,9 @@ struct WorkoutTextEntryView: View {
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 }
                 if summary.skipped > 0 {
-                    Text("This workout was already imported.")
+                    Text(summary.importedWorkouts == 0
+                         ? "Already in your journal."
+                         : "Skipped \(summary.skipped) already imported.")
                         .font(MarbleTypography.rowMeta)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 }
@@ -384,7 +449,16 @@ struct WorkoutTextEntryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(MarbleSpacing.l)
-        .accessibilityIdentifier("TextEntry.Imported")
+    }
+
+    private func importedHeadline(_ summary: WorkoutImporter.Summary) -> String {
+        if summary.importedWorkouts > 1 {
+            return "Added \(summary.importedWorkouts) workouts"
+        }
+        if summary.importedSets > 0 {
+            return "Added \(summary.importedSets) set\(summary.importedSets == 1 ? "" : "s")"
+        }
+        return "Nothing new to import"
     }
 
     // MARK: - Toolbar
@@ -392,8 +466,12 @@ struct WorkoutTextEntryView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
-            Button(viewModel.phase == .review ? "Cancel" : "Done") {
-                if hasUnsavedEdits {
+            Button(leadingToolbarTitle) {
+                if viewModel.isDrillingInFromBatch {
+                    viewModel.returnToBatch()
+                } else if viewModel.phase == .batchReview {
+                    viewModel.editText()
+                } else if hasUnsavedEdits {
                     showingDiscardDialog = true
                 } else {
                     dismiss()
@@ -407,6 +485,27 @@ struct WorkoutTextEntryView: View {
                     .accessibilityIdentifier("TextEntry.EditText")
             }
         }
+        if viewModel.phase == .batchReview {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(viewModel.allImportableSelected ? "Deselect All" : "Select All") {
+                    viewModel.toggleSelectAllImportable()
+                }
+                .disabled(!viewModel.canToggleBatchSelection)
+                .accessibilityIdentifier("TextEntry.Batch.SelectAll")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Edit Text") { viewModel.editText() }
+                    .accessibilityIdentifier("TextEntry.EditText")
+            }
+        }
+    }
+
+    private var leadingToolbarTitle: String {
+        if viewModel.isDrillingInFromBatch { return "Workouts" }
+        switch viewModel.phase {
+        case .review, .batchReview: return "Cancel"
+        default: return "Done"
+        }
     }
 
     /// Unsaved work worth protecting from an accidental dismissal: typed text
@@ -418,8 +517,45 @@ struct WorkoutTextEntryView: View {
             return !viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .review:
             return viewModel.draft.hasContent
+        case .batchReview:
+            return viewModel.sessions.contains { $0.draft.hasContent }
         case .imported:
             return false
+        }
+    }
+
+    private var navigationTitle: String {
+        switch viewModel.phase {
+        case .batchReview: return "Review Workouts"
+        case .review: return viewModel.isDrillingInFromBatch ? viewModel.draft.title : "Type a Workout"
+        case .imported: return "Imported"
+        default: return "Paste or Type"
+        }
+    }
+
+    private func ingestFiles(_ result: Result<[URL], Error>) {
+        switch result {
+        case .failure:
+            viewModel.errorMessage = "Couldn't open that file. Try a .txt, .csv, or .json export."
+        case .success(let urls):
+            var parts: [String] = []
+            for url in urls {
+                let accessed = url.startAccessingSecurityScopedResource()
+                defer {
+                    if accessed { url.stopAccessingSecurityScopedResource() }
+                }
+                guard let data = try? Data(contentsOf: url) else { continue }
+                if let text = String(data: data, encoding: .utf8)
+                    ?? String(data: data, encoding: .utf16) {
+                    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty { parts.append(trimmed) }
+                }
+            }
+            guard !parts.isEmpty else {
+                viewModel.errorMessage = "That file didn't contain any text."
+                return
+            }
+            viewModel.ingestSources(parts)
         }
     }
 }
@@ -431,13 +567,15 @@ struct WorkoutTextEntryView: View {
 /// draft, one that still doesn't stays listed with the new text.
 private struct UnparsedLineRow: View {
     let text: String
+    let index: Int
     var onSubmit: (String) -> Void
 
     @State private var editedText: String
     @Environment(\.colorScheme) private var colorScheme
 
-    init(text: String, onSubmit: @escaping (String) -> Void) {
+    init(text: String, index: Int, onSubmit: @escaping (String) -> Void) {
         self.text = text
+        self.index = index
         self.onSubmit = onSubmit
         _editedText = State(initialValue: text)
     }
@@ -451,7 +589,7 @@ private struct UnparsedLineRow: View {
                 .font(MarbleTypography.rowSubtitle)
                 .onSubmit { onSubmit(editedText) }
                 .submitLabel(.done)
-                .accessibilityIdentifier("TextEntry.Unparsed.Line")
+                .accessibilityIdentifier("TextEntry.Unparsed.Line.\(index)")
         }
     }
 }
@@ -483,7 +621,7 @@ private struct TextEntryExerciseSection: View {
             TextField("Exercise name", text: $exercise.name)
                 .font(MarbleTypography.rowTitle)
                 .onChange(of: exercise.name) { _, _ in onNameChanged() }
-                .accessibilityIdentifier("TextEntry.Exercise.Name")
+                .accessibilityIdentifier("TextEntry.Exercise.Name.\(exercise.id.uuidString)")
 
             matchRow
 
@@ -509,7 +647,7 @@ private struct TextEntryExerciseSection: View {
                 Label("Add set", systemImage: "plus")
                     .font(MarbleTypography.rowMeta)
             }
-            .accessibilityIdentifier("TextEntry.Exercise.AddSet")
+            .accessibilityIdentifier("TextEntry.Exercise.AddSet.\(exercise.id.uuidString)")
         } header: {
             HStack(spacing: MarbleSpacing.s) {
                 SectionHeaderView(title: "Exercise")
@@ -523,7 +661,7 @@ private struct TextEntryExerciseSection: View {
                 .disabled(!canMoveUp)
                 .opacity(canMoveUp ? 1 : 0.3)
                 .accessibilityLabel("Move exercise up")
-                .accessibilityIdentifier("TextEntry.Exercise.MoveUp")
+                .accessibilityIdentifier("TextEntry.Exercise.MoveUp.\(exercise.id.uuidString)")
                 Button { onMove(1) } label: {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 11, weight: .semibold))
@@ -533,7 +671,7 @@ private struct TextEntryExerciseSection: View {
                 .disabled(!canMoveDown)
                 .opacity(canMoveDown ? 1 : 0.3)
                 .accessibilityLabel("Move exercise down")
-                .accessibilityIdentifier("TextEntry.Exercise.MoveDown")
+                .accessibilityIdentifier("TextEntry.Exercise.MoveDown.\(exercise.id.uuidString)")
                 Button(role: .destructive, action: onRemoveExercise) {
                     Label("Remove", systemImage: "trash")
                         .labelStyle(.iconOnly)
@@ -541,7 +679,7 @@ private struct TextEntryExerciseSection: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .accessibilityIdentifier("TextEntry.Exercise.Remove")
+                .accessibilityIdentifier("TextEntry.Exercise.Remove.\(exercise.id.uuidString)")
             }
         }
     }
@@ -591,7 +729,7 @@ private struct TextEntryExerciseSection: View {
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .contentShape(Rectangle())
             }
-            .accessibilityIdentifier("TextEntry.Exercise.Match")
+            .accessibilityIdentifier("TextEntry.Exercise.Match.\(exercise.id.uuidString)")
         }
     }
 
@@ -635,7 +773,7 @@ private struct TextEntrySetRow: View {
                         title: "Weight",
                         formatter: Formatters.weight,
                         value: $set.weight,
-                        accessibilityIdentifier: "TextEntry.Set.Weight"
+                        accessibilityIdentifier: "TextEntry.Set.Weight.\(set.id.uuidString)"
                     )
                     Picker("Unit", selection: $set.weightUnit) {
                         ForEach(WeightUnit.allCases) { unit in
@@ -644,7 +782,7 @@ private struct TextEntrySetRow: View {
                     }
                     .pickerStyle(.segmented)
                     .frame(maxWidth: 120)
-                    .accessibilityIdentifier("TextEntry.Set.WeightUnit")
+                    .accessibilityIdentifier("TextEntry.Set.WeightUnit.\(set.id.uuidString)")
                 }
             }
 
@@ -652,7 +790,7 @@ private struct TextEntrySetRow: View {
                 OptionalIntegerField(
                     title: "Reps",
                     value: $set.reps,
-                    accessibilityIdentifier: "TextEntry.Set.Reps"
+                    accessibilityIdentifier: "TextEntry.Set.Reps.\(set.id.uuidString)"
                 )
             }
 
@@ -662,7 +800,7 @@ private struct TextEntrySetRow: View {
                         title: "Distance",
                         formatter: Formatters.distance,
                         value: $set.distance,
-                        accessibilityIdentifier: "TextEntry.Set.Distance"
+                        accessibilityIdentifier: "TextEntry.Set.Distance.\(set.id.uuidString)"
                     )
                     Picker("Unit", selection: $set.distanceUnit) {
                         ForEach(DistanceUnit.allCases) { unit in
@@ -670,7 +808,7 @@ private struct TextEntrySetRow: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .accessibilityIdentifier("TextEntry.Set.DistanceUnit")
+                    .accessibilityIdentifier("TextEntry.Set.DistanceUnit.\(set.id.uuidString)")
                 }
             }
 
@@ -681,14 +819,14 @@ private struct TextEntrySetRow: View {
                         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                     Spacer()
                     DurationPicker(durationSeconds: $set.durationSeconds)
-                        .accessibilityIdentifier("TextEntry.Set.Duration")
+                        .accessibilityIdentifier("TextEntry.Set.Duration.\(set.id.uuidString)")
                 }
             }
 
             OptionalIntegerField(
                 title: "Rest (sec)",
                 value: $set.restSeconds,
-                accessibilityIdentifier: "TextEntry.Set.Rest"
+                accessibilityIdentifier: "TextEntry.Set.Rest.\(set.id.uuidString)"
             )
         }
         .padding(.vertical, MarbleSpacing.xs)

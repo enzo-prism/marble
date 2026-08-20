@@ -9,7 +9,7 @@ struct ImportView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openURL) private var openURL
     @State private var showingScan = false
-    @State private var showingTextEntry = false
+    @State private var textImportSeed: TextImportSeed?
     @State private var autoImportEnabled = HealthAutoImportService.shared.isEnabled
     @State private var healthExportEnabled = UserDefaults.standard.bool(forKey: HealthSessionExporter.enabledDefaultsKey)
     @State private var detailSelection: DetailSelection?
@@ -34,6 +34,13 @@ struct ImportView: View {
         /// Heart-rate series only makes sense for Apple Health workouts, where
         /// the window can be re-queried live.
         let loadsHeartRate: Bool
+    }
+
+    /// Fresh identity each time the typed-import sheet opens so a Shortcuts
+    /// follow-up can replace the seed while the previous sheet is up.
+    private struct TextImportSeed: Identifiable {
+        let id = UUID()
+        let text: String
     }
 
     init(viewModel: ImportViewModel) {
@@ -96,8 +103,12 @@ struct ImportView: View {
                 }
             }
             .task {
+                presentPendingTextImportIfNeeded()
                 await viewModel.refreshStatus()
                 await autoImport.syncIfEnabled(into: modelContext)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .marbleOpenTextImport)) { _ in
+                presentPendingTextImportIfNeeded()
             }
             .sheet(isPresented: $showingScan) {
                 WorkoutScanView()
@@ -106,8 +117,8 @@ struct ImportView: View {
                     .presentationDragIndicator(.visible)
                     .sheetGlassBackground()
             }
-            .sheet(isPresented: $showingTextEntry) {
-                WorkoutTextEntryView()
+            .sheet(item: $textImportSeed) { seed in
+                WorkoutTextEntryView(initialText: seed.text)
                     .modelContext(modelContext)
                     .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
@@ -138,6 +149,12 @@ struct ImportView: View {
                 return []
             }
             return await provider.heartRateSeries(start: start, end: end)
+        }
+    }
+
+    private func presentPendingTextImportIfNeeded() {
+        if let pending = PendingTextImport.consume() {
+            textImportSeed = TextImportSeed(text: pending)
         }
     }
 
@@ -186,12 +203,12 @@ struct ImportView: View {
                         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 }
 
-                Text("Write out your workout in plain words — exercises, weights, reps, rest. Marble structures it on your device and matches it to your exercise library for review.")
+                Text("Write or paste a workout in plain words — or drop in a Hevy/Strong CSV. Marble structures it on your device, splits a week into separate workouts, and matches your exercise library before anything is logged.")
                     .font(MarbleTypography.rowMeta)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
 
-                Button("Type a Workout") {
-                    showingTextEntry = true
+                Button("Paste or Type") {
+                    textImportSeed = TextImportSeed(text: "")
                 }
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("Import.TextEntry.Open")

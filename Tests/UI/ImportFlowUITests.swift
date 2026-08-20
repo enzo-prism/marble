@@ -27,6 +27,33 @@ final class ImportFlowUITests: MarbleUITestCase {
         XCTAssertTrue(journalList.exists)
     }
 
+    /// The typed/paste importer is reachable from the Import hub and renders
+    /// its input editor (parse/review is covered by unit tests).
+    func testOpenTypedWorkoutFromImportHub() {
+        launchApp(fixtureMode: "populated")
+        navigateToTab(.journal)
+
+        let importButton = app.buttons["Journal.ImportWorkouts"]
+        waitFor(importButton)
+        importButton.tap()
+
+        let textOpen = waitForIdentifier("Import.TextEntry.Open", timeout: 8)
+        if !textOpen.isHittable {
+            let importList = app.collectionViews.firstMatch
+            scrollToElement(textOpen, in: importList.exists ? importList : app.otherElements.firstMatch)
+        }
+        textOpen.tap()
+
+        waitForIdentifier("TextEntry.Input", timeout: 5)
+        XCTAssertTrue(app.textViews["TextEntry.Editor"].exists)
+        XCTAssertTrue(app.buttons["TextEntry.ChooseFile"].exists)
+
+        let dismiss = waitForIdentifier("TextEntry.Dismiss", timeout: 3)
+        dismiss.tap()
+        let reopen = waitForIdentifier("Import.TextEntry.Open", timeout: 5)
+        XCTAssertTrue(reopen.exists)
+    }
+
     /// The hub's history section lists previously imported workouts and opens
     /// the read-only detail sheet with the full stats grid.
     func testImportHistoryOpensWorkoutDetail() {

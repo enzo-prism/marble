@@ -41,6 +41,8 @@ enum WorkoutScanImporter {
         _ draft: ParsedWorkoutDraft,
         externalID: String,
         source: ImportSource = .photoScan,
+        originName: String? = nil,
+        attachSession: Bool = true,
         in context: ModelContext,
         save: (ModelContext) throws -> Void = { try $0.save() }
     ) throws -> WorkoutImporter.Summary {
@@ -57,6 +59,7 @@ enum WorkoutScanImporter {
         let performedAt = draft.performedAt ?? AppEnvironment.now
         let exercisesBefore = WorkoutImporter.exerciseCount(in: context)
         var setCount = 0
+        var createdEntries: [SetEntry] = []
 
         // Review-order preservation: imported sets usually share one workout-level
         // date, and the journal sorts by `performedAt` descending — ties come back
@@ -95,9 +98,10 @@ enum WorkoutScanImporter {
                     distanceUnit: set.distanceUnit,
                     durationSeconds: set.durationSeconds,
                     restAfterSeconds: set.restSeconds ?? resolved.defaultRestSeconds,
-                    notes: note(for: source)
+                    notes: journalNote(source: source, originName: originName)
                 )
                 context.insert(entry)
+                createdEntries.append(entry)
                 setCount += 1
             }
         }
@@ -114,9 +118,30 @@ enum WorkoutScanImporter {
             externalID: externalID,
             title: draft.title,
             workoutDate: ledgerDate,
-            setsImported: setCount
+            setsImported: setCount,
+            originName: originName
         )
         context.insert(ledger)
+        // Same contract as `WorkoutImporter`: journal badges and set-detail
+        // provenance walk `SetEntry.importedWorkout`. Leaving this nil was why
+        // typed/scan sets never showed an origin badge.
+        for entry in createdEntries {
+            entry.importedWorkout = ledger
+        }
+
+        if attachSession, !createdEntries.isEmpty {
+            let startedAt = createdEntries.map(\.performedAt).min() ?? ledgerDate
+            let endedAt = createdEntries.map(\.performedAt).max() ?? startedAt
+            let sessionTitle = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let session = WorkoutSession(
+                title: sessionTitle.isEmpty ? "Imported workout" : sessionTitle,
+                startedAt: startedAt,
+                endedAt: max(endedAt, startedAt),
+                notes: journalNote(source: source, originName: originName),
+                entries: createdEntries
+            )
+            context.insert(session)
+        }
 
         do {
             try save(context)
@@ -133,9 +158,53 @@ enum WorkoutScanImporter {
         return summary
     }
 
+    /// Commits several reviewed drafts in one save. Each draft keeps its own
+    /// dedup identity so one day of a week-long paste can be skipped independently.
+    @discardableResult
+    static func importAll(
+        _ items: [(draft: ParsedWorkoutDraft, externalID: String, originName: String?)],
+        source: ImportSource = .textEntry,
+        attachSession: Bool = true,
+        in context: ModelContext,
+        save: (ModelContext) throws -> Void = { try $0.save() }
+    ) throws -> WorkoutImporter.Summary {
+        var summary = WorkoutImporter.Summary()
+        let exercisesBefore = WorkoutImporter.exerciseCount(in: context)
+        for item in items {
+            let one = try `import`(
+                item.draft,
+                externalID: item.externalID,
+                source: source,
+                originName: item.originName,
+                attachSession: attachSession,
+                in: context,
+                save: { _ in }
+            )
+            summary.importedWorkouts += one.importedWorkouts
+            summary.importedSets += one.importedSets
+            summary.skipped += one.skipped
+        }
+        do {
+            try save(context)
+        } catch {
+            context.rollback()
+            throw WorkoutImporterError.saveFailed
+        }
+        summary.createdExercises = max(0, WorkoutImporter.exerciseCount(in: context) - exercisesBefore)
+        return summary
+    }
+
     /// Cardio/timed-only movements rest 0; anything with load or reps gets a sane
     /// strength default.
     private static func defaultRestSeconds(for profile: ExerciseMetricsProfile) -> Int {
         (profile.usesWeight || profile.usesReps) ? 90 : 0
+    }
+
+    private static func journalNote(source: ImportSource, originName: String?) -> String {
+        switch originName {
+        case "Hevy": return "Imported from Hevy"
+        case "Strong": return "Imported from Strong"
+        default: return note(for: source)
+        }
     }
 }

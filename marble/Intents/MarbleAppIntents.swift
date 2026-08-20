@@ -142,6 +142,52 @@ struct LogLastSetAgainIntent: AppIntent, UndoableIntent {
     }
 }
 
+struct ReviewWorkoutTextIntent: AppIntent {
+    static let title: LocalizedStringResource = "Review Workout Text"
+    static let description = IntentDescription("Opens Marble to review a pasted workout before adding it to the journal.")
+    static let openAppWhenRun = true
+    static let supportedModes: IntentModes = [.foreground(.immediate)]
+
+    @Parameter(title: "Workout text")
+    var text: String
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        PendingTextImport.stage(text)
+        NotificationCenter.default.post(name: .marbleOpenTextImport, object: nil)
+        return .result()
+    }
+}
+
+struct ReviewWorkoutFileIntent: AppIntent {
+    static let title: LocalizedStringResource = "Review Workout File"
+    static let description = IntentDescription("Opens Marble to review a Hevy, Strong, or Notes workout file before adding it to the journal.")
+    static let openAppWhenRun = true
+    static let supportedModes: IntentModes = [.foreground(.immediate)]
+
+    @Parameter(title: "Workout file")
+    var file: IntentFile
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        PendingTextImport.stage(intentFileText(file) ?? "")
+        NotificationCenter.default.post(name: .marbleOpenTextImport, object: nil)
+        return .result()
+    }
+}
+
+private func intentFileText(_ file: IntentFile) -> String? {
+    let data: Data
+    if !file.data.isEmpty {
+        data = file.data
+    } else if let url = file.fileURL, let loaded = try? Data(contentsOf: url) {
+        data = loaded
+    } else {
+        return nil
+    }
+    return String(data: data, encoding: .utf8) ?? String(data: data, encoding: .utf16)
+}
+
 struct MarbleShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
@@ -191,6 +237,15 @@ struct MarbleShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Finish Workout",
             systemImageName: "flag.checkered"
+        )
+        AppShortcut(
+            intent: ReviewWorkoutTextIntent(),
+            phrases: [
+                "Import a workout in \(.applicationName)",
+                "Review a workout in \(.applicationName)"
+            ],
+            shortTitle: "Import a Workout",
+            systemImageName: "square.and.pencil"
         )
     }
 }

@@ -158,7 +158,7 @@ struct ImportSetTimingRows<Row: View>: View {
                 displayedComponents: [.date]
             )
             .labelsHidden()
-            .accessibilityIdentifier("\(idPrefix).Set.OverrideDate")
+            .accessibilityIdentifier("\(idPrefix).Set.OverrideDate.\(set.id.uuidString)")
 
             DatePicker(
                 "Set time",
@@ -166,7 +166,7 @@ struct ImportSetTimingRows<Row: View>: View {
                 displayedComponents: [.hourAndMinute]
             )
             .labelsHidden()
-            .accessibilityIdentifier("\(idPrefix).Set.OverrideTime")
+            .accessibilityIdentifier("\(idPrefix).Set.OverrideTime.\(set.id.uuidString)")
 
             Spacer()
 
@@ -176,7 +176,7 @@ struct ImportSetTimingRows<Row: View>: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Remove date & time override")
-            .accessibilityIdentifier("\(idPrefix).Set.RemoveOverride")
+            .accessibilityIdentifier("\(idPrefix).Set.RemoveOverride.\(set.id.uuidString)")
         }
         // Indent under the parent set row so the sub-row reads as belonging to it.
         .padding(.leading, MarbleSpacing.m)

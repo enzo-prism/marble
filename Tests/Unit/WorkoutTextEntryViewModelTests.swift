@@ -426,4 +426,250 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertTrue(viewModel.celebration.prExercises.isEmpty)
         XCTAssertEqual(viewModel.celebration.volumeText, "300 lb")
     }
+
+    // MARK: - Bulk sessions
+
+    func testMultiDayPasteEntersBatchReview() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        3/5
+        Bench 3x8 @ 185
+
+        3/6
+        Squat 5x5 @ 225
+        """
+
+        await viewModel.preview(in: context)
+
+        XCTAssertEqual(viewModel.phase, .batchReview)
+        XCTAssertEqual(viewModel.sessions.count, 2)
+        XCTAssertEqual(viewModel.sessions.map(\.draft.importableExercises.first?.name), ["Bench", "Squat"])
+        XCTAssertTrue(viewModel.sessions.allSatisfy(\.selected))
+        XCTAssertEqual(viewModel.selectedSetCount, 8)
+    }
+
+    func testBatchCommitImportsTwoWorkoutsAndLinksLedger() async throws {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        3/5
+        Bench 3x8 @ 185
+
+        3/6
+        Squat 5x5 @ 225
+        """
+        await viewModel.preview(in: context)
+        viewModel.commitSelected(into: context)
+
+        XCTAssertEqual(viewModel.phase, .imported)
+        XCTAssertEqual(viewModel.lastSummary?.importedWorkouts, 2)
+        XCTAssertEqual(viewModel.lastSummary?.importedSets, 8)
+
+        let ledgers = try context.fetch(FetchDescriptor<ImportedWorkout>())
+        XCTAssertEqual(ledgers.count, 2)
+        let entries = try context.fetch(FetchDescriptor<SetEntry>())
+        XCTAssertEqual(entries.count, 8)
+        XCTAssertTrue(entries.allSatisfy { $0.importedWorkout != nil })
+        XCTAssertEqual(try context.fetch(FetchDescriptor<WorkoutSession>()).count, 2)
+    }
+
+    func testDeselectedSessionIsNotImported() async throws {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        3/5
+        Bench 3x8 @ 185
+
+        3/6
+        Squat 5x5 @ 225
+        """
+        await viewModel.preview(in: context)
+        let squatID = try XCTUnwrap(viewModel.sessions.last?.id)
+        viewModel.toggleSessionSelected(squatID)
+        viewModel.commitSelected(into: context)
+
+        XCTAssertEqual(viewModel.lastSummary?.importedWorkouts, 1)
+        let entries = try context.fetch(FetchDescriptor<SetEntry>())
+        XCTAssertTrue(entries.allSatisfy { $0.exercise.name == "Bench" })
+    }
+
+    func testReimportingSameSegmentMarksAlreadyImportedAndSkips() async throws {
+        let context = makeInMemoryContext()
+        let paste = """
+        3/5
+        Bench 3x8 @ 185
+
+        3/6
+        Squat 5x5 @ 225
+        """
+        let first = makeViewModel()
+        first.text = paste
+        await first.preview(in: context)
+        first.commitSelected(into: context)
+
+        let second = makeViewModel()
+        second.text = paste
+        await second.preview(in: context)
+        XCTAssertEqual(second.phase, .batchReview)
+        XCTAssertTrue(second.sessions.allSatisfy(\.alreadyImported))
+        XCTAssertTrue(second.importableSelectedSessions.isEmpty)
+
+        second.selectAllImportable()
+        second.commitSelected(into: context)
+        XCTAssertEqual(second.lastSummary?.importedWorkouts, 0)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<ImportedWorkout>()).count, 2)
+    }
+
+    func testHevyCSVPasteEntersBatchReview() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        title,start_time,exercise_title,set_index,weight_lbs,reps
+        Push Day,2025-01-15 18:00:00,Bench Press,0,185,8
+        Pull Day,2025-01-16 18:00:00,Row,0,135,10
+        """
+
+        await viewModel.preview(in: context)
+
+        XCTAssertEqual(viewModel.phase, .batchReview)
+        XCTAssertEqual(viewModel.sessions.count, 2)
+        XCTAssertEqual(viewModel.sessions.map(\.kind), [.hevyCSV, .hevyCSV])
+        XCTAssertEqual(viewModel.sessions[0].draft.title, "Push Day")
+    }
+
+    func testSingleWorkoutStillOpensReview() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 3x8 @ 185"
+        await viewModel.preview(in: context)
+        XCTAssertEqual(viewModel.phase, .review)
+        XCTAssertEqual(viewModel.sessions.count, 1)
+    }
+
+    func testDrillInAndReturnPersistEdits() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        3/5
+        Bench 3x8 @ 185
+
+        3/6
+        Squat 5x5
+        """
+        await viewModel.preview(in: context)
+        let firstID = viewModel.sessions[0].id
+        viewModel.openSession(firstID)
+        XCTAssertEqual(viewModel.phase, .review)
+        XCTAssertTrue(viewModel.isDrillingInFromBatch)
+        viewModel.draft.title = "Renamed Push"
+        viewModel.returnToBatch()
+        XCTAssertEqual(viewModel.phase, .batchReview)
+        XCTAssertEqual(viewModel.sessions[0].draft.title, "Renamed Push")
+    }
+
+    func testIngestPastedTextAppends() {
+        let viewModel = makeViewModel()
+        viewModel.ingestPastedText("Bench 3x8")
+        viewModel.ingestPastedText("Squat 5x5")
+        XCTAssertTrue(viewModel.text.contains("Bench 3x8"))
+        XCTAssertTrue(viewModel.text.contains("Squat 5x5"))
+    }
+
+    func testSingleCSVWorkoutOpensReview() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        title,start_time,exercise_title,set_index,weight_lbs,reps
+        Push Day,2025-01-15 18:00:00,Bench Press,0,185,8
+        """
+        await viewModel.preview(in: context)
+        XCTAssertEqual(viewModel.phase, .review)
+        XCTAssertEqual(viewModel.draft.title, "Push Day")
+        XCTAssertEqual(viewModel.sessions.count, 1)
+    }
+
+    func testLivePreviewTreatsCSVAsWorkoutsNotNotationLines() {
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        title,start_time,exercise_title,set_index,weight_lbs,reps
+        Push Day,2025-01-15 18:00:00,Bench Press,0,185,8
+        Pull Day,2025-01-16 18:00:00,Row,0,135,10
+        """
+        viewModel.updateLivePreview()
+        XCTAssertEqual(viewModel.livePreview?.sessionCount, 2)
+        XCTAssertEqual(viewModel.livePreview?.recognized.map(\.name), ["Push Day", "Pull Day"])
+        XCTAssertTrue(viewModel.livePreview?.unrecognized.isEmpty ?? false)
+    }
+
+    func testIngestSourcesMergesCSVHeaders() {
+        let viewModel = makeViewModel()
+        viewModel.ingestPastedText("""
+        title,start_time,exercise_title,set_index,weight_lbs,reps
+        Push Day,2025-01-15 18:00:00,Bench Press,0,185,8
+        """)
+        viewModel.ingestPastedText("""
+        title,start_time,exercise_title,set_index,weight_lbs,reps
+        Pull Day,2025-01-16 18:00:00,Row,0,135,10
+        """)
+        viewModel.updateLivePreview()
+        XCTAssertEqual(viewModel.livePreview?.sessionCount, 2)
+        XCTAssertEqual(viewModel.livePreview?.recognized.map(\.name), ["Push Day", "Pull Day"])
+    }
+
+    func testToggleSelectAllDeselectsImportableSessions() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        3/5
+        Bench 3x8 @ 185
+
+        3/6
+        Squat 5x5 @ 225
+        """
+        await viewModel.preview(in: context)
+        XCTAssertTrue(viewModel.allImportableSelected)
+        viewModel.toggleSelectAllImportable()
+        XCTAssertTrue(viewModel.importableSelectedSessions.isEmpty)
+        viewModel.toggleSelectAllImportable()
+        XCTAssertEqual(viewModel.importableSelectedSessions.count, 2)
+    }
+
+    func testWeekdayPasteEntersBatchReview() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        Monday
+        Bench 3x8 @ 185
+
+        Tuesday
+        Squat 5x5
+        """
+        await viewModel.preview(in: context)
+        XCTAssertEqual(viewModel.phase, .batchReview)
+        XCTAssertEqual(viewModel.sessions.count, 2)
+    }
+}
+
+@MainActor
+final class PendingTextImportTests: MarbleTestCase {
+    override func tearDown() {
+        _ = PendingTextImport.consume()
+        super.tearDown()
+    }
+
+    func testStageThenConsumeReturnsText() {
+        PendingTextImport.stage("  Bench 3x8  ")
+        XCTAssertTrue(PendingTextImport.hasPending)
+        XCTAssertEqual(PendingTextImport.consume(), "  Bench 3x8  ")
+        XCTAssertFalse(PendingTextImport.hasPending)
+        XCTAssertNil(PendingTextImport.consume())
+    }
+
+    func testReviewWorkoutTextIntentStagesPendingPaste() async throws {
+        var intent = ReviewWorkoutTextIntent()
+        intent.text = "Squat 5x5"
+        _ = try await intent.perform()
+        XCTAssertEqual(PendingTextImport.consume(), "Squat 5x5")
+    }
 }

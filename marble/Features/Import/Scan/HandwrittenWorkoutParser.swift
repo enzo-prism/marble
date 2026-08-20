@@ -1063,6 +1063,29 @@ nonisolated enum HandwrittenWorkoutParser {
         return nil
     }
 
+    /// True when `rawLine` is a session-boundary date header: a date or relative
+    /// day word with no leftover exercise notation. "3/5" and "Push day yesterday"
+    /// split a bulk paste; "3/5 Bench 3x8 @ 185" stays inside the current session.
+    static func isSessionDateHeader(_ rawLine: String, referenceDate: Date) -> Bool {
+        let line = normalize(rawLine)
+        guard !line.isEmpty else { return false }
+
+        var remainder = line
+        var foundDate = false
+        if let relative = detectRelativeDate(in: remainder, referenceDate: referenceDate) {
+            foundDate = true
+            remainder = normalize(remainder.replacingCharacters(in: relative.range, with: " "))
+        }
+        if let match = detectDate(in: remainder, referenceDate: referenceDate) {
+            foundDate = true
+            remainder = normalize(remainder.replacingCharacters(in: match.range, with: " "))
+        }
+        guard foundDate else { return false }
+        if remainder.isEmpty { return true }
+        if isWeekday(remainder) { return true }
+        return isWordOnly(remainder)
+    }
+
     private struct DateMatch { var date: Date; var range: Range<String.Index> }
 
     /// The lookaround guards keep a rep ladder ("5/3/1", "225x5/3/1") from being
@@ -1077,21 +1100,49 @@ nonisolated enum HandwrittenWorkoutParser {
     )
 
     private static let relativeDateRegex = try? NSRegularExpression(
-        pattern: #"(?i)\b(yesterday|last night|this morning|tonight|today)\b"#
+        pattern: #"(?i)\b(yesterday|last night|this morning|tonight|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|weds|thu|thur|thurs|fri|sat|sun)\b"#
     )
 
     /// The relative date words users actually write in notes ("yesterday bench …").
     /// Longer phrases first in the alternation so "last night" wins over "night".
+    /// Weekday names resolve to the most recent that day on or before `referenceDate`,
+    /// so a Notes paste labeled "Monday" / "Tuesday" splits and dates correctly.
     private static func detectRelativeDate(in line: String, referenceDate: Date) -> DateMatch? {
         guard let regex = relativeDateRegex,
               let match = firstMatch(regex, in: line),
               let range = Range(match.range, in: line) else { return nil }
         let word = line[range].lowercased()
-        let offset = (word == "yesterday" || word == "last night") ? -1 : 0
+        let offset: Int
+        if word == "yesterday" || word == "last night" {
+            offset = -1
+        } else if let weekday = weekdayNumber(word) {
+            offset = daysBack(toWeekday: weekday, from: referenceDate)
+        } else {
+            offset = 0
+        }
         guard let shifted = Calendar.current.date(byAdding: .day, value: offset, to: referenceDate) else {
             return nil
         }
         return DateMatch(date: shifted, range: range)
+    }
+
+    /// Gregorian weekday numbers (`1` = Sunday) matching `Calendar.Component.weekday`.
+    private static func weekdayNumber(_ word: String) -> Int? {
+        switch word {
+        case "sunday", "sun": return 1
+        case "monday", "mon": return 2
+        case "tuesday", "tue", "tues": return 3
+        case "wednesday", "wed", "weds": return 4
+        case "thursday", "thu", "thur", "thurs": return 5
+        case "friday", "fri": return 6
+        case "saturday", "sat": return 7
+        default: return nil
+        }
+    }
+
+    private static func daysBack(toWeekday weekday: Int, from referenceDate: Date) -> Int {
+        let current = Calendar.current.component(.weekday, from: referenceDate)
+        return -((current - weekday + 7) % 7)
     }
 
     private static func detectDate(in line: String, referenceDate: Date) -> DateMatch? {
@@ -1115,7 +1166,90 @@ nonisolated enum HandwrittenWorkoutParser {
                   let range = Range(match.range, in: line) else { return nil }
             return DateMatch(date: date, range: range)
         }
+        if let month = detectMonthNameDate(in: line, referenceDate: referenceDate) {
+            return month
+        }
         return nil
+    }
+
+    private static let monthNameRegex = try? NSRegularExpression(
+        pattern: #"(?i)\b(january|february|march|april|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec|may)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{2,4}))?\b"#
+    )
+    private static let dayMonthNameRegex = try? NSRegularExpression(
+        pattern: #"(?i)\b(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec|may)(?:,?\s+(\d{2,4}))?\b"#
+    )
+
+    private static func detectMonthNameDate(in line: String, referenceDate: Date) -> DateMatch? {
+        if let regex = monthNameRegex, let match = firstMatch(regex, in: line),
+           let month = monthNumber(group(match, 1, line)),
+           let day = intGroup(match, 2, line) {
+            return monthDate(
+                yearRaw: intGroup(match, 3, line),
+                month: month,
+                day: day,
+                range: Range(match.range, in: line),
+                referenceDate: referenceDate
+            )
+        }
+        if let regex = dayMonthNameRegex, let match = firstMatch(regex, in: line),
+           let day = intGroup(match, 1, line),
+           let month = monthNumber(group(match, 2, line)) {
+            return monthDate(
+                yearRaw: intGroup(match, 3, line),
+                month: month,
+                day: day,
+                range: Range(match.range, in: line),
+                referenceDate: referenceDate
+            )
+        }
+        return nil
+    }
+
+    private static func monthDate(
+        yearRaw: Int?,
+        month: Int,
+        day: Int,
+        range: Range<String.Index>?,
+        referenceDate: Date
+    ) -> DateMatch? {
+        guard (1...12).contains(month), (1...31).contains(day), let range else { return nil }
+        let referenceYear = calendar.component(.year, from: referenceDate)
+        let year: Int
+        if let raw = yearRaw {
+            year = raw < 100 ? 2000 + raw : raw
+        } else {
+            year = referenceYear
+        }
+        guard var date = makeDate(year: year, month: month, day: day) else { return nil }
+        if yearRaw == nil, date > referenceDate.addingTimeInterval(86_400) {
+            date = makeDate(year: year - 1, month: month, day: day) ?? date
+        }
+        return DateMatch(date: date, range: range)
+    }
+
+    private static func group(_ match: NSTextCheckingResult, _ index: Int, _ line: String) -> String? {
+        guard index < match.numberOfRanges,
+              let range = Range(match.range(at: index), in: line) else { return nil }
+        return String(line[range])
+    }
+
+    private static func monthNumber(_ raw: String?) -> Int? {
+        guard let raw else { return nil }
+        switch raw.lowercased() {
+        case "january", "jan": return 1
+        case "february", "feb": return 2
+        case "march", "mar": return 3
+        case "april", "apr": return 4
+        case "may": return 5
+        case "june", "jun": return 6
+        case "july", "jul": return 7
+        case "august", "aug": return 8
+        case "september", "sept", "sep": return 9
+        case "october", "oct": return 10
+        case "november", "nov": return 11
+        case "december", "dec": return 12
+        default: return nil
+        }
     }
 
     private static func firstMatch(_ regex: NSRegularExpression, in line: String) -> NSTextCheckingResult? {

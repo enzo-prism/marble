@@ -1,0 +1,158 @@
+import XCTest
+@testable import marble
+
+@MainActor
+final class WorkoutCSVParserTests: MarbleTestCase {
+    func testHevyExportSplitsWorkoutsByTitleAndStart() {
+        let csv = """
+        title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,weight_lbs,reps,distance_miles,duration_seconds,rpe
+        Push Day,"28 Mar 2025, 17:29","28 Mar 2025, 18:45",,Bench Press,,,0,normal,185,8,0,0,
+        Push Day,"28 Mar 2025, 17:29","28 Mar 2025, 18:45",,Bench Press,,,1,normal,185,8,0,0,
+        Push Day,"28 Mar 2025, 17:29","28 Mar 2025, 18:45",,OHP,,,0,normal,95,8,0,0,
+        Pull Day,"29 Mar 2025, 17:00","29 Mar 2025, 18:00",,Row,,,0,normal,135,10,0,0,
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        XCTAssertEqual(result.kind, .hevyCSV)
+        XCTAssertEqual(result.workouts.count, 2)
+        XCTAssertEqual(result.workouts[0].draft.title, "Push Day")
+        XCTAssertEqual(result.workouts[0].draft.exercises.map(\.name), ["Bench Press", "OHP"])
+        XCTAssertEqual(result.workouts[0].draft.exercises[0].sets.count, 2)
+        XCTAssertEqual(result.workouts[0].draft.exercises[0].sets[0].weight, 185)
+        XCTAssertEqual(result.workouts[0].draft.exercises[0].sets[0].weightUnit, .lb)
+        XCTAssertEqual(result.workouts[0].draft.exercises[0].sets[0].reps, 8)
+        XCTAssertEqual(result.workouts[1].draft.title, "Pull Day")
+        XCTAssertEqual(result.workouts[1].draft.exercises[0].name, "Row")
+        XCTAssertTrue(result.workouts[0].identityKey.contains("hevyCSV"))
+        XCTAssertNotEqual(result.workouts[0].identityKey, result.workouts[1].identityKey)
+    }
+
+    func testHevyKilogramColumn() {
+        let csv = """
+        title,start_time,exercise_title,set_index,weight_kg,reps
+        Squat Day,2025-03-28 17:00:00,Squat,0,100,5
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        let set = result.workouts[0].draft.exercises[0].sets[0]
+        XCTAssertEqual(set.weight, 100)
+        XCTAssertEqual(set.weightUnit, .kg)
+    }
+
+    func testStrongExport() {
+        let csv = """
+        Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE
+        2025-01-15 18:00:00,Leg Day,60m,Squat,1,225,5,0,0,,,
+        2025-01-15 18:00:00,Leg Day,60m,Squat,2,225,5,0,0,,,
+        2025-01-16 18:00:00,Upper,45m,Bench Press,1,185,8,0,0,,,
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        XCTAssertEqual(result.kind, .strongCSV)
+        XCTAssertEqual(result.workouts.count, 2)
+        XCTAssertEqual(result.workouts[0].draft.title, "Leg Day")
+        XCTAssertEqual(result.workouts[0].draft.exercises[0].sets.count, 2)
+        XCTAssertEqual(result.workouts[1].draft.exercises[0].name, "Bench Press")
+    }
+
+    func testQuotedCommasInTitle() {
+        let csv = """
+        title,start_time,exercise_title,set_index,weight_lbs,reps
+        "Thursday, Upper","28 Mar 2025, 17:29",Band Pullaparts,0,,20
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        XCTAssertEqual(result.workouts[0].draft.title, "Thursday, Upper")
+        XCTAssertEqual(result.workouts[0].draft.exercises[0].sets[0].reps, 20)
+        XCTAssertNil(result.workouts[0].draft.exercises[0].sets[0].weight)
+    }
+
+    func testQuotedNewlinesInNotesStayOneRow() {
+        let csv = """
+        title,start_time,exercise_title,set_index,weight_lbs,reps,exercise_notes
+        Push Day,2025-03-28 17:00:00,Bench Press,0,185,8,"felt strong
+        next week go heavier"
+        Pull Day,2025-03-29 17:00:00,Row,0,135,10,
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        XCTAssertEqual(result.workouts.count, 2)
+        XCTAssertEqual(result.workouts[0].draft.exercises[0].name, "Bench Press")
+        XCTAssertEqual(result.workouts[1].draft.title, "Pull Day")
+    }
+
+    func testMergingTwoExportsDropsTheSecondHeader() {
+        let first = """
+        title,start_time,exercise_title,set_index,weight_lbs,reps
+        Push Day,2025-01-15 18:00:00,Bench Press,0,185,8
+        """
+        let second = """
+        title,start_time,exercise_title,set_index,weight_lbs,reps
+        Pull Day,2025-01-16 18:00:00,Row,0,135,10
+        """
+        let merged = WorkoutCSVParser.merging([first, second])
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(merged))
+        XCTAssertEqual(result.workouts.count, 2)
+        XCTAssertEqual(result.workouts.map(\.draft.title), ["Push Day", "Pull Day"])
+    }
+
+    func testNotesTextIsNotTreatedAsCSV() {
+        XCTAssertNil(WorkoutCSVParser.parse("Bench 3x8 @ 185, rest 90s\nSquat 5x5"))
+        XCTAssertNil(WorkoutCSVParser.parse("name,weight,reps\nnot,a,workout"))
+    }
+
+    func testZeroLoadsAreDroppedFromTheSet() {
+        let csv = """
+        title,start_time,exercise_title,set_index,weight_lbs,reps,duration_seconds
+        Cardio,2025-01-15 08:00:00,Run,0,0,0,1500
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        let set = result.workouts[0].draft.exercises[0].sets[0]
+        XCTAssertNil(set.weight)
+        XCTAssertNil(set.reps)
+        XCTAssertEqual(set.durationSeconds, 1500)
+    }
+}
+
+@MainActor
+final class WorkoutImportOrchestratorTests: MarbleTestCase {
+    func testCSVWinsOverTextSplitter() {
+        let csv = """
+        title,start_time,exercise_title,set_index,weight_lbs,reps
+        A,2025-01-15 18:00:00,Bench,0,185,8
+        B,2025-01-16 18:00:00,Squat,0,225,5
+        """
+        let segments = WorkoutImportOrchestrator.segments(from: csv, referenceDate: now)
+        XCTAssertEqual(segments.count, 2)
+        XCTAssertEqual(segments[0].kind, .hevyCSV)
+        XCTAssertNotNil(segments[0].draft)
+    }
+
+    func testTextPasteSegmentsWithoutDraft() {
+        let text = """
+        3/5
+        Bench 3x8 @ 185
+
+        3/6
+        Squat 5x5
+        """
+        let segments = WorkoutImportOrchestrator.segments(from: text, referenceDate: now)
+        XCTAssertEqual(segments.count, 2)
+        XCTAssertEqual(segments[0].kind, .typedText)
+        XCTAssertNil(segments[0].draft)
+        XCTAssertNotEqual(
+            WorkoutImportOrchestrator.externalID(for: segments[0]),
+            WorkoutImportOrchestrator.externalID(for: segments[1])
+        )
+    }
+
+    func testJoinSourcesDropsDuplicateCSVHeaders() {
+        let first = """
+        title,start_time,exercise_title,set_index,weight_lbs,reps
+        A,2025-01-15 18:00:00,Bench,0,185,8
+        """
+        let second = """
+        title,start_time,exercise_title,set_index,weight_lbs,reps
+        B,2025-01-16 18:00:00,Squat,0,225,5
+        """
+        let joined = WorkoutImportOrchestrator.joinSources([first, second])
+        let segments = WorkoutImportOrchestrator.segments(from: joined, referenceDate: now)
+        XCTAssertEqual(segments.count, 2)
+        XCTAssertEqual(segments.map(\.draft?.title), ["A", "B"])
+    }
+}

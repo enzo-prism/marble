@@ -218,6 +218,11 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
             }
             return draft.hasContent ? draft : nil
         } catch {
+            // Guardrail refusals, context-window overflow, and any other model
+            // failure all fall through to the deterministic parser via the
+            // arbiter. A new session is required after `exceededContextWindowSize`
+            // (TN3193); returning nil here is that new-session boundary because
+            // the caller never reuses this session.
             return nil
         }
     }
@@ -252,6 +257,11 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
             // as "deterministic parser wins".
             return draft.hasContent ? draft : nil
         } catch {
+            // Guardrail refusals, context-window overflow, and any other model
+            // failure all fall through to the deterministic parser via the
+            // arbiter. A new session is required after `exceededContextWindowSize`
+            // (TN3193); returning nil here is that new-session boundary because
+            // the caller never reuses this session.
             return nil
         }
     }

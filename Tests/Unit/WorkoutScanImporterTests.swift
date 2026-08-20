@@ -39,6 +39,13 @@ final class WorkoutScanImporterTests: MarbleTestCase {
         let entries = try context.fetch(FetchDescriptor<SetEntry>())
         XCTAssertTrue(entries.allSatisfy { $0.exercise.name == "Bench" && $0.reps == 5 && $0.weight == 135 })
         XCTAssertEqual(entries.first?.notes, WorkoutScanImporter.importNote)
+        XCTAssertEqual(entries.first?.importedWorkout?.source, .photoScan)
+        XCTAssertEqual(entries.first?.importedWorkout?.setsImported, 3)
+
+        let sessions = try context.fetch(FetchDescriptor<WorkoutSession>())
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertEqual(sessions.first?.entries.count, 3)
+        XCTAssertNotNil(sessions.first?.endedAt)
     }
 
     func testDedupSkipsIdenticalImage() throws {
@@ -171,6 +178,38 @@ final class WorkoutScanImporterTests: MarbleTestCase {
         XCTAssertLessThan(entries.first!.performedAt.timeIntervalSince(date), 1)
         XCTAssertEqual(Self.stableCalendar.startOfDay(for: entries.first!.performedAt),
                        Self.stableCalendar.startOfDay(for: date))
+    }
+
+    func testImportAllCommitsIndependentIdentities() throws {
+        let context = makeInMemoryContext()
+        let first = strengthDraft(name: "Bench")
+        let second = strengthDraft(name: "Squat", sets: 2)
+        let summary = try WorkoutScanImporter.importAll(
+            [(first, "day-1", "Hevy"), (second, "day-2", "Hevy")],
+            source: .textEntry,
+            in: context
+        )
+        XCTAssertEqual(summary.importedWorkouts, 2)
+        XCTAssertEqual(summary.importedSets, 5)
+        XCTAssertEqual(try ledgerCount(in: context), 2)
+        let ledgers = try context.fetch(FetchDescriptor<ImportedWorkout>())
+        XCTAssertTrue(ledgers.allSatisfy { $0.originName == "Hevy" })
+        XCTAssertEqual(try context.fetch(FetchDescriptor<WorkoutSession>()).count, 2)
+        let entries = try context.fetch(FetchDescriptor<SetEntry>())
+        XCTAssertTrue(entries.allSatisfy { $0.notes == "Imported from Hevy" })
+    }
+
+    func testImportAllSkipsAlreadyImportedIdentities() throws {
+        let context = makeInMemoryContext()
+        _ = try WorkoutScanImporter.import(strengthDraft(), externalID: "day-1", source: .textEntry, in: context)
+        let summary = try WorkoutScanImporter.importAll(
+            [(strengthDraft(), "day-1", nil), (strengthDraft(name: "Row"), "day-2", nil)],
+            source: .textEntry,
+            in: context
+        )
+        XCTAssertEqual(summary.skipped, 1)
+        XCTAssertEqual(summary.importedWorkouts, 1)
+        XCTAssertEqual(try ledgerCount(in: context), 2)
     }
 
     /// Sets with their own explicit date & time keep chronological priority:

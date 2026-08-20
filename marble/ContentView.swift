@@ -97,6 +97,9 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .marbleOpenQuickLog)) { _ in
             quickLog.open()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .marbleOpenTextImport)) { _ in
+            tabSelection.selected = .journal
+        }
         .onOpenURL { url in
             // Widget deep links (`marble://trends`, `marble://quicklog`).
             // Widget URLs are delivered straight to the owning app, so the
@@ -107,6 +110,11 @@ struct ContentView: View {
             // coordinator the `.marbleOpenQuickLog` notification above does.
             if url.host == "quicklog" {
                 quickLog.open()
+                return
+            }
+            if url.host == "import" {
+                tabSelection.selected = .journal
+                NotificationCenter.default.post(name: .marbleOpenTextImport, object: nil)
                 return
             }
             guard let tab = Self.tab(for: url.host) else { return }

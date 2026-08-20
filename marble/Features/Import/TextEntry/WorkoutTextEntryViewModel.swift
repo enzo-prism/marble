@@ -2,6 +2,10 @@ import Foundation
 import SwiftData
 import SwiftUI
 
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
+
 /// Drives the "type or paste a workout" flow: free text → on-device parse →
 /// structured draft with per-exercise library matching → user review/approve →
 /// journal. The parser and import handler are injected so the orchestration is
@@ -17,6 +21,7 @@ final class WorkoutTextEntryViewModel {
     enum Phase: Equatable {
         case input
         case processing
+        case batchReview
         case review
         case imported
     }
@@ -43,6 +48,9 @@ final class WorkoutTextEntryViewModel {
     private(set) var phase: Phase = .input
     var text = ""
     var draft = ParsedWorkoutDraft()
+    private(set) var sessions: [WorkoutImportSession] = []
+    /// Set when the review screen is a drill-in from `batchReview`.
+    private(set) var reviewingSessionID: UUID?
     private(set) var resolutions: [UUID: Resolution] = [:]
     private(set) var lastSummary: WorkoutImporter.Summary?
     var errorMessage: String?
@@ -60,6 +68,9 @@ final class WorkoutTextEntryViewModel {
     /// Current pipeline stage while `phase == .processing` — drives the
     /// determinate progress bar. Reset to the first stage on every preview.
     private(set) var parseStage: WorkoutParseStage = .readingNotation
+    /// 1-based index of the session currently being parsed, when a paste
+    /// split into more than one workout.
+    private(set) var batchProgress: (current: Int, total: Int)?
     /// Post-import celebration details for the imported screen.
     private(set) var celebration = ImportCelebration(volumeText: nil, prExercises: [])
 
@@ -82,6 +93,8 @@ final class WorkoutTextEntryViewModel {
         }
         var recognized: [Recognized]
         var unrecognized: [String]
+        var sessionCount: Int = 1
+        var totalSets: Int = 0
     }
 
     private let parser: WorkoutScanParsing
@@ -91,6 +104,8 @@ final class WorkoutTextEntryViewModel {
     /// user's preferred unit, not a hardcoded lb.
     private let defaultWeightUnit: WeightUnit
     private var matcher = ExerciseMatcher(candidates: [])
+    /// Bumped on every `preview` so a second tap cancels the in-flight parse.
+    private var previewGeneration = 0
 
     /// The weight unit the user picked in onboarding / settings.
     static var preferredWeightUnit: WeightUnit {
@@ -100,16 +115,59 @@ final class WorkoutTextEntryViewModel {
     init(
         parser: WorkoutScanParsing? = nil,
         importHandler: ImportHandler? = nil,
-        defaultWeightUnit: WeightUnit = WorkoutTextEntryViewModel.preferredWeightUnit
+        defaultWeightUnit: WeightUnit = WorkoutTextEntryViewModel.preferredWeightUnit,
+        initialText: String = ""
     ) {
         self.defaultWeightUnit = defaultWeightUnit
         self.parser = parser ?? FoundationModelsWorkoutScanParser(defaultWeightUnit: defaultWeightUnit)
         self.importHandler = importHandler
+        self.text = initialText
     }
 
     /// True only when the smarter on-device model is ready; the deterministic
     /// parser is always used as a fallback regardless.
     var usesOnDeviceModel: Bool { FoundationModelsWorkoutScanParser.isAvailable }
+
+    /// Privacy / availability line under the editor. Matches Apple's
+    /// `SystemLanguageModel.availability` cases instead of a generic lock label.
+    var privacyCaption: String {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            switch SystemLanguageModel.default.availability {
+            case .available:
+                return "Read on your device with Apple Intelligence — nothing is uploaded."
+            case .unavailable(.appleIntelligenceNotEnabled):
+                return "Turn on Apple Intelligence to read prose; gym notation still works on device. Nothing is uploaded."
+            case .unavailable(.modelNotReady):
+                return "Apple Intelligence is still downloading. Gym notation still works on this device."
+            case .unavailable(.deviceNotEligible):
+                return "Read on your device — nothing is uploaded."
+            default:
+                return "Read on your device — nothing is uploaded."
+            }
+        }
+        #endif
+        return "Read on your device — nothing is uploaded."
+    }
+
+    func ingestPastedText(_ pasted: String) {
+        let incoming = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !incoming.isEmpty else { return }
+        let existing = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        text = existing.isEmpty ? incoming : WorkoutImportOrchestrator.joinSources([existing, incoming])
+        updateLivePreview()
+    }
+
+    func ingestSources(_ parts: [String]) {
+        let joined = WorkoutImportOrchestrator.joinSources(parts)
+        guard !joined.isEmpty else { return }
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            text = joined
+            updateLivePreview()
+        } else {
+            ingestPastedText(joined)
+        }
+    }
 
     static let defaultTitle = "Typed workout"
 
@@ -121,54 +179,127 @@ final class WorkoutTextEntryViewModel {
             errorMessage = "Type or paste a workout first."
             return
         }
+        previewGeneration += 1
+        let generation = previewGeneration
         phase = .processing
         parseStage = .readingNotation
+        batchProgress = nil
         errorMessage = nil
-        // The text itself is the import identity: pasting the same log twice
-        // dedupes exactly like re-scanning the same photo.
-        externalID = WorkoutScanImageHash.hash(Data(trimmed.utf8))
+        reviewingSessionID = nil
 
-        var parsed = await parser.parse(ocrText: trimmed, referenceDate: AppEnvironment.now) { stage in
-            await MainActor.run { self.parseStage = stage }
+        let segments = WorkoutImportOrchestrator.segments(
+            from: trimmed,
+            referenceDate: AppEnvironment.now,
+            defaultWeightUnit: defaultWeightUnit
+        )
+        reloadMatcher(in: context)
+        resolutions = [:]
+
+        var built: [WorkoutImportSession] = []
+        built.reserveCapacity(segments.count)
+        for (index, segment) in segments.enumerated() {
+            guard generation == previewGeneration else { return }
+            batchProgress = (index + 1, segments.count)
+            parseStage = .readingNotation
+            let parsed = await parseSegment(segment, sessionCount: segments.count)
+            guard parsed.draft.hasContent else { continue }
+
+            let externalID = WorkoutImportOrchestrator.externalID(for: segment)
+            let alreadyImported = (try? WorkoutScanImporter.alreadyImported(
+                externalID: externalID,
+                source: .textEntry,
+                in: context
+            )) ?? false
+            for exercise in parsed.draft.exercises {
+                resolutions[exercise.id] = makeResolution(for: exercise.name)
+            }
+            built.append(WorkoutImportSession(
+                sourceText: segment.sourceText,
+                externalID: externalID,
+                kind: segment.kind,
+                draft: parsed.draft,
+                unparsedLines: parsed.unparsedLines,
+                alreadyImported: alreadyImported,
+                selected: !alreadyImported
+            ))
         }
-        if parsed.title == ParsedWorkoutDraft().title { parsed.title = Self.defaultTitle }
-        draft = parsed
 
-        guard draft.hasContent else {
-            errorMessage = "Couldn't find any exercises in that text. Try one exercise per line, like \"Bench Press 3x8 @ 185, rest 90s\"."
+        guard generation == previewGeneration else { return }
+        parseStage = .finalizing
+        batchProgress = nil
+        sessions = built
+
+        guard !sessions.isEmpty else {
+            errorMessage = "Couldn't find any exercises in that text. Try one exercise per line, like \"Bench Press 3x8 @ 185, rest 90s\", or import a Hevy/Strong CSV."
             phase = .input
             return
         }
 
-        // Lines nothing claimed, from the deterministic pass over the original
-        // text. A line the winning draft obviously used (it names a parsed
-        // exercise) is not "unparsed" — this keeps the section honest when the
-        // on-device model read prose the notation parser could not.
+        if sessions.count == 1 {
+            presentSessionForReview(sessions[0].id)
+            phase = .review
+        } else {
+            phase = .batchReview
+        }
+    }
+
+    private func parseSegment(
+        _ segment: WorkoutImportSegment,
+        sessionCount: Int
+    ) async -> (draft: ParsedWorkoutDraft, unparsedLines: [String]) {
+        if var draft = segment.draft {
+            if draft.title == ParsedWorkoutDraft().title { draft.title = Self.defaultTitle }
+            return (draft, [])
+        }
+
         let diagnostics = HandwrittenWorkoutParser.parseDetailed(
-            trimmed,
+            segment.sourceText,
             referenceDate: AppEnvironment.now,
             defaultWeightUnit: defaultWeightUnit
         )
-        unparsedLines = diagnostics.droppedLines.filter { line in
+        // A bulk paste of clean gym notation is already solved by the
+        // deterministic parser. Skip the on-device model per session so a week
+        // of Notes doesn't pay 20 sequential Foundation Models passes.
+        // Date headers are consumed by the parser, not dropped; filter anyway
+        // so a leftover header never forces a model pass.
+        let meaningfulDrops = diagnostics.droppedLines.filter { line in
+            !HandwrittenWorkoutParser.isSessionDateHeader(line, referenceDate: AppEnvironment.now)
+        }
+        if sessionCount > 1, meaningfulDrops.isEmpty, diagnostics.draft.hasContent {
+            var draft = diagnostics.draft
+            if draft.title == ParsedWorkoutDraft().title { draft.title = Self.defaultTitle }
+            return (draft, [])
+        }
+
+        var parsed = await parser.parse(ocrText: segment.sourceText, referenceDate: AppEnvironment.now) { stage in
+            await MainActor.run { self.parseStage = stage }
+        }
+        if parsed.title == ParsedWorkoutDraft().title { parsed.title = Self.defaultTitle }
+        let unparsed = diagnostics.droppedLines.filter { line in
             let lowered = line.lowercased()
-            return !draft.importableExercises.contains { exercise in
+            return !parsed.importableExercises.contains { exercise in
                 let name = exercise.trimmedName.lowercased()
                 return !name.isEmpty && (lowered.contains(name) || name.contains(lowered))
             }
         }
+        return (parsed, unparsed)
+    }
 
-        parseStage = .finalizing
-        reloadMatcher(in: context)
-        resolutions = [:]
-        for exercise in draft.exercises {
-            resolutions[exercise.id] = makeResolution(for: exercise.name)
-        }
-        alreadyImported = (try? WorkoutScanImporter.alreadyImported(
-            externalID: externalID,
-            source: .textEntry,
-            in: context
-        )) ?? false
-        phase = .review
+    private func presentSessionForReview(_ id: UUID) {
+        guard let session = sessions.first(where: { $0.id == id }) else { return }
+        reviewingSessionID = id
+        draft = session.draft
+        unparsedLines = session.unparsedLines
+        alreadyImported = session.alreadyImported
+        externalID = session.externalID
+    }
+
+    /// Persist review edits back onto the session they came from.
+    private func persistOpenReview() {
+        guard let id = reviewingSessionID,
+              let index = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions[index].draft = draft
+        sessions[index].unparsedLines = unparsedLines
     }
 
     private func reloadMatcher(in context: ModelContext) {
@@ -245,6 +376,35 @@ final class WorkoutTextEntryViewModel {
             livePreview = nil
             return
         }
+        let segments = WorkoutImportOrchestrator.segments(
+            from: trimmed,
+            referenceDate: AppEnvironment.now,
+            defaultWeightUnit: defaultWeightUnit
+        )
+        if segments.count > 1 || segments.contains(where: { $0.draft != nil }) {
+            let drafts: [ParsedWorkoutDraft] = segments.compactMap { segment in
+                if let draft = segment.draft, draft.hasContent { return draft }
+                let parsed = HandwrittenWorkoutParser.parseDetailed(
+                    segment.sourceText,
+                    referenceDate: AppEnvironment.now,
+                    defaultWeightUnit: defaultWeightUnit
+                ).draft
+                return parsed.hasContent ? parsed : nil
+            }
+            livePreview = LivePreview(
+                recognized: drafts.map {
+                    LivePreview.Recognized(
+                        id: $0.exercises.first?.id ?? UUID(),
+                        name: $0.title,
+                        setCount: $0.totalSetCount
+                    )
+                },
+                unrecognized: [],
+                sessionCount: max(drafts.count, segments.count),
+                totalSets: drafts.reduce(0) { $0 + $1.totalSetCount }
+            )
+            return
+        }
         let result = HandwrittenWorkoutParser.parseDetailed(
             trimmed,
             referenceDate: AppEnvironment.now,
@@ -254,13 +414,90 @@ final class WorkoutTextEntryViewModel {
             recognized: result.draft.importableExercises.map {
                 LivePreview.Recognized(id: $0.id, name: $0.trimmedName, setCount: $0.sets.count)
             },
-            unrecognized: result.droppedLines
+            unrecognized: result.droppedLines,
+            sessionCount: 1,
+            totalSets: result.draft.totalSetCount
         )
     }
 
     /// Exercises that will create a new library row as things stand.
     var newExerciseCount: Int {
-        draft.importableExercises.filter { resolutions[$0.id]?.choice == .createNew }.count
+        exercisesPendingImport.filter { resolutions[$0.id]?.choice == .createNew }.count
+    }
+
+    private var exercisesPendingImport: [ParsedExerciseDraft] {
+        if phase == .batchReview {
+            return importableSelectedSessions.flatMap(\.draft.importableExercises)
+        }
+        return draft.importableExercises
+    }
+
+    var isDrillingInFromBatch: Bool {
+        phase == .review && sessions.count > 1
+    }
+
+    var selectedSessionCount: Int {
+        importableSelectedSessions.count
+    }
+
+    var selectedSetCount: Int {
+        importableSelectedSessions.reduce(0) { $0 + $1.draft.totalSetCount }
+    }
+
+    var importableSelectedSessions: [WorkoutImportSession] {
+        sessions.filter { $0.selected && $0.draft.hasContent && !$0.alreadyImported }
+    }
+
+    var alreadyImportedSessionCount: Int {
+        sessions.filter(\.alreadyImported).count
+    }
+
+    var allImportableSelected: Bool {
+        let importable = sessions.filter { !$0.alreadyImported && $0.draft.hasContent }
+        return !importable.isEmpty && importable.allSatisfy(\.selected)
+    }
+
+    var canToggleBatchSelection: Bool {
+        sessions.contains { !$0.alreadyImported && $0.draft.hasContent }
+    }
+
+    func toggleSessionSelected(_ id: UUID) {
+        guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
+        guard !sessions[index].alreadyImported else { return }
+        sessions[index].selected.toggle()
+    }
+
+    func selectAllImportable() {
+        for index in sessions.indices where !sessions[index].alreadyImported && sessions[index].draft.hasContent {
+            sessions[index].selected = true
+        }
+    }
+
+    func deselectAll() {
+        for index in sessions.indices {
+            sessions[index].selected = false
+        }
+    }
+
+    func toggleSelectAllImportable() {
+        if allImportableSelected {
+            deselectAll()
+        } else {
+            selectAllImportable()
+        }
+    }
+
+    func openSession(_ id: UUID) {
+        persistOpenReview()
+        presentSessionForReview(id)
+        phase = .review
+    }
+
+    func returnToBatch() {
+        persistOpenReview()
+        reviewingSessionID = nil
+        phase = .batchReview
+        errorMessage = nil
     }
 
     func addExercise() {
@@ -319,15 +556,88 @@ final class WorkoutTextEntryViewModel {
     // MARK: - Commit
 
     func commit(into context: ModelContext) {
+        persistOpenReview()
+        if sessions.count > 1 {
+            commitSelected(into: context)
+            return
+        }
         guard draft.hasContent else {
             errorMessage = "Add at least one exercise with a set before importing."
             return
         }
         errorMessage = nil
+        let toImport = draftApplyingResolutions(draft)
+        celebration = computeCelebration(for: [toImport], in: context)
+        let origin = sessions.first?.kind.originName
+        do {
+            let summary = try importHandler?(toImport, externalID, context)
+                ?? WorkoutScanImporter.import(
+                    toImport,
+                    externalID: externalID,
+                    source: .textEntry,
+                    originName: origin,
+                    in: context
+                )
+            finishCommit(summary: summary)
+        } catch {
+            errorMessage = "Couldn't save the workout. Please try again."
+            MarbleHaptics.error()
+        }
+    }
 
-        // Library picks import under the canonical library name, so the
-        // importer's exact-name resolution lands on the existing row instead of
-        // creating a near-duplicate.
+    func commitSelected(into context: ModelContext) {
+        persistOpenReview()
+        let selected = importableSelectedSessions
+        guard !selected.isEmpty else {
+            if alreadyImportedSessionCount > 0 {
+                finishCommit(summary: WorkoutImporter.Summary(skipped: alreadyImportedSessionCount))
+                return
+            }
+            errorMessage = "Select at least one workout that isn't already in your journal."
+            return
+        }
+        errorMessage = nil
+        let items = selected.map { session in
+            (draftApplyingResolutions(session.draft), session.externalID)
+        }
+        celebration = computeCelebration(for: items.map(\.0), in: context)
+        do {
+            let summary: WorkoutImporter.Summary
+            if let importHandler {
+                var merged = WorkoutImporter.Summary()
+                let exercisesBefore = WorkoutImporter.exerciseCount(in: context)
+                for item in items {
+                    let one = try importHandler(item.0, item.1, context)
+                    merged.importedWorkouts += one.importedWorkouts
+                    merged.importedSets += one.importedSets
+                    merged.skipped += one.skipped
+                    merged.createdExercises += one.createdExercises
+                }
+                if merged.createdExercises == 0 {
+                    merged.createdExercises = max(0, WorkoutImporter.exerciseCount(in: context) - exercisesBefore)
+                }
+                summary = merged
+            } else {
+                summary = try WorkoutScanImporter.importAll(
+                    selected.map {
+                        (
+                            draft: draftApplyingResolutions($0.draft),
+                            externalID: $0.externalID,
+                            originName: $0.kind.originName
+                        )
+                    },
+                    source: .textEntry,
+                    in: context
+                )
+            }
+            finishCommit(summary: summary)
+        } catch {
+            errorMessage = "Couldn't save the workouts. Please try again."
+            MarbleHaptics.error()
+        }
+    }
+
+    private func draftApplyingResolutions(_ draft: ParsedWorkoutDraft) -> ParsedWorkoutDraft {
         var toImport = draft
         for index in toImport.exercises.indices {
             let id = toImport.exercises[index].id
@@ -335,82 +645,77 @@ final class WorkoutTextEntryViewModel {
                 toImport.exercises[index].name = name
             }
         }
+        return toImport
+    }
 
-        // Compute the celebration BEFORE the import lands: records to beat are
-        // the ones on file prior to this workout.
-        celebration = computeCelebration(for: toImport, in: context)
-
-        do {
-            let summary = try importHandler?(toImport, externalID, context)
-                ?? WorkoutScanImporter.import(toImport, externalID: externalID, source: .textEntry, in: context)
-            lastSummary = summary
-            if summary.importedSets > 0 {
-                MarbleHaptics.success()
-                if celebration.prExercises.isEmpty {
-                    ReviewPrompt.consider(after: .importedWorkout)
-                } else {
-                    ReviewPrompt.consider(after: .personalRecord)
-                }
+    private func finishCommit(summary: WorkoutImporter.Summary) {
+        lastSummary = summary
+        if summary.importedSets > 0 {
+            MarbleHaptics.success()
+            if celebration.prExercises.isEmpty {
+                ReviewPrompt.consider(after: .importedWorkout)
             } else {
-                MarbleHaptics.lightImpact()
+                ReviewPrompt.consider(after: .personalRecord)
             }
-            // Same contract as the scan flow: new library rows owe Spotlight
-            // and the parameterised Siri phrases a refresh, detached so the
-            // user isn't waiting on indexing.
-            if summary.createdExercises > 0 {
-                Task { await ExerciseSpotlightIndex.refreshAfterLibraryChange() }
-            }
-            phase = .imported
-        } catch {
-            errorMessage = "Couldn't save the workout. Please try again."
-            MarbleHaptics.error()
+        } else {
+            MarbleHaptics.lightImpact()
         }
+        if summary.createdExercises > 0 {
+            Task { await ExerciseSpotlightIndex.refreshAfterLibraryChange() }
+        }
+        phase = .imported
     }
 
     /// Back to the input step keeping the text, so a bad parse is editable.
     func editText() {
+        persistOpenReview()
         phase = .input
         errorMessage = nil
+        reviewingSessionID = nil
     }
 
     /// Volume + PR detection for the imported screen. Pure lookups against the
     /// same tested record engine the journal uses; runs pre-import so "records
     /// to beat" means records on file before this workout.
-    private func computeCelebration(for draft: ParsedWorkoutDraft, in context: ModelContext) -> ImportCelebration {
+    private func computeCelebration(for drafts: [ParsedWorkoutDraft], in context: ModelContext) -> ImportCelebration {
         var volumeKilograms = 0.0
         var prExercises: [String] = []
 
-        for exercise in draft.importableExercises {
-            for set in exercise.sets {
-                if let weight = set.weight, weight > 0, let reps = set.reps, reps > 0 {
-                    volumeKilograms += PersonalRecords.kilograms(weight, unit: set.weightUnit) * Double(reps)
+        for draft in drafts {
+            for exercise in draft.importableExercises {
+                for set in exercise.sets {
+                    if let weight = set.weight, weight > 0, let reps = set.reps, reps > 0 {
+                        volumeKilograms += PersonalRecords.kilograms(weight, unit: set.weightUnit) * Double(reps)
+                    }
+                }
+
+                // Only an existing library exercise has records to beat; a freshly
+                // created one is celebrated as "new in your library" instead.
+                let name = exercise.trimmedName
+                var descriptor = FetchDescriptor<Exercise>(predicate: #Predicate { $0.name == name })
+                descriptor.fetchLimit = 1
+                guard let existing = (try? context.fetch(descriptor))?.first else { continue }
+                // A plain local UUID: the predicate macro can't capture member
+                // access (`existing.id`) into a fetched object.
+                let existingID = existing.id
+                let entries = (try? context.fetch(FetchDescriptor<SetEntry>(
+                    predicate: #Predicate { $0.exercise.id == existingID }
+                ))) ?? []
+                let records = PersonalRecords.records(for: existing, entries: entries)
+                guard records.hasAnyBest else { continue }
+                let beatsRecord = exercise.sets.contains { set in
+                    !PersonalRecords.projectedBadge(
+                        storedWeight: set.weight,
+                        weightUnit: set.weightUnit,
+                        reps: set.reps,
+                        beating: records,
+                        metrics: existing.metrics
+                    ).isEmpty
+                }
+                if beatsRecord, !prExercises.contains(existing.name) {
+                    prExercises.append(existing.name)
                 }
             }
-
-            // Only an existing library exercise has records to beat; a freshly
-            // created one is celebrated as "new in your library" instead.
-            let name = exercise.trimmedName
-            var descriptor = FetchDescriptor<Exercise>(predicate: #Predicate { $0.name == name })
-            descriptor.fetchLimit = 1
-            guard let existing = (try? context.fetch(descriptor))?.first else { continue }
-            // A plain local UUID: the predicate macro can't capture member
-            // access (`existing.id`) into a fetched object.
-            let existingID = existing.id
-            let entries = (try? context.fetch(FetchDescriptor<SetEntry>(
-                predicate: #Predicate { $0.exercise.id == existingID }
-            ))) ?? []
-            let records = PersonalRecords.records(for: existing, entries: entries)
-            guard records.hasAnyBest else { continue }
-            let beatsRecord = exercise.sets.contains { set in
-                !PersonalRecords.projectedBadge(
-                    storedWeight: set.weight,
-                    weightUnit: set.weightUnit,
-                    reps: set.reps,
-                    beating: records,
-                    metrics: existing.metrics
-                ).isEmpty
-            }
-            if beatsRecord { prExercises.append(existing.name) }
         }
 
         var volumeText: String?
@@ -442,6 +747,9 @@ final class WorkoutTextEntryViewModel {
         alreadyImported = false
         externalID = ""
         unparsedLines = []
+        sessions = []
+        reviewingSessionID = nil
+        batchProgress = nil
         livePreview = nil
         parseStage = .readingNotation
         celebration = ImportCelebration(volumeText: nil, prExercises: [])
