@@ -6,24 +6,58 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
+## 2.4 Bulk import honesty — TestFlight (build 57)
+
+**Working tree / this train.** `MARKETING_VERSION = 2.4`, `CURRENT_PROJECT_VERSION = 57`.
+Apple closed the **2.3** train: uploading another 2.3 IPA fails `ITMS-90062` /
+`ITMS-90186` (CFBundleShortVersionString must be higher than the approved 2.3).
+Build 57 was unused on 2.3 and is the first 2.4 TestFlight.
+
+**Do not App Store-release 2.3** (`READY_FOR_DISTRIBUTION`) as a stand-in — that
+binary is Train/Log/Progress IA, not this import wave. **Do not release 2.2.**
+**Do not submit 2.4 App Review** unless the user explicitly asks.
+
+What this wave is (on top of PR #23):
+
+- Hevy `set_index` reset → two exercise blocks (same name, original order).
+- EU/Android Strong CSV: `;` delimiter, `Weight (kg)`, decimal commas.
+- Strong `Distance` is km or mi from preferred weight unit, not metres.
+- `superset_id` tagged onto set notes.
+- Typed/scanned `RPE 8` / `rpe9`; `Day 1` / `Session 2` paste splits.
+- Weak library matches default to **create new** (suggestions remain).
+- Scan N==1 uses `ExerciseMatcher`; review shows rest / RPE / notes.
+- Scan re-import copy matches skip behavior. Journal origin **Paste or Type**.
+- No schema change (still V6).
+
+After Apple processing (`VALID`), put the 2.4/57 buildId here. Internal **test
+group A** auto-receives; do not assign the build to it.
+
+```bash
+make cloud-preflight
+make cloud-testflight
+# do not: make cloud-appstore-release VERSION=2.3
+# do not: make cloud-appstore-submit VERSION=2.4   unless explicitly asked
+```
+
+---
+
 ## 2.3 Bulk import fidelity — on `main` (PR #23 merge `cbd5116`, 2026-08-20)
 
-**On `main`.** Marketing version stays **2.3**. Live ASC (2026-08-20): **2.3 build 56
-is already `VALID`**, and the App Store 2.3 version is `READY_FOR_DISTRIBUTION`
-(approved, manual release pending — that binary is the Train/Log/Progress IA, **not**
-this import wave). Releasing 2.3 now would ship without bulk import, so this wave
-uploads **TestFlight build 57**. Do not App Store-release 2.3 as a stand-in.
-Xcode `CURRENT_PROJECT_VERSION` is **57**.
+**On `main` historically.** Marketing version moved **2.3 → 2.4** after Apple
+rejected 2.3/57 (`ITMS-90186`). Live ASC (2026-08-20): **2.3 build 56
+is `VALID`**, and the App Store 2.3 version is `READY_FOR_DISTRIBUTION`
+(approved, manual release pending — that binary is the Train/Log/Progress IA,
+**not** the CSV fidelity / honesty waves). Releasing 2.3 now would ship without
+this import work.
 
-What this wave is:
+What PR #23 added:
 
 - Hevy/Strong CSV: skip warmup sets, map RPE → difficulty, compose notes,
   keep session `endedAt` / ledger `durationSeconds` from `end_time` or Strong `Duration`.
 - Multi-page scan OCR; N>1 dated sessions hand off to **Paste or Type**.
 - Batch review shows library / new / weak matches; unique new-exercise counts.
 - File picker is `.txt` / `.csv` only (no JSON workout schema).
-- No schema change (still V6). No App Store review submit in this wave.
-  **Do not release 2.2.**
+- No schema change (still V6).
 
 CI: `CI / unit-tests` green on merge SHA (`774` tests, 1 skipped, 0 failures;
 run `32330557151`).
@@ -32,8 +66,8 @@ run `32330557151`).
 
 ## 2.3 Train / Log / Progress IA — on `main` (PR #19 merge `c0cef9e`, 2026-08-16)
 
-**On `main`.** Marketing version stays **2.3**. Xcode `CURRENT_PROJECT_VERSION` later
-moved to **57** for the bulk-import TestFlight. This IA first shipped as **2.3
+**On `main`.** That wave kept marketing version **2.3**. Working tree is now
+**2.4** / build 57 because Apple closed the 2.3 train. This IA first shipped as **2.3
 build 56 `VALID`** (2026-08-16, buildId `9d4830c6-e713-40c1-a60a-33c13951a9ce`).
 The App Store 2.3 version is `READY_FOR_DISTRIBUTION` (review COMPLETE, manual
 release pending). **Do not release that 2.3 binary as a stand-in for later waves**
@@ -58,8 +92,8 @@ product decision.
 ```bash
 make cloud-preflight
 make cloud-testflight
-# after VALID: make cloud-appstore-submit CONFIRM=submit VERSION=2.3
-# approved manual release: make cloud-appstore-release CONFIRM=release VERSION=2.3
+# do not submit or release 2.3 unless explicitly asked — that binary is IA-only
+# relative to later import waves. Working upload is 2.4 / 57.
 ```
 
 That dispatches GitHub Actions `macos-26` for archive/export/upload. It needs the
@@ -834,7 +868,7 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # expect MARKETING_VERSION 2.3, CURRENT_PROJECT_VERSION 56
+make asc-version      # expect MARKETING_VERSION 2.4, CURRENT_PROJECT_VERSION 57
 make asc-status
 make asc-builds
 make asc-next-build   # expect 56 unless 56 (or later) was already uploaded

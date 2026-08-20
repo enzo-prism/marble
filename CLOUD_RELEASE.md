@@ -82,9 +82,9 @@ make cloud-testflight
 make cloud-testflight DRY_RUN=1
 
 # App Store API (runs here if ASC_* are in Cursor secrets)
-make cloud-appstore-validate VERSION=2.3
-make cloud-appstore-submit CONFIRM=submit VERSION=2.3
-make cloud-appstore-release CONFIRM=release VERSION=2.2
+make cloud-appstore-validate VERSION=2.4
+make cloud-appstore-submit CONFIRM=submit VERSION=2.4
+make cloud-appstore-release CONFIRM=release VERSION=2.3
 ```
 
 Equivalent:
@@ -92,8 +92,8 @@ Equivalent:
 ```bash
 scripts/cloud_release.sh preflight
 scripts/cloud_release.sh testflight
-scripts/cloud_release.sh appstore-submit --version 2.3 --confirm
-scripts/cloud_release.sh appstore-release --version 2.2 --confirm
+scripts/cloud_release.sh appstore-submit --version 2.4 --confirm
+scripts/cloud_release.sh appstore-release --version 2.3 --confirm
 ```
 
 Dispatch order:

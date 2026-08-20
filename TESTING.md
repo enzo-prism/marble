@@ -88,6 +88,17 @@
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
+## Latest verification (2026-08-20, bulk import honesty)
+
+- Adds coverage for Hevy `set_index` resets, `superset_id` notes, Strong distance
+  units, semicolon/`Weight (kg)` CSV, typed `RPE 8`, `Day N` session splits, likely
+  matches defaulting to create-new, and scan library matching.
+- Linux Cloud Agents cannot run `make unit`; GitHub Actions `CI / unit-tests` on
+  `macos-26` is the compile gate for this branch.
+- Hub button and journal origin under test are **Paste or Type**; do not look for
+  "Typed Workout". File picker accepts `.txt` / `.csv` only.
+- No schema change (still V6). Marketing version **2.4**, project build **57**.
+
 ## Latest verification (2026-08-20, bulk import fidelity)
 
 - New unit coverage: Hevy/Strong warmup skip, RPE/notes/session clock, multi-page

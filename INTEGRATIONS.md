@@ -169,16 +169,19 @@ These paths are not `WorkoutImportProvider`s. They produce `ParsedWorkoutDraft`s
 | Piece | Role |
 |---|---|
 | `Scan/DocumentScannerView` | System document scanner; **every page** is kept (not just page 0). |
-| `Scan/WorkoutScanViewModel` | OCR → join pages → if the date-header segmenter finds N>1, hand the text to Paste or Type so library matching and batch review apply; N==1 stays on scan review with an image-hash identity. |
-| `TextEntry/WorkoutSessionSegmenter` | Splits a Notes paste on date / weekday / month-name **headers only** — `"3/5 Bench 3x8"` is a set line, not a session break. OCR punctuation on a weekday (`Monday.`) still counts as a header. |
-| `TextEntry/WorkoutCSVParser` | Deterministic Hevy / Strong tables. CSV never goes through Foundation Models. Warmup rows are dropped; drop/failure sets stay and are tagged. RPE maps to `SetEntry.difficulty`. Description / Workout Notes / exercise notes / set notes compose onto the session and sets. `end_time` or Strong `Duration` (`60m`) become session `endedAt` and ledger `durationSeconds`. |
+| `Scan/WorkoutScanViewModel` | OCR → join pages → if the date-header segmenter finds N>1, hand the text to Paste or Type so library matching and batch review apply; N==1 stays on scan review with an image-hash identity **and** the same library matcher (exact/strong auto-bind; likely matches default to a new exercise). |
+| `TextEntry/WorkoutSessionSegmenter` | Splits a Notes paste on date / weekday / month-name headers **and** numbered session labels (`Day 1`, `Session 2: Legs`). `"3/5 Bench 3x8"` is a set line, not a session break. OCR punctuation on a weekday (`Monday.`) still counts as a header. |
+| `TextEntry/WorkoutCSVParser` | Deterministic Hevy / Strong tables. CSV never goes through Foundation Models. Warmup rows are dropped; drop/failure sets stay and are tagged. A `set_index` reset starts a new exercise so logging the same lift twice is not interleaved. `superset_id` becomes a set note. RPE maps to `SetEntry.difficulty`. Description / Workout Notes / exercise notes / set notes compose onto the session and sets. `end_time` or Strong `Duration` (`60m`) become session `endedAt` and ledger `durationSeconds`. EU/Android Strong (`;` delimiter, `Weight (kg)`, decimal commas) parses. Strong `Distance` uses km or mi from the preferred weight unit, not metres. |
 | `TextEntry/WorkoutImportOrchestrator` | CSV wins over the text splitter; per-segment external IDs so one day of a week can skip independently. |
-| `TextEntry/WorkoutTextEntryView` | Hub button is **Paste or Type**. File picker is `.txt` / `.csv` (not JSON). Multi-file Hevy/Strong headers merge. N==1 → existing review; N>1 → Health-style batch list with per-row library / new / weak-match counts. |
+| `TextEntry/WorkoutTextEntryView` | Hub button and journal origin are **Paste or Type**. File picker is `.txt` / `.csv` (not JSON). Multi-file Hevy/Strong headers merge. N==1 → existing review; N>1 → Health-style batch list with per-row library / new / weak-match counts. Weak matches stay suggestions and default to create-new. Review shows rest, RPE, and notes so CSV fidelity is visible before save. |
 | `Intents/ReviewWorkoutTextIntent` + `ReviewWorkoutFileIntent` | Shortcut “Import a workout in Marble”; stages `PendingTextImport` and opens the hub. |
 
-Provenance notes stay `"Imported from Hevy"` / `"Imported from Strong"` / typed / scanned.
+Provenance notes stay `"Imported from Hevy"` / `"Imported from Strong"` / `"Imported from Paste or Type"` / scanned.
 User notes append after that (`Imported from Hevy. paused`). Identical text or CSV
-identity re-imports stay unselected rather than duplicating.
+identity re-imports stay unselected rather than duplicating. Re-scanning the same photo
+skips; the scan review copy says so.
+
+The deterministic parser also reads `RPE 8` / `rpe9` on typed and scanned lines (not bare `@ 8`, which stays weight).
 
 Still out of scope: Share Extension, App Groups, a JSON workout schema, Foundation Models
 as the session splitter, Garmin reverse-engineering, `ImportSource.hevy` / `.strong`.

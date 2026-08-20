@@ -30,21 +30,20 @@ project-local notes.
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
 - Live App Store version: `2.1` (build 40), released 2026-07-21
-- Working project version: `2.3` (build 55, TestFlight `VALID` 2026-08-05). Xcode
-  `CURRENT_PROJECT_VERSION` on the Train/Log/Progress branch is `56`; use
-  `make asc-next-build` before upload. 2.2 is `READY_FOR_DISTRIBUTION` (manual
-  release pending) and closed to new uploads.
-- Version review and validation should use `2.3`. Do not target 2.2 for a new binary.
+- Working project version: `2.4` (build 57, TestFlight pending). The 2.3 train
+  is closed (`ITMS-90186`). App Store 2.3 is `READY_FOR_DISTRIBUTION` (IA binary;
+  do not release as a stand-in). 2.2 is also `READY_FOR_DISTRIBUTION`.
+- Version review and validation of a **new** binary should use `2.4`. Do not
+  target 2.2 or 2.3 for a new upload.
 
 ## Release Safety
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches. It is the dated source of truth; this file is the command reference.
-- **State as of 2026-08-16:** `2.1` (build 40) is live on the App Store.
-  `2.2` is `READY_FOR_DISTRIBUTION` (approved, manual release pending).
-  Latest processed TestFlight binary is `2.3` build 55. The Train/Log/Progress
-  IA is 2.3 project build 56 and is not on TestFlight until a Mac archives it.
-  There is no in-flight 2.3 App Review.
+- **State as of 2026-08-20:** `2.1` (build 40) is live on the App Store.
+  `2.2` and `2.3` are `READY_FOR_DISTRIBUTION` (approved, manual release pending).
+  Latest processed TestFlight binary is `2.3` build 56. Working upload is **2.4
+  build 57**. Do not release 2.2 or 2.3 as a stand-in for later waves.
 - Always run `make asc-version` before acting — the CLI can report a blank generated
   marketing version, so the Makefile prints a reliable fallback.
 - Do not cancel an in-flight review, upload a replacement build, or submit to
@@ -99,7 +98,7 @@ GitHub Actions secrets.
 Those `make asc-*` targets already know the Marble app ID, scheme, project path, artifact
 paths, the required archive destination wiring, and the marketing-version
 fallback for this Xcode setup. `make asc-review` and `make asc-validate` use
-`ASC_APPSTORE_VERSION` (should be `2.3`); `make asc-next-build` and
+`ASC_APPSTORE_VERSION` (should be `2.4`); `make asc-next-build` and
 `make asc-publish-testflight` use `ASC_TESTFLIGHT_VERSION` (defaulting to the local
 marketing version) for the next upload number.
 
