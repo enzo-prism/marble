@@ -82,6 +82,7 @@ struct WorkoutScanView: View {
                         .font(MarbleTypography.emptyTitle)
                         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                         .multilineTextAlignment(.center)
+                        .accessibilityIdentifier("Scan.Capture")
                     Text("Capture every page of the notebook or whiteboard. Marble reads it on your device and turns it into sets you can review before logging.")
                         .font(MarbleTypography.emptyMessage)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
@@ -126,7 +127,6 @@ struct WorkoutScanView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .accessibilityIdentifier("Scan.Capture")
     }
 
     private var processingView: some View {
@@ -136,9 +136,9 @@ struct WorkoutScanView: View {
             Text("Reading your workout…")
                 .font(MarbleTypography.rowSubtitle)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .accessibilityIdentifier("Scan.Processing")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityIdentifier("Scan.Processing")
     }
 
     private var reviewView: some View {
@@ -151,11 +151,16 @@ struct WorkoutScanView: View {
                 SectionHeaderView(title: "Workout")
             }
 
-            ImportDateSection(idPrefix: "Scan", performedAt: $viewModel.draft.performedAt)
+            ImportDateSection(
+                idPrefix: "Scan",
+                performedAt: $viewModel.draft.performedAt,
+                notes: $viewModel.draft.notes,
+                durationSeconds: viewModel.draft.durationSeconds
+            )
 
             if viewModel.alreadyImported {
                 Section {
-                    Label("This scan was already added to your journal. Importing again will add the sets a second time.", systemImage: "exclamationmark.triangle")
+                    Label("This scan is already in your journal. Importing again will skip it.", systemImage: "exclamationmark.triangle")
                         .font(MarbleTypography.rowMeta)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .accessibilityIdentifier("Scan.AlreadyImported")
@@ -166,6 +171,9 @@ struct WorkoutScanView: View {
                 ScanExerciseSection(
                     exercise: $exercise,
                     workoutDate: viewModel.draft.performedAt,
+                    resolution: viewModel.resolution(for: exercise.id),
+                    onChoose: { choice in viewModel.choose(choice, for: exercise.id) },
+                    onNameChanged: { viewModel.refreshResolution(forExerciseWithID: exercise.id) },
                     onAddSet: { viewModel.addSet(toExerciseWithID: exercise.id) },
                     onRemoveExercise: { viewModel.removeExercise(withID: exercise.id) },
                     onRemoveSets: { offsets in viewModel.removeSets(fromExerciseWithID: exercise.id, at: offsets) }
@@ -196,7 +204,6 @@ struct WorkoutScanView: View {
         .safeAreaInset(edge: .bottom) {
             importButton
         }
-        .accessibilityIdentifier("Scan.Review")
     }
 
     private var importButton: some View {
@@ -231,6 +238,7 @@ struct WorkoutScanView: View {
                 Text("Added \(summary.importedSets) set\(summary.importedSets == 1 ? "" : "s")")
                     .font(MarbleTypography.emptyTitle)
                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityIdentifier("Scan.Imported")
                 if summary.skipped > 0 {
                     Text("This scan was already imported.")
                         .font(MarbleTypography.rowMeta)
@@ -244,7 +252,6 @@ struct WorkoutScanView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(MarbleSpacing.l)
-        .accessibilityIdentifier("Scan.Imported")
     }
 
     // MARK: - Toolbar
@@ -313,6 +320,9 @@ private struct ScanExerciseSection: View {
     @Binding var exercise: ParsedExerciseDraft
     /// The workout-level date, seeding any per-set date & time override.
     let workoutDate: Date?
+    let resolution: WorkoutTextEntryViewModel.Resolution?
+    var onChoose: (WorkoutTextEntryViewModel.Resolution.Choice) -> Void
+    var onNameChanged: () -> Void
     var onAddSet: () -> Void
     var onRemoveExercise: () -> Void
     var onRemoveSets: (IndexSet) -> Void
@@ -323,7 +333,16 @@ private struct ScanExerciseSection: View {
         Section {
             TextField("Exercise name", text: $exercise.name)
                 .font(MarbleTypography.rowTitle)
-                .accessibilityIdentifier("Scan.Exercise.Name")
+                .onChange(of: exercise.name) { _, _ in onNameChanged() }
+                .accessibilityIdentifier("Scan.Exercise.Name.\(exercise.id.uuidString)")
+
+            ImportExerciseMatchRow(
+                exerciseName: exercise.name,
+                exerciseID: exercise.id,
+                idPrefix: "Scan",
+                resolution: resolution,
+                onChoose: onChoose
+            )
 
             // No `.onDelete`: `ImportSetTimingRows` attaches `.swipeActions`,
             // which suppresses the synthesized Delete, so it re-adds an
@@ -347,7 +366,7 @@ private struct ScanExerciseSection: View {
                 Label("Add set", systemImage: "plus")
                     .font(MarbleTypography.rowMeta)
             }
-            .accessibilityIdentifier("Scan.Exercise.AddSet")
+            .accessibilityIdentifier("Scan.Exercise.AddSet.\(exercise.id.uuidString)")
         } header: {
             HStack {
                 SectionHeaderView(title: "Exercise")
@@ -359,7 +378,7 @@ private struct ScanExerciseSection: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .accessibilityIdentifier("Scan.Exercise.Remove")
+                .accessibilityIdentifier("Scan.Exercise.Remove.\(exercise.id.uuidString)")
             }
         }
     }
@@ -381,7 +400,7 @@ private struct ScanSetRow: View {
                         title: "Weight",
                         formatter: Formatters.weight,
                         value: $set.weight,
-                        accessibilityIdentifier: "Scan.Set.Weight"
+                        accessibilityIdentifier: "Scan.Set.Weight.\(set.id.uuidString)"
                     )
                     Picker("Unit", selection: $set.weightUnit) {
                         ForEach(WeightUnit.allCases) { unit in
@@ -390,7 +409,7 @@ private struct ScanSetRow: View {
                     }
                     .pickerStyle(.segmented)
                     .frame(maxWidth: 120)
-                    .accessibilityIdentifier("Scan.Set.WeightUnit")
+                    .accessibilityIdentifier("Scan.Set.WeightUnit.\(set.id.uuidString)")
                 }
             }
 
@@ -398,7 +417,7 @@ private struct ScanSetRow: View {
                 OptionalIntegerField(
                     title: "Reps",
                     value: $set.reps,
-                    accessibilityIdentifier: "Scan.Set.Reps"
+                    accessibilityIdentifier: "Scan.Set.Reps.\(set.id.uuidString)"
                 )
             }
 
@@ -408,7 +427,7 @@ private struct ScanSetRow: View {
                         title: "Distance",
                         formatter: Formatters.distance,
                         value: $set.distance,
-                        accessibilityIdentifier: "Scan.Set.Distance"
+                        accessibilityIdentifier: "Scan.Set.Distance.\(set.id.uuidString)"
                     )
                     Picker("Unit", selection: $set.distanceUnit) {
                         ForEach(DistanceUnit.allCases) { unit in
@@ -416,7 +435,7 @@ private struct ScanSetRow: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .accessibilityIdentifier("Scan.Set.DistanceUnit")
+                    .accessibilityIdentifier("Scan.Set.DistanceUnit.\(set.id.uuidString)")
                 }
             }
 
@@ -427,9 +446,11 @@ private struct ScanSetRow: View {
                         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                     Spacer()
                     DurationPicker(durationSeconds: $set.durationSeconds)
-                        .accessibilityIdentifier("Scan.Set.Duration")
+                        .accessibilityIdentifier("Scan.Set.Duration.\(set.id.uuidString)")
                 }
             }
+
+            ImportSetAnnotationFields(idPrefix: "Scan", set: $set)
         }
         .padding(.vertical, MarbleSpacing.xs)
     }

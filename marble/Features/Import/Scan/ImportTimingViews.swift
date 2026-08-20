@@ -16,6 +16,9 @@ struct ImportDateSection: View {
     /// pickers and toggle only — an id on the section would clobber the children.
     let idPrefix: String
     @Binding var performedAt: Date?
+    @Binding var notes: String?
+    /// Session length from a structured export; hidden for handwritten drafts.
+    var durationSeconds: Int? = nil
 
     /// Off by default: most notes carry a day, not a clock time. Turning it off
     /// keeps whatever time the date already holds — zeroing it would silently
@@ -56,10 +59,21 @@ struct ImportDateSection: View {
                     .accessibilityIdentifier("\(idPrefix).Time")
                 }
             }
+
+            TextField("Workout notes", text: notesBinding, axis: .vertical)
+                .font(MarbleTypography.rowSubtitle)
+                .lineLimit(1...3)
+                .writingToolsBehavior(.disabled)
+                .accessibilityIdentifier("\(idPrefix).Notes")
         } footer: {
-            Text("Applied to every set unless a set has its own date & time.")
-                .font(MarbleTypography.caption)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                Text("Applied to every set unless a set has its own date & time.")
+                if let durationLine {
+                    Text(durationLine)
+                }
+            }
+            .font(MarbleTypography.caption)
+            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
     }
 
@@ -70,6 +84,26 @@ struct ImportDateSection: View {
             get: { performedAt ?? AppEnvironment.now },
             set: { performedAt = $0 }
         )
+    }
+
+    private var notesBinding: Binding<String> {
+        Binding(
+            get: { notes ?? "" },
+            set: { notes = $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+        )
+    }
+
+    private var durationLine: String? {
+        guard let durationSeconds, durationSeconds > 0 else { return nil }
+        let minutes = durationSeconds / 60
+        if minutes >= 120 {
+            let hours = minutes / 60
+            let remainder = minutes % 60
+            if remainder == 0 { return "Export length \(hours)h." }
+            return "Export length \(hours)h \(remainder)m."
+        }
+        if minutes > 0 { return "Export length \(minutes) min." }
+        return "Export length \(durationSeconds)s."
     }
 }
 
@@ -196,5 +230,128 @@ struct ImportSetTimingRows<Row: View>: View {
 
     private func removeOverride() {
         withAnimation { set.performedAt = nil }
+    }
+}
+
+// MARK: - Shared review fields
+
+/// Library match picker used by Scan and Paste or Type. Glass stays off this
+/// content row — it's a solid list control, not navigation chrome.
+struct ImportExerciseMatchRow: View {
+    let exerciseName: String
+    let exerciseID: UUID
+    let idPrefix: String
+    let resolution: WorkoutTextEntryViewModel.Resolution?
+    var onChoose: (WorkoutTextEntryViewModel.Resolution.Choice) -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        if let resolution {
+            Menu {
+                ForEach(resolution.suggestions, id: \.candidate.id) { match in
+                    Button {
+                        onChoose(.library(id: match.candidate.id, name: match.candidate.name))
+                    } label: {
+                        if case let .library(id, _) = resolution.choice, id == match.candidate.id {
+                            Label(match.candidate.name, systemImage: "checkmark")
+                        } else {
+                            Text(match.candidate.name)
+                        }
+                    }
+                }
+                Button {
+                    onChoose(.createNew)
+                } label: {
+                    if resolution.choice == .createNew {
+                        Label(createLabel, systemImage: "checkmark")
+                    } else {
+                        Text(createLabel)
+                    }
+                }
+            } label: {
+                HStack(spacing: MarbleSpacing.xs) {
+                    Image(systemName: matchIcon)
+                        .font(.system(size: 14, weight: .semibold))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(matchTitle)
+                            .font(MarbleTypography.rowMeta)
+                        if resolution.autoConfidence == .likely {
+                            Text("Close match — double-check")
+                                .font(MarbleTypography.caption)
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .contentShape(Rectangle())
+                .frame(minHeight: 44)
+            }
+            .accessibilityIdentifier("\(idPrefix).Exercise.Match.\(exerciseID.uuidString)")
+        }
+    }
+
+    private var createLabel: String {
+        let name = exerciseName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? "Create new exercise" : "Create new \"\(name)\""
+    }
+
+    private var matchTitle: String {
+        switch resolution?.choice {
+        case let .library(_, name):
+            return "Logs to \(name)"
+        case .createNew, nil:
+            return "New exercise in your library"
+        }
+    }
+
+    private var matchIcon: String {
+        switch resolution?.choice {
+        case .library:
+            return "checkmark.circle"
+        case .createNew, nil:
+            return "plus.circle"
+        }
+    }
+}
+
+/// Rest, RPE, and notes on an import set row. Solid content fields — no glass.
+struct ImportSetAnnotationFields: View {
+    let idPrefix: String
+    @Binding var set: ParsedSetDraft
+
+    var body: some View {
+        OptionalIntegerField(
+            title: "Rest (sec)",
+            value: $set.restSeconds,
+            accessibilityIdentifier: "\(idPrefix).Set.Rest.\(set.id.uuidString)"
+        )
+        OptionalIntegerField(
+            title: "RPE",
+            value: Binding(
+                get: { set.difficulty },
+                set: { newValue in
+                    guard let newValue else {
+                        set.difficulty = nil
+                        return
+                    }
+                    set.difficulty = min(10, max(1, newValue))
+                }
+            ),
+            accessibilityIdentifier: "\(idPrefix).Set.RPE.\(set.id.uuidString)"
+        )
+        TextField("Notes", text: Binding(
+            get: { set.notes ?? "" },
+            set: { newValue in
+                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                set.notes = trimmed.isEmpty ? nil : newValue
+            }
+        ), axis: .vertical)
+        .font(MarbleTypography.rowSubtitle)
+        .lineLimit(1...3)
+        .writingToolsBehavior(.disabled)
+        .accessibilityIdentifier("\(idPrefix).Set.Notes.\(set.id.uuidString)")
     }
 }

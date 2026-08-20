@@ -29,13 +29,13 @@ nonisolated enum WorkoutSessionSegmenter {
             current.contains { line in
                 let candidate = line.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !candidate.isEmpty else { return false }
-                return !HandwrittenWorkoutParser.isSessionDateHeader(candidate, referenceDate: referenceDate)
+                return !HandwrittenWorkoutParser.isSessionSplitHeader(candidate, referenceDate: referenceDate)
             }
         }
 
         for line in rawLines {
             let candidate = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            if HandwrittenWorkoutParser.isSessionDateHeader(candidate, referenceDate: referenceDate),
+            if HandwrittenWorkoutParser.isSessionSplitHeader(candidate, referenceDate: referenceDate),
                currentHasWorkoutContent() {
                 flush()
             }

@@ -13,7 +13,7 @@ import SwiftData
 enum WorkoutScanImporter {
 
     static let importNote = "Imported from a scanned workout"
-    static let textEntryNote = "Imported from a typed workout"
+    static let textEntryNote = "Imported from Paste or Type"
 
     /// Millisecond spacing of the review-order cascade (see `import`). 1 ms per
     /// set keeps even a 200-set paste inside one-fifth of a second.

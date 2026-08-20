@@ -41,6 +41,27 @@ final class WorkoutTextEntryViewModel {
         var suggestions: [ExerciseMatcher.Match]
         /// Confidence of the automatic pick; nil once the user overrides it.
         var autoConfidence: ExerciseMatcher.Confidence?
+
+        /// Exact and strong matches bind to the library. Likely matches stay
+        /// suggestions but default to creating a new row so "Bench" does not
+        /// silently merge into "Bench Press".
+        static func automatic(for name: String, matcher: ExerciseMatcher) -> Resolution {
+            let suggestions = matcher.topMatches(for: name)
+            guard let best = suggestions.first else {
+                return Resolution(choice: .createNew, suggestions: [], autoConfidence: nil)
+            }
+            let choice: Choice
+            if best.confidence >= .strong {
+                choice = .library(id: best.candidate.id, name: best.candidate.name)
+            } else {
+                choice = .createNew
+            }
+            return Resolution(
+                choice: choice,
+                suggestions: suggestions,
+                autoConfidence: best.confidence
+            )
+        }
     }
 
     typealias ImportHandler = (ParsedWorkoutDraft, String, ModelContext) throws -> WorkoutImporter.Summary
@@ -169,7 +190,7 @@ final class WorkoutTextEntryViewModel {
         }
     }
 
-    static let defaultTitle = "Typed workout"
+    static let defaultTitle = "Imported workout"
 
     // MARK: - Parse
 
@@ -263,7 +284,7 @@ final class WorkoutTextEntryViewModel {
         // Date headers are consumed by the parser, not dropped; filter anyway
         // so a leftover header never forces a model pass.
         let meaningfulDrops = diagnostics.droppedLines.filter { line in
-            !HandwrittenWorkoutParser.isSessionDateHeader(line, referenceDate: AppEnvironment.now)
+            !HandwrittenWorkoutParser.isSessionSplitHeader(line, referenceDate: AppEnvironment.now)
         }
         if sessionCount > 1, meaningfulDrops.isEmpty, diagnostics.draft.hasContent {
             var draft = diagnostics.draft
@@ -310,15 +331,7 @@ final class WorkoutTextEntryViewModel {
     }
 
     private func makeResolution(for name: String) -> Resolution {
-        let suggestions = matcher.topMatches(for: name)
-        guard let best = suggestions.first else {
-            return Resolution(choice: .createNew, suggestions: [], autoConfidence: nil)
-        }
-        return Resolution(
-            choice: .library(id: best.candidate.id, name: best.candidate.name),
-            suggestions: suggestions,
-            autoConfidence: best.confidence
-        )
+        Resolution.automatic(for: name, matcher: matcher)
     }
 
     // MARK: - Review editing
@@ -468,9 +481,9 @@ final class WorkoutTextEntryViewModel {
                 newCount += 1
             case .library:
                 libraryCount += 1
-                if resolution.autoConfidence == .likely {
-                    weakMatchCount += 1
-                }
+            }
+            if resolution.autoConfidence == .likely {
+                weakMatchCount += 1
             }
         }
         return SessionMatchBreakdown(
@@ -592,7 +605,8 @@ final class WorkoutTextEntryViewModel {
             durationSeconds: template.durationSeconds,
             restSeconds: template.restSeconds,
             performedAt: template.performedAt,
-            difficulty: template.difficulty
+            difficulty: template.difficulty,
+            notes: template.notes
         ))
     }
 

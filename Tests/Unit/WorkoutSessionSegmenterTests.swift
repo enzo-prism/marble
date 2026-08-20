@@ -85,6 +85,30 @@ final class WorkoutSessionSegmenterTests: MarbleTestCase {
     func testEmptyTextReturnsNoSegments() {
         XCTAssertTrue(WorkoutSessionSegmenter.segments(from: "  \n ", referenceDate: now).isEmpty)
     }
+
+    func testNumberedDayHeadersSplitSessions() {
+        let text = """
+        Day 1
+        Bench 3x8 @ 185
+
+        Day 2: Legs
+        Squat 5x5
+        """
+        let segments = WorkoutSessionSegmenter.segments(from: text, referenceDate: now)
+        XCTAssertEqual(segments.count, 2)
+        XCTAssertTrue(segments[0].contains("Bench"))
+        XCTAssertTrue(segments[1].contains("Squat"))
+    }
+
+    func testNumberedSessionHeaderWithSetSpecDoesNotSplit() {
+        let text = """
+        Push day
+        Day 1 Bench 3x8 @ 185
+        Squat 5x5
+        """
+        XCTAssertEqual(WorkoutSessionSegmenter.segments(from: text, referenceDate: now).count, 1)
+        XCTAssertFalse(HandwrittenWorkoutParser.isNumberedSessionHeader("Day 1 Bench 3x8 @ 185"))
+    }
 }
 
 @MainActor
@@ -121,6 +145,15 @@ final class HandwrittenWorkoutParserSessionHeaderTests: MarbleTestCase {
         XCTAssertTrue(HandwrittenWorkoutParser.isSessionDateHeader("Monday.", referenceDate: now))
         XCTAssertTrue(HandwrittenWorkoutParser.isSessionDateHeader("Tuesday:", referenceDate: now))
         XCTAssertTrue(HandwrittenWorkoutParser.isSessionDateHeader("- Monday -", referenceDate: now))
+    }
+
+    func testNumberedDayAndSessionHeaders() {
+        XCTAssertTrue(HandwrittenWorkoutParser.isNumberedSessionHeader("Day 1"))
+        XCTAssertTrue(HandwrittenWorkoutParser.isNumberedSessionHeader("Day 2: Legs"))
+        XCTAssertTrue(HandwrittenWorkoutParser.isNumberedSessionHeader("Session 3"))
+        XCTAssertTrue(HandwrittenWorkoutParser.isSessionSplitHeader("Workout 2", referenceDate: now))
+        XCTAssertFalse(HandwrittenWorkoutParser.isNumberedSessionHeader("Day 1 Bench 3x8 @ 185"))
+        XCTAssertFalse(HandwrittenWorkoutParser.isSessionDateHeader("Day 1", referenceDate: now))
     }
 
     func testFalseMondayOnASetLineDoesNotSplit() {

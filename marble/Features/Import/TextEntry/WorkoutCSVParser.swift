@@ -21,17 +21,23 @@ nonisolated enum WorkoutCSVParser {
     static func parse(_ text: String, defaultWeightUnit: WeightUnit = .lb) -> ParseResult? {
         let lines = CSVRecords.records(in: text)
         guard let headerLine = lines.first else { return nil }
-        let headers = CSVFields.parse(headerLine).map(normalizeHeader)
+        let delimiter = CSVFields.delimiter(in: headerLine)
+        let headers = CSVFields.parse(headerLine, delimiter: delimiter).map(normalizeHeader)
         guard let kind = detectKind(headers: headers) else { return nil }
 
-        let columns = ColumnMap(headers: headers, kind: kind, defaultWeightUnit: defaultWeightUnit)
+        let columns = ColumnMap(
+            headers: headers,
+            kind: kind,
+            defaultWeightUnit: defaultWeightUnit,
+            decimalComma: delimiter == ";"
+        )
         guard columns.exerciseName != nil else { return nil }
 
         var groups: [GroupKey: Group] = [:]
         var order: [GroupKey] = []
 
         for line in lines.dropFirst() {
-            let fields = CSVFields.parse(line)
+            let fields = CSVFields.parse(line, delimiter: delimiter)
             guard let row = Row(fields: fields, columns: columns) else { continue }
             guard row.hasSetValues else { continue }
 
@@ -98,7 +104,8 @@ nonisolated enum WorkoutCSVParser {
 
     private static func headerFields(in text: String) -> [String]? {
         guard let line = CSVRecords.records(in: text).first else { return nil }
-        let headers = CSVFields.parse(line).map(normalizeHeader)
+        let delimiter = CSVFields.delimiter(in: line)
+        let headers = CSVFields.parse(line, delimiter: delimiter).map(normalizeHeader)
         guard detectKind(headers: headers) != nil else { return nil }
         return headers
     }
@@ -123,8 +130,15 @@ nonisolated enum WorkoutCSVParser {
         var setNotes: Int?
         var exerciseNotes: Int?
         var workoutNotes: Int?
+        var superset: Int?
+        var decimalComma: Bool
 
-        init(headers: [String], kind: WorkoutImportPayloadKind, defaultWeightUnit: WeightUnit) {
+        init(
+            headers: [String],
+            kind: WorkoutImportPayloadKind,
+            defaultWeightUnit: WeightUnit,
+            decimalComma: Bool = false
+        ) {
             func index(_ names: [String]) -> Int? {
                 for name in names {
                     if let found = headers.firstIndex(of: name) { return found }
@@ -148,11 +162,13 @@ nonisolated enum WorkoutCSVParser {
             setNotes = index(["notes"])
             exerciseNotes = index(["exercise_notes", "exercise notes"])
             workoutNotes = index(["workout notes", "description"])
+            superset = index(["superset_id", "superset id", "superset"])
+            self.decimalComma = decimalComma
 
-            if let lbs = index(["weight_lbs", "weight lbs", "lbs"]) {
+            if let lbs = index(["weight_lbs", "weight lbs", "lbs", "weight (lbs)", "weight (lb)"]) {
                 weight = lbs
                 weightUnit = .lb
-            } else if let kg = index(["weight_kg", "weight kg", "kg"]) {
+            } else if let kg = index(["weight_kg", "weight kg", "kg", "weight (kg)"]) {
                 weight = kg
                 weightUnit = .kg
             } else {
@@ -160,15 +176,22 @@ nonisolated enum WorkoutCSVParser {
                 weightUnit = defaultWeightUnit
             }
 
-            if let miles = index(["distance_miles", "distance miles"]) {
+            if let miles = index(["distance_miles", "distance miles", "distance (miles)", "distance (mi)"]) {
                 distance = miles
                 distanceUnit = .miles
-            } else if let km = index(["distance_km", "distance km"]) {
+            } else if let km = index(["distance_km", "distance km", "distance (km)", "distance (kilometers)"]) {
                 distance = km
                 distanceUnit = .kilometers
             } else {
-                distance = index(["distance"])
-                distanceUnit = kind == .hevyCSV ? .miles : .meters
+                distance = index(["distance", "distance (m)", "distance (meters)"])
+                // Strong's bare Distance is the user's preferred unit (km or mi),
+                // never metres — a "5.0" run is 5 km/mi, not 5 m. Hevy names the
+                // unit in the header (`distance_miles` / `distance_km`).
+                if kind == .hevyCSV {
+                    distanceUnit = .miles
+                } else {
+                    distanceUnit = defaultWeightUnit == .kg ? .kilometers : .miles
+                }
             }
         }
     }
@@ -225,18 +248,19 @@ nonisolated enum WorkoutCSVParser {
             workoutNotes = description.isEmpty ? nil : description
             exerciseName = name
             setIndex = Int(field(columns.setIndex)) ?? 0
-            weight = CSVNumber.positiveDouble(field(columns.weight))
+            weight = CSVNumber.positiveDouble(field(columns.weight), decimalComma: columns.decimalComma)
             weightUnit = columns.weightUnit
-            reps = CSVNumber.positiveInt(field(columns.reps))
-            distance = CSVNumber.positiveDouble(field(columns.distance))
+            reps = CSVNumber.positiveInt(field(columns.reps), decimalComma: columns.decimalComma)
+            distance = CSVNumber.positiveDouble(field(columns.distance), decimalComma: columns.decimalComma)
             distanceUnit = columns.distanceUnit
-            durationSeconds = CSVNumber.positiveInt(field(columns.duration))
+            durationSeconds = CSVNumber.positiveInt(field(columns.duration), decimalComma: columns.decimalComma)
                 ?? CSVNumber.durationToken(field(columns.duration))
-            difficulty = CSVNumber.rpe(field(columns.rpe))
+            difficulty = CSVNumber.rpe(field(columns.rpe), decimalComma: columns.decimalComma)
             notes = CSVSetNotes.compose(
                 exerciseNotes: field(columns.exerciseNotes),
                 setNotes: field(columns.setNotes),
-                setType: setType
+                setType: setType,
+                supersetID: field(columns.superset)
             )
         }
     }
@@ -253,8 +277,10 @@ nonisolated enum WorkoutCSVParser {
         var end: Date?
         var durationSeconds: Int?
         var notes: String?
-        var exercises: [String: ExerciseBucket] = [:]
-        var exerciseOrder: [String] = []
+        /// Contiguous same-name runs. A `set_index` reset (Hevy logging the
+        /// same lift twice) starts a new exercise so sort-by-index cannot
+        /// interleave the two blocks.
+        var runs: [ExerciseBucket] = []
 
         mutating func append(_ row: Row) {
             if end == nil { end = row.endDate }
@@ -262,39 +288,32 @@ nonisolated enum WorkoutCSVParser {
             if (notes == nil || notes?.isEmpty == true), let note = row.workoutNotes, !note.isEmpty {
                 notes = note
             }
-            let key = row.exerciseName.lowercased()
-            if exercises[key] == nil {
-                exerciseOrder.append(key)
-                exercises[key] = ExerciseBucket(name: row.exerciseName)
-            }
-            exercises[key]?.sets.append(
-                SetRow(
-                    index: row.setIndex,
-                    set: ParsedSetDraft(
-                        weight: row.weight,
-                        weightUnit: row.weightUnit,
-                        reps: row.reps,
-                        distance: row.distance,
-                        distanceUnit: row.distanceUnit,
-                        durationSeconds: row.durationSeconds,
-                        performedAt: row.startDate,
-                        difficulty: row.difficulty,
-                        notes: row.notes
-                    )
-                )
+            let set = ParsedSetDraft(
+                weight: row.weight,
+                weightUnit: row.weightUnit,
+                reps: row.reps,
+                distance: row.distance,
+                distanceUnit: row.distanceUnit,
+                durationSeconds: row.durationSeconds,
+                performedAt: row.startDate,
+                difficulty: row.difficulty,
+                notes: row.notes
             )
+            if var last = runs.last,
+               last.name.compare(row.exerciseName, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame,
+               row.setIndex >= last.lastIndex {
+                last.sets.append(set)
+                last.lastIndex = row.setIndex
+                runs[runs.count - 1] = last
+            } else {
+                runs.append(ExerciseBucket(name: row.exerciseName, lastIndex: row.setIndex, sets: [set]))
+            }
         }
 
         func makeWorkout(kind: WorkoutImportPayloadKind) -> Workout? {
-            let parsedExercises: [ParsedExerciseDraft] = exerciseOrder.compactMap { key in
-                guard var bucket = exercises[key] else { return nil }
-                bucket.sets.sort { lhs, rhs in
-                    if lhs.index != rhs.index { return lhs.index < rhs.index }
-                    return false
-                }
-                let sets = bucket.sets.map(\.set)
-                guard !sets.isEmpty else { return nil }
-                return ParsedExerciseDraft(name: bucket.name, sets: sets)
+            let parsedExercises: [ParsedExerciseDraft] = runs.compactMap { bucket in
+                guard !bucket.sets.isEmpty else { return nil }
+                return ParsedExerciseDraft(name: bucket.name, sets: bucket.sets)
             }
             guard !parsedExercises.isEmpty else { return nil }
 
@@ -354,12 +373,8 @@ nonisolated enum WorkoutCSVParser {
 
     private struct ExerciseBucket {
         var name: String
-        var sets: [SetRow] = []
-    }
-
-    private struct SetRow {
-        var index: Int
-        var set: ParsedSetDraft
+        var lastIndex: Int
+        var sets: [ParsedSetDraft]
     }
 }
 
@@ -383,7 +398,12 @@ nonisolated enum CSVSetType {
 }
 
 nonisolated enum CSVSetNotes {
-    static func compose(exerciseNotes: String, setNotes: String, setType: String) -> String? {
+    static func compose(
+        exerciseNotes: String,
+        setNotes: String,
+        setType: String,
+        supersetID: String = ""
+    ) -> String? {
         var parts: [String] = []
         let exercise = exerciseNotes.trimmingCharacters(in: .whitespacesAndNewlines)
         let set = setNotes.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -392,6 +412,8 @@ nonisolated enum CSVSetNotes {
             parts.append(set)
         }
         if let tag = CSVSetType.noteTag(setType) { parts.append(tag) }
+        let superset = supersetID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !superset.isEmpty { parts.append("Superset \(superset)") }
         guard !parts.isEmpty else { return nil }
         return parts.joined(separator: ". ")
     }
@@ -444,8 +466,33 @@ nonisolated enum CSVRecords {
 }
 
 nonisolated enum CSVFields {
-    /// Splits a single CSV line, honouring quoted commas and doubled quotes.
-    static func parse(_ line: String) -> [String] {
+    /// Picks `;` for EU/Android Strong exports when that is the majority
+    /// unquoted separator; otherwise comma (Hevy and US Strong).
+    static func delimiter(in line: String) -> Character {
+        var commas = 0
+        var semicolons = 0
+        var inQuotes = false
+        var index = line.startIndex
+        while index < line.endIndex {
+            let character = line[index]
+            if character == "\"" {
+                let next = line.index(after: index)
+                if inQuotes, next < line.endIndex, line[next] == "\"" {
+                    index = next
+                } else {
+                    inQuotes.toggle()
+                }
+            } else if !inQuotes {
+                if character == "," { commas += 1 }
+                else if character == ";" { semicolons += 1 }
+            }
+            index = line.index(after: index)
+        }
+        return semicolons > commas ? ";" : ","
+    }
+
+    /// Splits a single CSV line, honouring quoted separators and doubled quotes.
+    static func parse(_ line: String, delimiter: Character = ",") -> [String] {
         var fields: [String] = []
         var current = ""
         var inQuotes = false
@@ -460,7 +507,7 @@ nonisolated enum CSVFields {
                 } else {
                     inQuotes.toggle()
                 }
-            } else if character == ",", !inQuotes {
+            } else if character == delimiter, !inQuotes {
                 fields.append(current)
                 current = ""
             } else {
@@ -476,15 +523,23 @@ nonisolated enum CSVFields {
 // MARK: - Numbers / dates
 
 nonisolated enum CSVNumber {
-    static func positiveDouble(_ raw: String) -> Double? {
-        let cleaned = raw.replacingOccurrences(of: ",", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+    static func positiveDouble(_ raw: String, decimalComma: Bool = false) -> Double? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let cleaned: String
+        if decimalComma {
+            // EU exports: "100,5" is 100.5; "1.000,5" is 1000.5.
+            cleaned = trimmed.replacingOccurrences(of: ".", with: "")
+                .replacingOccurrences(of: ",", with: ".")
+        } else {
+            cleaned = trimmed.replacingOccurrences(of: ",", with: "")
+        }
         guard let value = Double(cleaned), value > 0 else { return nil }
         return value
     }
 
-    static func positiveInt(_ raw: String) -> Int? {
-        guard let value = positiveDouble(raw) else { return nil }
+    static func positiveInt(_ raw: String, decimalComma: Bool = false) -> Int? {
+        guard let value = positiveDouble(raw, decimalComma: decimalComma) else { return nil }
         return Int(value.rounded())
     }
 
@@ -500,8 +555,8 @@ nonisolated enum CSVNumber {
     }
 
     /// Hevy/Strong RPE. Empty and zero keep the journal default; half-steps round.
-    static func rpe(_ raw: String) -> Int? {
-        guard let value = positiveDouble(raw) else { return nil }
+    static func rpe(_ raw: String, decimalComma: Bool = false) -> Int? {
+        guard let value = positiveDouble(raw, decimalComma: decimalComma) else { return nil }
         return min(10, max(1, Int(value.rounded())))
     }
 

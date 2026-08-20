@@ -33,12 +33,15 @@ final class WorkoutScanViewModel {
     private(set) var externalID = ""
     /// Concatenated OCR when `phase == .textHandoff`.
     private(set) var handoffText = ""
+    /// Per-exercise library match, same policy as Paste or Type.
+    private(set) var resolutions: [UUID: WorkoutTextEntryViewModel.Resolution] = [:]
 
     private let recognizer: WorkoutTextRecognizing
     private let parser: WorkoutScanParsing
     /// Test seam: when nil, `commit` calls `WorkoutScanImporter` directly (on the main
     /// actor, where it belongs).
     private let importHandler: ImportHandler?
+    private var matcher = ExerciseMatcher(candidates: [])
 
     init(
         recognizer: WorkoutTextRecognizing = VisionWorkoutTextRecognizer(),
@@ -117,6 +120,8 @@ final class WorkoutScanViewModel {
 
         let parsed = await parser.parse(ocrText: combined, referenceDate: AppEnvironment.now)
         draft = parsed
+        reloadMatcher(in: context)
+        rebuildResolutions()
         alreadyImported = (try? WorkoutScanImporter.alreadyImported(externalID: externalID, in: context)) ?? false
         phase = .review
     }
@@ -139,7 +144,9 @@ final class WorkoutScanViewModel {
     // MARK: - Review editing
 
     func addExercise() {
-        draft.exercises.append(ParsedExerciseDraft(name: "", sets: [ParsedSetDraft(reps: 1)]))
+        let exercise = ParsedExerciseDraft(name: "", sets: [ParsedSetDraft(reps: 1)])
+        draft.exercises.append(exercise)
+        resolutions[exercise.id] = .init(choice: .createNew, suggestions: [], autoConfidence: nil)
     }
 
     func addSet(toExerciseWithID id: UUID) {
@@ -154,20 +161,66 @@ final class WorkoutScanViewModel {
             durationSeconds: template.durationSeconds,
             restSeconds: template.restSeconds,
             performedAt: template.performedAt,
-            difficulty: template.difficulty
+            difficulty: template.difficulty,
+            notes: template.notes
         ))
     }
 
     func removeExercise(withID id: UUID) {
         draft.exercises.removeAll { $0.id == id }
+        resolutions[id] = nil
     }
 
     func removeSets(fromExerciseWithID id: UUID, at offsets: IndexSet) {
         guard let index = draft.exercises.firstIndex(where: { $0.id == id }) else { return }
         draft.exercises[index].sets.remove(atOffsets: offsets)
         if draft.exercises[index].sets.isEmpty {
-            draft.exercises.remove(at: index)
+            removeExercise(withID: id)
         }
+    }
+
+    func resolution(for exerciseID: UUID) -> WorkoutTextEntryViewModel.Resolution? {
+        resolutions[exerciseID]
+    }
+
+    func choose(_ choice: WorkoutTextEntryViewModel.Resolution.Choice, for exerciseID: UUID) {
+        guard var resolution = resolutions[exerciseID] else { return }
+        resolution.choice = choice
+        resolution.autoConfidence = nil
+        resolutions[exerciseID] = resolution
+    }
+
+    func refreshResolution(forExerciseWithID id: UUID) {
+        guard let exercise = draft.exercises.first(where: { $0.id == id }) else { return }
+        resolutions[id] = WorkoutTextEntryViewModel.Resolution.automatic(for: exercise.name, matcher: matcher)
+    }
+
+    private func reloadMatcher(in context: ModelContext) {
+        let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
+        matcher = ExerciseMatcher(candidates: exercises.map {
+            ExerciseMatcher.Candidate(id: $0.id, name: $0.name)
+        })
+    }
+
+    private func rebuildResolutions() {
+        resolutions = [:]
+        for exercise in draft.exercises {
+            resolutions[exercise.id] = WorkoutTextEntryViewModel.Resolution.automatic(
+                for: exercise.name,
+                matcher: matcher
+            )
+        }
+    }
+
+    private func draftApplyingResolutions(_ draft: ParsedWorkoutDraft) -> ParsedWorkoutDraft {
+        var toImport = draft
+        for index in toImport.exercises.indices {
+            let id = toImport.exercises[index].id
+            if case let .library(_, name)? = resolutions[id]?.choice {
+                toImport.exercises[index].name = name
+            }
+        }
+        return toImport
     }
 
     // MARK: - Commit
@@ -178,9 +231,10 @@ final class WorkoutScanViewModel {
             return
         }
         errorMessage = nil
+        let toImport = draftApplyingResolutions(draft)
         do {
-            let summary = try importHandler?(draft, externalID, context)
-                ?? WorkoutScanImporter.import(draft, externalID: externalID, in: context)
+            let summary = try importHandler?(toImport, externalID, context)
+                ?? WorkoutScanImporter.import(toImport, externalID: externalID, in: context)
             lastSummary = summary
             if summary.importedSets > 0 {
                 MarbleHaptics.success()
@@ -210,5 +264,7 @@ final class WorkoutScanViewModel {
         alreadyImported = false
         externalID = ""
         handoffText = ""
+        resolutions = [:]
+        matcher = ExerciseMatcher(candidates: [])
     }
 }

@@ -141,7 +141,7 @@ nonisolated enum WorkoutDraftArbiter {
 
     // MARK: - Merging
 
-    private static let placeholderTitles: Set<String> = ["Scanned workout", "Typed workout"]
+    private static let placeholderTitles: Set<String> = ["Scanned workout", "Typed workout", "Imported workout"]
 
     /// Carries fields the winner missed but the loser caught: the losing parse may
     /// still have read the date header or title line correctly even when its sets

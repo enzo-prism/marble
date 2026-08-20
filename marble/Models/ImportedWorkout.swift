@@ -29,7 +29,7 @@ nonisolated enum ImportSource: String, Codable, CaseIterable, Identifiable {
         case .photoScan:
             return "Scanned Workout"
         case .textEntry:
-            return "Typed Workout"
+            return "Paste or Type"
         }
     }
 

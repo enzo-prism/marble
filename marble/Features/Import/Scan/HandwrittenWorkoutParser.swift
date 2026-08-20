@@ -415,11 +415,12 @@ nonisolated enum HandwrittenWorkoutParser {
               let specRange = Range(match.range(at: 1), in: line) else { return nil }
         let spec = String(line[specRange])
 
-        // Rest rides along when written on the row ("Set 1: 225 x 5, rest 90s" —
-        // the comma is already normalized to a space).
-        let (tokens, restSeconds) = extractRest(
+        // Rest and RPE ride along when written on the row
+        // ("Set 1: 225 x 5, rest 90s, RPE 8" — the comma is already a space).
+        let (restStripped, restSeconds) = extractRest(
             mergeSpecTokens(spec.split(separator: " ").map(String.init))
         )
+        let (tokens, difficulty) = extractRPE(restStripped)
         let body = tokens.joined(separator: " ")
         guard let specRegex = setRowSpecRegex,
               let specMatch = firstMatch(specRegex, in: body),
@@ -435,7 +436,13 @@ nonisolated enum HandwrittenWorkoutParser {
                 unit = body[unitRange].lowercased().hasPrefix("k") ? .kg : .lb
             }
         }
-        return ParsedSetDraft(weight: weight, weightUnit: unit, reps: reps, restSeconds: restSeconds)
+        return ParsedSetDraft(
+            weight: weight,
+            weightUnit: unit,
+            reps: reps,
+            restSeconds: restSeconds,
+            difficulty: difficulty
+        )
     }
 
     // MARK: - EMOM
@@ -548,10 +555,11 @@ nonisolated enum HandwrittenWorkoutParser {
         var bareNumbers: [Double] = []
         var expectWeight = false
 
-        // Pull rest notation out first so "90s rest" isn't read as a timed set,
-        // and tempo notation so "tempo 31x1" isn't read as a second pair.
+        // Pull rest and RPE out first so "90s rest" isn't a timed set, "RPE 8"
+        // isn't a bare 8 lb, and tempo "31x1" isn't a second pair.
         let (restStripped, restSeconds) = extractRest(mergeSpecTokens(rawTokens))
-        let tokens = stripTempo(restStripped)
+        let (rpeStripped, difficulty) = extractRPE(restStripped)
+        let tokens = stripTempo(rpeStripped)
 
         for token in tokens {
             let lower = token.lowercased()
@@ -635,10 +643,19 @@ nonisolated enum HandwrittenWorkoutParser {
             bareNumbers: bareNumbers,
             defaultWeightUnit: defaultWeightUnit
         )
-        guard let restSeconds else { return sets }
+        return annotate(sets, restSeconds: restSeconds, difficulty: difficulty)
+    }
+
+    private static func annotate(
+        _ sets: [ParsedSetDraft],
+        restSeconds: Int?,
+        difficulty: Int?
+    ) -> [ParsedSetDraft] {
+        guard restSeconds != nil || difficulty != nil else { return sets }
         return sets.map { set in
             var updated = set
-            updated.restSeconds = restSeconds
+            if updated.restSeconds == nil { updated.restSeconds = restSeconds }
+            if updated.difficulty == nil { updated.difficulty = difficulty }
             return updated
         }
     }
@@ -679,6 +696,43 @@ nonisolated enum HandwrittenWorkoutParser {
 
         remaining.remove(at: markerIndex)
         return (remaining, nil)
+    }
+
+    // MARK: - RPE notation
+
+    /// Removes RPE tokens so they cannot be read as load. Safe patterns only:
+    /// "RPE 8", "rpe8", "@RPE 8.5". Bare "@ 8" stays weight.
+    private static func extractRPE(_ tokens: [String]) -> (tokens: [String], difficulty: Int?) {
+        var remaining = tokens
+        for (index, token) in remaining.enumerated() {
+            if let value = rpeFromGluedToken(token.lowercased()) {
+                remaining.remove(at: index)
+                return (remaining, value)
+            }
+        }
+        guard let markerIndex = remaining.firstIndex(where: { $0.lowercased() == "rpe" }) else {
+            return (remaining, nil)
+        }
+        if markerIndex + 1 < remaining.count,
+           let value = CSVNumber.rpe(remaining[markerIndex + 1]) {
+            remaining.removeSubrange(markerIndex...(markerIndex + 1))
+            return (remaining, value)
+        }
+        if markerIndex > 0, let value = CSVNumber.rpe(remaining[markerIndex - 1]) {
+            remaining.removeSubrange((markerIndex - 1)...markerIndex)
+            return (remaining, value)
+        }
+        remaining.remove(at: markerIndex)
+        return (remaining, nil)
+    }
+
+    private static func rpeFromGluedToken(_ lower: String) -> Int? {
+        var body = lower
+        if body.hasPrefix("@") { body.removeFirst() }
+        guard body.hasPrefix("rpe"), body.count > 3 else { return nil }
+        body = String(body.dropFirst(3))
+        if body.hasPrefix("@") { body.removeFirst() }
+        return CSVNumber.rpe(body)
     }
 
     /// When a whole line is nothing but rest notation ("rest 2 min between sets"),
@@ -1089,6 +1143,28 @@ nonisolated enum HandwrittenWorkoutParser {
         return isWordOnly(remainder)
     }
 
+    /// Date headers plus numbered session labels (`Day 1`, `Session 2: Legs`).
+    /// Used by the paste splitter only — these labels are not calendar dates.
+    static func isSessionSplitHeader(_ rawLine: String, referenceDate: Date) -> Bool {
+        if isSessionDateHeader(rawLine, referenceDate: referenceDate) { return true }
+        return isNumberedSessionHeader(rawLine)
+    }
+
+    /// "Day 1", "Session 2: Upper", "Workout 3 — Legs". A trailing set spec
+    /// (`Day 1 Bench 3x8`) stays inside the current session.
+    static func isNumberedSessionHeader(_ rawLine: String) -> Bool {
+        let line = normalize(rawLine)
+        guard !line.isEmpty, let regex = numberedSessionHeaderRegex else { return false }
+        let nsRange = NSRange(line.startIndex..., in: line)
+        guard let match = regex.firstMatch(in: line, range: nsRange) else { return false }
+        guard match.range(at: 3).location != NSNotFound,
+              let remainderRange = Range(match.range(at: 3), in: line) else {
+            return true
+        }
+        let remainder = line[remainderRange].trimmingCharacters(in: .whitespacesAndNewlines)
+        return remainder.isEmpty || isWordOnly(remainder)
+    }
+
     private struct DateMatch { var date: Date; var range: Range<String.Index> }
 
     /// The lookaround guards keep a rep ladder ("5/3/1", "225x5/3/1") from being
@@ -1104,6 +1180,10 @@ nonisolated enum HandwrittenWorkoutParser {
 
     private static let relativeDateRegex = try? NSRegularExpression(
         pattern: #"(?i)\b(yesterday|last night|this morning|tonight|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|weds|thu|thur|thurs|fri|sat|sun)\b"#
+    )
+
+    private static let numberedSessionHeaderRegex = try? NSRegularExpression(
+        pattern: #"^(?i)(day|session|workout)\s+(\d{1,2})(?:\s*[:.\-]\s*(.*))?$"#
     )
 
     /// The relative date words users actually write in notes ("yesterday bench …").

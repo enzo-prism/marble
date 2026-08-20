@@ -1,6 +1,6 @@
 import Foundation
 
-/// Holds workout text that should open the Typed Workout sheet once the
+/// Holds workout text that should open the Paste or Type sheet once the
 /// Import hub is on screen. Written by the Review Workout Text/File intents
 /// and consumed by `ImportView` so the paste never lives in a URL or a
 /// background commit.

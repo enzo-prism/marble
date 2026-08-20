@@ -166,4 +166,50 @@ final class WorkoutScanViewModelTests: MarbleTestCase {
         XCTAssertTrue(viewModel.handoffText.contains("Tuesday"))
         XCTAssertTrue(viewModel.draft.exercises.isEmpty)
     }
+
+    func testExactLibraryNameReusesExistingExercise() async throws {
+        let context = makeInMemoryContext()
+        let existing = Exercise(name: "Bench Press", category: .chest, metrics: .weightAndRepsRequired, defaultRestSeconds: 90)
+        context.insert(existing)
+        try context.save()
+
+        let viewModel = makeViewModel(text: "bench press 3x5 @ 135")
+        await viewModel.process(cgImage: makeCGImage(), imageData: Data("page".utf8), in: context)
+
+        let exerciseID = try! XCTUnwrap(viewModel.draft.exercises.first?.id)
+        guard case let .library(id, name)? = viewModel.resolution(for: exerciseID)?.choice else {
+            return XCTFail("Expected an exact library match")
+        }
+        XCTAssertEqual(id, existing.id)
+        XCTAssertEqual(name, "Bench Press")
+
+        viewModel.commit(into: context)
+        let entries = try context.fetch(FetchDescriptor<SetEntry>())
+        XCTAssertTrue(entries.allSatisfy { $0.exercise.id == existing.id })
+        XCTAssertEqual(viewModel.lastSummary?.createdExercises, 0)
+    }
+
+    func testLikelyScanMatchDefaultsToCreateNew() async {
+        let context = makeInMemoryContext()
+        let existing = Exercise(name: "Bench Press", category: .chest, metrics: .weightAndRepsRequired, defaultRestSeconds: 90)
+        context.insert(existing)
+
+        let viewModel = makeViewModel(text: "Bench 3x5 @ 135")
+        await viewModel.process(cgImage: makeCGImage(), imageData: Data("page".utf8), in: context)
+
+        let exerciseID = try! XCTUnwrap(viewModel.draft.exercises.first?.id)
+        XCTAssertEqual(viewModel.resolution(for: exerciseID)?.choice, .createNew)
+        XCTAssertEqual(viewModel.resolution(for: exerciseID)?.autoConfidence, .likely)
+    }
+
+    func testAddSetCopiesNotesOnScan() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel(text: "Squat 5x5")
+        await viewModel.process(cgImage: makeCGImage(), imageData: Data("page".utf8), in: context)
+
+        let exerciseID = try! XCTUnwrap(viewModel.draft.exercises.first?.id)
+        viewModel.draft.exercises[0].sets[0].notes = "belt"
+        viewModel.addSet(toExerciseWithID: exerciseID)
+        XCTAssertEqual(viewModel.draft.exercises[0].sets.last?.notes, "belt")
+    }
 }

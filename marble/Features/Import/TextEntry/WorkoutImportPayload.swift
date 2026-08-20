@@ -10,7 +10,7 @@ nonisolated enum WorkoutImportPayloadKind: String, Sendable, Equatable {
 
     var originName: String {
         switch self {
-        case .typedText: return "Typed Workout"
+        case .typedText: return "Paste or Type"
         case .hevyCSV: return "Hevy"
         case .strongCSV: return "Strong"
         }

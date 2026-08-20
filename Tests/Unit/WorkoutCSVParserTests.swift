@@ -171,6 +171,75 @@ final class WorkoutCSVParserTests: MarbleTestCase {
         XCTAssertNil(set.reps)
         XCTAssertEqual(set.durationSeconds, 1500)
     }
+
+    func testHevySetIndexResetKeepsTwoBlocksOfTheSameLift() {
+        let csv = """
+        title,start_time,exercise_title,set_index,set_type,weight_lbs,reps
+        Push,2025-03-28 17:00:00,Bulgarian Split Squat,0,normal,95,8
+        Push,2025-03-28 17:00:00,Bulgarian Split Squat,1,normal,95,8
+        Push,2025-03-28 17:00:00,Bulgarian Split Squat,2,normal,95,8
+        Push,2025-03-28 17:00:00,Bulgarian Split Squat,0,normal,75,8
+        Push,2025-03-28 17:00:00,Bulgarian Split Squat,1,normal,75,8
+        Push,2025-03-28 17:00:00,Bulgarian Split Squat,2,normal,75,8
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        let exercises = result.workouts[0].draft.exercises
+        XCTAssertEqual(exercises.count, 2)
+        XCTAssertEqual(exercises.map(\.name), ["Bulgarian Split Squat", "Bulgarian Split Squat"])
+        XCTAssertEqual(exercises[0].sets.map(\.weight), [95, 95, 95])
+        XCTAssertEqual(exercises[1].sets.map(\.weight), [75, 75, 75])
+    }
+
+    func testHevySupersetIdLandsInSetNotes() {
+        let csv = """
+        title,start_time,exercise_title,superset_id,set_index,set_type,weight_lbs,reps
+        Push,2025-03-28 17:00:00,Bench Press,0,0,normal,185,8
+        Push,2025-03-28 17:00:00,Row,0,0,normal,135,10
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        let draft = result.workouts[0].draft
+        XCTAssertEqual(draft.exercises[0].sets[0].notes, "Superset 0")
+        XCTAssertEqual(draft.exercises[1].sets[0].notes, "Superset 0")
+    }
+
+    func testStrongBareDistanceUsesPreferredUnit() {
+        let csv = """
+        Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE
+        2025-01-15 08:00:00,Cardio,45m,Running,1,0,0,5.0,1800,,,
+        """
+        let miles = try! XCTUnwrap(WorkoutCSVParser.parse(csv, defaultWeightUnit: .lb))
+        XCTAssertEqual(miles.workouts[0].draft.exercises[0].sets[0].distance, 5)
+        XCTAssertEqual(miles.workouts[0].draft.exercises[0].sets[0].distanceUnit, .miles)
+
+        let km = try! XCTUnwrap(WorkoutCSVParser.parse(csv, defaultWeightUnit: .kg))
+        XCTAssertEqual(km.workouts[0].draft.exercises[0].sets[0].distanceUnit, .kilometers)
+    }
+
+    func testSemicolonDelimitedStrongExportWithKilogramHeader() {
+        let csv = """
+        Date;Workout Name;Duration;Exercise Name;Set Order;Weight (kg);Reps;Distance;Seconds;Notes;Workout Notes;RPE
+        2025-01-15 18:00:00;Leg Day;60m;Squat (Barbell);1;100,5;5;0;0;;;8,5
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv, defaultWeightUnit: .kg))
+        XCTAssertEqual(result.kind, .strongCSV)
+        let set = result.workouts[0].draft.exercises[0].sets[0]
+        XCTAssertEqual(set.weight, 100.5)
+        XCTAssertEqual(set.weightUnit, .kg)
+        XCTAssertEqual(set.reps, 5)
+        XCTAssertEqual(set.difficulty, 9)
+        XCTAssertEqual(result.workouts[0].draft.durationSeconds, 3600)
+    }
+
+    func testWeightKilogramParenthesesHeader() {
+        let csv = """
+        Date,Workout Name,Duration,Exercise Name,Set Order,Weight (kg),Reps,Distance,Seconds,Notes,Workout Notes,RPE
+        2025-01-15 18:00:00,Leg Day,60m,Squat (Barbell),1,100,5,0,0,,,
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv, defaultWeightUnit: .lb))
+        let set = result.workouts[0].draft.exercises[0].sets[0]
+        XCTAssertEqual(set.weight, 100)
+        XCTAssertEqual(set.weightUnit, .kg)
+    }
 }
 
 @MainActor

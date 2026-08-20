@@ -681,16 +681,44 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertEqual(viewModel.phase, .batchReview)
 
         let first = viewModel.matchBreakdown(for: viewModel.sessions[0])
-        XCTAssertEqual(first.libraryCount, 1)
-        XCTAssertEqual(first.newCount, 1)
+        XCTAssertEqual(first.libraryCount, 0)
+        XCTAssertEqual(first.newCount, 2)
         XCTAssertEqual(first.weakMatchCount, 1)
-        XCTAssertEqual(first.line, "1 library · 1 new · 1 weak match")
+        XCTAssertEqual(first.line, "2 new · 1 weak match")
 
         let second = viewModel.matchBreakdown(for: viewModel.sessions[1])
         XCTAssertEqual(second.libraryCount, 0)
         XCTAssertEqual(second.newCount, 1)
         XCTAssertEqual(second.line, "1 new")
-        XCTAssertEqual(viewModel.newExerciseCount, 2)
+        XCTAssertEqual(viewModel.newExerciseCount, 3)
+    }
+
+    func testLikelyMatchDefaultsToCreateNewButKeepsSuggestion() async {
+        let context = makeInMemoryContext()
+        let existing = insertExercise("Bench Press", in: context)
+        let viewModel = makeViewModel()
+        viewModel.text = "bench 3x8 @ 185"
+
+        await viewModel.preview(in: context)
+
+        let exerciseID = viewModel.draft.exercises[0].id
+        let resolution = viewModel.resolution(for: exerciseID)
+        XCTAssertEqual(resolution?.choice, .createNew)
+        XCTAssertEqual(resolution?.autoConfidence, .likely)
+        XCTAssertEqual(resolution?.suggestions.first?.candidate.id, existing.id)
+        XCTAssertEqual(viewModel.newExerciseCount, 1)
+    }
+
+    func testAddSetCopiesNotes() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 1x8 @ 185"
+        await viewModel.preview(in: context)
+
+        let exerciseID = try! XCTUnwrap(viewModel.draft.exercises.first?.id)
+        viewModel.draft.exercises[0].sets[0].notes = "paused"
+        viewModel.addSet(toExerciseWithID: exerciseID)
+        XCTAssertEqual(viewModel.draft.exercises[0].sets.last?.notes, "paused")
     }
 }
 

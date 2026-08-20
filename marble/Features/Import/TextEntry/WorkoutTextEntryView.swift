@@ -311,7 +311,12 @@ struct WorkoutTextEntryView: View {
                 SectionHeaderView(title: "Workout")
             }
 
-            ImportDateSection(idPrefix: "TextEntry", performedAt: $viewModel.draft.performedAt)
+            ImportDateSection(
+                idPrefix: "TextEntry",
+                performedAt: $viewModel.draft.performedAt,
+                notes: $viewModel.draft.notes,
+                durationSeconds: viewModel.draft.durationSeconds
+            )
 
             if viewModel.alreadyImported {
                 Section {
@@ -537,7 +542,7 @@ struct WorkoutTextEntryView: View {
     private var navigationTitle: String {
         switch viewModel.phase {
         case .batchReview: return "Review Workouts"
-        case .review: return viewModel.isDrillingInFromBatch ? viewModel.draft.title : "Type a Workout"
+        case .review: return viewModel.isDrillingInFromBatch ? viewModel.draft.title : "Paste or Type"
         case .imported: return "Imported"
         default: return "Paste or Type"
         }
@@ -633,7 +638,13 @@ private struct TextEntryExerciseSection: View {
                 .onChange(of: exercise.name) { _, _ in onNameChanged() }
                 .accessibilityIdentifier("TextEntry.Exercise.Name.\(exercise.id.uuidString)")
 
-            matchRow
+            ImportExerciseMatchRow(
+                exerciseName: exercise.name,
+                exerciseID: exercise.id,
+                idPrefix: "TextEntry",
+                resolution: resolution,
+                onChoose: onChoose
+            )
 
             // No `.onDelete`: `ImportSetTimingRows` attaches `.swipeActions`,
             // which suppresses the synthesized Delete, so it re-adds an
@@ -691,78 +702,6 @@ private struct TextEntryExerciseSection: View {
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("TextEntry.Exercise.Remove.\(exercise.id.uuidString)")
             }
-        }
-    }
-
-    /// Shows how this exercise lands in the library — reuse an existing row or
-    /// create a new one — with a menu to change the decision.
-    @ViewBuilder
-    private var matchRow: some View {
-        if let resolution {
-            Menu {
-                ForEach(resolution.suggestions, id: \.candidate.id) { match in
-                    Button {
-                        onChoose(.library(id: match.candidate.id, name: match.candidate.name))
-                    } label: {
-                        if case let .library(id, _) = resolution.choice, id == match.candidate.id {
-                            Label(match.candidate.name, systemImage: "checkmark")
-                        } else {
-                            Text(match.candidate.name)
-                        }
-                    }
-                }
-                Button {
-                    onChoose(.createNew)
-                } label: {
-                    if resolution.choice == .createNew {
-                        Label(createLabel, systemImage: "checkmark")
-                    } else {
-                        Text(createLabel)
-                    }
-                }
-            } label: {
-                HStack(spacing: MarbleSpacing.xs) {
-                    Image(systemName: matchIcon)
-                        .font(.system(size: 14, weight: .semibold))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(matchTitle)
-                            .font(MarbleTypography.rowMeta)
-                        if resolution.autoConfidence == .likely {
-                            Text("Close match — double-check")
-                                .font(MarbleTypography.caption)
-                        }
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .contentShape(Rectangle())
-            }
-            .accessibilityIdentifier("TextEntry.Exercise.Match.\(exercise.id.uuidString)")
-        }
-    }
-
-    private var createLabel: String {
-        let name = exercise.trimmedName
-        return name.isEmpty ? "Create new exercise" : "Create new \"\(name)\""
-    }
-
-    private var matchTitle: String {
-        switch resolution?.choice {
-        case let .library(_, name):
-            return "Logs to \(name)"
-        case .createNew, nil:
-            return "New exercise in your library"
-        }
-    }
-
-    private var matchIcon: String {
-        switch resolution?.choice {
-        case .library:
-            return "checkmark.circle"
-        case .createNew, nil:
-            return "plus.circle"
         }
     }
 }
@@ -833,11 +772,7 @@ private struct TextEntrySetRow: View {
                 }
             }
 
-            OptionalIntegerField(
-                title: "Rest (sec)",
-                value: $set.restSeconds,
-                accessibilityIdentifier: "TextEntry.Set.Rest.\(set.id.uuidString)"
-            )
+            ImportSetAnnotationFields(idPrefix: "TextEntry", set: $set)
         }
         .padding(.vertical, MarbleSpacing.xs)
     }

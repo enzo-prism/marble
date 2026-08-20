@@ -208,4 +208,25 @@ final class HandwrittenWorkoutParserTests: MarbleTestCase {
         XCTAssertEqual(draft.totalSetCount, 12)
         XCTAssertTrue(draft.hasContent)
     }
+
+    func testRPEAfterMarkerMapsToDifficulty() {
+        let draft = parse("Bench Press 3x8 @ 185 RPE 8")
+        XCTAssertEqual(draft.exercises[0].sets.count, 3)
+        XCTAssertTrue(draft.exercises[0].sets.allSatisfy { $0.difficulty == 8 && $0.weight == 185 && $0.reps == 8 })
+    }
+
+    func testGluedRPETokenDoesNotBecomeWeight() {
+        let draft = parse("Squat 5x5 @ 225 rpe9")
+        XCTAssertTrue(draft.exercises[0].sets.allSatisfy { $0.difficulty == 9 && $0.weight == 225 })
+    }
+
+    func testRPEHalfStepRounds() {
+        let draft = parse("Bench 3x8 @ 185 RPE 8.5")
+        XCTAssertTrue(draft.exercises[0].sets.allSatisfy { $0.difficulty == 9 })
+    }
+
+    func testBareAtNumberStaysWeightNotRPE() {
+        let draft = parse("Bench 3x8 @ 185")
+        XCTAssertTrue(draft.exercises[0].sets.allSatisfy { $0.difficulty == nil && $0.weight == 185 })
+    }
 }
