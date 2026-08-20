@@ -58,12 +58,13 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-08-20)
 
-- **Bulk import honesty** (2.4 train, project build 57): Hevy same-lift re-logs keep
-  order; EU Strong CSV parses; `Day 1` labels are titles not exercises; weak matches
-  do not auto-merge into the library; scan review matches exercises, reorders, and
-  shows rest/RPE/notes; **Paste or Type** is the user-facing name. **App Store 2.3
-  stays `READY_FOR_DISTRIBUTION` (IA-only relative to this wave — do not release it
-  as a stand-in).** This wave ships as **2.4 TestFlight**. No schema change (still V6).
+- **Bulk import honesty** (2.4 TestFlight build 57 `VALID`, buildId
+  `a8f9716a-5b39-4013-a795-181344ff54a6`, PR #24 merge `df05585`): Hevy same-lift
+  re-logs keep order; EU Strong CSV parses; `Day 1` labels are titles not exercises;
+  weak matches do not auto-merge into the library; scan review matches exercises,
+  reorders, and shows rest/RPE/notes; **Paste or Type** is the user-facing name.
+  **App Store 2.3 stays `READY_FOR_DISTRIBUTION` (IA-only relative to this wave —
+  do not release it as a stand-in).** No schema change (still V6).
 - **Bulk import fidelity** (on `main`, PR #23 merge `cbd5116`): Hevy CSV skips warmup
   sets, maps RPE and notes, and keeps the session clock; multi-page scans concatenate OCR
   and hand a dated week to Paste or Type; batch review is honest about library / new /

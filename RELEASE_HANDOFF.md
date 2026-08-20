@@ -6,23 +6,29 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 ---
 
-## 2.4 Bulk import honesty — TestFlight (build 57)
+## 2.4 Bulk import honesty — TestFlight VALID (build 57)
 
-**Working tree / this train.** `MARKETING_VERSION = 2.4`, `CURRENT_PROJECT_VERSION = 57`.
-Apple closed the **2.3** train: uploading another 2.3 IPA fails `ITMS-90062` /
-`ITMS-90186` (CFBundleShortVersionString must be higher than the approved 2.3).
-Build 57 was unused on 2.3 and is the first 2.4 TestFlight.
+**On `main` (PR #24 merge `df05585`, 2026-08-20).** `MARKETING_VERSION = 2.4`,
+`CURRENT_PROJECT_VERSION = 57`. Apple closed the **2.3** train: uploading another
+2.3 IPA fails `ITMS-90062` / `ITMS-90186`. Build 57 is the first 2.4 TestFlight.
+
+**2.4 build 57 is `VALID`** (2026-08-20, buildId
+`a8f9716a-5b39-4013-a795-181344ff54a6`, Actions run `32335409907`, tag
+`publish/testflight/20260820T052323Z-df05585`). Internal **test group A**
+auto-receives; do not assign the build to it.
 
 **Do not App Store-release 2.3** (`READY_FOR_DISTRIBUTION`) as a stand-in — that
 binary is Train/Log/Progress IA, not this import wave. **Do not release 2.2.**
-**Do not submit 2.4 App Review** unless the user explicitly asks.
+**Do not submit 2.4 App Review** unless the user explicitly asks. There is no
+App Store 2.4 version yet (`asc` review/validate report version-not-found).
 
 What this wave is (on top of PR #23):
 
 - Hevy `set_index` reset → two exercise blocks (same name, original order).
 - EU/Android Strong CSV: `;` delimiter, `Weight (kg)`, decimal commas.
 - Strong `Distance` is km or mi from preferred weight unit, not metres.
-- `superset_id` tagged onto set notes. Strong `(Barbell)` suffixes stripped.
+- `superset_id` tagged onto set notes. Strong `(Barbell)` suffixes stripped
+  after grouping, so barbell and dumbbell variants stay two exercises.
 - Typed/scanned `RPE 8` / `rpe9` / `@RPE 8`; `Day 1` / `Session 2` paste splits
   and those labels become titles, not phantom exercises.
 - Hevy `failure` rows with 0 reps (or no load) stay in the draft.
@@ -32,12 +38,13 @@ What this wave is (on top of PR #23):
 - Scan re-import copy matches skip behavior. Journal origin **Paste or Type**.
 - No schema change (still V6).
 
-After Apple processing (`VALID`), put the 2.4/57 buildId here. Internal **test
-group A** auto-receives; do not assign the build to it.
+CI: `CI / unit-tests` green on merge SHA (`800` tests, 1 skipped, 0 failures;
+run `32334810598`).
 
 ```bash
 make cloud-preflight
-make cloud-testflight
+make cloud-status
+# already uploaded: do not re-run make cloud-testflight unless replacing the binary
 # do not: make cloud-appstore-release VERSION=2.3
 # do not: make cloud-appstore-submit VERSION=2.4   unless explicitly asked
 ```

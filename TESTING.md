@@ -95,11 +95,13 @@
   splits **without phantom Day/Session exercises**, Hevy failure 0-rep rows,
   Strong equipment-suffix stripping, likely matches defaulting to create-new,
   scan library matching, and scan exercise reorder.
-- Linux Cloud Agents cannot run `make unit`; GitHub Actions `CI / unit-tests` on
-  `macos-26` is the compile gate for this branch.
+- GitHub Actions `CI / unit-tests` on `macos-26`: **green** on PR #24 merge SHA
+  `df05585` (run `32334810598`) — **800 tests, 1 skipped, 0 failures**.
 - Hub button and journal origin under test are **Paste or Type**; do not look for
   "Typed Workout". File picker accepts `.txt` / `.csv` only.
 - No schema change (still V6). Marketing version **2.4**, project build **57**.
+- TestFlight **2.4 build 57 `VALID`** (buildId `a8f9716a-5b39-4013-a795-181344ff54a6`,
+  Actions run `32335409907`). Snapshots / UI / `make audit` still need a Mac.
 
 ## Latest verification (2026-08-20, bulk import fidelity)
 
