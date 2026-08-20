@@ -419,7 +419,7 @@ nonisolated enum CSVNumber {
 }
 
 nonisolated enum CSVWorkoutDate {
-    nonisolated(unsafe) static let display: DateFormatter = {
+    static let display: DateFormatter = {
         makeFormatter("d MMM yyyy, HH:mm")
     }()
 
@@ -435,7 +435,7 @@ nonisolated enum CSVWorkoutDate {
         return formatter
     }()
 
-    nonisolated(unsafe) private static let cached: [String: DateFormatter] = {
+    private static let cached: [String: DateFormatter] = {
         Dictionary(uniqueKeysWithValues: formats.map { ($0, makeFormatter($0)) })
     }()
 
