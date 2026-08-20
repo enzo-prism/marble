@@ -1,8 +1,27 @@
 # Marble Release Handoff
 
-**Last verified: 2026-08-16.** This file is the single source of truth for "where the
+**Last verified: 2026-08-20.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
+
+---
+
+## 2.3 Bulk import fidelity — PR #23 (2026-08-20)
+
+**On `cursor/bulk-text-workout-import-a61a` (PR #23), pending `main`.** Marketing
+version stays **2.3**. Xcode `CURRENT_PROJECT_VERSION` is **56**. Last processed
+TestFlight build is still **2.3 build 55 `VALID`**. After merge, upload with
+`make cloud-testflight` / `make asc-next-build` (likely 56 if ASC agrees).
+
+What this wave is:
+
+- Hevy/Strong CSV: skip warmup sets, map RPE → difficulty, compose notes,
+  keep session `endedAt` / ledger `durationSeconds` from `end_time` or Strong `Duration`.
+- Multi-page scan OCR; N>1 dated sessions hand off to **Paste or Type**.
+- Batch review shows library / new / weak matches; unique new-exercise counts.
+- File picker is `.txt` / `.csv` only (no JSON workout schema).
+- No schema change (still V6). No App Store review submit in this wave.
+  **Do not release 2.2.**
 
 ---
 

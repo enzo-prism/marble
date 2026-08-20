@@ -3,7 +3,9 @@
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
   mapping, the handwritten-scan parser/importer + a real Vision-OCR integration test, the
-  `RenderMemo` cache, Strava credential resolution, and the **personal-records engine**
+  `RenderMemo` cache, Strava credential resolution, bulk text/CSV import
+  (`WorkoutCSVParserTests`, `WorkoutSessionSegmenterTests`, `WorkoutTextEntryViewModelTests`,
+  `WorkoutScanViewModelTests`), and the **personal-records engine**
   `PersonalRecordsTests` — PR-badge trail, unit-normalized weight records, all-time bests,
   usual ranges, the live-PR projection, workout sessions, sprint-prescription target
   boundaries, frozen per-rep goal evaluation/persistence/orphan cleanup, V3-to-V4 migration,
@@ -85,6 +87,17 @@
 - Counts here are derived by counting source, not by hand-editing the previous number
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
+
+## Latest verification (2026-08-20, bulk import fidelity)
+
+- New unit coverage: Hevy/Strong warmup skip, RPE/notes/session clock, multi-page
+  OCR join + N>1 scan handoff, OCR weekday punctuation headers, unique
+  new-exercise counts, batch match breakdown (library / new / weak).
+- GitHub Actions `CI / unit-tests` (`make unit` on macos-26) is the compile gate
+  on Linux. Snapshots, UI, and `make audit` still need a Mac.
+- Hub button under test is **Paste or Type** (`Import.TextEntry.Open`); do not
+  look for "Typed Workout". File picker accepts `.txt` / `.csv` only.
+- No schema change (still V6).
 
 ## Latest verification (2026-08-16, Train / Log / Progress IA on main)
 - GitHub Actions `CI / unit-tests` (`make unit` on macos-26): **green** on PR #19

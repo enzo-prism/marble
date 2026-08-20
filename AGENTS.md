@@ -134,11 +134,13 @@ Use these commands (preferred):
   plan), `SeedData`, `ProgressMediaStore`, `Queries/`.
 - `marble/Theme/` — theme + design tokens.
 - `marble/Components/` — shared UI components and formatters.
-- `marble/Features/` — `Body`, `Calendar`, `Import` (`HealthKit/`, `Strava/`, `OAuth/`),
+- `marble/Features/` — `Body`, `Calendar`, `Import` (`HealthKit/`, `Strava/`, `OAuth/`,
+  `Scan/`, `TextEntry/`),
   `Journal`, `Notifications`, `Onboarding`, `RestTimer`, `Settings`, `Split`, `Supplements`,
-  `Trends`, `Workout`. The import feature is a `WorkoutImportProvider` abstraction over Apple
-  Health, Garmin (via Health), and Strava (official OAuth). **See `INTEGRATIONS.md` for the
-  full design and rationale.**
+  `Trends`, `Workout`. Remote import is a `WorkoutImportProvider` abstraction over Apple
+  Health, Garmin (via Health), and Strava (official OAuth). On-device capture is
+  `WorkoutScanImporter` over photo OCR and **Paste or Type** (Hevy/Strong CSV, Notes
+  pastes, multi-session batch review). **See `INTEGRATIONS.md` for the full design.**
 - **Tab IA (iOS 26):** three tab-bar destinations — **Train** (`AppTab.split`, identifier
   `Tab.Split`), **Log** (`AppTab.journal`, identifier `Tab.Journal`; Calendar and Supplements
   are Log modes via `LogModePicker`, identifiers `Tab.Calendar` / `Tab.Supplements`), and

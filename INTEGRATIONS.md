@@ -160,6 +160,31 @@ We intentionally **don't** import GPS tracks, per-second streams, photos, or soc
 
 ---
 
+## On-device capture (scan, paste, CSV)
+
+These paths are not `WorkoutImportProvider`s. They produce `ParsedWorkoutDraft`s, then
+`WorkoutScanImporter` writes `SetEntry`s, an `ImportedWorkout` ledger row, and a finished
+`WorkoutSession`. Source is `.photoScan` or `.textEntry`. Schema stays V6.
+
+| Piece | Role |
+|---|---|
+| `Scan/DocumentScannerView` | System document scanner; **every page** is kept (not just page 0). |
+| `Scan/WorkoutScanViewModel` | OCR → join pages → if the date-header segmenter finds N>1, hand the text to Paste or Type so library matching and batch review apply; N==1 stays on scan review with an image-hash identity. |
+| `TextEntry/WorkoutSessionSegmenter` | Splits a Notes paste on date / weekday / month-name **headers only** — `"3/5 Bench 3x8"` is a set line, not a session break. OCR punctuation on a weekday (`Monday.`) still counts as a header. |
+| `TextEntry/WorkoutCSVParser` | Deterministic Hevy / Strong tables. CSV never goes through Foundation Models. Warmup rows are dropped; drop/failure sets stay and are tagged. RPE maps to `SetEntry.difficulty`. Description / Workout Notes / exercise notes / set notes compose onto the session and sets. `end_time` or Strong `Duration` (`60m`) become session `endedAt` and ledger `durationSeconds`. |
+| `TextEntry/WorkoutImportOrchestrator` | CSV wins over the text splitter; per-segment external IDs so one day of a week can skip independently. |
+| `TextEntry/WorkoutTextEntryView` | Hub button is **Paste or Type**. File picker is `.txt` / `.csv` (not JSON). Multi-file Hevy/Strong headers merge. N==1 → existing review; N>1 → Health-style batch list with per-row library / new / weak-match counts. |
+| `Intents/ReviewWorkoutTextIntent` + `ReviewWorkoutFileIntent` | Shortcut “Import a workout in Marble”; stages `PendingTextImport` and opens the hub. |
+
+Provenance notes stay `"Imported from Hevy"` / `"Imported from Strong"` / typed / scanned.
+User notes append after that (`Imported from Hevy. paused`). Identical text or CSV
+identity re-imports stay unselected rather than duplicating.
+
+Still out of scope: Share Extension, App Groups, a JSON workout schema, Foundation Models
+as the session splitter, Garmin reverse-engineering, `ImportSource.hevy` / `.strong`.
+
+---
+
 ## Privacy & security
 
 - **Local-only.** The only network calls are Strava's OAuth/API requests; HealthKit is

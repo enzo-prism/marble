@@ -45,9 +45,10 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 - **Data safety** — export and restore exercises, sets, supplements, sessions, and plans as
   JSON. Progress photos and videos remain on-device and are intentionally excluded.
 - **Import** — bring workouts in from Apple Health (Apple Watch, Garmin, …) and Strava, scan
-  a handwritten workout page with the camera, or type/paste a workout as free text — both
-  read on-device (Apple Intelligence when available, deterministic parser otherwise) and
-  reviewed, with library matching, before anything is logged. See
+  every page of a handwritten notebook, or **Paste or Type** a workout / week of Notes / a
+  Hevy or Strong CSV. Scan and typed paths read on-device (Apple Intelligence when
+  available, deterministic parser otherwise), split dated sessions, match the exercise
+  library, and wait for review before anything is logged. See
   [`INTEGRATIONS.md`](INTEGRATIONS.md).
 - **Rest timer** — after interactive set logging, a tab-bar pill counts the rest down inside
   the app (iOS 26 bottom accessory, with an End button), while a WidgetKit Live Activity
@@ -55,8 +56,12 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-08-16)
+## Current state (2026-08-20)
 
+- **Bulk import fidelity** (PR #23, not yet on `main`): Hevy/Strong CSV skips warmup
+  sets, maps RPE and notes, and keeps the session clock; multi-page scans concatenate OCR
+  and hand a dated week to Paste or Type; batch review is honest about library / new /
+  weak matches. No schema change (still V6). Linux CI gate is `make unit` on `macos-26`.
 - **Train / Log / Progress IA** (on `main`, PR #19 merge `c0cef9e`, 2.3 project build 56,
   pending TestFlight after `make asc-next-build` on a Mac): three tab-bar destinations;
   Calendar and Supplements are Log modes; planned sets with history complete in one tap
