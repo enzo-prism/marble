@@ -118,6 +118,11 @@ nonisolated enum WorkoutCSVParser {
         var distance: Int?
         var distanceUnit: DistanceUnit
         var duration: Int?
+        var workoutDuration: Int?
+        var rpe: Int?
+        var setNotes: Int?
+        var exerciseNotes: Int?
+        var workoutNotes: Int?
 
         init(headers: [String], kind: WorkoutImportPayloadKind, defaultWeightUnit: WeightUnit) {
             func index(_ names: [String]) -> Int? {
@@ -134,7 +139,15 @@ nonisolated enum WorkoutCSVParser {
             setIndex = index(["set_index", "set index", "set order", "set"])
             setType = index(["set_type", "set type"])
             reps = index(["reps", "repetitions", "rep"])
-            duration = index(["duration_seconds", "duration seconds", "seconds", "duration"])
+            // Hevy `duration_seconds` / Strong `Seconds` are per-set. Strong's
+            // `Duration` ("60m") is the workout clock and must not land here —
+            // a bare "45" in that column would otherwise become a 45s set.
+            duration = index(["duration_seconds", "duration seconds", "seconds"])
+            workoutDuration = index(["duration"])
+            rpe = index(["rpe"])
+            setNotes = index(["notes"])
+            exerciseNotes = index(["exercise_notes", "exercise notes"])
+            workoutNotes = index(["workout notes", "description"])
 
             if let lbs = index(["weight_lbs", "weight lbs", "lbs"]) {
                 weight = lbs
@@ -164,6 +177,9 @@ nonisolated enum WorkoutCSVParser {
         var title: String
         var startRaw: String
         var startDate: Date?
+        var endDate: Date?
+        var workoutDurationSeconds: Int?
+        var workoutNotes: String?
         var exerciseName: String
         var setIndex: Int
         var weight: Double?
@@ -172,6 +188,8 @@ nonisolated enum WorkoutCSVParser {
         var distance: Double?
         var distanceUnit: DistanceUnit
         var durationSeconds: Int?
+        var difficulty: Int?
+        var notes: String?
 
         var hasSetValues: Bool {
             weight != nil || reps != nil || distance != nil || durationSeconds != nil
@@ -192,10 +210,19 @@ nonisolated enum WorkoutCSVParser {
                 return nil
             }
 
+            let setType = field(columns.setType)
+            // Warmup rows inflate volume and PRs; drop them. Drop sets and
+            // failure sets stay — they are real working sets.
+            if CSVSetType.isWarmup(setType) { return nil }
+
             title = field(columns.title)
             if title.isEmpty { title = "Imported workout" }
             startRaw = field(columns.start)
             startDate = CSVWorkoutDate.parse(startRaw)
+            endDate = CSVWorkoutDate.parse(field(columns.end))
+            workoutDurationSeconds = CSVNumber.workoutDurationToken(field(columns.workoutDuration))
+            let description = field(columns.workoutNotes)
+            workoutNotes = description.isEmpty ? nil : description
             exerciseName = name
             setIndex = Int(field(columns.setIndex)) ?? 0
             weight = CSVNumber.positiveDouble(field(columns.weight))
@@ -205,6 +232,12 @@ nonisolated enum WorkoutCSVParser {
             distanceUnit = columns.distanceUnit
             durationSeconds = CSVNumber.positiveInt(field(columns.duration))
                 ?? CSVNumber.durationToken(field(columns.duration))
+            difficulty = CSVNumber.rpe(field(columns.rpe))
+            notes = CSVSetNotes.compose(
+                exerciseNotes: field(columns.exerciseNotes),
+                setNotes: field(columns.setNotes),
+                setType: setType
+            )
         }
     }
 
@@ -217,10 +250,18 @@ nonisolated enum WorkoutCSVParser {
         var title: String
         var start: Date?
         var startRaw: String
+        var end: Date?
+        var durationSeconds: Int?
+        var notes: String?
         var exercises: [String: ExerciseBucket] = [:]
         var exerciseOrder: [String] = []
 
         mutating func append(_ row: Row) {
+            if end == nil { end = row.endDate }
+            if durationSeconds == nil { durationSeconds = row.workoutDurationSeconds }
+            if (notes == nil || notes?.isEmpty == true), let note = row.workoutNotes, !note.isEmpty {
+                notes = note
+            }
             let key = row.exerciseName.lowercased()
             if exercises[key] == nil {
                 exerciseOrder.append(key)
@@ -236,7 +277,9 @@ nonisolated enum WorkoutCSVParser {
                         distance: row.distance,
                         distanceUnit: row.distanceUnit,
                         durationSeconds: row.durationSeconds,
-                        performedAt: row.startDate
+                        performedAt: row.startDate,
+                        difficulty: row.difficulty,
+                        notes: row.notes
                     )
                 )
             )
@@ -255,8 +298,20 @@ nonisolated enum WorkoutCSVParser {
             }
             guard !parsedExercises.isEmpty else { return nil }
 
+            var endedAt: Date?
+            var duration = durationSeconds
+            if let start, let end, end > start {
+                endedAt = end
+                duration = Int(end.timeIntervalSince(start).rounded())
+            } else if let start, let duration, duration > 0 {
+                endedAt = start.addingTimeInterval(TimeInterval(duration))
+            }
+
             var draft = ParsedWorkoutDraft(
                 performedAt: start,
+                endedAt: endedAt,
+                durationSeconds: duration.flatMap { $0 > 0 ? $0 : nil },
+                notes: notes,
                 title: title,
                 exercises: parsedExercises
             )
@@ -305,6 +360,40 @@ nonisolated enum WorkoutCSVParser {
     private struct SetRow {
         var index: Int
         var set: ParsedSetDraft
+    }
+}
+
+nonisolated enum CSVSetType {
+    static func isWarmup(_ raw: String) -> Bool {
+        let normalized = compacted(raw)
+        return normalized == "warmup" || normalized == "wu"
+    }
+
+    static func noteTag(_ raw: String) -> String? {
+        switch compacted(raw) {
+        case "dropset", "drop": return "Drop set"
+        case "failure", "fail", "tofailure": return "Failure"
+        default: return nil
+        }
+    }
+
+    private static func compacted(_ raw: String) -> String {
+        raw.lowercased().filter { $0.isLetter }
+    }
+}
+
+nonisolated enum CSVSetNotes {
+    static func compose(exerciseNotes: String, setNotes: String, setType: String) -> String? {
+        var parts: [String] = []
+        let exercise = exerciseNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let set = setNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !exercise.isEmpty { parts.append(exercise) }
+        if !set.isEmpty, set.caseInsensitiveCompare(exercise) != .orderedSame {
+            parts.append(set)
+        }
+        if let tag = CSVSetType.noteTag(setType) { parts.append(tag) }
+        guard !parts.isEmpty else { return nil }
+        return parts.joined(separator: ". ")
     }
 }
 
@@ -409,6 +498,55 @@ nonisolated enum CSVNumber {
         }
         return nil
     }
+
+    /// Hevy/Strong RPE. Empty and zero keep the journal default; half-steps round.
+    static func rpe(_ raw: String) -> Int? {
+        guard let value = positiveDouble(raw) else { return nil }
+        return min(10, max(1, Int(value.rounded())))
+    }
+
+    /// Strong's workout `Duration` ("60m", "1h 5m") or a colon clock ("1:16:00").
+    /// A bare number is minutes — that column is never seconds.
+    static func workoutDurationToken(_ raw: String) -> Int? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmed.isEmpty else { return nil }
+
+        let colon = trimmed.split(separator: ":", omittingEmptySubsequences: false)
+        if colon.count == 3,
+           let hours = Int(colon[0]), let minutes = Int(colon[1]), let seconds = Int(colon[2]) {
+            return hours * 3600 + minutes * 60 + seconds
+        }
+        if colon.count == 2, let minutes = Int(colon[0]), let seconds = Int(colon[1]) {
+            return minutes * 60 + seconds
+        }
+
+        guard let regex = durationPieceRegex else { return nil }
+        let nsRange = NSRange(trimmed.startIndex..., in: trimmed)
+        let matches = regex.matches(in: trimmed, range: nsRange)
+        if matches.isEmpty {
+            if trimmed.allSatisfy(\.isNumber), let minutes = Int(trimmed), minutes > 0 {
+                return minutes * 60
+            }
+            return nil
+        }
+        var total = 0
+        for match in matches {
+            guard let numberRange = Range(match.range(at: 1), in: trimmed),
+                  let unitRange = Range(match.range(at: 2), in: trimmed),
+                  let value = Double(trimmed[numberRange]) else { continue }
+            switch trimmed[unitRange].first {
+            case "h": total += Int((value * 3600).rounded())
+            case "m": total += Int((value * 60).rounded())
+            case "s": total += Int(value.rounded())
+            default: break
+            }
+        }
+        return total > 0 ? total : nil
+    }
+
+    private static let durationPieceRegex = try? NSRegularExpression(
+        pattern: #"(\d+(?:\.\d+)?)\s*(h|hr|hrs|hours|m|min|mins|minutes|s|sec|secs|seconds)\b"#
+    )
 
     static func display(_ value: Double) -> String {
         if value == value.rounded() {

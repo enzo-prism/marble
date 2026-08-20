@@ -7,7 +7,7 @@ import VisionKit
 /// improves downstream text recognition versus a raw camera frame.
 struct DocumentScannerView: UIViewControllerRepresentable {
     enum Outcome {
-        case scanned(UIImage)
+        case scanned([UIImage])
         case cancelled
         case failed(Error)
     }
@@ -44,7 +44,8 @@ struct DocumentScannerView: UIViewControllerRepresentable {
                 onFinish(.cancelled)
                 return
             }
-            onFinish(.scanned(scan.imageOfPage(at: 0)))
+            let pages = (0..<scan.pageCount).map { scan.imageOfPage(at: $0) }
+            onFinish(.scanned(pages))
         }
 
         func documentCameraViewControllerDidCancel(_ controller: VNDocumentCameraViewController) {

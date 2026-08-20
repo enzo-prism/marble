@@ -421,8 +421,63 @@ final class WorkoutTextEntryViewModel {
     }
 
     /// Exercises that will create a new library row as things stand.
+    /// Duplicate names across sessions count once — the importer reuses the
+    /// first created row for later sessions of the same name.
     var newExerciseCount: Int {
-        exercisesPendingImport.filter { resolutions[$0.id]?.choice == .createNew }.count
+        Set(
+            exercisesPendingImport.compactMap { exercise -> String? in
+                guard resolutions[exercise.id]?.choice == .createNew else { return nil }
+                let name = exercise.trimmedName.lowercased()
+                return name.isEmpty ? nil : name
+            }
+        ).count
+    }
+
+    /// How one batch row maps onto the library, for the honest subtitle.
+    struct SessionMatchBreakdown: Equatable {
+        var libraryCount: Int
+        var newCount: Int
+        var weakMatchCount: Int
+
+        var line: String? {
+            var parts: [String] = []
+            if libraryCount > 0 {
+                parts.append("\(libraryCount) library")
+            }
+            if newCount > 0 {
+                parts.append("\(newCount) new")
+            }
+            if weakMatchCount > 0 {
+                parts.append("\(weakMatchCount) weak match\(weakMatchCount == 1 ? "" : "es")")
+            }
+            return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        }
+    }
+
+    func matchBreakdown(for session: WorkoutImportSession) -> SessionMatchBreakdown {
+        var libraryCount = 0
+        var newCount = 0
+        var weakMatchCount = 0
+        for exercise in session.draft.importableExercises {
+            guard let resolution = resolutions[exercise.id] else {
+                newCount += 1
+                continue
+            }
+            switch resolution.choice {
+            case .createNew:
+                newCount += 1
+            case .library:
+                libraryCount += 1
+                if resolution.autoConfidence == .likely {
+                    weakMatchCount += 1
+                }
+            }
+        }
+        return SessionMatchBreakdown(
+            libraryCount: libraryCount,
+            newCount: newCount,
+            weakMatchCount: weakMatchCount
+        )
     }
 
     private var exercisesPendingImport: [ParsedExerciseDraft] {
@@ -536,7 +591,8 @@ final class WorkoutTextEntryViewModel {
             distanceUnit: template.distanceUnit,
             durationSeconds: template.durationSeconds,
             restSeconds: template.restSeconds,
-            performedAt: template.performedAt
+            performedAt: template.performedAt,
+            difficulty: template.difficulty
         ))
     }
 

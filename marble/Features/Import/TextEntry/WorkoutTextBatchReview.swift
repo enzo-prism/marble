@@ -115,6 +115,12 @@ struct WorkoutTextBatchReview: View {
                     Text(detailLine(session))
                         .font(MarbleTypography.rowMeta)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    if let match = viewModel.matchBreakdown(for: session).line {
+                        Text(match)
+                            .font(MarbleTypography.caption)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                            .accessibilityIdentifier("TextEntry.Session.Match.\(session.id.uuidString)")
+                    }
                     if session.alreadyImported {
                         Text("Already in your journal")
                             .font(MarbleTypography.caption)

@@ -116,4 +116,31 @@ final class HandwrittenWorkoutParserSessionHeaderTests: MarbleTestCase {
         XCTAssertTrue(HandwrittenWorkoutParser.isSessionDateHeader("5 March 2025", referenceDate: now))
         XCTAssertFalse(HandwrittenWorkoutParser.isSessionDateHeader("March 5x5 @ 185", referenceDate: now))
     }
+
+    func testOCRPunctuationOnWeekdayIsStillAHeader() {
+        XCTAssertTrue(HandwrittenWorkoutParser.isSessionDateHeader("Monday.", referenceDate: now))
+        XCTAssertTrue(HandwrittenWorkoutParser.isSessionDateHeader("Tuesday:", referenceDate: now))
+        XCTAssertTrue(HandwrittenWorkoutParser.isSessionDateHeader("- Monday -", referenceDate: now))
+    }
+
+    func testFalseMondayOnASetLineDoesNotSplit() {
+        let text = """
+        Push day
+        Bench 3x8 Monday
+        Squat 5x5
+        """
+        XCTAssertEqual(WorkoutSessionSegmenter.segments(from: text, referenceDate: now).count, 1)
+        XCTAssertFalse(HandwrittenWorkoutParser.isSessionDateHeader("Bench 3x8 Monday", referenceDate: now))
+    }
+
+    func testOCRJoinedWeekdayPagesSplit() {
+        let text = WorkoutScanViewModel.joinOCR([
+            "Monday\nBench 3x8 @ 185",
+            "Tuesday.\nSquat 5x5"
+        ])
+        let segments = WorkoutSessionSegmenter.segments(from: text, referenceDate: now)
+        XCTAssertEqual(segments.count, 2)
+        XCTAssertTrue(segments[0].contains("Bench"))
+        XCTAssertTrue(segments[1].contains("Squat"))
+    }
 }

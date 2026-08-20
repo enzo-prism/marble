@@ -97,8 +97,9 @@ enum WorkoutScanImporter {
                     distance: set.distance,
                     distanceUnit: set.distanceUnit,
                     durationSeconds: set.durationSeconds,
+                    difficulty: set.difficulty ?? 8,
                     restAfterSeconds: set.restSeconds ?? resolved.defaultRestSeconds,
-                    notes: journalNote(source: source, originName: originName)
+                    notes: composedNote(source: source, originName: originName, userNote: set.notes)
                 )
                 context.insert(entry)
                 createdEntries.append(entry)
@@ -119,7 +120,11 @@ enum WorkoutScanImporter {
             title: draft.title,
             workoutDate: ledgerDate,
             setsImported: setCount,
-            originName: originName
+            originName: originName,
+            durationSeconds: sessionDurationSeconds(
+                draft: draft,
+                startedAt: createdEntries.map(\.performedAt).min() ?? ledgerDate
+            )
         )
         context.insert(ledger)
         // Same contract as `WorkoutImporter`: journal badges and set-detail
@@ -131,13 +136,14 @@ enum WorkoutScanImporter {
 
         if attachSession, !createdEntries.isEmpty {
             let startedAt = createdEntries.map(\.performedAt).min() ?? ledgerDate
-            let endedAt = createdEntries.map(\.performedAt).max() ?? startedAt
+            let cascadeEnd = createdEntries.map(\.performedAt).max() ?? startedAt
+            let endedAt = sessionEndedAt(draft: draft, startedAt: startedAt, cascadeEnd: cascadeEnd)
             let sessionTitle = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let session = WorkoutSession(
                 title: sessionTitle.isEmpty ? "Imported workout" : sessionTitle,
                 startedAt: startedAt,
                 endedAt: max(endedAt, startedAt),
-                notes: journalNote(source: source, originName: originName),
+                notes: composedNote(source: source, originName: originName, userNote: draft.notes),
                 entries: createdEntries
             )
             context.insert(session)
@@ -206,5 +212,34 @@ enum WorkoutScanImporter {
         case "Strong": return "Imported from Strong"
         default: return note(for: source)
         }
+    }
+
+    /// Provenance plus the source's own note. User text wins the second clause;
+    /// a blank note stays provenance-only so scan/typed sets match the old copy.
+    static func composedNote(source: ImportSource, originName: String?, userNote: String?) -> String {
+        let provenance = journalNote(source: source, originName: originName)
+        let trimmed = userNote?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else { return provenance }
+        if trimmed.localizedCaseInsensitiveContains(provenance) { return trimmed }
+        return "\(provenance). \(trimmed)"
+    }
+
+    /// Wall-clock session length from the export. The millisecond cascade is
+    /// not a duration — leave the ledger nil when the source didn't state one.
+    private static func sessionDurationSeconds(draft: ParsedWorkoutDraft, startedAt: Date) -> Int? {
+        if let duration = draft.durationSeconds, duration > 0 { return duration }
+        if let endedAt = draft.endedAt {
+            let seconds = Int(endedAt.timeIntervalSince(startedAt).rounded())
+            return seconds > 0 ? seconds : nil
+        }
+        return nil
+    }
+
+    private static func sessionEndedAt(draft: ParsedWorkoutDraft, startedAt: Date, cascadeEnd: Date) -> Date {
+        if let endedAt = draft.endedAt, endedAt > startedAt { return endedAt }
+        if let duration = draft.durationSeconds, duration > 0 {
+            return startedAt.addingTimeInterval(TimeInterval(duration))
+        }
+        return max(cascadeEnd, startedAt)
     }
 }

@@ -24,6 +24,45 @@ final class WorkoutCSVParserTests: MarbleTestCase {
         XCTAssertEqual(result.workouts[1].draft.exercises[0].name, "Row")
         XCTAssertTrue(result.workouts[0].identityKey.contains("hevyCSV"))
         XCTAssertNotEqual(result.workouts[0].identityKey, result.workouts[1].identityKey)
+        XCTAssertEqual(result.workouts[0].draft.durationSeconds, 76 * 60)
+        XCTAssertNotNil(result.workouts[0].draft.endedAt)
+    }
+
+    func testHevyWarmupSetsAreSkipped() {
+        let csv = """
+        title,start_time,exercise_title,set_index,set_type,weight_lbs,reps
+        Push Day,2025-03-28 17:00:00,Bench Press,0,warmup,135,8
+        Push Day,2025-03-28 17:00:00,Bench Press,1,normal,185,8
+        Push Day,2025-03-28 17:00:00,Bench Press,2,dropset,155,6
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        let sets = result.workouts[0].draft.exercises[0].sets
+        XCTAssertEqual(sets.count, 2)
+        XCTAssertEqual(sets[0].weight, 185)
+        XCTAssertEqual(sets[1].weight, 155)
+        XCTAssertEqual(sets[1].notes, "Drop set")
+    }
+
+    func testWarmupOnlyExportIsNotAWorkout() {
+        let csv = """
+        title,start_time,exercise_title,set_index,set_type,weight_lbs,reps
+        Push Day,2025-03-28 17:00:00,Bench Press,0,warmup,135,8
+        """
+        XCTAssertNil(WorkoutCSVParser.parse(csv))
+    }
+
+    func testHevyRPENotesAndDescriptionRoundTrip() {
+        let csv = """
+        title,start_time,end_time,description,exercise_title,exercise_notes,set_index,set_type,weight_lbs,reps,rpe
+        Push Day,"28 Mar 2025, 17:29","28 Mar 2025, 18:45",Felt strong,Bench Press,paused,0,normal,185,8,8.5
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        let draft = result.workouts[0].draft
+        XCTAssertEqual(draft.notes, "Felt strong")
+        XCTAssertEqual(draft.durationSeconds, 76 * 60)
+        let set = draft.exercises[0].sets[0]
+        XCTAssertEqual(set.difficulty, 9)
+        XCTAssertEqual(set.notes, "paused")
     }
 
     func testHevyKilogramColumn() {
@@ -49,7 +88,30 @@ final class WorkoutCSVParserTests: MarbleTestCase {
         XCTAssertEqual(result.workouts.count, 2)
         XCTAssertEqual(result.workouts[0].draft.title, "Leg Day")
         XCTAssertEqual(result.workouts[0].draft.exercises[0].sets.count, 2)
+        XCTAssertEqual(result.workouts[0].draft.durationSeconds, 3600)
         XCTAssertEqual(result.workouts[1].draft.exercises[0].name, "Bench Press")
+        XCTAssertEqual(result.workouts[1].draft.durationSeconds, 45 * 60)
+    }
+
+    func testStrongNotesAndRPE() {
+        let csv = """
+        Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE
+        2025-01-15 18:00:00,Leg Day,1h 5m,Squat,1,225,5,0,0,belt,Heavy day,7
+        """
+        let result = try! XCTUnwrap(WorkoutCSVParser.parse(csv))
+        let draft = result.workouts[0].draft
+        XCTAssertEqual(draft.durationSeconds, 65 * 60)
+        XCTAssertEqual(draft.notes, "Heavy day")
+        XCTAssertEqual(draft.exercises[0].sets[0].notes, "belt")
+        XCTAssertEqual(draft.exercises[0].sets[0].difficulty, 7)
+    }
+
+    func testWorkoutDurationTokens() {
+        XCTAssertEqual(CSVNumber.workoutDurationToken("60m"), 3600)
+        XCTAssertEqual(CSVNumber.workoutDurationToken("1h 5m"), 3900)
+        XCTAssertEqual(CSVNumber.workoutDurationToken("1:16:00"), 76 * 60)
+        XCTAssertEqual(CSVNumber.workoutDurationToken("45"), 45 * 60)
+        XCTAssertNil(CSVNumber.workoutDurationToken(""))
     }
 
     func testQuotedCommasInTitle() {
@@ -74,6 +136,8 @@ final class WorkoutCSVParserTests: MarbleTestCase {
         XCTAssertEqual(result.workouts.count, 2)
         XCTAssertEqual(result.workouts[0].draft.exercises[0].name, "Bench Press")
         XCTAssertEqual(result.workouts[1].draft.title, "Pull Day")
+        XCTAssertTrue(result.workouts[0].draft.exercises[0].sets[0].notes?.contains("felt strong") == true)
+        XCTAssertTrue(result.workouts[0].draft.exercises[0].sets[0].notes?.contains("next week go heavier") == true)
     }
 
     func testMergingTwoExportsDropsTheSecondHeader() {

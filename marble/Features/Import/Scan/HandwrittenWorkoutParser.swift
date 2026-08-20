@@ -1081,6 +1081,9 @@ nonisolated enum HandwrittenWorkoutParser {
             remainder = normalize(remainder.replacingCharacters(in: match.range, with: " "))
         }
         guard foundDate else { return false }
+        remainder = remainder.trimmingCharacters(
+            in: CharacterSet.punctuationCharacters.union(.whitespacesAndNewlines)
+        )
         if remainder.isEmpty { return true }
         if isWeekday(remainder) { return true }
         return isWordOnly(remainder)

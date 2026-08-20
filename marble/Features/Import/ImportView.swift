@@ -172,7 +172,7 @@ struct ImportView: View {
                         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 }
 
-                Text("Snap a photo of a handwritten workout. Marble reads it on your device and turns it into sets you can review before logging.")
+                Text("Snap every page of a handwritten workout. Marble reads it on your device, splits a week into separate workouts, and turns it into sets you can review before logging.")
                     .font(MarbleTypography.rowMeta)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
 

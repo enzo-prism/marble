@@ -15,6 +15,10 @@ final class WorkoutScanViewModel {
         case processing
         case review
         case imported
+        /// OCR found more than one dated workout. The scan sheet hands the
+        /// concatenated text to the typed pipeline so library matching and
+        /// batch review apply — scan review is one draft.
+        case textHandoff
     }
 
     typealias ImportHandler = (ParsedWorkoutDraft, String, ModelContext) throws -> WorkoutImporter.Summary
@@ -27,6 +31,8 @@ final class WorkoutScanViewModel {
     private(set) var alreadyImported = false
 
     private(set) var externalID = ""
+    /// Concatenated OCR when `phase == .textHandoff`.
+    private(set) var handoffText = ""
 
     private let recognizer: WorkoutTextRecognizing
     private let parser: WorkoutScanParsing
@@ -51,32 +57,77 @@ final class WorkoutScanViewModel {
     // MARK: - Capture entry points
 
     func process(image: UIImage, in context: ModelContext) async {
-        guard let cgImage = image.cgImage else {
+        await process(images: [image], in: context)
+    }
+
+    func process(images: [UIImage], in context: ModelContext) async {
+        var pages: [(cgImage: CGImage, imageData: Data)] = []
+        pages.reserveCapacity(images.count)
+        for image in images {
+            guard let cgImage = image.cgImage else { continue }
+            pages.append((cgImage, image.jpegData(compressionQuality: 0.85) ?? Data()))
+        }
+        guard !pages.isEmpty else {
             fail(with: "That image couldn't be read. Try scanning the page again.")
             return
         }
-        let data = image.jpegData(compressionQuality: 0.85) ?? Data()
-        await process(cgImage: cgImage, imageData: data, in: context)
+        await process(pages: pages, in: context)
     }
 
     /// Core orchestration (no UIKit) so tests can drive it directly.
     func process(cgImage: CGImage, imageData: Data, in context: ModelContext) async {
+        await process(pages: [(cgImage, imageData)], in: context)
+    }
+
+    func process(
+        pages: [(cgImage: CGImage, imageData: Data)],
+        in context: ModelContext
+    ) async {
         phase = .processing
         errorMessage = nil
-        externalID = WorkoutScanImageHash.hash(imageData.isEmpty ? Data(UUID().uuidString.utf8) : imageData)
+        handoffText = ""
+        let combinedData = pages.reduce(into: Data()) { $0.append($1.imageData) }
+        externalID = WorkoutScanImageHash.hash(combinedData.isEmpty ? Data(UUID().uuidString.utf8) : combinedData)
 
-        let text: String
-        do {
-            text = try await recognizer.recognizeText(in: cgImage)
-        } catch {
+        var pageTexts: [String] = []
+        pageTexts.reserveCapacity(pages.count)
+        for page in pages {
+            let text: String
+            do {
+                text = try await recognizer.recognizeText(in: page.cgImage)
+            } catch {
+                fail(with: "Couldn't read text from that image. Try better lighting or a flatter page.")
+                return
+            }
+            pageTexts.append(text)
+        }
+
+        let combined = Self.joinOCR(pageTexts)
+        guard !combined.isEmpty else {
             fail(with: "Couldn't read text from that image. Try better lighting or a flatter page.")
             return
         }
 
-        let parsed = await parser.parse(ocrText: text, referenceDate: AppEnvironment.now)
+        let segments = WorkoutSessionSegmenter.segments(from: combined, referenceDate: AppEnvironment.now)
+        if segments.count > 1 {
+            handoffText = combined
+            phase = .textHandoff
+            return
+        }
+
+        let parsed = await parser.parse(ocrText: combined, referenceDate: AppEnvironment.now)
         draft = parsed
         alreadyImported = (try? WorkoutScanImporter.alreadyImported(externalID: externalID, in: context)) ?? false
         phase = .review
+    }
+
+    /// Joins OCR from successive notebook pages. Blank pages drop out so they
+    /// don't become fake session breaks.
+    static func joinOCR(_ pageTexts: [String]) -> String {
+        pageTexts
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
     }
 
     private func fail(with message: String) {
@@ -102,7 +153,8 @@ final class WorkoutScanViewModel {
             distanceUnit: template.distanceUnit,
             durationSeconds: template.durationSeconds,
             restSeconds: template.restSeconds,
-            performedAt: template.performedAt
+            performedAt: template.performedAt,
+            difficulty: template.difficulty
         ))
     }
 
@@ -157,5 +209,6 @@ final class WorkoutScanViewModel {
         errorMessage = nil
         alreadyImported = false
         externalID = ""
+        handoffText = ""
     }
 }

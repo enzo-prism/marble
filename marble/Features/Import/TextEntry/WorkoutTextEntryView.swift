@@ -20,14 +20,19 @@ struct WorkoutTextEntryView: View {
     /// prompt; refreshed when the sheet appears and when the app foregrounds.
     @State private var clipboardHasText = false
     @State private var showingFileImporter = false
+    private let autoPreviewOnAppear: Bool
+    @State private var didAutoPreview = false
 
-    init(initialText: String = "") {
+    init(initialText: String = "", autoPreview: Bool? = nil) {
+        let trimmed = initialText.trimmingCharacters(in: .whitespacesAndNewlines)
         _viewModel = State(wrappedValue: WorkoutTextEntryViewModel(initialText: initialText))
+        self.autoPreviewOnAppear = autoPreview ?? !trimmed.isEmpty
     }
 
     /// Test seam so unit-driven previews aren't required to go through `init(initialText:)`.
     init(viewModel: WorkoutTextEntryViewModel) {
         _viewModel = State(wrappedValue: viewModel)
+        self.autoPreviewOnAppear = false
     }
 
     var body: some View {
@@ -55,12 +60,17 @@ struct WorkoutTextEntryView: View {
         // parse doesn't pay model-load latency inside the processing spinner.
         .task { FoundationModelsWorkoutScanParser.prewarm() }
         .task { clipboardHasText = UIPasteboard.general.hasStrings }
+        .task {
+            guard autoPreviewOnAppear, !didAutoPreview else { return }
+            didAutoPreview = true
+            await viewModel.preview(in: modelContext)
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             clipboardHasText = UIPasteboard.general.hasStrings
         }
         .fileImporter(
             isPresented: $showingFileImporter,
-            allowedContentTypes: [.commaSeparatedText, .plainText, .json],
+            allowedContentTypes: [.commaSeparatedText, .plainText],
             allowsMultipleSelection: true
         ) { result in
             ingestFiles(result)
@@ -536,7 +546,7 @@ struct WorkoutTextEntryView: View {
     private func ingestFiles(_ result: Result<[URL], Error>) {
         switch result {
         case .failure:
-            viewModel.errorMessage = "Couldn't open that file. Try a .txt, .csv, or .json export."
+            viewModel.errorMessage = "Couldn't open that file. Try a .txt or .csv export."
         case .success(let urls):
             var parts: [String] = []
             for url in urls {

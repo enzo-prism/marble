@@ -17,6 +17,14 @@ final class WorkoutScanViewModelTests: MarbleTestCase {
         }
     }
 
+    private final class SequenceRecognizer: WorkoutTextRecognizing, @unchecked Sendable {
+        private var remaining: [String]
+        init(texts: [String]) { remaining = texts }
+        func recognizeText(in image: CGImage) async throws -> String {
+            remaining.isEmpty ? "" : remaining.removeFirst()
+        }
+    }
+
     private func makeCGImage() -> CGImage {
         let context = CGContext(
             data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
@@ -113,5 +121,49 @@ final class WorkoutScanViewModelTests: MarbleTestCase {
 
         viewModel.removeExercise(withID: exerciseID)
         XCTAssertEqual(viewModel.draft.exercises.count, 1)
+    }
+
+    func testJoinOCRDropsBlankPages() {
+        XCTAssertEqual(
+            WorkoutScanViewModel.joinOCR(["Monday\nBench 3x8", "  ", "Tuesday\nSquat 5x5"]),
+            "Monday\nBench 3x8\n\nTuesday\nSquat 5x5"
+        )
+    }
+
+    func testMultiPageOCRConcatenatesIntoOneDraft() async {
+        let context = makeInMemoryContext()
+        let recognizer = SequenceRecognizer(texts: ["Bench 3x8 @ 185", "Squat 5x5"])
+        let viewModel = WorkoutScanViewModel(recognizer: recognizer, parser: HeuristicWorkoutScanParser())
+        let image = makeCGImage()
+
+        await viewModel.process(
+            pages: [(image, Data("page-a".utf8)), (image, Data("page-b".utf8))],
+            in: context
+        )
+
+        XCTAssertEqual(viewModel.phase, .review)
+        XCTAssertEqual(viewModel.draft.exercises.map(\.name), ["Bench", "Squat"])
+        XCTAssertEqual(viewModel.draft.exercises[0].sets.count, 3)
+        XCTAssertEqual(viewModel.draft.exercises[1].sets.count, 5)
+    }
+
+    func testMultiSessionOCRHandsOffToTypedPipeline() async {
+        let context = makeInMemoryContext()
+        let recognizer = SequenceRecognizer(texts: [
+            "Monday\nBench 3x8 @ 185",
+            "Tuesday\nSquat 5x5 @ 225"
+        ])
+        let viewModel = WorkoutScanViewModel(recognizer: recognizer, parser: HeuristicWorkoutScanParser())
+        let image = makeCGImage()
+
+        await viewModel.process(
+            pages: [(image, Data("p1".utf8)), (image, Data("p2".utf8))],
+            in: context
+        )
+
+        XCTAssertEqual(viewModel.phase, .textHandoff)
+        XCTAssertTrue(viewModel.handoffText.contains("Monday"))
+        XCTAssertTrue(viewModel.handoffText.contains("Tuesday"))
+        XCTAssertTrue(viewModel.draft.exercises.isEmpty)
     }
 }

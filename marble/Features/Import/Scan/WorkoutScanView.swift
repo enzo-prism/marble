@@ -15,13 +15,19 @@ struct WorkoutScanView: View {
     @State private var showingDiscardDialog = false
 
     var body: some View {
-        NavigationStack {
-            content
-                .background(Theme.backgroundColor(for: colorScheme))
-                .navigationTitle("Scan Workout")
-                .navigationBarTitleDisplayMode(.inline)
-                .navigationBarGlassBackground()
-                .toolbar { toolbarContent }
+        Group {
+            if viewModel.phase == .textHandoff {
+                WorkoutTextEntryView(initialText: viewModel.handoffText, autoPreview: true)
+            } else {
+                NavigationStack {
+                    content
+                        .background(Theme.backgroundColor(for: colorScheme))
+                        .navigationTitle("Scan Workout")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .navigationBarGlassBackground()
+                        .toolbar { toolbarContent }
+                }
+            }
         }
         // HIG sheet-dismissal protection: a swipe-down must not silently throw
         // away a reviewed draft; capture and imported stay freely dismissible.
@@ -59,6 +65,7 @@ struct WorkoutScanView: View {
         case .processing: processingView
         case .review: reviewView
         case .imported: importedView
+        case .textHandoff: EmptyView()
         }
     }
 
@@ -75,7 +82,7 @@ struct WorkoutScanView: View {
                         .font(MarbleTypography.emptyTitle)
                         .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                         .multilineTextAlignment(.center)
-                    Text("Capture your notebook or whiteboard. Marble reads it on your device and turns it into sets you can review before logging.")
+                    Text("Capture every page of the notebook or whiteboard. Marble reads it on your device and turns it into sets you can review before logging.")
                         .font(MarbleTypography.emptyMessage)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .multilineTextAlignment(.center)
@@ -265,16 +272,23 @@ struct WorkoutScanView: View {
     // MARK: - Bindings & actions
 
     /// Unsaved work worth protecting from an accidental dismissal: a reviewed
-    /// draft with importable sets. Capture has nothing to lose, and the
-    /// imported phase never blocks — the work is already saved.
+    /// draft with importable sets, or a multi-page handoff still in review.
+    /// Capture has nothing to lose, and the imported phase never blocks.
     private var hasUnsavedEdits: Bool {
-        viewModel.phase == .review && viewModel.draft.hasContent
+        switch viewModel.phase {
+        case .review:
+            return viewModel.draft.hasContent
+        case .textHandoff:
+            return true
+        case .capture, .processing, .imported:
+            return false
+        }
     }
 
     private func handleScan(_ outcome: DocumentScannerView.Outcome) {
         switch outcome {
-        case .scanned(let image):
-            Task { await viewModel.process(image: image, in: modelContext) }
+        case .scanned(let images):
+            Task { await viewModel.process(images: images, in: modelContext) }
         case .cancelled:
             break
         case .failed:

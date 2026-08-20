@@ -199,6 +199,41 @@ final class WorkoutScanImporterTests: MarbleTestCase {
         XCTAssertTrue(entries.allSatisfy { $0.notes == "Imported from Hevy" })
     }
 
+    func testCSVFidelityMapsRPENotesAndSessionClock() throws {
+        let context = makeInMemoryContext()
+        let start = Self.stableCalendar.date(from: DateComponents(year: 2025, month: 3, day: 28, hour: 17, minute: 29))!
+        let draft = ParsedWorkoutDraft(
+            performedAt: start,
+            endedAt: start.addingTimeInterval(76 * 60),
+            durationSeconds: 76 * 60,
+            notes: "Felt strong",
+            title: "Push Day",
+            exercises: [
+                ParsedExerciseDraft(name: "Bench", sets: [
+                    ParsedSetDraft(weight: 185, reps: 8, difficulty: 9, notes: "paused. Drop set")
+                ])
+            ]
+        )
+        _ = try WorkoutScanImporter.import(
+            draft,
+            externalID: "hevy-1",
+            source: .textEntry,
+            originName: "Hevy",
+            in: context
+        )
+
+        let entry = try XCTUnwrap(try context.fetch(FetchDescriptor<SetEntry>()).first)
+        XCTAssertEqual(entry.difficulty, 9)
+        XCTAssertEqual(entry.notes, "Imported from Hevy. paused. Drop set")
+
+        let session = try XCTUnwrap(try context.fetch(FetchDescriptor<WorkoutSession>()).first)
+        XCTAssertEqual(session.notes, "Imported from Hevy. Felt strong")
+        XCTAssertEqual(session.endedAt, start.addingTimeInterval(76 * 60))
+
+        let ledger = try XCTUnwrap(try context.fetch(FetchDescriptor<ImportedWorkout>()).first)
+        XCTAssertEqual(ledger.durationSeconds, 76 * 60)
+    }
+
     func testImportAllSkipsAlreadyImportedIdentities() throws {
         let context = makeInMemoryContext()
         _ = try WorkoutScanImporter.import(strengthDraft(), externalID: "day-1", source: .textEntry, in: context)

@@ -11,16 +11,31 @@ nonisolated struct ParsedWorkoutDraft: Equatable, Sendable {
     /// The session date written on the note, if one was recognized. `nil` means
     /// "use now" at import time.
     var performedAt: Date?
+    /// Session end from a structured export (`end_time`, or start + Duration).
+    /// Handwritten drafts leave this nil and the importer uses the set cascade.
+    var endedAt: Date?
+    /// Wall-clock length of the session when the source stated one. `nil` for
+    /// handwritten pages so the ledger does not invent a sub-second duration
+    /// from the order-preservation cascade.
+    var durationSeconds: Int?
+    /// Workout-level note from the source (Hevy description, Strong Workout Notes).
+    var notes: String?
     /// A short human label (a header line on the note, or a default).
     var title: String
     var exercises: [ParsedExerciseDraft]
 
     init(
         performedAt: Date? = nil,
+        endedAt: Date? = nil,
+        durationSeconds: Int? = nil,
+        notes: String? = nil,
         title: String = "Scanned workout",
         exercises: [ParsedExerciseDraft] = []
     ) {
         self.performedAt = performedAt
+        self.endedAt = endedAt
+        self.durationSeconds = durationSeconds
+        self.notes = notes
         self.title = title
         self.exercises = exercises
     }
@@ -90,6 +105,11 @@ nonisolated struct ParsedSetDraft: Equatable, Sendable, Identifiable {
     /// common case; the review screen only materializes a value here when the
     /// user explicitly overrides one set's date or time.
     var performedAt: Date?
+    /// RPE from a structured export. `nil` keeps the journal default of 8.
+    var difficulty: Int?
+    /// Source note for this set (exercise notes, set notes, drop/failure tag).
+    /// Provenance is composed at import time, not here.
+    var notes: String?
 
     init(
         id: UUID = UUID(),
@@ -100,7 +120,9 @@ nonisolated struct ParsedSetDraft: Equatable, Sendable, Identifiable {
         distanceUnit: DistanceUnit = .meters,
         durationSeconds: Int? = nil,
         restSeconds: Int? = nil,
-        performedAt: Date? = nil
+        performedAt: Date? = nil,
+        difficulty: Int? = nil,
+        notes: String? = nil
     ) {
         self.id = id
         self.weight = weight
@@ -111,6 +133,8 @@ nonisolated struct ParsedSetDraft: Equatable, Sendable, Identifiable {
         self.durationSeconds = durationSeconds
         self.restSeconds = restSeconds
         self.performedAt = performedAt
+        self.difficulty = difficulty
+        self.notes = notes
     }
 
     var hasAnyValue: Bool {

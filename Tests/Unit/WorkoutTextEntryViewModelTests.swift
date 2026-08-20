@@ -649,6 +649,49 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertEqual(viewModel.phase, .batchReview)
         XCTAssertEqual(viewModel.sessions.count, 2)
     }
+
+    func testNewExerciseCountIsUniqueAcrossSessions() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        3/5
+        Face Pull 3x12
+
+        3/6
+        Face Pull 3x15
+        """
+        await viewModel.preview(in: context)
+        XCTAssertEqual(viewModel.phase, .batchReview)
+        XCTAssertEqual(viewModel.newExerciseCount, 1)
+    }
+
+    func testBatchMatchBreakdownSeparatesLibraryNewAndWeak() async {
+        let context = makeInMemoryContext()
+        insertExercise("Bench Press", in: context)
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        3/5
+        Bench 3x8 @ 185
+        Face Pull 3x12
+
+        3/6
+        Squat 5x5
+        """
+        await viewModel.preview(in: context)
+        XCTAssertEqual(viewModel.phase, .batchReview)
+
+        let first = viewModel.matchBreakdown(for: viewModel.sessions[0])
+        XCTAssertEqual(first.libraryCount, 1)
+        XCTAssertEqual(first.newCount, 1)
+        XCTAssertEqual(first.weakMatchCount, 1)
+        XCTAssertEqual(first.line, "1 library · 1 new · 1 weak match")
+
+        let second = viewModel.matchBreakdown(for: viewModel.sessions[1])
+        XCTAssertEqual(second.libraryCount, 0)
+        XCTAssertEqual(second.newCount, 1)
+        XCTAssertEqual(second.line, "1 new")
+        XCTAssertEqual(viewModel.newExerciseCount, 2)
+    }
 }
 
 @MainActor
