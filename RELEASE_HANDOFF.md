@@ -22,10 +22,13 @@ What this wave is (on top of PR #23):
 - Hevy `set_index` reset → two exercise blocks (same name, original order).
 - EU/Android Strong CSV: `;` delimiter, `Weight (kg)`, decimal commas.
 - Strong `Distance` is km or mi from preferred weight unit, not metres.
-- `superset_id` tagged onto set notes.
-- Typed/scanned `RPE 8` / `rpe9`; `Day 1` / `Session 2` paste splits.
+- `superset_id` tagged onto set notes. Strong `(Barbell)` suffixes stripped.
+- Typed/scanned `RPE 8` / `rpe9` / `@RPE 8`; `Day 1` / `Session 2` paste splits
+  and those labels become titles, not phantom exercises.
+- Hevy `failure` rows with 0 reps (or no load) stay in the draft.
 - Weak library matches default to **create new** (suggestions remain).
-- Scan N==1 uses `ExerciseMatcher`; review shows rest / RPE / notes.
+- Scan N==1 uses `ExerciseMatcher`; review shows rest / RPE / notes and
+  discloses that blank RPE saves as 8. Scan review can reorder exercises.
 - Scan re-import copy matches skip behavior. Journal origin **Paste or Type**.
 - No schema change (still V6).
 
@@ -52,7 +55,7 @@ this import work.
 
 What PR #23 added:
 
-- Hevy/Strong CSV: skip warmup sets, map RPE → difficulty, compose notes,
+- Hevy CSV: skip warmup sets, map RPE → difficulty, compose notes,
   keep session `endedAt` / ledger `durationSeconds` from `end_time` or Strong `Duration`.
 - Multi-page scan OCR; N>1 dated sessions hand off to **Paste or Type**.
 - Batch review shows library / new / weak matches; unique new-exercise counts.

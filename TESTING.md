@@ -91,8 +91,10 @@
 ## Latest verification (2026-08-20, bulk import honesty)
 
 - Adds coverage for Hevy `set_index` resets, `superset_id` notes, Strong distance
-  units, semicolon/`Weight (kg)` CSV, typed `RPE 8`, `Day N` session splits, likely
-  matches defaulting to create-new, and scan library matching.
+  units, semicolon/`Weight (kg)` CSV, typed `RPE 8` / `@RPE 8`, `Day N` session
+  splits **without phantom Day/Session exercises**, Hevy failure 0-rep rows,
+  Strong equipment-suffix stripping, likely matches defaulting to create-new,
+  scan library matching, and scan exercise reorder.
 - Linux Cloud Agents cannot run `make unit`; GitHub Actions `CI / unit-tests` on
   `macos-26` is the compile gate for this branch.
 - Hub button and journal origin under test are **Paste or Type**; do not look for
