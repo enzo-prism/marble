@@ -208,7 +208,7 @@ final class WorkoutScanViewModelTests: MarbleTestCase {
         await viewModel.process(cgImage: makeCGImage(), imageData: Data("page".utf8), in: context)
 
         let exerciseID = try! XCTUnwrap(viewModel.draft.exercises.first?.id)
-        viewModel.draft.exercises[0].sets[0].notes = "belt"
+        viewModel.draft.exercises[0].sets[viewModel.draft.exercises[0].sets.count - 1].notes = "belt"
         viewModel.addSet(toExerciseWithID: exerciseID)
         XCTAssertEqual(viewModel.draft.exercises[0].sets.last?.notes, "belt")
     }
