@@ -48,6 +48,7 @@ struct TrendsView: View {
 struct TrendsContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.modelContext) private var modelContext
     // Declared (not read) so the environment change invalidates this view:
     // range buckets anchored to "today" must re-derive on a new day.
@@ -190,8 +191,12 @@ struct TrendsContentView: View {
 
                     if hasSetData || hasSupplementData {
                         Button {
-                            withAnimation(.snappy) {
+                            if reduceMotion {
                                 showsDetailedAnalytics.toggle()
+                            } else {
+                                withAnimation(.snappy) {
+                                    showsDetailedAnalytics.toggle()
+                                }
                             }
                         } label: {
                             Label(

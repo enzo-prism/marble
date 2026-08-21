@@ -107,6 +107,19 @@ class MarbleUITestCase: XCTestCase {
 
     func navigateToTab(_ tab: MarbleTab) {
         switch tab {
+        case .journal:
+            tapTabBarItem(.journal)
+            let setsMode = app.descendants(matching: .any)
+                .matching(identifier: "Log.Mode.Sets")
+                .firstMatch
+            if setsMode.waitForExistence(timeout: 6) {
+                setsMode.tap()
+                return
+            }
+            let labeled = app.segmentedControls.buttons["Sets"]
+            if labeled.waitForExistence(timeout: 4) {
+                labeled.tap()
+            }
         case .calendar, .supplements:
             tapTabBarItem(.journal)
             let modeIdentifier = tab == .calendar ? "Tab.Calendar" : "Tab.Supplements"
@@ -360,6 +373,24 @@ class MarbleUITestCase: XCTestCase {
             return textView
         }
         return app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    /// Returns an Add Set text input after materializing it in the lazy form.
+    /// Cards above the metrics can push the field below the visible List even
+    /// though the selected exercise has already changed.
+    func revealAddSetTextInput(
+        _ identifier: String,
+        timeout: TimeInterval = 6,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCUIElement {
+        let field = textInput(identifier)
+        if !field.waitForExistence(timeout: 2) || !field.isHittable {
+            scrollToElement(field, in: addSetListContainer(), maxSwipes: 8)
+        }
+        XCTAssertTrue(field.waitForExistence(timeout: timeout), file: file, line: line)
+        XCTAssertTrue(field.isHittable, file: file, line: line)
+        return field
     }
 
     func selectExercise(identifier: String) {

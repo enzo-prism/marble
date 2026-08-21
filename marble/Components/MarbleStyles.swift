@@ -105,6 +105,7 @@ struct MarbleActionButtonStyle: ButtonStyle {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.isEnabled) private var environmentEnabled
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var isEnabledOverride: Bool? = nil
     var expandsHorizontally: Bool = false
     var prominence: MarbleActionButtonProminence = .standard
@@ -131,8 +132,8 @@ struct MarbleActionButtonStyle: ButtonStyle {
                     .stroke(borderColor(isEnabled: isEnabled), lineWidth: prominence == .primary ? 0 : 0.75)
             )
             .opacity(isEnabled ? 1.0 : 0.55)
-            .scaleEffect(isPressed ? 0.985 : 1)
-            .animation(.snappy(duration: 0.16), value: isPressed)
+            .scaleEffect(isPressed && !reduceMotion ? 0.985 : 1)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.16), value: isPressed)
     }
 
     private var minButtonHeight: CGFloat {

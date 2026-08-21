@@ -56,30 +56,30 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-08-20)
+## Current state (2026-08-21)
+
+App Store **2.3 build 56 is live**. `origin/main` at `42b9061` is **2.4 build 57**;
+that build is `VALID` on TestFlight, build 58 is next, and no App Store 2.4 version
+or submission exists.
 
 - **Bulk import honesty** (2.4 TestFlight build 57 `VALID`, buildId
   `a8f9716a-5b39-4013-a795-181344ff54a6`, PR #24 merge `df05585`): Hevy same-lift
   re-logs keep order; EU Strong CSV parses; `Day 1` labels are titles not exercises;
   weak matches do not auto-merge into the library; scan review matches exercises,
   reorders, and shows rest/RPE/notes; **Paste or Type** is the user-facing name.
-  **App Store 2.3 stays `READY_FOR_DISTRIBUTION` (IA-only relative to this wave —
-  do not release it as a stand-in).** No schema change (still V6).
+  This wave is **not** in the public 2.3 binary. No schema change (still V6).
 - **Bulk import fidelity** (on `main`, PR #23 merge `cbd5116`): Hevy CSV skips warmup
   sets, maps RPE and notes, and keeps the session clock; multi-page scans concatenate OCR
   and hand a dated week to Paste or Type; batch review is honest about library / new /
   weak matches. No schema change (still V6). Linux CI gate is `make unit` on `macos-26`
   (774 tests green on that merge).
-- **Train / Log / Progress IA** (on `main`, PR #19 merge `c0cef9e`, 2.3 project build 56,
-  pending TestFlight after `make asc-next-build` on a Mac): three tab-bar destinations;
+- **Train / Log / Progress IA** (shipped publicly as App Store 2.3 build 56 from PR #19
+  merge `c0cef9e`): three tab-bar destinations;
   Calendar and Supplements are Log modes; planned sets with history complete in one tap
   (`SetLogging.repeatLatest`); Log Set is a medium morphing sheet from `+`; session
   accessory when a workout is live; lock-screen widget copy drops two-digit streaks. No
-  schema change (still V6). CI `make unit` on `macos-26` is green. Cloud Agents
-  ship TestFlight/App Store through `make cloud-*` (see [`CLOUD_RELEASE.md`](CLOUD_RELEASE.md));
-  this Linux VM still cannot archive locally. **2.2 stays `READY_FOR_DISTRIBUTION`
-  (manual App Store release pending) — this wave is 2.3 TestFlight, not a 2.2 App
-  Store push.** See [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
+  schema change (still V6). CI `make unit` on `macos-26` is green. See
+  [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md) for the current release boundary.
 - **`main` carries the Typed Workout order/progress/delight wave** (shipped in 2.3
   build 55, TestFlight `VALID` 2026-08-05): the journal now lists an imported workout
   in the exact order the review
@@ -107,7 +107,8 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
   "yesterday" sets the date; the input step marks each line recognized/not per
   keystroke; and unitless weights default to the user's preferredWeightUnit instead
   of hardcoded lb. Unit suite 682 tests green at merge.
-- **`main` carries the import review timing wave** (unreleased, after build 53): both
+- **`main` carries the import review timing wave** (shipped in TestFlight build 54 and
+  included in later builds): both
   import review screens (Scan + Typed Workout) gain workout-level date & time control
   (compact pickers, progressive "Include Time" toggle) and per-set date & time overrides
   (context menu / leading swipe on a set row) so multi-day pages and mixed sessions land

@@ -1,5 +1,9 @@
 # Marble Testing
 
+**Release snapshot (verified 2026-08-21):** App Store 2.3 build 56 is live;
+`origin/main` (`42b9061`) is 2.4 build 57; TestFlight 2.4 build 57 is `VALID`;
+build 58 is next; no App Store 2.4 version or submission exists.
+
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
   mapping, the handwritten-scan parser/importer + a real Vision-OCR integration test, the
@@ -121,8 +125,7 @@
 - Snapshots, UI flows, and `make audit` were not run here (Linux Cloud Agent;
   no Xcode). Re-record widget/Log/Progress snapshots on a Mac before treating
   `make test` as green.
-- No schema change (still V6). TestFlight still 2.3 build 55 until a Mac archives
-  project version 56.
+- No schema change (still V6). This IA subsequently shipped publicly as 2.3 build 56.
 
 ## Latest verification (2026-07-30, import review timing wave on main)
 - `MarbleTests` (`make unit`): **648 passed (1 skipped), 0 failed** — adds
@@ -349,14 +352,21 @@ Preferred Makefile targets:
 - `make audit` (accessibility audits)
 - `make only TEST='MarbleUITests/JournalFlowUITests/testAddEditDuplicateDeleteSet'`
 
+All Make test targets default `DERIVED_DATA_PATH` to the checkout's ignored
+`DerivedData/` directory on the internal disk. Override it with another absolute internal
+path when needed; do not point Xcode or these wrappers at the retired PortableSSD.
+
 ## Local App Store submission gate
 
-Physical-device access is not required for App Review submission. Complete this gate on the
-release Mac:
+Apple does not technically require physical-device access for App Review submission. Marble
+2.4 release policy still requires both this simulator gate and the physical acceptance pass
+below before submission approval. Complete this gate on the release Mac:
 
 1. Confirm the candidate commit, project version, and uploaded build are the intended release.
 2. Run `make unit`, `make ui`, `make audit`, `make verify-widget-plist`, and
-   `make migration-release` on dedicated simulators.
+   `make migration-release` on dedicated simulators. The migration target defaults to
+   shipped 2.3 build 56 source `c0cef9e`; override `MIGRATION_BASE_REF` only with another
+   verified immutable shipped source.
 3. Walk fresh-install onboarding and completed-user relaunch on iPhone. Verify onboarding,
    Settings, and the core layouts on iPad.
 4. Exercise `marble://trends` and `marble://quicklog` with `xcrun simctl openurl`, and inspect
@@ -374,16 +384,24 @@ spoken Siri recognition, real Apple Health/Watch/Garmin data, Always-On Display,
 background suspension. These are explicit residual product risks, not submission blockers.
 Their pure behavior, persistence, routing, and failure handling must still pass locally.
 
-## Optional physical-device pass
+## Physical-device acceptance pass for 2.4
 
-- Current phone-test build: **2.2 (47)**, build ID
-  `83f4e8ca-a4cf-41ac-8080-4f8703851a42`; `VALID`, uploaded
-  2026-07-23 at 08:03 PDT (the Apple-best-practices build, PR #12).
+Record the full pass in [`AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md).
+
+- Current phone-test build: **2.4 (57)**, build ID
+  `a8f9716a-5b39-4013-a795-181344ff54a6`; TestFlight `VALID`.
 - Internal group `test group A` receives all builds; external beta remains unsubmitted.
 - This section exercises Apple-owned surfaces beyond the deterministic local gate. It is
-  recommended before public release, but is not required before App Review submission.
+  required as the product acceptance pass before submitting 2.4 App Review.
 
-### 2.2 payload (what's new on this build)
+### 2.4 and carried-forward device payload
+
+- **Real import soak** — import representative Hevy and Strong exports, including EU
+  semicolon/decimal-comma CSV, plus multi-day Notes and multi-page scans. Confirm session
+  boundaries, exercise matching, order, RPE/rest/notes, failed sets, and dedup behavior.
+- **Accessibility acceptance** — complete core Train / Log / Progress and import flows with
+  VoiceOver, Accessibility 5 text size, and Voice Control. Record any device-only failures
+  before declaring accessibility features in App Store Connect.
 - **Daily Highlights** — after logging today, open Trends during the default 8:00 PM–11:59 PM
   window. Confirm the card shows only truthful progress from that day, uses the clean
   monochrome hierarchy, and cycles among three quotes. Confirm the quote stays visually
@@ -399,10 +417,9 @@ Their pure behavior, persistence, routing, and failure handling must still pass 
   still render** — the snapshot is stored `AfterFirstUnlockThisDeviceOnly`, so this is the
   one check that proves the accessibility level is right. Tap through and confirm the
   `marble://trends` deep link lands on Trends.
-  - **Build 47 headline fix — Siri now refreshes the widget.** With the app closed, log a
+  - **Siri refresh check.** With the app closed, log a
     set via Siri ("Log a set in Marble" / "Log my last set again in Marble") and confirm the
-    Weekly Goal widget updates its count **without ever opening the app**. Build 46 and
-    earlier left the widget stale here; on 47 a stale widget after a Siri log is a bug.
+    Weekly Goal widget updates its count **without ever opening the app**.
 - **Rest timer Live Activity** — log a set with rest > 0, then use the **`+30s`** and
   **`End`** buttons on both the Lock Screen and the Dynamic Island expanded view. Confirm
   `+30s` actually extends the countdown and `End` dismisses the activity. Then verify the
@@ -430,18 +447,17 @@ Their pure behavior, persistence, routing, and failure handling must still pass 
   deduplicated; add a manual weigh-in; check the Trends bodyweight chart and the DOTS line
   on the e1RM section. Confirm the men/women coefficient picker in the Log Weight sheet
   changes the score.
-  - Known gaps to expect: a bodyweight entry **cannot be edited or deleted** once saved, and
-    the DOTS coefficient picker exists **only** in the Log Weight sheet — a user whose
-    weigh-ins all arrive from Health never sees it.
+  Confirm bodyweight entries can be edited/deleted and the DOTS coefficient picker is also
+  reachable from Settings → Body.
 - **Restore from backup** — restore a JSON backup and confirm the data lands. Then check
-  the Weekly Goal widget without reopening the app: build 47 refreshes it (plus the
+  the Weekly Goal widget without reopening the app: the restore refreshes it (plus the
   weekly-goal reminder, Spotlight, and the parameterised Siri phrases) right after a
   successful restore — the old "widget does not refresh after a restore" gap is closed.
 
-### Build 47 additions (Apple best practices — device-only checks)
+### Apple best-practices device-only checks
 - **Rest-complete notification** — log a set with rest > 0, background Marble, and let the
   countdown reach `0:00`. A local **"Rest complete"** notification must arrive with the app
-  backgrounded (nothing fired at zero before build 47). Then log another rest and end it
+  backgrounded. Then log another rest and end it
   early with the Live Activity's `End` button: the pending notification must be cancelled —
   no alert should arrive at the original end time.
 - **Live Activity stale state** — start a rest, force-kill Marble, and leave the phone

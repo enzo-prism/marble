@@ -7,6 +7,7 @@ struct ExerciseEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @Query(sort: \Exercise.name)
     private var exercises: [Exercise]
@@ -102,7 +103,11 @@ struct ExerciseEditorView: View {
                     }
                 }
                 .onChange(of: validationScrollRequest) { _, _ in
-                    withAnimation { proxy.scrollTo("ExerciseEditor.Validation", anchor: .top) }
+                    if reduceMotion {
+                        proxy.scrollTo("ExerciseEditor.Validation", anchor: .top)
+                    } else {
+                        withAnimation { proxy.scrollTo("ExerciseEditor.Validation", anchor: .top) }
+                    }
                 }
             }
         }
@@ -345,7 +350,11 @@ struct ExerciseEditorView: View {
     private var advancedSection: some View {
         Section {
             Button {
-                withAnimation { showAdvanced.toggle() }
+                if reduceMotion {
+                    showAdvanced.toggle()
+                } else {
+                    withAnimation { showAdvanced.toggle() }
+                }
             } label: {
                 HStack {
                     Label("Appearance & Advanced", systemImage: "slider.horizontal.3")

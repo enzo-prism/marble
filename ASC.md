@@ -29,10 +29,9 @@ project-local notes.
 - Archive path: `.asc/artifacts/marble.xcarchive`
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
-- Live App Store version: `2.1` (build 40), released 2026-07-21
-- Working project version: `2.4` (build 57, TestFlight pending). The 2.3 train
-  is closed (`ITMS-90186`). App Store 2.3 is `READY_FOR_DISTRIBUTION` (IA binary;
-  do not release as a stand-in). 2.2 is also `READY_FOR_DISTRIBUTION`.
+- Live App Store version: `2.3` (build 56), verified public 2026-08-21
+- Working project version: `2.4` (build 57, TestFlight `VALID`). Build 58 is next.
+  The 2.3 train is closed (`ITMS-90186`) and already released.
 - Version review and validation of a **new** binary should use `2.4`. Do not
   target 2.2 or 2.3 for a new upload.
 
@@ -40,10 +39,9 @@ project-local notes.
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches. It is the dated source of truth; this file is the command reference.
-- **State as of 2026-08-20:** `2.1` (build 40) is live on the App Store.
-  `2.2` and `2.3` are `READY_FOR_DISTRIBUTION` (approved, manual release pending).
-  Latest processed TestFlight binary is `2.3` build 56. Working upload is **2.4
-  build 57**. Do not release 2.2 or 2.3 as a stand-in for later waves.
+- **State as of 2026-08-21:** `2.3` (build 56) is live on the App Store.
+  Latest processed TestFlight binary is **2.4 build 57 `VALID`**. Build 58 is next.
+  No App Store 2.4 version or submission exists.
 - Always run `make asc-version` before acting — the CLI can report a blank generated
   marketing version, so the Makefile prints a reliable fallback.
 - Do not cancel an in-flight review, upload a replacement build, or submit to
@@ -202,20 +200,19 @@ Direct equivalents:
 
 ```bash
 asc status --app "6757725234" --output table
-asc review status --app "6757725234" --version "2.2" --platform IOS --output table
-asc review doctor --app "6757725234" --version "2.2" --platform IOS --output table
-asc validate --app "6757725234" --version "2.2" --platform IOS --output table
-asc builds next-build-number --app "6757725234" --version "2.2" --platform IOS --output table
+asc review status --app "6757725234" --version "2.4" --platform IOS --output table
+asc review doctor --app "6757725234" --version "2.4" --platform IOS --output table
+asc validate --app "6757725234" --version "2.4" --platform IOS --output table
+asc builds next-build-number --app "6757725234" --version "2.4" --platform IOS --output table
 ```
 
 `asc validate` is the canonical App Store submission readiness report in the
 current CLI. `asc review status` and `asc review doctor` are better for review
 state and blocker diagnosis.
 
-For the next TestFlight build on the 2.2 train, use `make asc-next-build`; it reads
-`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. Build 47
-is already uploaded, so expect **48** — but always use the freshly reported number rather
-than a local guess.
+For the next TestFlight build on the 2.4 train, use `make asc-next-build`; it reads
+`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. Build 57
+is already uploaded, so expect **58** — stop and reconcile if live ASC reports anything else.
 
 ### Create A Deterministic Archive
 
@@ -298,11 +295,11 @@ make asc-publish-testflight \
   ASC_TESTFLIGHT_GROUP="test group A"
 ```
 
-Current phone-test state as of 2026-07-23:
+Current phone-test state as of 2026-08-21:
 
-- Build `2.2 (47)` is `VALID` in TestFlight:
-  `83f4e8ca-a4cf-41ac-8080-4f8703851a42` (uploaded 08:03 PDT).
-- `make asc-next-build` currently reports `48`.
+- Build `2.4 (57)` is `VALID` in TestFlight:
+  `a8f9716a-5b39-4013-a795-181344ff54a6`.
+- `make asc-next-build` should report `58`; stop and reconcile if it does not.
 - Internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has
   `hasAccessToAllBuilds = true`, so no explicit per-group add is required.
 - External beta remains unsubmitted.
@@ -311,7 +308,7 @@ Useful verification commands:
 
 ```bash
 asc builds build-beta-detail view \
-  --build-id "83f4e8ca-a4cf-41ac-8080-4f8703851a42" \
+  --build-id "a8f9716a-5b39-4013-a795-181344ff54a6" \
   --output json --pretty
 
 asc testflight groups view \
@@ -340,16 +337,16 @@ target without explicit approval and a clean release branch. The target intentio
 requires `ASC_APPSTORE_PUBLISH_VERSION` so it cannot silently publish the local marketing
 version.
 
-As of 2026-07-23 there is **no in-flight review**. `2.1` (build 40) is released; `2.2`
-(build 47) is on TestFlight and has not been submitted. Submitting 2.2 needs explicit
-approval — see "Open release decisions" in `RELEASE_HANDOFF.md`.
+As of 2026-08-21 there is **no App Store 2.4 version or submission**. `2.3` build 56
+is public; `2.4` build 57 is TestFlight-only. Creating or submitting 2.4 needs explicit
+approval — see "Current release decisions" in `RELEASE_HANDOFF.md`.
 
 Dry-run first when possible:
 
 ```bash
 make asc-publish-appstore \
   ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist \
-  ASC_APPSTORE_PUBLISH_VERSION=2.2 \
+  ASC_APPSTORE_PUBLISH_VERSION=2.4 \
   ASC_APPSTORE_SUBMIT_FLAGS="--dry-run"
 ```
 
@@ -358,7 +355,7 @@ Build/upload/attach without submission:
 ```bash
 make asc-publish-appstore \
   ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist \
-  ASC_APPSTORE_PUBLISH_VERSION=2.2
+  ASC_APPSTORE_PUBLISH_VERSION=2.4
 ```
 
 Submit for App Review after validation:
@@ -366,7 +363,7 @@ Submit for App Review after validation:
 ```bash
 make asc-publish-appstore \
   ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist \
-  ASC_APPSTORE_PUBLISH_VERSION=2.2 \
+  ASC_APPSTORE_PUBLISH_VERSION=2.4 \
   ASC_APPSTORE_SUBMIT_FLAGS="--submit --confirm"
 ```
 
@@ -411,7 +408,7 @@ asc validate --help
 Useful direct commands:
 
 ```bash
-asc builds list --app "6757725234" --version "2.2"
+asc builds list --app "6757725234" --version "2.4"
 asc testflight groups list --app "6757725234"
 asc status --app "6757725234"
 ```

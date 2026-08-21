@@ -14,7 +14,9 @@ final class ScanFlowUITests: MarbleUITestCase {
         importButton.tap()
 
         let scanOpen = waitForIdentifier("Import.Scan.Open", timeout: 8)
-        scanOpen.tap()
+        // TipKit wraps this button in an accessibility container on iOS 26.5;
+        // activate the visible center just as the rest of the UI suite does.
+        forceTap(scanOpen)
 
         // The scan capture screen renders and is reachable.
         let capture = waitForIdentifier("Scan.Capture", timeout: 5)

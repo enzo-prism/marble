@@ -45,8 +45,7 @@ final class JournalFlowUITests: MarbleUITestCase {
         openAddSet()
         selectExercise(identifier: "BenchPress")
 
-        let weightField = textInput("AddSet.Weight")
-        waitFor(weightField)
+        let weightField = revealAddSetTextInput("AddSet.Weight")
         clearAndType(weightField, text: "135")
         dismissKeyboardIfPresent()
 
@@ -76,8 +75,7 @@ final class JournalFlowUITests: MarbleUITestCase {
             openAddSet()
             selectExercise(identifier: "BenchPress")
 
-            let weightField = textInput("AddSet.Weight")
-            waitFor(weightField)
+            let weightField = revealAddSetTextInput("AddSet.Weight")
             clearAndType(weightField, text: "185")
             dismissKeyboardIfPresent()
 
@@ -379,7 +377,8 @@ final class JournalFlowUITests: MarbleUITestCase {
         }
 
         step("Change the icon to an emoji and save") {
-            waitFor(app.navigationBars["Edit Exercise"], timeout: 6)
+            let editorNavigation = app.navigationBars["Edit Exercise"]
+            waitFor(editorNavigation, timeout: 6)
 
             expandExerciseEditorAdvanced()
             let iconMode = app.segmentedControls["ExerciseEditor.IconMode"]
@@ -388,15 +387,21 @@ final class JournalFlowUITests: MarbleUITestCase {
 
             let firstEmojiSuggestion = app.buttons["ExerciseEditor.EmojiSuggestion.0"]
             waitFor(firstEmojiSuggestion)
-            forceTap(firstEmojiSuggestion)
+            firstEmojiSuggestion.tap()
+            let emojiField = app.textFields["ExerciseEditor.CustomEmoji"]
+            waitFor(emojiField)
+            XCTAssertFalse((emojiField.value as? String ?? "").isEmpty)
 
             let saveExercise = app.buttons["ExerciseEditor.Save"]
             waitFor(saveExercise)
-            forceTap(saveExercise)
+            saveExercise.tap()
+            waitForDisappearance(editorNavigation, timeout: 6)
         }
 
-        step("Confirm the editor closes after saving the appearance change") {
-            _ = waitForIdentifier("ManageExercises.List", timeout: 6)
+        step("Confirm saving returns to the logger with the edited exercise selected") {
+            let exercisePicker = app.buttons["AddSet.ExercisePicker"]
+            waitFor(exercisePicker, timeout: 6)
+            XCTAssertTrue(exercisePicker.label.localizedCaseInsensitiveContains("Bench Press"))
         }
     }
 
@@ -432,8 +437,7 @@ final class JournalFlowUITests: MarbleUITestCase {
         step("Log a set using one dumbbell weight") {
             waitFor(app.navigationBars["Log Set"], timeout: 6)
 
-            let weightField = textInput("AddSet.Weight")
-            waitFor(weightField)
+            let weightField = revealAddSetTextInput("AddSet.Weight")
             clearAndType(weightField, text: "25")
             dismissKeyboardIfPresent()
 
@@ -611,12 +615,7 @@ final class JournalFlowUITests: MarbleUITestCase {
         }
 
         step("Entering a heavier weight lights up the live PR banner") {
-            let list = addSetListContainer()
-            let weightField = textInput("AddSet.Weight")
-            waitFor(weightField, timeout: 6)
-            if !weightField.isHittable {
-                scrollToElement(weightField, in: list, maxSwipes: 6)
-            }
+            let weightField = revealAddSetTextInput("AddSet.Weight")
             clearAndType(weightField, text: "225")
             dismissKeyboardIfPresent()
 

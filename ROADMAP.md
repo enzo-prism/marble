@@ -1,5 +1,10 @@
 # Marble — H2 2026 Implementation Plan (written 2026-07-20)
 
+> **CURRENT RELEASE SNAPSHOT 2026-08-21:** App Store 2.3 build 56 is live;
+> `origin/main` (`42b9061`) is 2.4 build 57; TestFlight 2.4 build 57 is `VALID`;
+> build 58 is next; no App Store 2.4 version or submission exists. The dated phase
+> notes below are implementation history, not current release instructions.
+
 > **STATUS 2026-07-23 — Phases 0–3, the follow-up polish, and the Apple-best-practices
 > pass (PR #12) are on `main` and internal TestFlight as 2.2 build 47.**
 > Unit suite green, accessibility audit green, UI suite 39/40 (the one failure,
@@ -12,7 +17,7 @@
 > |---|---|
 > | — main (2026-08-20) | **Bulk import honesty (2.4 TestFlight build 57 `VALID`, buildId `a8f9716a-…`):** Hevy `set_index` resets stay two blocks; EU/Android Strong CSV (`;`, `Weight (kg)`, decimal commas); Strong distance is km/mi not metres; `superset_id` → notes; typed/scanned `RPE 8` / `@RPE 8`; `Day 1` / `Session 2` split a paste **and are not saved as exercises**; Hevy failure 0-rep rows kept; Strong `(Barbell)` suffixes stripped after grouping; weak matches default to a new exercise; scan N==1 uses the library matcher; review shows rest/RPE/notes and says blank RPE saves as 8; scan review can reorder exercises; re-scan copy is skip not duplicate. Marketing version **2.4** because Apple closed the 2.3 train (`ITMS-90186`). No schema change (still V6). CI `make unit` green (800 tests). |
 > | — main (2026-08-20) | **Bulk import fidelity (PR #23 merge `cbd5116`):** Hevy CSV skips warmup sets, maps RPE + notes, and keeps the session clock (`end_time` / `Duration`); multi-page scans concatenate OCR and hand a dated week to Paste or Type; batch review shows library / new / weak matches and unique new-exercise counts; file picker no longer promises JSON. No schema change (still V6). CI `make unit` green (774 tests). 2.3 TestFlight of this wave was rejected — the 2.3 train is closed. |
-> | — main (2026-08-16) | **Train / Log / Progress IA (2.3 project build 56, TestFlight pending Mac archive):** three tab-bar destinations; Calendar + Supplements are Log modes; one-tap complete-set on planned rows with history (`SetLogging`); medium morphing Log Set sheet; session accessory; lock-screen widget drops two-digit streaks. No schema change (still V6). Linux agents cannot upload TestFlight. Merged PR #19 (`c0cef9e`). CI `make unit` green. |
+> | — App Store (verified 2026-08-21) | **Train / Log / Progress IA shipped publicly as 2.3 build 56:** three tab-bar destinations; Calendar + Supplements are Log modes; one-tap complete-set on planned rows with history (`SetLogging`); medium morphing Log Set sheet; session accessory; lock-screen widget drops two-digit streaks. No schema change (still V6). Shipped application source: PR #19 merge `c0cef9e`. |
 > | — main (2026-08-05) | **Typed Workout order/progress/delight wave (shipped in build 55, TestFlight `VALID` 2026-08-05)**: journal order now matches review order (millisecond ordinal cascade in `WorkoutScanImporter`; explicit per-set times still win); staged determinate progress bar + percent for preview generation (`WorkoutParseStage` callback on `WorkoutScanParsing`); system `PasteButton` in the input step; exercise reorder controls in review; imported screen shows total volume + beaten PRs (`PersonalRecords.projectedBadge`). Parser learned rep ladders ("225x5/3/1"), tempo-noise stripping (fixes 3 lb / 31 lb corruption), and round/circuit headers with set multiplication. No schema change (still V6). Unit suite **706 tests** green. First build on the **2.3 train** — 2.2 went `READY_FOR_DISTRIBUTION`, closing 2.2 to new uploads. |
 > | — main (2026-08-05) | **App-export paste + zero-silent-loss wave (shipped in build 55, TestFlight `VALID` 2026-08-05)**: Hevy/Strong export formats, Notes-style blocks, unparsed-lines surfacing with inline fix + re-parse, thousand-separator + AMRAP/EMOM/prose handling, live per-line parse feedback, preferredWeightUnit defaults, "yesterday" dates. 682 tests at merge. |
 > | — main (2026-07-30) | **Import review timing wave (shipped in build 54, TestFlight `VALID` 2026-07-30)**: workout-level date & time control (`ImportDateSection`, compact pickers, "Include Time" progressive disclosure) and per-set date & time overrides (`ParsedSetDraft.performedAt`, context-menu/swipe activation, indented override sub-row) on both import review screens; `ImportedWorkout` ledger date = earliest effective set date; HIG sheet-dismissal protection ("Discard this import?") on Scan + Typed Workout. No schema change (still V6). |
@@ -147,9 +152,9 @@ of them works, and do not put them in release notes.
   `marble/Shared/WeeklyGoalWidgetViews.swift` so the app target can render them.
 - ~~No V4→V5 case in `PersistenceRecoveryTests`~~ →
   `testMigratesV4StoreToV5WithoutRecoveryOrDataLoss`, which also asserts no `.corrupt` backup
-  was written. The `make migration-release` gate now defaults to the **live App Store build**
-  (96736a1, 2.1 build 40) instead of the 2.0-era commit, and asserts `ZBODYMETRICENTRY` exists
-  after the upgrade.
+  was written. The `make migration-release` gate now defaults to the **current shipped
+  App Store source** (`c0cef9e`, 2.3 build 56) and asserts `ZBODYMETRICENTRY` exists after
+  the upgrade. Override `MIGRATION_BASE_REF` only to test another immutable shipped source.
 
 ### Deferred from the best-practices pass (PR #12)
 Build 49 closed the first three:

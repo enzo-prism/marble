@@ -1130,322 +1130,55 @@ nonisolated enum HandwrittenWorkoutParser {
     // MARK: - Dates
 
     /// First explicit date found anywhere in `text` (`M/D`, `M/D/YY`, `YYYY-MM-DD`).
-    /// Exposed so the model-backed parser can resolve the date it extracted with the
-    /// same deterministic rules instead of asking the model to do calendar math.
+    /// Exposed so the model-backed parser can use the same deterministic rules.
     static func explicitDate(in text: String, referenceDate: Date) -> Date? {
-        for line in text.split(whereSeparator: { $0.isNewline }) {
-            if let match = detectDate(in: String(line), referenceDate: referenceDate) {
-                return match.date
-            }
-        }
-        return nil
+        HandwrittenWorkoutDateParser.explicitDate(in: text, referenceDate: referenceDate)
     }
 
-    /// True when `rawLine` is a session-boundary date header: a date or relative
-    /// day word with no leftover exercise notation. "3/5" and "Push day yesterday"
-    /// split a bulk paste; "3/5 Bench 3x8 @ 185" stays inside the current session.
+    /// True when `rawLine` is a session-boundary date header with no leftover
+    /// exercise notation.
     static func isSessionDateHeader(_ rawLine: String, referenceDate: Date) -> Bool {
-        let line = normalize(rawLine)
-        guard !line.isEmpty else { return false }
-
-        var remainder = line
-        var foundDate = false
-        if let relative = detectRelativeDate(in: remainder, referenceDate: referenceDate) {
-            foundDate = true
-            remainder = normalize(remainder.replacingCharacters(in: relative.range, with: " "))
-        }
-        if let match = detectDate(in: remainder, referenceDate: referenceDate) {
-            foundDate = true
-            remainder = normalize(remainder.replacingCharacters(in: match.range, with: " "))
-        }
-        guard foundDate else { return false }
-        remainder = remainder.trimmingCharacters(
-            in: CharacterSet.punctuationCharacters.union(.whitespacesAndNewlines)
-        )
-        if remainder.isEmpty { return true }
-        if isWeekday(remainder) { return true }
-        return isWordOnly(remainder)
+        HandwrittenWorkoutDateParser.isSessionDateHeader(rawLine, referenceDate: referenceDate)
     }
 
     /// Date headers plus numbered session labels (`Day 1`, `Session 2: Legs`).
-    /// Used by the paste splitter; the parser also consumes these so they are
-    /// not mistaken for exercises. They are not calendar dates.
     static func isSessionSplitHeader(_ rawLine: String, referenceDate: Date) -> Bool {
-        if isSessionDateHeader(rawLine, referenceDate: referenceDate) { return true }
-        return isNumberedSessionHeader(rawLine)
+        HandwrittenWorkoutDateParser.isSessionSplitHeader(rawLine, referenceDate: referenceDate)
     }
 
-    /// "Day 1", "Session 2: Upper", "Workout 3 — Legs". A trailing set spec
-    /// (`Day 1 Bench 3x8`) stays inside the current session.
     static func isNumberedSessionHeader(_ rawLine: String) -> Bool {
-        numberedSessionHeaderRemainder(rawLine) != nil
+        HandwrittenWorkoutDateParser.isNumberedSessionHeader(rawLine)
     }
 
-    /// Leftover title after a numbered session label (`"Legs"` from `"Day 2: Legs"`).
-    /// `""` when the label has no remainder (`"Day 1"`). `nil` when the line is not a header.
     static func numberedSessionHeaderRemainder(_ rawLine: String) -> String? {
-        let line = normalize(rawLine)
-        guard !line.isEmpty, let regex = numberedSessionHeaderRegex else { return nil }
-        let nsRange = NSRange(line.startIndex..., in: line)
-        guard let match = regex.firstMatch(in: line, range: nsRange) else { return nil }
-        guard match.range(at: 3).location != NSNotFound,
-              let remainderRange = Range(match.range(at: 3), in: line) else {
-            return ""
-        }
-        let remainder = line[remainderRange].trimmingCharacters(in: .whitespacesAndNewlines)
-        if remainder.isEmpty { return "" }
-        guard isWordOnly(remainder) else { return nil }
-        return remainder
+        HandwrittenWorkoutDateParser.numberedSessionHeaderRemainder(rawLine)
     }
 
-    private struct DateMatch { var date: Date; var range: Range<String.Index> }
-
-    /// The lookaround guards keep a rep ladder ("5/3/1", "225x5/3/1") from being
-    /// read as a partial M/D date: no match may start right after a digit or
-    /// slash, nor end right before another "/digit" segment. A full M/D/YY
-    /// ("1/20/25") still matches because its year segment is consumed.
-    private static let slashDateRegex = try? NSRegularExpression(
-        pattern: #"(?<![\d/])(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b(?!/\d)"#
-    )
-    private static let isoDateRegex = try? NSRegularExpression(
-        pattern: #"\b(\d{4})-(\d{1,2})-(\d{1,2})\b"#
-    )
-
-    private static let relativeDateRegex = try? NSRegularExpression(
-        pattern: #"(?i)\b(yesterday|last night|this morning|tonight|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|weds|thu|thur|thurs|fri|sat|sun)\b"#
-    )
-
-    private static let numberedSessionHeaderRegex = try? NSRegularExpression(
-        pattern: #"^(?i)(day|session|workout)\s+(\d{1,2})(?:\s*[:.\-]\s*(.*))?$"#
-    )
-
-    /// The relative date words users actually write in notes ("yesterday bench …").
-    /// Longer phrases first in the alternation so "last night" wins over "night".
-    /// Weekday names resolve to the most recent that day on or before `referenceDate`,
-    /// so a Notes paste labeled "Monday" / "Tuesday" splits and dates correctly.
-    private static func detectRelativeDate(in line: String, referenceDate: Date) -> DateMatch? {
-        guard let regex = relativeDateRegex,
-              let match = firstMatch(regex, in: line),
-              let range = Range(match.range, in: line) else { return nil }
-        let word = line[range].lowercased()
-        let offset: Int
-        if word == "yesterday" || word == "last night" {
-            offset = -1
-        } else if let weekday = weekdayNumber(word) {
-            offset = daysBack(toWeekday: weekday, from: referenceDate)
-        } else {
-            offset = 0
-        }
-        guard let shifted = Calendar.current.date(byAdding: .day, value: offset, to: referenceDate) else {
-            return nil
-        }
-        return DateMatch(date: shifted, range: range)
-    }
-
-    /// Gregorian weekday numbers (`1` = Sunday) matching `Calendar.Component.weekday`.
-    private static func weekdayNumber(_ word: String) -> Int? {
-        switch word {
-        case "sunday", "sun": return 1
-        case "monday", "mon": return 2
-        case "tuesday", "tue", "tues": return 3
-        case "wednesday", "wed", "weds": return 4
-        case "thursday", "thu", "thur", "thurs": return 5
-        case "friday", "fri": return 6
-        case "saturday", "sat": return 7
-        default: return nil
-        }
-    }
-
-    private static func daysBack(toWeekday weekday: Int, from referenceDate: Date) -> Int {
-        let current = Calendar.current.component(.weekday, from: referenceDate)
-        return -((current - weekday + 7) % 7)
-    }
-
-    private static func detectDate(in line: String, referenceDate: Date) -> DateMatch? {
-        if let iso = isoDateRegex, let match = firstMatch(iso, in: line),
-           let y = intGroup(match, 1, line), let mo = intGroup(match, 2, line), let d = intGroup(match, 3, line),
-           let date = makeDate(year: y, month: mo, day: d),
-           let range = Range(match.range, in: line) {
-            return DateMatch(date: date, range: range)
-        }
-        if let slash = slashDateRegex, let match = firstMatch(slash, in: line),
-           let mo = intGroup(match, 1, line), let d = intGroup(match, 2, line) {
-            let referenceYear = calendar.component(.year, from: referenceDate)
-            let year: Int
-            if let raw = intGroup(match, 3, line) {
-                year = raw < 100 ? 2000 + raw : raw
-            } else {
-                year = referenceYear
-            }
-            guard (1...12).contains(mo), (1...31).contains(d),
-                  let date = makeDate(year: year, month: mo, day: d),
-                  let range = Range(match.range, in: line) else { return nil }
-            return DateMatch(date: date, range: range)
-        }
-        if let month = detectMonthNameDate(in: line, referenceDate: referenceDate) {
-            return month
-        }
-        return nil
-    }
-
-    private static let monthNameRegex = try? NSRegularExpression(
-        pattern: #"(?i)\b(january|february|march|april|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec|may)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{2,4}))?\b"#
-    )
-    private static let dayMonthNameRegex = try? NSRegularExpression(
-        pattern: #"(?i)\b(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec|may)(?:,?\s+(\d{2,4}))?\b"#
-    )
-
-    private static func detectMonthNameDate(in line: String, referenceDate: Date) -> DateMatch? {
-        if let regex = monthNameRegex, let match = firstMatch(regex, in: line),
-           let month = monthNumber(group(match, 1, line)),
-           let day = intGroup(match, 2, line) {
-            return monthDate(
-                yearRaw: intGroup(match, 3, line),
-                month: month,
-                day: day,
-                range: Range(match.range, in: line),
-                referenceDate: referenceDate
-            )
-        }
-        if let regex = dayMonthNameRegex, let match = firstMatch(regex, in: line),
-           let day = intGroup(match, 1, line),
-           let month = monthNumber(group(match, 2, line)) {
-            return monthDate(
-                yearRaw: intGroup(match, 3, line),
-                month: month,
-                day: day,
-                range: Range(match.range, in: line),
-                referenceDate: referenceDate
-            )
-        }
-        return nil
-    }
-
-    private static func monthDate(
-        yearRaw: Int?,
-        month: Int,
-        day: Int,
-        range: Range<String.Index>?,
+    private static func detectRelativeDate(
+        in line: String,
         referenceDate: Date
-    ) -> DateMatch? {
-        guard (1...12).contains(month), (1...31).contains(day), let range else { return nil }
-        let referenceYear = calendar.component(.year, from: referenceDate)
-        let year: Int
-        if let raw = yearRaw {
-            year = raw < 100 ? 2000 + raw : raw
-        } else {
-            year = referenceYear
-        }
-        guard var date = makeDate(year: year, month: month, day: day) else { return nil }
-        if yearRaw == nil, date > referenceDate.addingTimeInterval(86_400) {
-            date = makeDate(year: year - 1, month: month, day: day) ?? date
-        }
-        return DateMatch(date: date, range: range)
+    ) -> HandwrittenWorkoutDateParser.Match? {
+        HandwrittenWorkoutDateParser.detectRelativeDate(in: line, referenceDate: referenceDate)
     }
 
-    private static func group(_ match: NSTextCheckingResult, _ index: Int, _ line: String) -> String? {
-        guard index < match.numberOfRanges,
-              let range = Range(match.range(at: index), in: line) else { return nil }
-        return String(line[range])
+    private static func detectDate(
+        in line: String,
+        referenceDate: Date
+    ) -> HandwrittenWorkoutDateParser.Match? {
+        HandwrittenWorkoutDateParser.detectDate(in: line, referenceDate: referenceDate)
     }
-
-    private static func monthNumber(_ raw: String?) -> Int? {
-        guard let raw else { return nil }
-        switch raw.lowercased() {
-        case "january", "jan": return 1
-        case "february", "feb": return 2
-        case "march", "mar": return 3
-        case "april", "apr": return 4
-        case "may": return 5
-        case "june", "jun": return 6
-        case "july", "jul": return 7
-        case "august", "aug": return 8
-        case "september", "sept", "sep": return 9
-        case "october", "oct": return 10
-        case "november", "nov": return 11
-        case "december", "dec": return 12
-        default: return nil
-        }
-    }
-
-    private static func firstMatch(_ regex: NSRegularExpression, in line: String) -> NSTextCheckingResult? {
-        regex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line))
-    }
-
-    private static func intGroup(_ match: NSTextCheckingResult, _ index: Int, _ line: String) -> Int? {
-        guard index < match.numberOfRanges,
-              let range = Range(match.range(at: index), in: line) else { return nil }
-        return Int(line[range])
-    }
-
-    private static func makeDate(year: Int, month: Int, day: Int) -> Date? {
-        var components = DateComponents()
-        components.year = year
-        components.month = month
-        components.day = day
-        components.hour = 12
-        return calendar.date(from: components)
-    }
-
-    private static let calendar: Calendar = {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
-        return calendar
-    }()
 
     // MARK: - Helpers
 
-    private static func normalize(_ line: String) -> String {
-        var result = line
-        for multiply in ["×", "✕", "✗", "*", "·"] {
-            result = result.replacingOccurrences(of: multiply, with: "x")
-        }
-        for dash in ["–", "—"] {
-            result = result.replacingOccurrences(of: dash, with: "-")
-        }
-        result = attachHyphenatedUnits(result)
-        // Unspaced name/spec joins ("Squat5x5" → "Squat 5x5"). Lowercase letters
-        // only, so superset tags like "A1:" keep their digit.
-        result = result.replacingOccurrences(
-            of: #"(?<=[a-z])(?=\d)"#,
-            with: " ",
-            options: .regularExpression
-        )
-        // "3x AMRAP" / "2x failure" — glue the target word to its set count so the
-        // AxB tokenizer sees one token.
-        result = result.replacingOccurrences(
-            of: #"(?i)\b(\d+x)\s+(amrap|failure)\b"#,
-            with: "$1$2",
-            options: .regularExpression
-        )
-        // Digit-grouping commas are thousands separators ("1,025" → "1025"), never
-        // token breaks — the generic comma→space rule below would silently turn
-        // the load into 1.
-        result = result.replacingOccurrences(
-            of: #"(?<=\d),(?=\d{3}\b)"#,
-            with: "",
-            options: .regularExpression
-        )
-        result = result.replacingOccurrences(of: ",", with: " ")
-        let collapsed = result.split(whereSeparator: { $0 == " " || $0 == "\t" }).joined(separator: " ")
-        return collapsed.trimmingCharacters(in: .whitespacesAndNewlines)
+    private static func firstMatch(
+        _ regex: NSRegularExpression,
+        in line: String
+    ) -> NSTextCheckingResult? {
+        regex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line))
     }
 
-    /// Drops a hyphen that glues a number to a unit word so the token reads as one
-    /// unit ("20-meter" → "20meter", "20-pound" → "20pound"). Digit-digit hyphens
-    /// ("8-10", ISO dates) and word-word hyphens ("Rear-delt") are untouched.
-    private static func attachHyphenatedUnits(_ line: String) -> String {
-        let characters = Array(line)
-        var result = ""
-        result.reserveCapacity(characters.count)
-        for (index, character) in characters.enumerated() {
-            if character == "-", index > 0, index + 1 < characters.count,
-               characters[index - 1].isNumber, characters[index + 1].isLetter {
-                continue
-            }
-            result.append(character)
-        }
-        return result
+    private static func normalize(_ line: String) -> String {
+        HandwrittenWorkoutText.normalize(line)
     }
 
     private static func isSpecStart(_ token: String) -> Bool {
@@ -1454,49 +1187,23 @@ nonisolated enum HandwrittenWorkoutParser {
     }
 
     private static func isWordOnly(_ line: String) -> Bool {
-        guard line.contains(where: \.isLetter) else { return false }
-        return !line.contains(where: \.isNumber) && !line.contains("@")
+        HandwrittenWorkoutText.isWordOnly(line)
     }
 
     private static func cleanName(_ name: String) -> String {
-        var result = name.trimmingCharacters(in: CharacterSet(charactersIn: " :-–—•*").union(.whitespaces))
-        // Leading/trailing symbols that survive the trim — emoji bullets ("💪 Bench"),
-        // stray punctuation — are never part of an exercise name, and would
-        // otherwise land in the user's library verbatim.
-        while let first = result.first, !(first.isLetter || first.isNumber) { result.removeFirst() }
-        while let last = result.last, !(last.isLetter || last.isNumber) { result.removeLast() }
-        return result
+        HandwrittenWorkoutText.cleanName(name)
     }
 
-    /// A pending word-only line promoted to an exercise name: strip an export
-    /// header's "Exercise:" label and trailing equipment parenthetical
-    /// ("Exercise: Bench Press (Barbell)" → "Bench Press").
     private static func promotedExerciseName(_ line: String) -> String {
-        var result = line
-        if let range = result.range(
-            of: #"^\s*exercise\s*:\s*"#,
-            options: [.regularExpression, .caseInsensitive]
-        ) {
-            result.removeSubrange(range)
-        }
-        if let range = result.range(of: #"\s*\([^()]*\)\s*$"#, options: .regularExpression) {
-            result.removeSubrange(range)
-        }
-        return cleanName(result)
+        HandwrittenWorkoutText.promotedExerciseName(line)
     }
 
     private static func cleanTitle(_ line: String) -> String {
-        let trimmed = line.trimmingCharacters(in: CharacterSet(charactersIn: " :-–—•").union(.whitespaces))
-        return trimmed.isEmpty ? "Scanned workout" : trimmed
+        HandwrittenWorkoutText.cleanTitle(line)
     }
 
-    private static let weekdays: Set<String> = [
-        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-        "mon", "tue", "tues", "wed", "weds", "thu", "thur", "thurs", "fri", "sat", "sun"
-    ]
-
     private static func isWeekday(_ line: String) -> Bool {
-        weekdays.contains(line.lowercased().trimmingCharacters(in: .whitespaces))
+        HandwrittenWorkoutText.isWeekday(line)
     }
 
     private static func intIfWhole(_ value: Double?) -> Int? {

@@ -8,6 +8,7 @@ struct AddSetView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @Environment(QuickLogCoordinator.self) private var quickLog
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @Query(sort: \SprintPrescription.createdAt)
     private var sprintPrescriptions: [SprintPrescription]
@@ -482,7 +483,7 @@ struct AddSetView: View {
                 }
                 hydrateSelection(id: newValue, shouldApplyDefaults: true)
             }
-            .animation(.snappy(duration: 0.2), value: liveBadge)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: liveBadge)
             .onAppear {
                 validateSelection()
                 guard !didInitialize else { return }

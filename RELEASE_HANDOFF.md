@@ -1,8 +1,20 @@
 # Marble Release Handoff
 
-**Last verified: 2026-08-20.** This file is the single source of truth for "where the
+**Last verified: 2026-08-21.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
+
+---
+
+## Current release snapshot
+
+- **Public App Store:** 2.3 build 56 is live. Its shipped application source is PR #19
+  merge `c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb` (Train / Log / Progress IA).
+- **Canonical source:** `origin/main` at `42b9061` is 2.4 build 57.
+- **TestFlight:** 2.4 build 57 is processed and `VALID`; build 58 is next.
+- **App Review:** no App Store 2.4 version has been created or submitted.
+- **Release boundary:** do not re-release 2.3, create/submit 2.4, bump a build, or upload
+  a replacement without fresh live checks and explicit approval.
 
 ---
 
@@ -17,8 +29,8 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 `publish/testflight/20260820T052323Z-df05585`). Internal **test group A**
 auto-receives; do not assign the build to it.
 
-**Do not App Store-release 2.3** (`READY_FOR_DISTRIBUTION`) as a stand-in — that
-binary is Train/Log/Progress IA, not this import wave. **Do not release 2.2.**
+**2.3 has already been publicly released.** Its binary is Train/Log/Progress IA, not
+this import wave; do not try to release it again or treat it as proof that 2.4 shipped.
 **Do not submit 2.4 App Review** unless the user explicitly asks. There is no
 App Store 2.4 version yet (`asc` review/validate report version-not-found).
 
@@ -54,11 +66,8 @@ make cloud-status
 ## 2.3 Bulk import fidelity — on `main` (PR #23 merge `cbd5116`, 2026-08-20)
 
 **On `main` historically.** Marketing version moved **2.3 → 2.4** after Apple
-rejected 2.3/57 (`ITMS-90186`). Live ASC (2026-08-20): **2.3 build 56
-is `VALID`**, and the App Store 2.3 version is `READY_FOR_DISTRIBUTION`
-(approved, manual release pending — that binary is the Train/Log/Progress IA,
-**not** the CSV fidelity / honesty waves). Releasing 2.3 now would ship without
-this import work.
+rejected 2.3/57 (`ITMS-90186`). **2.3 build 56 is now live on the App Store**;
+that binary is the Train/Log/Progress IA, **not** the CSV fidelity / honesty waves.
 
 What PR #23 added:
 
@@ -79,9 +88,8 @@ run `32330557151`).
 **On `main`.** That wave kept marketing version **2.3**. Working tree is now
 **2.4** / build 57 because Apple closed the 2.3 train. This IA first shipped as **2.3
 build 56 `VALID`** (2026-08-16, buildId `9d4830c6-e713-40c1-a60a-33c13951a9ce`).
-The App Store 2.3 version is `READY_FOR_DISTRIBUTION` (review COMPLETE, manual
-release pending). **Do not release that 2.3 binary as a stand-in for later waves**
-— it does not include bulk import.
+The App Store 2.3 version is now public. It does not include the later bulk-import
+fidelity / honesty waves, which remain on the 2.4 train.
 
 What this wave is:
 
@@ -93,9 +101,8 @@ What this wave is:
 - Lock Screen rectangular widget copy drops the streak at `streakWeeks >= 10`.
 - No schema change (still V6). No App Store review submit in this wave.
 
-**Do not release 2.2 to the App Store as a stand-in for this IA.** 2.2 is
-`READY_FOR_DISTRIBUTION` (approved, manual release pending) and does not include Train/Log/Progress. This wave ships as **2.3 TestFlight**. Releasing 2.2 is a separate
-product decision.
+**Historical note:** this section originally warned against releasing 2.2 as a stand-in.
+The decision is closed: the IA shipped publicly as 2.3 build 56.
 
 **Upload from a Cloud Agent** (Linux cannot `xcodebuild`; see `CLOUD_RELEASE.md`):
 
@@ -122,7 +129,9 @@ ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export
 
 After Apple processing (`VALID`), update this file with the buildId.
 
-## ✅ 2.3 (build 55) VALID on TestFlight (2026-08-05)
+## Historical build/release chronology (not current state)
+
+### ✅ 2.3 (build 55) VALID on TestFlight (2026-08-05)
 
 **2.3 build 55** (buildId `d4d59691-076e-4663-9084-44475372af1b`, uploaded 2026-08-05,
 `VALID`) is the first build on the **2.3 train** and the first TestFlight build carrying
@@ -414,7 +423,7 @@ On the **simulator**, keychain access groups are not enforced and `SecItem*` can
 neutral "Open Marble" card rather than crashing. CI and `make unit` are unaffected — no unit
 test touches the real keychain.
 
-## Release state (2026-07-25)
+## Archived release state (2026-07-25; not current)
 
 - **2.2 (build 49)** — **on TestFlight, `VALID`**. App Store Connect build ID
   `5fe06de0-fc7a-4829-b4d7-a5f6f15d7f31`, uploaded 2026-07-25 from `main` at
@@ -608,7 +617,7 @@ test touches the real keychain.
 - **Why the 2.1 train existed (historical, resolved):** App Store 2.0 was attached to build
   34 and its `whatsNew` described exactly that build's Trends coaching layer, so builds 35–39
   could not ship under the 2.0 string. They shipped as **2.1**, which released 2026-07-21.
-  The question is closed; the current train is 2.2.
+  The question was closed at the time; the current train is now 2.4.
 - **Build/test health (2026-07-22):** Xcode 26.6 / iOS 26.5 simulator. Build 46's full
   **460-test** unit suite, focused Daily Highlights snapshot, quote interaction flow, and
   focused light/dark accessibility audits passed locally; CI `29976114363` passed. Build 46's
@@ -796,7 +805,16 @@ Notes:
 
 ---
 
-## Open release decisions
+## Current release decisions (2026-08-21)
+
+- 2.3 build 56 is already public. Do not invoke another release operation for it.
+- 2.4 build 57 is TestFlight-only and `VALID`. There is no 2.4 App Store version or
+  submission. Build 58 is next if a replacement is explicitly approved.
+- Before a 2.4 submission: run the full local release gate, the migration gate from the
+  shipped 2.3 source, and the focused physical-device pass in `TESTING.md`.
+- Keep App Store submission and public release as separate, explicitly approved mutations.
+
+## Historical 2.2 release decisions (archived; not current)
 
 **2.2 build 48 is waiting for App Review; build 49 is on TestFlight only.** Build 49 does
 **not** replace the submission — it was uploaded as a normal TestFlight build while 48 sits in
@@ -854,9 +872,9 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
-- `origin/main` is the canonical release baseline, now on the **2.2** train. The latest
-  processed build is **2.2 (48)** and it is waiting for review. Released to users:
-  **2.1 (build 40)**. The build-48 release commits are published in the GitHub release PR.
+- `origin/main` is the canonical development baseline: `42b9061`, 2.4 build 57.
+  The latest processed TestFlight build is **2.4 (57) `VALID`**. Released to users:
+  **2.3 (build 56)**. There is no App Store 2.4 version or submission.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
   holds the Empire source — the branches named `empire-gamification` and
@@ -881,5 +899,5 @@ git branch -vv
 make asc-version      # expect MARKETING_VERSION 2.4, CURRENT_PROJECT_VERSION 57
 make asc-status
 make asc-builds
-make asc-next-build   # expect 56 unless 56 (or later) was already uploaded
+make asc-next-build   # expect 58; stop and reconcile if ASC reports anything else
 ```

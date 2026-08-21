@@ -19,12 +19,10 @@ else
 fi
 
 DESTINATION=${DESTINATION:-$("${ROOT_DIR}/scripts/sim_destination.sh")}
+DERIVED_DATA_PATH=${DERIVED_DATA_PATH:-"${ROOT_DIR}/DerivedData"}
+mkdir -p "${DERIVED_DATA_PATH}"
 
-RESULT_BUNDLE_PATH=${RESULT_BUNDLE_PATH:-"${ROOT_DIR}/TestResults/Marble.xcresult"}
-mkdir -p "$(dirname "${RESULT_BUNDLE_PATH}")"
-if [[ -e "${RESULT_BUNDLE_PATH}" ]]; then
-  rm -rf "${RESULT_BUNDLE_PATH}"
-fi
+RESULT_BUNDLE_PATH=${RESULT_BUNDLE_PATH-"${ROOT_DIR}/TestResults/Marble.xcresult"}
 
 XCODEBUILD_CMD=(
   xcodebuild test
@@ -32,10 +30,21 @@ XCODEBUILD_CMD=(
   -scheme "$SCHEME"
   -destination "$DESTINATION"
   -configuration Debug
+  -derivedDataPath "$DERIVED_DATA_PATH"
   -parallel-testing-enabled NO
   -enableCodeCoverage NO
-  -resultBundlePath "$RESULT_BUNDLE_PATH"
 )
+
+# An explicitly empty path keeps focused reruns low-artifact when Xcode result
+# recording is unavailable (for example after a confirmed ENOSPC). Normal runs
+# still replace the single checkout-local bundle above.
+if [[ -n "$RESULT_BUNDLE_PATH" ]]; then
+  mkdir -p "$(dirname "${RESULT_BUNDLE_PATH}")"
+  if [[ -e "${RESULT_BUNDLE_PATH}" ]]; then
+    rm -rf "${RESULT_BUNDLE_PATH}"
+  fi
+  XCODEBUILD_CMD+=(-resultBundlePath "$RESULT_BUNDLE_PATH")
+fi
 
 XCODEBUILD_CMD+=("$@")
 

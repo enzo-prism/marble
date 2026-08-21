@@ -25,6 +25,7 @@ struct ImportDateSection: View {
     /// move already-adjusted sets to midnight.
     @State private var includeTime = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Section {
@@ -42,7 +43,7 @@ struct ImportDateSection: View {
                 .accessibilityIdentifier("\(idPrefix).Date")
             }
 
-            Toggle("Include Time", isOn: $includeTime.animation())
+            Toggle("Include Time", isOn: $includeTime.animation(reduceMotion ? nil : .default))
                 .tint(Theme.dividerColor(for: colorScheme))
                 .accessibilityIdentifier("\(idPrefix).IncludeTime")
 
@@ -129,6 +130,7 @@ struct ImportSetTimingRows<Row: View>: View {
     @ViewBuilder var row: () -> Row
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
@@ -226,11 +228,19 @@ struct ImportSetTimingRows<Row: View>: View {
     }
 
     private func activateOverride() {
-        withAnimation { set.performedAt = workoutDate ?? AppEnvironment.now }
+        if reduceMotion {
+            set.performedAt = workoutDate ?? AppEnvironment.now
+        } else {
+            withAnimation { set.performedAt = workoutDate ?? AppEnvironment.now }
+        }
     }
 
     private func removeOverride() {
-        withAnimation { set.performedAt = nil }
+        if reduceMotion {
+            set.performedAt = nil
+        } else {
+            withAnimation { set.performedAt = nil }
+        }
     }
 }
 

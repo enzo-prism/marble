@@ -70,8 +70,10 @@ struct ExercisePickerView: View {
         .searchToolbarBehavior(.minimize)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button("Manage") {
+                Button {
                     showManageExercises = true
+                } label: {
+                    Label("Manage", systemImage: "slider.horizontal.3")
                 }
                 .accessibilityIdentifier("ExercisePicker.Manage")
 
@@ -211,10 +213,14 @@ struct ExercisePickerView: View {
         exercises: [Exercise],
         prescriptions: [UUID: SprintPrescription]
     ) -> some View {
-        Section(title) {
+        Section {
             ForEach(exercises) { exercise in
                 exerciseRow(exercise, prescription: prescriptions[exercise.id])
             }
+        } header: {
+            SectionHeaderView(title: title)
+                .padding(.vertical, MarbleSpacing.xs)
+                .accessibilityAddTraits(.isHeader)
         }
     }
 

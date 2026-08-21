@@ -14,6 +14,7 @@ struct OnboardingView: View {
     let onFinish: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @AppStorage(SharedDefaults.Key.weeklySessionTarget, store: SharedDefaults.suite)
     private var weeklyTarget = TrainingConsistency.defaultWeeklyTarget
@@ -204,7 +205,7 @@ struct OnboardingView: View {
             return
         }
         MarbleHaptics.selection()
-        if TestHooks.disableAnimations || TestHooks.reduceDecorativeMotion {
+        if reduceMotion || TestHooks.disableAnimations || TestHooks.reduceDecorativeMotion {
             page += 1
         } else {
             withAnimation(.snappy(duration: 0.22)) {

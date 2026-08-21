@@ -40,7 +40,7 @@
   Workflow: Marble sprint-result UI verification
   Papercut: Xcode UI-test video and result-bundle recording exhausted the nearly full internal disk even for one focused test.
   Impact: The first interaction assertion exposed and fixed an off-screen test navigation issue, but later reruns failed in test-runner artifact creation before they could produce reliable UI evidence.
-  Suggested fix: Add a low-artifact UI-test wrapper that preflights free space, stores result bundles on PortableSSD when mounted, and disables retained screen recordings for routine focused checks.
+  Suggested fix: Keep DerivedData and result bundles in ignored checkout-local directories on the FileVault-protected internal disk, allow explicit internal path overrides, and disable retained screen recordings for routine focused checks. PortableSSD is retired.
 
 - Date: 2026-07-25
   Workflow: Marble Swift 6 language-mode migration (build 49)
@@ -77,3 +77,9 @@
   Papercut: Linux Cloud Agents cannot run `xcodebuild`. Putting `marble/AppIcon.icon/` in the filesystem-synchronized `marble/` group crashed CI `actool` (`attempt to insert nil object`).
   Impact: Unit CI failed after compile of the widget target succeeded; TestFlight cannot be uploaded from this VM.
   Suggested fix: Keep Icon Composer packages as explicit Xcode package file refs, not loose files under `marble/`. Archive/upload only on a Mac (`RELEASE_HANDOFF.md`).
+
+- Date: 2026-08-21
+  Workflow: Marble release-source reconciliation and local test gate
+  Papercut: Release docs still described 2.1 as live and 2.3 as pending after 2.3 had shipped, while Xcode inherited a DerivedData location on the retired PortableSSD.
+  Impact: A future release agent could target the wrong App Store version, choose the wrong migration baseline, or fail before tests began.
+  Suggested fix: Keep the current release snapshot at the top of `RELEASE_HANDOFF.md`, pin `make migration-release` to the shipped source commit, and route every Make test target through the checkout-local `DERIVED_DATA_PATH` seam.

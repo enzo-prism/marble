@@ -8,8 +8,7 @@ final class KeyboardLayoutUITests: MarbleUITestCase {
         openAddSet()
         selectExercise(identifier: "BenchPress")
 
-        let weightField = textInput("AddSet.Weight")
-        waitFor(weightField)
+        let weightField = revealAddSetTextInput("AddSet.Weight")
         weightField.tap()
         XCTAssertTrue(app.keyboards.element.exists)
         XCTAssertTrue(app.navigationBars.buttons["AddSet.Save"].exists)

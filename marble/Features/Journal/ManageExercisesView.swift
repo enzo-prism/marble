@@ -32,8 +32,9 @@ struct ManageExercisesView: View {
                         exerciseRow(exercise)
                     }
                 } header: {
-                    Text(resultHeader)
-                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    SectionHeaderView(title: resultHeader)
+                        .padding(.vertical, MarbleSpacing.xs)
+                        .accessibilityAddTraits(.isHeader)
                 }
             }
         }

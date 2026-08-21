@@ -18,6 +18,9 @@ ASC_POLL_INTERVAL ?= 30s
 ASC_UPLOAD_TIMEOUT ?= 45m
 ASC_APPSTORE_SUBMIT_FLAGS ?=
 ASC_TESTFLIGHT_FLAGS ?=
+# Keep test build products on the checkout's FileVault-protected internal disk.
+# Override with another absolute internal path when parallel checkouts need isolation.
+DERIVED_DATA_PATH ?= $(CURDIR)/DerivedData
 
 .PHONY: test unit ui ui-smoke audit snapshot snapshot-quick snapshot-record quick only migration-release verify-widget-plist
 .PHONY: asc-auth asc-doctor asc-app asc-builds asc-version asc-status asc-review asc-validate asc-next-build
@@ -28,11 +31,11 @@ verify-widget-plist:
 	@test -f MarbleWidgets/Info.plist || { echo "Missing MarbleWidgets/Info.plist; the widget target uses GENERATE_INFOPLIST_FILE=NO."; exit 1; }
 
 test: verify-widget-plist
-	SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleTests
-	SCHEME=$(SCHEME) scripts/run_snapshot_suite.sh
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleTests
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/run_snapshot_suite.sh
 
 unit: verify-widget-plist
-	SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleTests
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleTests
 
 # Compiles every target *including the test bundles* without booting a simulator
 # or running a case. Use it while fixing compile errors (the Swift 6 migration
@@ -40,34 +43,35 @@ unit: verify-widget-plist
 typecheck-tests:
 	xcodebuild build-for-testing -project $(PROJECT) -scheme $(SCHEME) \
 		-destination "$$(scripts/sim_destination.sh)" -configuration Debug \
+		-derivedDataPath "$(DERIVED_DATA_PATH)" \
 		2>&1 | grep -E "error:|warning: .*deprecat|BUILD (SUCCEEDED|FAILED)" || true
 
 ui:
-	SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleUITests -skip-testing:MarbleUITests/AccessibilityAuditUITests
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleUITests -skip-testing:MarbleUITests/AccessibilityAuditUITests
 
 ui-smoke:
-	SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleUITests/SmokeNavigationUITests
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleUITests/SmokeNavigationUITests
 
 audit:
-	SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleUITests/AccessibilityAuditUITests
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleUITests/AccessibilityAuditUITests
 
 snapshot:
-	SCHEME=$(SCHEME) scripts/run_snapshot_suite.sh
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/run_snapshot_suite.sh
 
 snapshot-quick:
-	SNAPSHOT_SUITE=quick SCHEME=$(SCHEME) scripts/run_snapshot_suite.sh
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SNAPSHOT_SUITE=quick SCHEME=$(SCHEME) scripts/run_snapshot_suite.sh
 
 snapshot-record:
-	SNAPSHOT_TESTING_RECORD=all RECORD_SNAPSHOTS=1 SCHEME=$(SCHEME) scripts/run_snapshot_suite.sh -testPlan MarbleSnapshotRecord
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SNAPSHOT_TESTING_RECORD=all RECORD_SNAPSHOTS=1 SCHEME=$(SCHEME) scripts/run_snapshot_suite.sh -testPlan MarbleSnapshotRecord
 
 quick: unit snapshot-quick
 
 only:
 	@if [[ -z "$(TEST)" ]]; then echo "Set TEST=Target/Class/testName"; exit 1; fi
-	SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:$(TEST)
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:$(TEST)
 
 migration-release:
-	MIGRATION_BASE_REF="$${MIGRATION_BASE_REF:-96736a1}" SIMULATOR_UDID="$${SIMULATOR_UDID:-}" scripts/test_previous_release_migration.sh
+	MIGRATION_BASE_REF="$${MIGRATION_BASE_REF:-c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb}" SIMULATOR_UDID="$${SIMULATOR_UDID:-}" scripts/test_previous_release_migration.sh
 
 asc-auth:
 	asc auth status --validate --output json --pretty

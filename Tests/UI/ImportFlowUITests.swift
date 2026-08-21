@@ -106,11 +106,22 @@ final class ImportFlowUITests: MarbleUITestCase {
             .matching(NSPredicate(format: "label CONTAINS[c] %@", "Imported from Garmin"))
             .firstMatch
         waitFor(importedRow, timeout: 5)
+        // The fixture's imported row starts beneath the floating tab bar. A
+        // coordinate tap there lands on the bar instead of the row, so bring
+        // the complete row into the journal's visible frame first.
+        scrollToElement(importedRow, in: journalList)
+        XCTAssertTrue(importedRow.isHittable)
         forceTap(importedRow)
 
+        let detailTitle = app.navigationBars["Set Details"]
+        waitFor(detailTitle, timeout: 5)
+        let detailList = app.collectionViews.firstMatch
+        waitFor(detailList, timeout: 5)
         let importedSection = app.descendants(matching: .any).matching(identifier: "SetDetail.Imported").firstMatch
         if !importedSection.waitForExistence(timeout: 4) {
-            app.swipeUp()
+            // Set Detail gained more editable fields over time; a single blind
+            // swipe no longer guarantees this lower section is materialized.
+            scrollToElement(importedSection, in: detailList)
         }
         XCTAssertTrue(importedSection.waitForExistence(timeout: 4), "Set detail must show the imported workout section")
     }

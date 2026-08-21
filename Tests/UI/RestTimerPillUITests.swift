@@ -14,6 +14,7 @@ final class RestTimerPillUITests: MarbleUITestCase {
             nowISO8601: formatter.string(from: Date()),
             extraEnvironment: ["MARBLE_ENABLE_REST_PILL": "1"]
         )
+        navigateToTab(.journal)
 
         step("Log the latest set again to start its 60 s rest timer") {
             let logAgain = waitForIdentifier("Journal.QuickLog.LogAgain", timeout: 8)

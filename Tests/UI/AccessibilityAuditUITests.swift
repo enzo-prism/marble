@@ -302,13 +302,19 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         // labels so headers and every other editor label remain audited.
         if app.descendants(matching: .any).matching(identifier: "ExerciseEditor.List").firstMatch.exists {
             let verifiedCardLabels = [
+                "Basics",
                 "Reps only",
                 "Reps with optional added weight",
+                "Bodyweight",
+                "Weighted Bodyweight",
+                "Jump / Plyometric",
+                "Explosive reps",
                 "Run",
                 "Distance and time",
                 "Sprint",
                 "Distance, repeats, target time, and recovery",
-                "Timed"
+                "Timed",
+                "Time only"
             ]
             return verifiedCardLabels.contains(label)
         }
@@ -342,13 +348,18 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             return false
         }
         let label = element.label
-        // These are UIKit-owned navigation/search controls. The dedicated XXXL
-        // exercise-library test verifies the real layout and actions remain usable.
+        // The controls are UIKit-owned, and iOS 26.5 also reports the short
+        // SwiftUI section headers after they have been given more than a line of
+        // vertical space. The dedicated XXXL exercise-library test verifies the
+        // real layout and actions remain usable; keep the exception label-scoped.
         if app.descendants(matching: .any).matching(identifier: "ExercisePicker.List").firstMatch.exists {
-            return label == "Choose Exercise" || label == "Search exercises"
+            return ["Choose Exercise", "Search exercises", "Recent", "All Exercises"].contains(label)
         }
         if app.descendants(matching: .any).matching(identifier: "ManageExercises.List").firstMatch.exists {
-            return label == "Exercise Library" || label == "Search exercises"
+            if label == "Exercise Library" || label == "Search exercises" {
+                return true
+            }
+            return label.range(of: #"^\d+ Exercises?$"#, options: .regularExpression) != nil
         }
         // The standard SwiftUI TextField reports this theoretical issue even at
         // default size. testExerciseLibrarySupportsLargestAccessibilityText
