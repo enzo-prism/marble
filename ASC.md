@@ -30,7 +30,9 @@ project-local notes.
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
 - Live App Store version: `2.3` (build 56), verified public 2026-08-21
-- Working project version: `2.4` (build 57, TestFlight `VALID`). Build 58 is next.
+- Working project version: `2.4` (build 57, TestFlight `WAITING_FOR_BETA_REVIEW`).
+  App Store draft `a368547f-2331-4856-a064-8357f21ea9e2` is
+  `PREPARE_FOR_SUBMISSION`; build 58 is next.
   The 2.3 train is closed (`ITMS-90186`) and already released.
 - Version review and validation of a **new** binary should use `2.4`. Do not
   target 2.2 or 2.3 for a new upload.
@@ -40,8 +42,9 @@ project-local notes.
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches. It is the dated source of truth; this file is the command reference.
 - **State as of 2026-08-21:** `2.3` (build 56) is live on the App Store.
-  Latest processed TestFlight binary is **2.4 build 57 `VALID`**. Build 58 is next.
-  No App Store 2.4 version or submission exists.
+  TestFlight 2.4 build 57 is **`WAITING_FOR_BETA_REVIEW`** in external Test Group B.
+  App Store 2.4 is a `PREPARE_FOR_SUBMISSION` draft with build 57 attached; no public
+  App Review submission exists. Build 58 is next.
 - Always run `make asc-version` before acting — the CLI can report a blank generated
   marketing version, so the Makefile prints a reliable fallback.
 - Do not cancel an in-flight review, upload a replacement build, or submit to
@@ -337,9 +340,10 @@ target without explicit approval and a clean release branch. The target intentio
 requires `ASC_APPSTORE_PUBLISH_VERSION` so it cannot silently publish the local marketing
 version.
 
-As of 2026-08-21 there is **no App Store 2.4 version or submission**. `2.3` build 56
-is public; `2.4` build 57 is TestFlight-only. Creating or submitting 2.4 needs explicit
-approval — see "Current release decisions" in `RELEASE_HANDOFF.md`.
+As of 2026-08-21, `2.3` build 56 is public and App Store 2.4 draft
+`a368547f-2331-4856-a064-8357f21ea9e2` is staged with build 57 and metadata in
+`PREPARE_FOR_SUBMISSION`. It has not been submitted for public App Review. Submission
+still needs explicit approval — see "Current release decisions" in `RELEASE_HANDOFF.md`.
 
 Dry-run first when possible:
 

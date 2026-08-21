@@ -59,8 +59,9 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 ## Current state (2026-08-21)
 
 App Store **2.3 build 56 is live**. `origin/main` at `42b9061` is **2.4 build 57**;
-that build is `VALID` on TestFlight, build 58 is next, and no App Store 2.4 version
-or submission exists.
+release-readiness fixes are on `origin/codex/marble-next-steps-20260821` at `2535b77`.
+Build 57 is waiting for external Beta App Review. App Store 2.4 exists as a
+`PREPARE_FOR_SUBMISSION` draft with build 57 attached; it is not in public review.
 
 - **Bulk import honesty** (2.4 TestFlight build 57 `VALID`, buildId
   `a8f9716a-5b39-4013-a795-181344ff54a6`, PR #24 merge `df05585`): Hevy same-lift

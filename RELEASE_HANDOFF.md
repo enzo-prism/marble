@@ -10,11 +10,15 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 - **Public App Store:** 2.3 build 56 is live. Its shipped application source is PR #19
   merge `c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb` (Train / Log / Progress IA).
-- **Canonical source:** `origin/main` at `42b9061` is 2.4 build 57.
-- **TestFlight:** 2.4 build 57 is processed and `VALID`; build 58 is next.
-- **App Review:** no App Store 2.4 version has been created or submitted.
-- **Release boundary:** do not re-release 2.3, create/submit 2.4, bump a build, or upload
-  a replacement without fresh live checks and explicit approval.
+- **Canonical source:** `origin/main` at `42b9061` is 2.4 build 57. Release-readiness
+  fixes are on `origin/codex/marble-next-steps-20260821` at `2535b77`.
+- **TestFlight:** 2.4 build 57 is `VALID`, assigned to external **Test Group B**, and
+  `WAITING_FOR_BETA_REVIEW` (submitted 2026-08-21). Build 58 is next.
+- **App Review:** App Store 2.4 draft `a368547f-2331-4856-a064-8357f21ea9e2` is
+  `PREPARE_FOR_SUBMISSION`, with build 57 and en-US metadata attached. It has **not**
+  been submitted for public App Review.
+- **Release boundary:** do not re-release 2.3, submit 2.4 for public App Review, bump a
+  build, or upload a replacement without fresh live checks and explicit approval.
 
 ---
 
@@ -31,8 +35,8 @@ auto-receives; do not assign the build to it.
 
 **2.3 has already been publicly released.** Its binary is Train/Log/Progress IA, not
 this import wave; do not try to release it again or treat it as proof that 2.4 shipped.
-**Do not submit 2.4 App Review** unless the user explicitly asks. There is no
-App Store 2.4 version yet (`asc` review/validate report version-not-found).
+**Do not submit 2.4 App Review** unless the user explicitly asks. The staged 2.4
+draft is intentionally stopped at `PREPARE_FOR_SUBMISSION`.
 
 What this wave is (on top of PR #23):
 
@@ -808,8 +812,9 @@ Notes:
 ## Current release decisions (2026-08-21)
 
 - 2.3 build 56 is already public. Do not invoke another release operation for it.
-- 2.4 build 57 is TestFlight-only and `VALID`. There is no 2.4 App Store version or
-  submission. Build 58 is next if a replacement is explicitly approved.
+- 2.4 build 57 is `VALID`, in external Test Group B, and waiting for Beta App Review.
+  The App Store 2.4 draft exists in `PREPARE_FOR_SUBMISSION`; no public App Review
+  submission exists. Build 58 is next if a replacement is explicitly approved.
 - Before a 2.4 submission: run the full local release gate, the migration gate from the
   shipped 2.3 source, and the focused physical-device pass in `TESTING.md`.
 - Keep App Store submission and public release as separate, explicitly approved mutations.
@@ -872,9 +877,10 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
-- `origin/main` is the canonical development baseline: `42b9061`, 2.4 build 57.
-  The latest processed TestFlight build is **2.4 (57) `VALID`**. Released to users:
-  **2.3 (build 56)**. There is no App Store 2.4 version or submission.
+- `origin/main` is the canonical development baseline: `42b9061`, 2.4 build 57;
+  release-readiness work is on `origin/codex/marble-next-steps-20260821` at `2535b77`.
+  TestFlight build 57 is `WAITING_FOR_BETA_REVIEW`. Released to users: **2.3 (build
+  56)**. App Store 2.4 is a `PREPARE_FOR_SUBMISSION` draft and is not in public review.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
   holds the Empire source — the branches named `empire-gamification` and

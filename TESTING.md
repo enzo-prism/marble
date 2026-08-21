@@ -1,8 +1,10 @@
 # Marble Testing
 
 **Release snapshot (verified 2026-08-21):** App Store 2.3 build 56 is live;
-`origin/main` (`42b9061`) is 2.4 build 57; TestFlight 2.4 build 57 is `VALID`;
-build 58 is next; no App Store 2.4 version or submission exists.
+`origin/main` (`42b9061`) is 2.4 build 57 and release-readiness fixes are on
+`origin/codex/marble-next-steps-20260821` (`2535b77`). TestFlight build 57 is
+`WAITING_FOR_BETA_REVIEW`; App Store 2.4 is a `PREPARE_FOR_SUBMISSION` draft with
+build 57 attached and is not in public review. Build 58 is next.
 
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
@@ -91,6 +93,19 @@ build 58 is next; no App Store 2.4 version or submission exists.
 - Counts here are derived by counting source, not by hand-editing the previous number
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
+
+## Latest verification (2026-08-21, 2.4 release readiness)
+
+- Integrated unit suite: **800 tests passed, 1 skipped, 0 failures**.
+- All failures from the initial 52-test UI run passed focused reruns after repairing
+  lazy-list visibility, semantic activation, and persisted Log-mode assumptions. The
+  monolithic rerun was not repeated after Xcode hit an actual result-bundle `ENOSPC`.
+- Default accessibility audit passed across populated/empty and light/dark states;
+  the runtime-unsupported Dynamic Type audit remains an intentional skip.
+- TestFlight build 57 is in external Test Group B and waiting for Beta App Review.
+- App Store 2.4 validates with zero blockers and remains unsubmitted in
+  `PREPARE_FOR_SUBMISSION`. Physical iPhone/iPad checks remain in
+  `AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`.
 
 ## Latest verification (2026-08-20, bulk import honesty)
 
