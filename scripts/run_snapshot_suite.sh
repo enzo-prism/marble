@@ -124,7 +124,13 @@ cleanup_simulator() {
 
 index=0
 for group in "${SNAPSHOT_GROUPS[@]}"; do
-  result_path="${ROOT_DIR}/TestResults/MarbleSnapshots_${index}.xcresult"
+  if [[ -n "${RELEASE_EVIDENCE_RUN_DIR:-}" ]]; then
+    group_slug=$(printf '%s' "${group}" | tr '/:' '--' | tr -cd 'A-Za-z0-9._-')
+    printf -v result_name '%02d-%s.xcresult' "${index}" "${group_slug}"
+    result_path="${RELEASE_EVIDENCE_RUN_DIR}/${RELEASE_EVIDENCE_SUITE:-snapshot}/${result_name}"
+  else
+    result_path="${ROOT_DIR}/TestResults/MarbleSnapshots_${index}.xcresult"
+  fi
   echo "Running snapshot group: ${group}"
   prepare_simulator
   RESULT_BUNDLE_PATH="${result_path}" "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "$@"

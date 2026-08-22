@@ -116,10 +116,10 @@ enum MarbleSchemaV6: VersionedSchema {
 /// with "Duplicate version checksums detected."
 ///
 /// To make a breaking change in the future:
-///   1. Copy the current model definitions into a `MarbleSchemaV6` enum (capturing the
-///      *old* shape) and bump `versionIdentifier`.
+///   1. Declare the next version (`MarbleSchemaV7` today) from the current V6 model
+///      list, capturing the old shape before any breaking live-model edits.
 ///   2. Apply your change to the live model types.
-///   3. Append `MarbleSchemaV6.self` to `schemas`; add a `.custom(...)` stage only when
+///   3. Append the new schema version to `schemas`; add a `.custom(...)` stage only when
 ///      automatic lightweight migration cannot express the required data transformation.
 ///   4. Add a previous-Release migration test (see `PersistenceRecoveryTests`).
 ///   5. Bump the single `Schema(versionedSchema:)` line in `ModelContainer.swift`.

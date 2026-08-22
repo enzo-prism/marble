@@ -30,6 +30,39 @@ build 57 attached and is not in public review. Build 58 is next.
   Visible labels are Train / Log / Progress; identifiers stay on the historical names.
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
+## Durable release-gate evidence
+
+Use the opt-in evidence runner when a candidate needs proof that survives focused reruns:
+
+```sh
+RELEASE_EVIDENCE_ROOT=/absolute/internal/path make release-evidence
+```
+
+On a shared Mac, also set `MARBLE_SIMULATOR_ID` to a dedicated simulator. The migration gate
+uses the same device unless `SIMULATOR_UDID` is set separately; the runner never targets all
+simulators.
+
+The default gate set is unit, full snapshots, UI flows, accessibility, and the shipped-source
+migration. Each invocation creates a new, non-overwriting directory under
+`<root>/<full-git-sha>/build-<number>/<run-id>/`. Its suite folders hold independent
+`.xcresult` bundles and command logs, so one gate cannot replace another. `manifest.json`
+binds the exact Git SHA, marketing version, build number, gate statuses, artifact sizes, and
+SHA-256 digests. Directory artifacts use the documented `sha256-tree-v1` digest recorded in
+the manifest. The machine-readable `coverage.complete_release_gate_set` field is true only
+when all five required gates were requested.
+
+The runner requires a clean worktree and stops trusting a run if HEAD, the build number, or
+tracked/untracked candidate state changes during a gate. It still records earlier proof and
+marks later gates skipped. To verify retained evidence later:
+
+```sh
+make release-evidence-verify MANIFEST=/absolute/path/to/manifest.json
+```
+
+For an intentionally narrower diagnostic run, set `RELEASE_EVIDENCE_GATES` to a
+space-separated subset of `unit snapshot ui accessibility migration`. A subset is useful
+for workflow testing, but it is not full release proof.
+
 ### Daily Highlights coverage
 
 - `DailyHighlightsTests` pins the default 8:00 PM/midnight boundaries, overnight anchoring,
