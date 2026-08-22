@@ -56,7 +56,10 @@ required gates were requested.
 
 The runner requires a clean worktree and stops trusting a run if HEAD, the build number, or
 tracked/untracked candidate state changes during a gate. It still records earlier proof and
-marks later gates skipped. To verify retained evidence later:
+marks later gates skipped. Before each UI-style gate it boots and waits for the dedicated
+simulator, terminates stale app/test-runner processes, and then starts the next `xcodebuild`;
+the migration gate performs the same boot readiness check after its Release builds. To verify
+retained evidence later:
 
 ```sh
 make release-evidence-verify MANIFEST=/absolute/path/to/manifest.json

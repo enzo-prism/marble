@@ -74,6 +74,20 @@ candidate_is_unchanged() {
   fi
 }
 
+prepare_ui_simulator() {
+  local simulator_id="${MARBLE_SIMULATOR_ID:-${SIMULATOR_UDID:-}}"
+  [[ -n "${simulator_id}" ]] || return 0
+
+  # Consecutive xcodebuild invocations can leave SpringBoard busy or the device
+  # shut down while Xcode finalizes the preceding result bundle. Establish one
+  # deterministic ready state before launching a UI test runner.
+  xcrun simctl boot "${simulator_id}" >/dev/null 2>&1 || true
+  xcrun simctl bootstatus "${simulator_id}" -b
+  xcrun simctl terminate "${simulator_id}" Prism.marbleUITests.xctrunner >/dev/null 2>&1 || true
+  xcrun simctl terminate "${simulator_id}" Prism.marble >/dev/null 2>&1 || true
+  sleep 2
+}
+
 run_gate() {
   local gate="$1"
   shift
@@ -256,9 +270,11 @@ run_release_evidence() {
         run_gate "${gate}" env SNAPSHOT_SUITE=full SNAPSHOT_GROUPS_OVERRIDE= RECORD_SNAPSHOTS= SNAPSHOT_TESTING_RECORD= make -C "${ROOT_DIR}" snapshot
         ;;
       ui)
+        prepare_ui_simulator
         run_gate "${gate}" env RELEASE_EVIDENCE_CAPTURE_XCRESULT=0 make -C "${ROOT_DIR}" ui
         ;;
       accessibility)
+        prepare_ui_simulator
         run_gate "${gate}" env RELEASE_EVIDENCE_CAPTURE_XCRESULT=0 make -C "${ROOT_DIR}" audit
         ;;
       migration)

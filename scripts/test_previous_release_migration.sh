@@ -79,6 +79,12 @@ for app in "$BASE_APP" "$CANDIDATE_APP"; do
     fi
 done
 
+# Release builds do not require the destination to remain booted. Re-establish
+# a ready Simulator immediately before the install/launch migration sequence.
+xcrun simctl boot "$SIMULATOR_UDID" >/dev/null 2>&1 || true
+xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+xcrun simctl terminate "$SIMULATOR_UDID" Prism.marbleUITests.xctrunner >/dev/null 2>&1 || true
+
 xcrun simctl terminate "$SIMULATOR_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
 xcrun simctl uninstall "$SIMULATOR_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
 
