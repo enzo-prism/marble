@@ -16,6 +16,7 @@ struct TrendsView: View {
     private let initialSelectedWeekStart: Date?
     private let initialSupplementType: SupplementType?
     private let initialSelectedSupplementDay: Date?
+    private let prioritizesInitialDetail: Bool
 
     init(
         initialRange: TrendRange = .thirtyDays,
@@ -23,7 +24,8 @@ struct TrendsView: View {
         initialSelectedDay: Date? = nil,
         initialSelectedWeekStart: Date? = nil,
         initialSupplementType: SupplementType? = nil,
-        initialSelectedSupplementDay: Date? = nil
+        initialSelectedSupplementDay: Date? = nil,
+        prioritizesInitialDetail: Bool = false
     ) {
         _range = State(initialValue: initialRange)
         self.initialExercise = initialExercise
@@ -31,6 +33,7 @@ struct TrendsView: View {
         self.initialSelectedWeekStart = initialSelectedWeekStart
         self.initialSupplementType = initialSupplementType
         self.initialSelectedSupplementDay = initialSelectedSupplementDay
+        self.prioritizesInitialDetail = prioritizesInitialDetail
     }
 
     var body: some View {
@@ -40,7 +43,8 @@ struct TrendsView: View {
             initialSelectedDay: initialSelectedDay,
             initialSelectedWeekStart: initialSelectedWeekStart,
             initialSupplementType: initialSupplementType,
-            initialSelectedSupplementDay: initialSelectedSupplementDay
+            initialSelectedSupplementDay: initialSelectedSupplementDay,
+            prioritizesInitialDetail: prioritizesInitialDetail
         )
     }
 }
@@ -116,6 +120,7 @@ struct TrendsContentView: View {
     @State private var isPresentingWeightEntry = false
     @State private var isPresentingWeightHistory = false
     @State private var isPresentingDailyHighlightsSettings = false
+    private let prioritizesInitialDetail: Bool
 
     // Caches the derived snapshot so scrubbing a chart (which mutates UI-only
     // state and re-runs `body`) doesn't re-filter/-group/-sort the full history
@@ -128,7 +133,8 @@ struct TrendsContentView: View {
         initialSelectedDay: Date? = nil,
         initialSelectedWeekStart: Date? = nil,
         initialSupplementType: SupplementType? = nil,
-        initialSelectedSupplementDay: Date? = nil
+        initialSelectedSupplementDay: Date? = nil,
+        prioritizesInitialDetail: Bool = false
     ) {
         _range = range
         _selectedExerciseID = State(initialValue: initialExercise?.id)
@@ -136,6 +142,8 @@ struct TrendsContentView: View {
         _selectedWeekStart = State(initialValue: initialSelectedWeekStart)
         _selectedSupplementTypeID = State(initialValue: initialSupplementType?.id)
         _selectedSupplementDay = State(initialValue: initialSelectedSupplementDay)
+        self.prioritizesInitialDetail = prioritizesInitialDetail
+        _showsDetailedAnalytics = State(initialValue: prioritizesInitialDetail)
 
         // Rebuilt whenever the range changes (the shell re-inits this view):
         // ranged modes fetch only rows on/after the range start, served by the
@@ -178,7 +186,7 @@ struct TrendsContentView: View {
                         onCustomize: { isPresentingDailyHighlightsSettings = true }
                     )
 
-                    if derived.consistencySnapshot.lifetimeSets > 0 {
+                    if derived.consistencySnapshot.lifetimeSets > 0 && !prioritizesInitialDetail {
                         TrendsFocusView(
                             snapshot: derived.consistencySnapshot,
                             weeklyTarget: $weeklyTarget,
@@ -189,7 +197,7 @@ struct TrendsContentView: View {
                         )
                     }
 
-                    if hasSetData || hasSupplementData {
+                    if (hasSetData || hasSupplementData) && !prioritizesInitialDetail {
                         Button {
                             if reduceMotion {
                                 showsDetailedAnalytics.toggle()

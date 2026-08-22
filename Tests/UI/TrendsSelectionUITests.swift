@@ -11,7 +11,7 @@ final class TrendsSelectionUITests: MarbleUITestCase {
         scrollToElement(chart, in: scrollView)
         waitFor(chart)
 
-        chart.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        tapVisible(chart, normalizedOffset: CGVector(dx: 0.9, dy: 0.5))
 
         let list = waitForIdentifier("Trends.DaySheet.List", timeout: 6)
         XCTAssertTrue(list.exists)
@@ -30,7 +30,7 @@ final class TrendsSelectionUITests: MarbleUITestCase {
         scrollToElement(volumeChart, in: scrollView)
         waitFor(volumeChart)
 
-        volumeChart.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.4)).tap()
+        tapVisible(volumeChart, normalizedOffset: CGVector(dx: 0.8, dy: 0.4))
 
         let list = waitForIdentifier("Trends.WeekSheet.List", timeout: 6)
         XCTAssertTrue(list.exists)

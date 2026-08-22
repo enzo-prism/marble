@@ -59,9 +59,14 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 ## Current state (2026-08-21)
 
 App Store **2.3 build 56 is live**. `origin/main` at `42b9061` is **2.4 build 57**;
-release-readiness fixes are on `origin/codex/marble-next-steps-20260821` at `2535b77`.
+the pushed release-readiness branch is `origin/codex/marble-next-steps-20260821` at
+`39704d9`, with the active local candidate layered on top.
 Build 57 is waiting for external Beta App Review. App Store 2.4 exists as a
 `PREPARE_FOR_SUBMISSION` draft with build 57 attached; it is not in public review.
+The active local candidate is green across 800 unit tests, 46 snapshot methods,
+55 UI tests, the 6-test accessibility gate, widget plist verification, and the
+shipped-2.3 Release migration gate; it still requires build 58 and the external
+release gates documented in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
 
 - **Bulk import honesty** (2.4 TestFlight build 57 `VALID`, buildId
   `a8f9716a-5b39-4013-a795-181344ff54a6`, PR #24 merge `df05585`): Hevy same-lift

@@ -16,6 +16,7 @@ SNAPSHOT_SUITE=${SNAPSHOT_SUITE:-full}
 
 SNAPSHOT_GROUPS_FULL=(
   "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetWeightAndReps"
+  "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetWeightAndRepsWithHistory"
   "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetRepsOnlyAddedLoadOff"
   "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetRepsOnlyAddedLoadOn"
   "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetDurationOnly"
@@ -65,11 +66,42 @@ SNAPSHOT_GROUPS_QUICK=(
   "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetWeightAndReps"
 )
 
+verify_full_coverage() {
+  local file class_name method identifier group scheduled
+  local missing=()
+
+  for file in "${ROOT_DIR}"/Tests/Snapshots/*SnapshotTests.swift; do
+    class_name=$(sed -nE 's/.*final class ([A-Za-z0-9_]+): SnapshotTestCase.*/\1/p' "${file}" | head -n 1)
+    [[ -n "${class_name}" ]] || continue
+
+    while IFS= read -r method; do
+      identifier="MarbleSnapshotTests/${class_name}/${method}"
+      scheduled=false
+      for group in "${SNAPSHOT_GROUPS_FULL[@]}"; do
+        if [[ "${group}" == "${identifier}" || "${group}" == "MarbleSnapshotTests/${class_name}" ]]; then
+          scheduled=true
+          break
+        fi
+      done
+      if [[ "${scheduled}" != true ]]; then
+        missing+=("${identifier}")
+      fi
+    done < <(sed -nE 's/^[[:space:]]*func (test[A-Za-z0-9_]+).*/\1/p' "${file}")
+  done
+
+  if (( ${#missing[@]} > 0 )); then
+    printf 'Full snapshot runner is missing source tests:\n' >&2
+    printf '  %s\n' "${missing[@]}" >&2
+    return 1
+  fi
+}
+
 if [[ -n "${SNAPSHOT_GROUPS_OVERRIDE:-}" ]]; then
   IFS=',' read -r -a SNAPSHOT_GROUPS <<< "${SNAPSHOT_GROUPS_OVERRIDE}"
 elif [[ "${SNAPSHOT_SUITE}" == "quick" ]]; then
   SNAPSHOT_GROUPS=("${SNAPSHOT_GROUPS_QUICK[@]}")
 else
+  verify_full_coverage
   SNAPSHOT_GROUPS=("${SNAPSHOT_GROUPS_FULL[@]}")
 fi
 

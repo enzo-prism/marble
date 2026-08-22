@@ -10,12 +10,14 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         SharedDefaults.suite.set(true, forKey: SharedDefaults.Key.dailyHighlightsEnabled)
         SharedDefaults.suite.set(DailyHighlightWindow.defaultStartMinute, forKey: SharedDefaults.Key.dailyHighlightsStartMinute)
         SharedDefaults.suite.set(DailyHighlightWindow.defaultEndMinute, forKey: SharedDefaults.Key.dailyHighlightsEndMinute)
+        SharedDefaults.suite.set(WeightUnit.lb.rawValue, forKey: SharedDefaults.Key.preferredWeightUnit)
     }
 
     override func tearDown() {
         SharedDefaults.suite.removeObject(forKey: SharedDefaults.Key.dailyHighlightsEnabled)
         SharedDefaults.suite.removeObject(forKey: SharedDefaults.Key.dailyHighlightsStartMinute)
         SharedDefaults.suite.removeObject(forKey: SharedDefaults.Key.dailyHighlightsEndMinute)
+        SharedDefaults.suite.removeObject(forKey: SharedDefaults.Key.preferredWeightUnit)
         super.tearDown()
     }
 
@@ -82,7 +84,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         SnapshotFixtures.seedPopulated(in: context)
 
         let bench = SnapshotFixtures.exercise(named: "Bench Press", in: context)
-        let view = TrendsView(initialExercise: bench)
+        let view = TrendsView(initialExercise: bench, prioritizesInitialDetail: true)
             .modelContainer(container)
             .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_Filtered")
@@ -111,7 +113,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         let context = ModelContext(container)
         SnapshotFixtures.seedPopulated(in: context)
 
-        let view = TrendsView(initialSelectedDay: SnapshotFixtures.now)
+        let view = TrendsView(initialSelectedDay: SnapshotFixtures.now, prioritizesInitialDetail: true)
             .modelContainer(container)
             .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_ConsistencyTooltip")
@@ -123,7 +125,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         SnapshotFixtures.seedPopulated(in: context)
 
         let weekStart = TrendsDateHelper.startOfWeek(for: SnapshotFixtures.now)
-        let view = TrendsView(initialSelectedWeekStart: weekStart)
+        let view = TrendsView(initialSelectedWeekStart: weekStart, prioritizesInitialDetail: true)
             .modelContainer(container)
             .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_VolumeTooltip")
@@ -135,7 +137,11 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         SnapshotFixtures.seedPopulated(in: context)
 
         let creatine = SnapshotFixtures.supplementType(named: "Creatine", in: context)
-        let view = TrendsView(initialSupplementType: creatine, initialSelectedSupplementDay: SnapshotFixtures.now)
+        let view = TrendsView(
+            initialSupplementType: creatine,
+            initialSelectedSupplementDay: SnapshotFixtures.now,
+            prioritizesInitialDetail: true
+        )
             .modelContainer(container)
             .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_SupplementsTooltip")

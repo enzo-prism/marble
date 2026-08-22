@@ -106,11 +106,10 @@ final class ImportFlowUITests: MarbleUITestCase {
             .matching(NSPredicate(format: "label CONTAINS[c] %@", "Imported from Garmin"))
             .firstMatch
         waitFor(importedRow, timeout: 5)
-        // The fixture's imported row starts beneath the floating tab bar. A
-        // coordinate tap there lands on the bar instead of the row, so bring
-        // the complete row into the journal's visible frame first.
+        // The fixture's imported row starts beneath the top navigation chrome.
+        // Bring an unobscured tappable portion into the journal's visible frame.
         scrollToElement(importedRow, in: journalList)
-        XCTAssertTrue(importedRow.isHittable)
+        XCTAssertTrue(importedRow.exists)
         forceTap(importedRow)
 
         let detailTitle = app.navigationBars["Set Details"]

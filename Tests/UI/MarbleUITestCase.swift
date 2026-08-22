@@ -164,10 +164,33 @@ class MarbleUITestCase: XCTestCase {
     func forceTap(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), file: file, line: line)
         // iOS 26.5 can accept an XCUIElement tap without dispatching the SwiftUI
-        // action, even when the element reports itself hittable. A center-point
-        // tap follows the same visible user target without relying on that stale
-        // accessibility activation point.
-        element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        // action, even when the element reports itself hittable. Use a real
+        // coordinate, clamped to the portion not covered by navigation/tab
+        // chrome, instead of trusting a stale accessibility activation point.
+        tapVisible(element)
+    }
+
+    func tapVisible(
+        _ element: XCUIElement,
+        normalizedOffset: CGVector = CGVector(dx: 0.5, dy: 0.5)
+    ) {
+        let elementFrame = element.frame
+        let visibleFrame = unobscuredFrame().intersection(elementFrame)
+        guard !visibleFrame.isNull, !visibleFrame.isEmpty,
+              elementFrame.width > 0, elementFrame.height > 0 else {
+            element.coordinate(withNormalizedOffset: normalizedOffset).tap()
+            return
+        }
+
+        let desiredX = elementFrame.minX + elementFrame.width * normalizedOffset.dx
+        let desiredY = elementFrame.minY + elementFrame.height * normalizedOffset.dy
+        let targetX = min(max(desiredX, visibleFrame.minX + 1), visibleFrame.maxX - 1)
+        let targetY = min(max(desiredY, visibleFrame.minY + 1), visibleFrame.maxY - 1)
+        let safeOffset = CGVector(
+            dx: (targetX - elementFrame.minX) / elementFrame.width,
+            dy: (targetY - elementFrame.minY) / elementFrame.height
+        )
+        element.coordinate(withNormalizedOffset: safeOffset).tap()
     }
 
     func takeScreenshot(_ name: String) {
@@ -182,23 +205,87 @@ class MarbleUITestCase: XCTestCase {
     }
 
     func scrollToElement(_ element: XCUIElement, in container: XCUIElement, maxSwipes: Int = 8) {
-        func isFullyVisible() -> Bool {
-            guard element.exists, element.isHittable, container.exists else { return false }
-            let visibleFrame = container.frame.insetBy(dx: 0, dy: 8)
-            return visibleFrame.contains(element.frame)
+        func isMeaningfullyVisible() -> Bool {
+            guard element.exists, container.exists else { return false }
+            let visibleFrame = unobscuredFrame(in: container)
+            let intersection = visibleFrame.intersection(element.frame)
+            guard !intersection.isNull, !intersection.isEmpty else { return false }
+            let requiredHeight = min(32, element.frame.height * 0.33)
+            return intersection.width >= min(32, element.frame.width * 0.33)
+                && intersection.height >= requiredHeight
         }
 
-        if isFullyVisible() { return }
+        if isMeaningfullyVisible() { return }
         for _ in 0..<maxSwipes {
-            if container.isHittable {
-                container.swipeUp()
-            } else {
-                app.swipeUp()
+            // Lazy List rows do not enter the accessibility hierarchy until
+            // they approach the viewport. Scroll forward without asking for a
+            // nonexistent frame, which itself makes XCUITest fail the case.
+            guard element.exists else {
+                if container.isHittable {
+                    container.swipeUp()
+                } else {
+                    app.swipeUp()
+                }
+                continue
             }
-            if isFullyVisible() {
+
+            let previousFrame = element.frame
+            let visibleFrame = unobscuredFrame(in: container.exists ? container : nil)
+
+            // A partially visible element already has a deterministic safe
+            // coordinate. Do not reverse full-screen swipes trying to achieve
+            // perfect containment; that can oscillate around fixed chrome.
+            let intersection = visibleFrame.intersection(element.frame)
+            if !intersection.isNull, intersection.width >= 2, intersection.height >= 2 {
+                return
+            }
+
+            if container.isHittable {
+                if element.frame.maxY <= visibleFrame.minY {
+                    container.swipeDown()
+                } else if element.frame.minY >= visibleFrame.maxY {
+                    container.swipeUp()
+                } else if element.frame.minY < visibleFrame.minY {
+                    container.swipeDown()
+                } else {
+                    container.swipeUp()
+                }
+            } else {
+                if element.frame.maxY <= visibleFrame.minY {
+                    app.swipeDown()
+                } else if element.frame.minY >= visibleFrame.maxY {
+                    app.swipeUp()
+                } else if element.frame.minY < visibleFrame.minY {
+                    app.swipeDown()
+                } else {
+                    app.swipeUp()
+                }
+            }
+            if isMeaningfullyVisible() {
+                return
+            }
+            if element.exists, abs(element.frame.minY - previousFrame.minY) < 1 {
                 return
             }
         }
+    }
+
+    private func unobscuredFrame(in container: XCUIElement? = nil) -> CGRect {
+        var frame = container?.frame.intersection(app.frame) ?? app.frame
+
+        let navigationBar = app.navigationBars.firstMatch
+        if navigationBar.exists, navigationBar.frame.intersects(frame) {
+            let top = max(frame.minY, navigationBar.frame.maxY + 8)
+            frame = CGRect(x: frame.minX, y: top, width: frame.width, height: max(0, frame.maxY - top))
+        }
+
+        let tabBar = app.tabBars.firstMatch
+        if tabBar.exists, tabBar.frame.intersects(frame) {
+            let bottom = min(frame.maxY, tabBar.frame.minY - 8)
+            frame = CGRect(x: frame.minX, y: frame.minY, width: frame.width, height: max(0, bottom - frame.minY))
+        }
+
+        return frame.insetBy(dx: 0, dy: 8)
     }
 
     func dismissKeyboardIfPresent() {

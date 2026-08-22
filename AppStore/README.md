@@ -17,7 +17,7 @@ changing their device-master dimensions:
 
 ```sh
 swift scripts/compose_app_store_screenshots.swift \
-  AppStore/screenshots/2.2/manifest.json RAW_DIRECTORY OUTPUT_DIRECTORY
+  AppStore/screenshots/2.4/manifest.json RAW_DIRECTORY OUTPUT_DIRECTORY
 ```
 
 The compositor writes opaque RGB PNGs, uses only truthful copy from the tracked

@@ -9,6 +9,7 @@ struct AddSetView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(QuickLogCoordinator.self) private var quickLog
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @Query(sort: \SprintPrescription.createdAt)
     private var sprintPrescriptions: [SprintPrescription]
@@ -627,7 +628,7 @@ struct AddSetView: View {
     }
 
     private var showsInlineSave: Bool {
-        isKeyboardVisible
+        isKeyboardVisible || dynamicTypeSize.isAccessibilitySize
     }
 
     /// Which records the current entry would set right now — drives the live
@@ -795,13 +796,13 @@ struct AddSetView: View {
         Button {
             save(shouldContinue: !isFinalSprintRep, concludesSprintSequence: isFinalSprintRep)
         } label: {
-            Label(
-                isFinalSprintRep ? "Save Final Rep" : sprintActionTitle,
+            saveActionLabel(
+                title: isFinalSprintRep ? "Save Final Rep" : sprintActionTitle,
                 systemImage: isFinalSprintRep ? "checkmark.circle" : "arrow.forward.circle"
             )
-                .frame(maxWidth: .infinity)
         }
         .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true, prominence: .primary))
+        .disabled(!effectiveCanSave)
         .allowsHitTesting(effectiveCanSave)
         .accessibilityIdentifier(isFinalSprintRep ? "AddSet.Sprint.SaveFinal" : "AddSet.SaveAndNext")
     }
@@ -810,12 +811,29 @@ struct AddSetView: View {
         Button {
             save()
         } label: {
-            Label("Save Set", systemImage: "checkmark")
-                .frame(maxWidth: .infinity)
+            saveActionLabel(title: "Save Set", systemImage: "checkmark")
         }
         .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true, prominence: .primary))
+        .disabled(!effectiveCanSave)
         .allowsHitTesting(effectiveCanSave)
         .accessibilityIdentifier("AddSet.BottomSave")
+    }
+
+    @ViewBuilder
+    private func saveActionLabel(title: String, systemImage: String) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(spacing: MarbleSpacing.xxs) {
+                Image(systemName: systemImage)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity)
+        } else {
+            Label(title, systemImage: systemImage)
+                .frame(maxWidth: .infinity)
+        }
     }
 
     /// Common race and interval distances per unit so a 200 m sprint or a
@@ -883,40 +901,58 @@ struct AddSetView: View {
     }
 
     private var exercisePickerRow: some View {
-        HStack(alignment: .center, spacing: MarbleLayout.rowSpacing) {
-            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-                Text("Exercise")
-                    .font(MarbleTypography.rowSubtitle.weight(.semibold))
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                    exercisePickerSummary
+                    exercisePickerActionLabel
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                HStack(alignment: .center, spacing: MarbleLayout.rowSpacing) {
+                    exercisePickerSummary
 
-                if let exercise = selectedExerciseSnapshot {
-                    HStack(alignment: .top, spacing: MarbleSpacing.xs) {
-                        ExerciseIconView(icon: exercise.displayIcon, fontSize: 17, frameSize: 24)
-                        Text(exercise.name)
-                            .font(MarbleTypography.rowTitle)
-                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minHeight: 28, alignment: .leading)
-                            .accessibilityHidden(true)
-                    }
-                } else {
-                    Text("Select an exercise")
-                        .font(MarbleTypography.rowTitle)
-                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    Spacer(minLength: MarbleSpacing.s)
+
+                    exercisePickerActionLabel
                 }
             }
-
-            Spacer(minLength: MarbleSpacing.s)
-
-            Text(selectedExerciseSnapshot == nil ? "Select" : "Change")
-                .font(MarbleTypography.rowSubtitle)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
         .padding(.vertical, MarbleSpacing.xs)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(exercisePickerAccessibilityLabel)
         .accessibilityValue(selectedExerciseSnapshot == nil ? "Select" : "Change")
+    }
+
+    private var exercisePickerSummary: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+            Text("Exercise")
+                .font(MarbleTypography.rowSubtitle.weight(.semibold))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+
+            if let exercise = selectedExerciseSnapshot {
+                HStack(alignment: .top, spacing: MarbleSpacing.xs) {
+                    ExerciseIconView(icon: exercise.displayIcon, fontSize: 17, frameSize: 24)
+                    Text(exercise.name)
+                        .font(MarbleTypography.rowTitle)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minHeight: 28, alignment: .leading)
+                        .accessibilityHidden(true)
+                }
+            } else {
+                Text("Select an exercise")
+                    .font(MarbleTypography.rowTitle)
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            }
+        }
+    }
+
+    private var exercisePickerActionLabel: some View {
+        Text(selectedExerciseSnapshot == nil ? "Select" : "Change")
+            .font(MarbleTypography.rowSubtitle)
+            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
     }
 
     private var exercisePickerAccessibilityLabel: String {

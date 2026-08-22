@@ -63,6 +63,7 @@ func assertSnapshot<V: View>(
                 let configured = view
                     .environment(\.colorScheme, variant.colorScheme)
                     .environment(\.sizeCategory, variant.sizeCategory)
+                    .environment(\.marbleActiveDay, DateHelper.startOfDay(for: SnapshotFixtures.now))
                     .transaction { $0.disablesAnimations = true }
                     .frame(width: variant.device.size.width, height: variant.device.size.height)
                     .background(Theme.backgroundColor(for: variant.colorScheme))

@@ -30,24 +30,52 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         takeScreenshot("01-journal")
     }
 
-    func test02FastSetLogger() {
+    func test02PasteOrTypeReview() {
+        launchScreenshotApp()
+        navigateToTab(.journal)
+        forceTap(waitForIdentifier("Journal.ImportWorkouts", timeout: 10))
+
+        let textOpen = waitForIdentifier("Import.TextEntry.Open", timeout: 8)
+        if !textOpen.isHittable {
+            let importList = app.collectionViews.firstMatch
+            scrollToElement(textOpen, in: importList.exists ? importList : app.otherElements.firstMatch)
+        }
+        forceTap(textOpen)
+
+        let editor = app.textViews["TextEntry.Editor"]
+        waitFor(editor, timeout: 8)
+        clearAndType(editor, text: """
+        title,start_time,exercise_title,set_index,weight_lbs,reps
+        Push Day,2026-07-14 18:00:00,Bench Press,0,185,8
+        Push Day,2026-07-14 18:00:00,Shoulder Press,0,95,10
+        Pull Day,2026-07-15 18:00:00,Deadlift,0,225,5
+        Pull Day,2026-07-15 18:00:00,Pull Ups,0,0,8
+        """)
+        let keyboardDone = waitForIdentifier("TextEntry.Keyboard.Done", timeout: 5)
+        forceTap(keyboardDone)
+        let preview = waitForIdentifier("TextEntry.Preview", timeout: 8)
+        if !preview.isHittable {
+            scrollToElement(preview, in: app.scrollViews.firstMatch)
+        }
+        forceTap(preview)
+
+        waitFor(app.navigationBars["Review Workouts"], timeout: 12)
+        waitForIdentifier("TextEntry.Batch.Import", timeout: 8)
+        XCTAssertTrue(app.staticTexts["Push Day"].exists)
+        XCTAssertTrue(app.staticTexts["Pull Day"].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Tue, Jul 14")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Wed, Jul 15")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Hevy")).firstMatch.exists)
+        takeScreenshot("02-paste-or-type-review")
+    }
+
+    func test03FastSetLogger() {
         launchScreenshotApp()
         navigateToTab(.journal)
         openAddSet()
         selectExercise(identifier: "BenchPress")
         _ = waitForIdentifier("AddSet.List", timeout: 10)
-        takeScreenshot("02-fast-set-logger")
-    }
-
-    func test03StrengthTrends() {
-        launchScreenshotApp(initialTab: "trends")
-        _ = waitForIdentifier("Trends.Focus", timeout: 15)
-        let dailyHighlights = app.descendants(matching: .any)
-            .matching(identifier: "Trends.DailyHighlights")
-            .firstMatch
-        scrollToElement(dailyHighlights, in: app)
-        _ = waitForIdentifier("Trends.DailyHighlights", timeout: 15)
-        takeScreenshot("03-strength-trends")
+        takeScreenshot("03-fast-set-logger")
     }
 
     func test04ActiveWorkout() {
@@ -60,16 +88,27 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         takeScreenshot("04-active-workout")
     }
 
-    func test05SprintPrescription() {
+    func test05StrengthTrends() {
+        launchScreenshotApp(initialTab: "trends")
+        _ = waitForIdentifier("Trends.Focus", timeout: 15)
+        let dailyHighlights = app.descendants(matching: .any)
+            .matching(identifier: "Trends.DailyHighlights")
+            .firstMatch
+        scrollToElement(dailyHighlights, in: app)
+        _ = waitForIdentifier("Trends.DailyHighlights", timeout: 15)
+        takeScreenshot("05-strength-trends")
+    }
+
+    func test06SprintPrescription() {
         launchScreenshotApp()
         navigateToTab(.journal)
         openAddSet()
         selectExercise(identifier: "Sprint")
         _ = waitForIdentifier("AddSet.Sprint.Distance", timeout: 10)
-        takeScreenshot("05-sprint-prescription")
+        takeScreenshot("06-sprint-prescription")
     }
 
-    func test06EmojiExerciseLibrary() {
+    func test08EmojiExerciseLibrary() {
         launchScreenshotApp(initialTab: "split")
         forceTap(waitForIdentifier("Workout.Data", timeout: 10))
         // 2.2 moved Data & Backups behind the new Settings screen, below the
@@ -78,7 +117,7 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         forceTap(waitForIdentifier("Settings.Data", timeout: 10))
         forceTap(waitForIdentifier("Data.ExerciseLibrary", timeout: 10))
         _ = waitForIdentifier("ManageExercises.List", timeout: 10)
-        takeScreenshot("06-emoji-exercise-library")
+        takeScreenshot("08-emoji-exercise-library")
     }
 
     func test07TrainingCalendar() {
@@ -90,7 +129,7 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         takeScreenshot("07-training-calendar")
     }
 
-    func test08PrivateBackup() {
+    func test09PrivateBackup() {
         launchScreenshotApp(initialTab: "split")
         forceTap(waitForIdentifier("Workout.Data", timeout: 10))
         // 2.2 moved Data & Backups behind the new Settings screen, below the
@@ -100,25 +139,16 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         _ = waitForIdentifier("Data.Summary", timeout: 12)
         _ = waitForIdentifier("Data.Export", timeout: 10)
         _ = waitForIdentifier("Data.Restore", timeout: 10)
-        takeScreenshot("08-private-backup")
+        takeScreenshot("09-private-backup")
     }
 
-    func test09PrivateOnboarding() {
+    func test10PrivateOnboarding() {
         launchScreenshotApp(extraEnvironment: ["MARBLE_FORCE_ONBOARDING": "1"])
         _ = waitForIdentifier("Onboarding.Continue", timeout: 10)
         let privacyCopy = app.staticTexts
             .matching(NSPredicate(format: "label CONTAINS %@", "stays on this device"))
             .firstMatch
         XCTAssertTrue(privacyCopy.waitForExistence(timeout: 5))
-        takeScreenshot("09-private-onboarding")
-    }
-
-    func test10Settings() {
-        launchScreenshotApp(initialTab: "split")
-        forceTap(waitForIdentifier("Workout.Data", timeout: 10))
-        _ = waitForIdentifier("Settings.WeightUnit", timeout: 10)
-        _ = waitForIdentifier("Settings.WeeklyTarget", timeout: 10)
-        _ = waitForIdentifier("Settings.DailyHighlights", timeout: 10)
-        takeScreenshot("10-settings")
+        takeScreenshot("10-private-onboarding")
     }
 }

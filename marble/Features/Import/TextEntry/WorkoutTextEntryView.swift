@@ -133,6 +133,7 @@ struct WorkoutTextEntryView: View {
                 TextEditor(text: $viewModel.text)
                     .font(MarbleTypography.rowSubtitle)
                     .focused($textFocused)
+                    .marbleKeyboardToolbar(doneIdentifier: "TextEntry.Keyboard.Done")
                     .scrollContentBackground(.hidden)
                     .writingToolsBehavior(.disabled)
                     .padding(MarbleSpacing.s)

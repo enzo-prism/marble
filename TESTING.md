@@ -1,8 +1,10 @@
 # Marble Testing
 
 **Release snapshot (verified 2026-08-21):** App Store 2.3 build 56 is live;
-`origin/main` (`42b9061`) is 2.4 build 57 and release-readiness fixes are on
-`origin/codex/marble-next-steps-20260821` (`2535b77`). TestFlight build 57 is
+`origin/main` (`42b9061`) is the canonical 2.4/build-57 baseline; the pushed
+release-readiness branch is `origin/codex/marble-next-steps-20260821` (`39704d9`).
+The active local candidate contains additional integrated app, test, documentation,
+and snapshot changes on top of that pushed head. TestFlight build 57 is
 `WAITING_FOR_BETA_REVIEW`; App Store 2.4 is a `PREPARE_FOR_SUBMISSION` draft with
 build 57 attached and is not in public review. Build 58 is next.
 
@@ -65,6 +67,15 @@ build 57 attached and is not in public review. Build 58 is next.
   orphan) and each backfill skip reason now enforced by the store predicate (missing
   duration, unprescribed exercise, invalid prescription).
 
+## Current suite inventory (counted from source, 2026-08-21)
+
+- `Tests/Unit/` — **73 files, 800 test methods**.
+- `Tests/Snapshots/` — **11 test files, 46 test methods**. The full runner schedules
+  38 result-bundle groups and now fails immediately if a source test is omitted.
+- `Tests/UI/` — **21 files, 59 test methods**: **55 flow/focused accessibility cases**
+  run by `make ui`; `AccessibilityAuditUITests` contributes the 4 cases skipped there.
+  `make audit` runs those 4 plus the 2 focused largest-text suites.
+
 ## Suite inventory (counted from source, 2026-07-25 — build 49)
 - Build 49 additions: `Tests/Snapshots/WeeklyGoalWidgetSnapshotTests.swift` (9 cases × light/dark
   across all five widget families), `Tests/Unit/WeeklyGoalWidgetCopyTests.swift`,
@@ -97,14 +108,31 @@ build 57 attached and is not in public review. Build 58 is next.
 ## Latest verification (2026-08-21, 2.4 release readiness)
 
 - Integrated unit suite: **800 tests passed, 1 skipped, 0 failures**.
-- All failures from the initial 52-test UI run passed focused reruns after repairing
-  lazy-list visibility, semantic activation, and persisted Log-mode assumptions. The
-  monolithic rerun was not repeated after Xcode hit an actual result-bundle `ENOSPC`.
-- Default accessibility audit passed across populated/empty and light/dark states;
-  the runtime-unsupported Dynamic Type audit remains an intentional skip.
+- Full UI suite: **55 tests passed, 0 failures** on the dedicated iPhone 17 Pro
+  simulator, including the 10 App Store screenshot flows and the focused
+  largest-text coverage.
+- The snapshot runner passed **46/46 source test methods across 38 result bundles**
+  against the reviewed working-tree baselines. The intentional refresh covers 156 PNGs:
+  26 Add Set, 8 Calendar, 56 Journal, 16 Supplements, 48 Trends, and 2 Weekly Goal.
+- `make audit` selected **6 tests: 5 passed, 1 skipped, 0 failures**. The default
+  audit passed across populated/empty and light/dark states, both focused
+  largest-text suites passed, and the runtime-unsupported Dynamic Type audit
+  remains the intentional skip.
+- The dedicated shipped-source migration gate passed from 2.3 build 56 source
+  `c0cef9e` to the candidate: required V2/V3/V5 tables remained present and the
+  nonempty seeded exercise library was preserved **40 → 40**. Simulator Release
+  builds use only the active architecture so the gate does not create an unused
+  x86_64 slice before exercising the real store overlay. The harness polls for
+  the previous Release's actual store instead of assuming a fixed cold-launch
+  duration, and emits container/launch diagnostics if that store never appears.
+- `AppStoreScreenshotUITests.test02PasteOrTypeReview` passed on iOS 26.5 and captured
+  a deterministic two-workout Hevy batch review into workspace QA output.
+  `AppStore/screenshots/2.4/manifest.json` defines a truthful 10-shot 2.4 story; no
+  final iPhone/iPad PNG set is checked in and no screenshot replacement was uploaded.
 - TestFlight build 57 is in external Test Group B and waiting for Beta App Review.
-- App Store 2.4 validates with zero blockers and remains unsubmitted in
-  `PREPARE_FOR_SUBMISSION`. Physical iPhone/iPad checks remain in
+- App Store 2.4 strict validation exits 0 with **0 errors, 0 warnings, 0 blockers,
+  and 2 informational findings** (manual release; privacy publish state unverified).
+  It remains unsubmitted in `PREPARE_FOR_SUBMISSION`. Physical iPhone/iPad checks remain in
   `AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`.
 
 ## Latest verification (2026-08-20, bulk import honesty)
@@ -391,13 +419,14 @@ below before submission approval. Complete this gate on the release Mac:
    OS-owned integrations.
 6. Verify the widget extension is embedded, both targets archive, signed entitlements match
    `RELEASE_HANDOFF.md`, the IPA validates, and App Store Connect reports no blockers.
-7. Keep release type manual. Hardware-only checks may be completed after submission and
-   before public release when a device is available.
+7. Keep release type manual. Complete and record the hardware-only checks before requesting
+   approval to submit 2.4 for public App Review.
 
 The simulator cannot prove locked-device keychain sharing, physical Action button assignment,
 spoken Siri recognition, real Apple Health/Watch/Garmin data, Always-On Display, or real
-background suspension. These are explicit residual product risks, not submission blockers.
-Their pure behavior, persistence, routing, and failure handling must still pass locally.
+background suspension. Marble's 2.4 release policy treats the focused device pass as a
+submission-approval gate. Pure behavior, persistence, routing, and failure handling must also
+pass locally.
 
 ## Physical-device acceptance pass for 2.4
 
@@ -405,7 +434,10 @@ Record the full pass in [`AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`](AppStore/P
 
 - Current phone-test build: **2.4 (57)**, build ID
   `a8f9716a-5b39-4013-a795-181344ff54a6`; TestFlight `VALID`.
-- Internal group `test group A` receives all builds; external beta remains unsubmitted.
+- Build 57 was archived from `df05585` and does not contain the current candidate's later
+  app/accessibility changes. If those changes ship, repeat this full pass on build 58.
+- Internal group `test group A` receives all builds. External Test Group B is submitted and
+  waiting for Beta App Review.
 - This section exercises Apple-owned surfaces beyond the deterministic local gate. It is
   required as the product acceptance pass before submitting 2.4 App Review.
 

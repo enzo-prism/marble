@@ -1,6 +1,40 @@
 import XCTest
 
 final class JournalFlowUITests: MarbleUITestCase {
+    func testExerciseLibraryHeadersRemainVisibleAtLargestAccessibilityText() {
+        launchApp(
+            contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
+            fixtureMode: "populated"
+        )
+        navigateToTab(.journal)
+        openAddSet()
+
+        let exercisePicker = app.buttons["AddSet.ExercisePicker"]
+        waitFor(exercisePicker, timeout: 8)
+        exercisePicker.tap()
+        let pickerList = waitForIdentifier("ExercisePicker.List", timeout: 8)
+
+        let recent = app.staticTexts["Recent"]
+        let allExercises = app.staticTexts["All Exercises"]
+        waitFor(recent, timeout: 8)
+        XCTAssertGreaterThan(recent.frame.height, 0)
+        if !allExercises.waitForExistence(timeout: 2) {
+            scrollToElement(allExercises, in: pickerList, maxSwipes: 14)
+        }
+        waitFor(allExercises, timeout: 8)
+        XCTAssertGreaterThan(allExercises.frame.height, 0)
+
+        let manage = app.buttons["ExercisePicker.Manage"]
+        waitFor(manage, timeout: 8)
+        forceTap(manage)
+        waitForIdentifier("ManageExercises.List", timeout: 8)
+        let exerciseCount = app.staticTexts
+            .matching(NSPredicate(format: "label MATCHES %@", "^[0-9]+ Exercises?$"))
+            .firstMatch
+        waitFor(exerciseCount, timeout: 8)
+        XCTAssertGreaterThan(exerciseCount.frame.height, 0)
+    }
+
     func testExerciseLibrarySupportsLargestAccessibilityText() {
         launchApp(
             contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,

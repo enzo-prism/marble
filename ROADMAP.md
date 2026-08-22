@@ -1,10 +1,14 @@
 # Marble — H2 2026 Implementation Plan (written 2026-07-20)
 
 > **CURRENT RELEASE SNAPSHOT 2026-08-21:** App Store 2.3 build 56 is live;
-> `origin/main` (`42b9061`) is 2.4 build 57; release-readiness work is on
-> `origin/codex/marble-next-steps-20260821` (`2535b77`). TestFlight build 57 is
+> `origin/main` (`42b9061`) is 2.4 build 57; the pushed release-readiness branch is
+> `origin/codex/marble-next-steps-20260821` (`39704d9`), with the active local
+> candidate layered on top. TestFlight build 57 is
 > waiting for external Beta App Review; App Store 2.4 is a staged
-> `PREPARE_FOR_SUBMISSION` draft, not a public App Review submission. Build 58 is next.
+> `PREPARE_FOR_SUBMISSION` draft, not a public App Review submission. The local
+> candidate passed unit, snapshot, UI, accessibility, widget-plist, and shipped-2.3
+> migration gates; physical-device, exact-binary TestFlight, privacy, final screenshot,
+> declaration, and soak gates remain. Build 58 is next.
 
 > **STATUS 2026-07-23 — Phases 0–3, the follow-up polish, and the Apple-best-practices
 > pass (PR #12) are on `main` and internal TestFlight as 2.2 build 47.**

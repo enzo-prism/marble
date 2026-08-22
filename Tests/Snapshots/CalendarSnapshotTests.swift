@@ -12,7 +12,7 @@ final class CalendarSnapshotTests: SnapshotTestCase {
         let view = CalendarView()
             .modelContainer(container)
             .environment(QuickLogCoordinator())
-            .environment(TabSelection())
+            .environment(makeTabSelection(.calendar))
         assertSnapshot(view, named: "Calendar_MonthMarkers")
     }
 

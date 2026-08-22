@@ -3,12 +3,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# The newest source a real user can already be running. 96736a1 is
-# "Bump Marble 2.1 to build 40" — the build live on the App Store — so the
-# default gate is exactly the upgrade every existing install performs. Point
-# MIGRATION_BASE_REF at an older release to widen the check (25a1c52 = the 2.0
-# line, which is what this script defaulted to through the 2.2 train).
-BASE_REF="${MIGRATION_BASE_REF:-96736a1}"
+# The newest source a real user can already be running. c0cef9e is the source
+# shipped as App Store 2.3 build 56, so the default gate is exactly the upgrade
+# every current install performs. Point MIGRATION_BASE_REF at an older release
+# to widen the check.
+BASE_REF="${MIGRATION_BASE_REF:-c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb}"
 SIMULATOR_UDID="${SIMULATOR_UDID:-}"
 RUN_ROOT="${MIGRATION_RUN_ROOT:-$ROOT_DIR/work}"
 mkdir -p "$RUN_ROOT"
@@ -48,6 +47,7 @@ xcodebuild build \
     -configuration Release \
     -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
     -derivedDataPath "$BASE_DERIVED_DATA" \
+    ONLY_ACTIVE_ARCH=YES \
     DEBUG_INFORMATION_FORMAT=dwarf \
     CODE_SIGNING_ALLOWED=NO \
     >"$RUN_DIR/base-build.log"
@@ -59,6 +59,7 @@ xcodebuild build \
     -configuration Release \
     -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
     -derivedDataPath "$CANDIDATE_DERIVED_DATA" \
+    ONLY_ACTIVE_ARCH=YES \
     DEBUG_INFORMATION_FORMAT=dwarf \
     CODE_SIGNING_ALLOWED=NO \
     >"$RUN_DIR/candidate-build.log"
@@ -83,27 +84,76 @@ xcrun simctl uninstall "$SIMULATOR_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
 
 echo "Launching previous Release to create its real store"
 xcrun simctl install "$SIMULATOR_UDID" "$BASE_APP"
-xcrun simctl launch "$SIMULATOR_UDID" "$BUNDLE_ID" >/dev/null
-sleep 3
-xcrun simctl terminate "$SIMULATOR_UDID" "$BUNDLE_ID"
+BASE_START_TIME="$(date '+%Y-%m-%d %H:%M:%S')"
+BASE_LAUNCH_OUTPUT="$(xcrun simctl launch "$SIMULATOR_UDID" "$BUNDLE_ID")"
+BASE_APP_PID="${BASE_LAUNCH_OUTPUT##*: }"
 
 DATA_DIR="$(xcrun simctl get_app_container "$SIMULATOR_UDID" "$BUNDLE_ID" data)"
 STORE_PATH="$DATA_DIR/Library/Application Support/Marble/Marble.store"
-if [[ ! -f "$STORE_PATH" ]]; then
-    echo "Previous Release did not create its SwiftData store." >&2
+# A cold Release launch can take longer than a fixed sleep while Simulator is
+# settling after the two archive builds. Poll until the async first-run seed is
+# durable, not merely until SQLite creates the file, so launch speed does not
+# decide whether a valid migration passes.
+EXERCISE_COUNT_BEFORE=""
+for _ in {1..15}; do
+    if [[ -f "$STORE_PATH" ]]; then
+        candidate_count="$(sqlite3 "$STORE_PATH" 'SELECT COUNT(*) FROM ZEXERCISE;' 2>/dev/null || true)"
+        if [[ "$candidate_count" =~ ^[0-9]+$ ]] && (( candidate_count > 0 )); then
+            EXERCISE_COUNT_BEFORE="$candidate_count"
+            break
+        fi
+    fi
+    kill -0 "$BASE_APP_PID" >/dev/null 2>&1 || break
+    sleep 1
+done
+if [[ -z "$EXERCISE_COUNT_BEFORE" ]]; then
+    echo "Previous Release did not create and seed its SwiftData store." >&2
+    if ! kill -0 "$BASE_APP_PID" >/dev/null 2>&1; then
+        echo "Previous Release terminated before creating its store." >&2
+    fi
+    echo "Application Support contents:" >&2
+    find "$DATA_DIR/Library/Application Support" -maxdepth 3 -print >&2 || true
+    echo "Previous Release launch log:" >&2
+    xcrun simctl spawn "$SIMULATOR_UDID" log show \
+        --style compact \
+        --start "$BASE_START_TIME" \
+        --predicate 'process == "marble"' \
+        >&2 || true
     exit 1
 fi
-EXERCISE_COUNT_BEFORE="$(sqlite3 "$STORE_PATH" 'SELECT COUNT(*) FROM ZEXERCISE;')"
+xcrun simctl terminate "$SIMULATOR_UDID" "$BUNDLE_ID"
 
 echo "Overlaying and launching candidate Release"
 xcrun simctl install "$SIMULATOR_UDID" "$CANDIDATE_APP"
 START_TIME="$(date '+%Y-%m-%d %H:%M:%S')"
 LAUNCH_OUTPUT="$(xcrun simctl launch "$SIMULATOR_UDID" "$BUNDLE_ID")"
 APP_PID="${LAUNCH_OUTPUT##*: }"
-sleep 3
 
-if ! kill -0 "$APP_PID" >/dev/null 2>&1; then
-    echo "Candidate terminated during the previous-Release migration." >&2
+CANDIDATE_READY=false
+for _ in {1..15}; do
+    DATA_DIR="$(xcrun simctl get_app_container "$SIMULATOR_UDID" "$BUNDLE_ID" data)"
+    STORE_PATH="$DATA_DIR/Library/Application Support/Marble/Marble.store"
+    if [[ -f "$STORE_PATH" ]]; then
+        candidate_tables="$(sqlite3 "$STORE_PATH" '.tables' 2>/dev/null || true)"
+        candidate_count="$(sqlite3 "$STORE_PATH" 'SELECT COUNT(*) FROM ZEXERCISE;' 2>/dev/null || true)"
+        if grep -qw 'ZWORKOUTSESSION' <<<"$candidate_tables" \
+            && grep -qw 'ZSPRINTPRESCRIPTION' <<<"$candidate_tables" \
+            && grep -qw 'ZBODYMETRICENTRY' <<<"$candidate_tables" \
+            && [[ "$candidate_count" == "$EXERCISE_COUNT_BEFORE" ]]; then
+            CANDIDATE_READY=true
+            break
+        fi
+    fi
+    kill -0 "$APP_PID" >/dev/null 2>&1 || break
+    sleep 1
+done
+
+if [[ "$CANDIDATE_READY" != true ]]; then
+    if ! kill -0 "$APP_PID" >/dev/null 2>&1; then
+        echo "Candidate terminated during the previous-Release migration." >&2
+    else
+        echo "Candidate did not finish migrating the previous-Release store." >&2
+    fi
     exit 1
 fi
 
@@ -120,9 +170,8 @@ if rg -q 'Duplicate version checksums|Terminating app|uncaught exception' "$LAUN
     exit 1
 fi
 
-# Simulator may move the retained data container to a new UUID when overlaying the app.
-DATA_DIR="$(xcrun simctl get_app_container "$SIMULATOR_UDID" "$BUNDLE_ID" data)"
-STORE_PATH="$DATA_DIR/Library/Application Support/Marble/Marble.store"
+# Simulator may move the retained data container to a new UUID when overlaying the app;
+# the readiness loop above refreshes these paths on every attempt.
 if ! sqlite3 "$STORE_PATH" ".tables" | tr ' ' '\n' | rg -qx 'ZWORKOUTSESSION'; then
     echo "Candidate did not create the WorkoutSession table." >&2
     exit 1

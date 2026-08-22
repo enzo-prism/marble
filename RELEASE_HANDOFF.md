@@ -10,8 +10,9 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 - **Public App Store:** 2.3 build 56 is live. Its shipped application source is PR #19
   merge `c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb` (Train / Log / Progress IA).
-- **Canonical source:** `origin/main` at `42b9061` is 2.4 build 57. Release-readiness
-  fixes are on `origin/codex/marble-next-steps-20260821` at `2535b77`.
+- **Canonical baseline:** `origin/main` at `42b9061` is 2.4 build 57. The pushed
+  release-readiness branch is `origin/codex/marble-next-steps-20260821` at `39704d9`;
+  the active local candidate contains additional integrated changes on top of it.
 - **TestFlight:** 2.4 build 57 is `VALID`, assigned to external **Test Group B**, and
   `WAITING_FOR_BETA_REVIEW` (submitted 2026-08-21). Build 58 is next.
 - **App Review:** App Store 2.4 draft `a368547f-2331-4856-a064-8357f21ea9e2` is
@@ -815,8 +816,36 @@ Notes:
 - 2.4 build 57 is `VALID`, in external Test Group B, and waiting for Beta App Review.
   The App Store 2.4 draft exists in `PREPARE_FOR_SUBMISSION`; no public App Review
   submission exists. Build 58 is next if a replacement is explicitly approved.
-- Before a 2.4 submission: run the full local release gate, the migration gate from the
-  shipped 2.3 source, and the focused physical-device pass in `TESTING.md`.
+- Build 57 was archived from `df05585`. The current integrated candidate includes later app
+  and accessibility changes, so those changes require build 58 and exact-binary TestFlight,
+  soak, and device verification; build 57 cannot prove them.
+- The external soak has not started. Build 57 beta-usage metrics report **1 install,
+  1 invite, 0 sessions, 0 crashes, and 0 feedback**. Test Group B and build 57 have no
+  directly attached testers and group tester-usage has 0 rows. App-wide P30D metrics
+  separately report 15 sessions from one tester, so they cannot be attributed to build 57.
+  Public-link usage is unavailable because ASC returned malformed/null metrics, not a
+  verified zero.
+- The draft's live App Review notes still start with `# Marble 2.2 review notes` and are
+  2,311 characters. Replace them with `AppStore/review/2.4.md` before public submission;
+  the prepared replacement is 3,792 characters and fits the 4,000-character limit.
+- The draft's 30 live screenshots are checksum-identical to the 2.2/2.3 story and do
+  not show Paste or Type. A local 2.4 10-shot manifest is staged and one deterministic
+  import capture exists in workspace QA output; final iPhone and iPad image sets still
+  must be rendered and reviewed before any approved upload.
+- The draft uses manual release and has no phased-release resource. Strict validation
+  reports 0 errors, warnings, or blockers and 2 informational findings. No accessibility
+  declarations are configured. App Privacy publish state remains unverified because the
+  public API does not expose it and the cached browser session is expired.
+- The exact local candidate passed all simulator gates: **800 unit tests** (1 existing
+  skip), **46 snapshot methods across 38 bundles**, **55 UI tests**, and **6 selected
+  accessibility tests** (5 passed, 1 runtime-unsupported skip), all with 0 failures.
+  Widget plist verification also passed.
+- The isolated shipped-2.3 migration gate passed after hardening its Simulator builds to
+  the active architecture and polling for the real cold-launch store: required tables
+  survived and seeded exercises remained 40 → 40.
+- Before submission, complete the remaining physical-device, exact-binary TestFlight,
+  privacy, screenshot, declaration, and external-soak gates. Rerun the local gates if the
+  exact candidate changes.
 - Keep App Store submission and public release as separate, explicitly approved mutations.
 
 ## Historical 2.2 release decisions (archived; not current)
@@ -878,7 +907,8 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
 - `origin/main` is the canonical development baseline: `42b9061`, 2.4 build 57;
-  release-readiness work is on `origin/codex/marble-next-steps-20260821` at `2535b77`.
+  the pushed release-readiness branch is `origin/codex/marble-next-steps-20260821` at
+  `39704d9`, with the active local candidate layered on top.
   TestFlight build 57 is `WAITING_FOR_BETA_REVIEW`. Released to users: **2.3 (build
   56)**. App Store 2.4 is a `PREPARE_FOR_SUBMISSION` draft and is not in public review.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to

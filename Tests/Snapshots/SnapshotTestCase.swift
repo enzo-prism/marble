@@ -14,4 +14,10 @@ class SnapshotTestCase: XCTestCase {
         TestHooks.overrideNow = nil
         super.tearDown()
     }
+
+    func makeTabSelection(_ tab: AppTab) -> TabSelection {
+        let selection = TabSelection()
+        selection.selectLogMode(tab)
+        return selection
+    }
 }
