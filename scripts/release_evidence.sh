@@ -18,6 +18,10 @@ Environment for `run`:
   MARBLE_SIMULATOR_ID          Dedicated simulator for test/snapshot/UI/audit gates
   MIGRATION_BASE_REF           Optional shipped-source migration base
   SIMULATOR_UDID               Migration simulator (defaults to MARBLE_SIMULATOR_ID)
+
+Unit and snapshot gates retain xcresult bundles. UI and accessibility gates retain
+complete command logs and exit status without xcresult attachments, which can grow
+by multiple gigabytes when UI screenshots and hierarchy diagnostics are embedded.
 EOF
 }
 
@@ -98,11 +102,18 @@ run_gate() {
 
   if (( exit_code == 0 )); then
     case "${gate}" in
-      unit|ui|accessibility)
+      unit)
         if [[ ! -d "${RELEASE_EVIDENCE_RUN_DIR}/${gate}/Marble.xcresult" ]]; then
           status=failed
           exit_code=87
           printf '%s\n' "Expected ${gate} xcresult was not produced." | tee -a "${log_path}" >&2
+        fi
+        ;;
+      ui|accessibility)
+        if [[ ! -s "${log_path}" ]]; then
+          status=failed
+          exit_code=87
+          printf '%s\n' "Expected ${gate} command log was empty." | tee -a "${log_path}" >&2
         fi
         ;;
       snapshot)
@@ -245,10 +256,10 @@ run_release_evidence() {
         run_gate "${gate}" env SNAPSHOT_SUITE=full SNAPSHOT_GROUPS_OVERRIDE= RECORD_SNAPSHOTS= SNAPSHOT_TESTING_RECORD= make -C "${ROOT_DIR}" snapshot
         ;;
       ui)
-        run_gate "${gate}" make -C "${ROOT_DIR}" ui
+        run_gate "${gate}" env RELEASE_EVIDENCE_CAPTURE_XCRESULT=0 make -C "${ROOT_DIR}" ui
         ;;
       accessibility)
-        run_gate "${gate}" make -C "${ROOT_DIR}" audit
+        run_gate "${gate}" env RELEASE_EVIDENCE_CAPTURE_XCRESULT=0 make -C "${ROOT_DIR}" audit
         ;;
       migration)
         run_gate "${gate}" make -C "${ROOT_DIR}" migration-release

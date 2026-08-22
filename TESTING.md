@@ -44,12 +44,14 @@ simulators.
 
 The default gate set is unit, full snapshots, UI flows, accessibility, and the shipped-source
 migration. Each invocation creates a new, non-overwriting directory under
-`<root>/<full-git-sha>/build-<number>/<run-id>/`. Its suite folders hold independent
-`.xcresult` bundles and command logs, so one gate cannot replace another. `manifest.json`
-binds the exact Git SHA, marketing version, build number, gate statuses, artifact sizes, and
-SHA-256 digests. Directory artifacts use the documented `sha256-tree-v1` digest recorded in
-the manifest. The machine-readable `coverage.complete_release_gate_set` field is true only
-when all five required gates were requested.
+`<root>/<full-git-sha>/build-<number>/<run-id>/`. Unit and snapshot suites retain independent
+`.xcresult` bundles. UI and accessibility suites retain complete command logs and exit status
+without multi-gigabyte screenshot/hierarchy attachments; this keeps the evidence durable on
+the same internal volume instead of failing mid-gate. `manifest.json` binds the exact Git SHA,
+marketing version, build number, gate statuses, artifact sizes, and SHA-256 digests. Directory
+artifacts use the documented `sha256-tree-v1` digest recorded in the manifest. The
+machine-readable `coverage.complete_release_gate_set` field is true only when all five
+required gates were requested.
 
 The runner requires a clean worktree and stops trusting a run if HEAD, the build number, or
 tracked/untracked candidate state changes during a gate. It still records earlier proof and
