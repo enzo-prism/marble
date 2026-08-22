@@ -46,8 +46,9 @@ The default gate set is unit, full snapshots, UI flows, accessibility, and the s
 migration. Each invocation creates a new, non-overwriting directory under
 `<root>/<full-git-sha>/build-<number>/<run-id>/`. Unit and snapshot suites retain independent
 `.xcresult` bundles. UI and accessibility suites retain complete command logs and exit status
-without multi-gigabyte screenshot/hierarchy attachments; this keeps the evidence durable on
-the same internal volume instead of failing mid-gate. `manifest.json` binds the exact Git SHA,
+without multi-gigabyte screenshot/hierarchy attachments, and disable Xcode's post-test
+sysdiagnose collection that otherwise creates a hidden DerivedData bundle. This keeps the
+evidence durable on the same internal volume instead of failing mid-gate. `manifest.json` binds the exact Git SHA,
 marketing version, build number, gate statuses, artifact sizes, and SHA-256 digests. Directory
 artifacts use the documented `sha256-tree-v1` digest recorded in the manifest. The
 machine-readable `coverage.complete_release_gate_set` field is true only when all five

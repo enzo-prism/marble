@@ -87,6 +87,15 @@ XCODEBUILD_CMD=(
   -enableCodeCoverage NO
 )
 
+# Xcode still creates a DerivedData result bundle when no explicit
+# -resultBundlePath is supplied. For long release-evidence UI suites, prevent
+# post-test sysdiagnose collection from turning an otherwise-green run into a
+# multi-gigabyte ENOSPC failure. Unit and snapshot evidence continue to retain
+# their explicit xcresult bundles.
+if [[ -n "${RELEASE_EVIDENCE_RUN_DIR}" && "${RELEASE_EVIDENCE_CAPTURE_XCRESULT}" == "0" ]]; then
+  XCODEBUILD_CMD+=(-collect-test-diagnostics never)
+fi
+
 # An explicitly empty path keeps focused reruns low-artifact when Xcode result
 # recording is unavailable. Normal developer runs still replace the single
 # checkout-local bundle above. Release-evidence runs refuse to overwrite any
