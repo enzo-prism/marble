@@ -7,30 +7,24 @@ External state can change outside git, so always re-run the **Live state checks*
 
 ## Current release snapshot
 
-- **Next candidate:** local branch `codex/build-61-ui-polish-20260824` carries 2.4 build 61.
-  It is not yet merged, uploaded, attached, or submitted. Build 60 remains the verified live
-  TestFlight/App Review source until exact-main CI and App Store Connect readback prove the
-  replacement.
+- **Current candidate:** exact GitHub `main` source
+  `9e8346f6cad4683991a78fbaf223baaf01e9f068` is uploaded as 2.4 build 61.
 
 - **Public App Store (US storefront verified 2026-08-24):** 2.3 build 56 is live. Its shipped application source is PR #19
   merge `c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb` (Train / Log / Progress IA).
 - **App identity:** App Store Connect app `6757725234`, bundle ID `Prism.marble`.
 - **Canonical release source:** `origin/main` merge
-  `b287d7238494799818db5947524a5cc05b9c8a9c` is the exact source uploaded as
-  2.4 build 60. It contains the AI-first feature source and both release fixes.
-- **TestFlight:** 2.4 build 60 (`ef651ca3-451f-468b-903a-1239bcf6dc39`) is
+  `9e8346f6cad4683991a78fbaf223baaf01e9f068` is the exact source uploaded as
+  2.4 build 61. Exact-main CI run `32771324947` passed.
+- **TestFlight:** 2.4 build 61 (`bbea8736-b964-4175-8c9c-b140ebcea4c1`) is
   `VALID` and `IN_BETA_TESTING` in internal **test group A**. Its external state
-  is `READY_FOR_BETA_SUBMISSION` and external beta was not requested.
-- **App Review:** 2.4 build 60 is `WAITING_FOR_REVIEW`; submission
-  `5bd874ad-3619-4521-9231-fa45ee18a4b0` was created 2026-08-24 at
-  01:25:53 PDT. The former build 59 submission
-  `2233970e-2288-4bf4-a52f-8bc5c47f639a` was canceled and is `COMPLETE`.
-- **Fixed replacement candidate:** exact GitHub `main` source
-  `b287d7238494799818db5947524a5cc05b9c8a9c` was uploaded as build 60
-  (`ef651ca3-451f-468b-903a-1239bcf6dc39`). It is `VALID`, internal
-  `IN_BETA_TESTING`, and external `READY_FOR_BETA_SUBMISSION`. It restores
-  workout-start reachability and corrects duplicate-name PR celebration identity.
-  It is attached to App Store 2.4 and submitted, but not approved or publicly live.
+  is `READY_FOR_BETA_SUBMISSION`; external beta was not requested. TestFlight workflow
+  `32772039189` archived, signed, exported, uploaded, and processed the exact main SHA.
+  Strict validation is 0 errors, 0 warnings, 0 blockers, and 0 informational findings.
+- **App Review:** 2.4 build 61 is `WAITING_FOR_REVIEW`; submission
+  `ce4a0d8a-f5ea-4d1e-9463-03937e467343` was created 2026-08-24 at
+  13:16:27 PDT. The superseded build 60 submission
+  `5bd874ad-3619-4521-9231-fa45ee18a4b0` was canceled and is `COMPLETE`.
 - **Release boundary:** 2.4 uses manual release. Do not cancel the submission,
   upload or attach a replacement, or issue the final public release without the
   required explicit approval and a fresh review-state check. Public App Store 2.3
@@ -38,10 +32,23 @@ External state can change outside git, so always re-run the **Live state checks*
 
 ---
 
-## 2.4 build 61 — UI and accessibility replacement candidate
+## 2.4 build 61 — current TestFlight and App Review candidate
 
-**State:** local candidate pending GitHub merge, exact-main CI, TestFlight upload, processing,
-strict validation, and App Review replacement.
+**Exact uploaded GitHub `main` source:**
+`9e8346f6cad4683991a78fbaf223baaf01e9f068`
+
+**App Store Connect build ID / state:**
+`bbea8736-b964-4175-8c9c-b140ebcea4c1` — `VALID`, internal
+`IN_BETA_TESTING`, external `READY_FOR_BETA_SUBMISSION`
+
+**GitHub evidence:** exact-main CI `32771324947` passed; TestFlight workflow
+`32772039189` passed.
+
+**TestFlight validation:** 0 errors, 0 warnings, 0 blockers, 0 informational findings.
+The en-US What to Test note is attached. Internal **test group A** receives all builds.
+
+**Current App Review:** submission `ce4a0d8a-f5ea-4d1e-9463-03937e467343` is
+`WAITING_FOR_REVIEW` with build 61 attached. Release type is `MANUAL`.
 
 - Refines the AI-first Add task hierarchy while preserving the persistent Start/open workout
   action, deterministic parser fallback, review-before-save, draft recovery, and exact exercise
@@ -60,10 +67,9 @@ strict validation, and App Review replacement.
 - No SwiftData schema change (still V6). Canonical internal acceptance copy is
   `AppStore/testflight/2.4-build-61.md`.
 
-Replacement boundary: freshly verify build 60 is still `WAITING_FOR_REVIEW` before canceling
-submission `5bd874ad-3619-4521-9231-fa45ee18a4b0`. Only after build 61 is `VALID` and strict
-TestFlight validation is clean should it be attached and submitted. Release remains manual;
-do not issue a public release command.
+Replacement completed: build 60 submission `5bd874ad-3619-4521-9231-fa45ee18a4b0`
+is `COMPLETE`; build 61 is attached and submitted. Release remains manual; do not issue a
+public release command without a separate approval and fresh review-state check.
 
 ---
 
@@ -82,10 +88,10 @@ do not issue a public release command.
 **TestFlight validation:** 0 errors, 0 warnings, 0 blockers, 0 informational
 findings. Internal **test group A** has all-build access.
 
-**Current App Review:** submission
-`5bd874ad-3619-4521-9231-fa45ee18a4b0` is `WAITING_FOR_REVIEW` with build 60
-attached; release type is manual. Superseded build 59 submission
-`2233970e-2288-4bf4-a52f-8bc5c47f639a` is canceled / `COMPLETE`.
+**Historical App Review checkpoint:** build 60 submission
+`5bd874ad-3619-4521-9231-fa45ee18a4b0` and the earlier build 59 submission
+`2233970e-2288-4bf4-a52f-8bc5c47f639a` are both canceled / `COMPLETE` after later
+replacements. Neither was publicly released.
 
 - Restores a persistent **Start or open workout** toolbar action on the default
   Add tab. It opens the workout sheet even when no session exists, so starting a
@@ -938,16 +944,15 @@ Notes:
 
 - 2.3 build 56 was public at the 2026-08-24 US storefront verification. Do not invoke another
   release operation for it without fresh live checks.
-- 2.4 build 60 is `VALID` and `IN_BETA_TESTING` in internal **test group A**.
+- 2.4 build 61 is `VALID` and `IN_BETA_TESTING` in internal **test group A**.
   Its external state is `READY_FOR_BETA_SUBMISSION`; external beta review was not requested.
 - The AI-first Add release replaces Train with Add / Log / Progress. Its feature
   source is `c8200e2`; exact uploaded merge source is `eead033`.
-- App Store version 2.4 is `WAITING_FOR_REVIEW` with build 60 under submission
-  `5bd874ad-...`. Old build 59 submission `2233970e-...` is canceled / `COMPLETE`.
+- App Store version 2.4 is `WAITING_FOR_REVIEW` with build 61 under submission
+  `ce4a0d8a-...`. Superseded build 60 submission `5bd874ad-...` is `COMPLETE`.
   Do not confuse submitted with approved or publicly live.
-- Build 60 is the fixed App Review candidate for workout-start reachability and
-  duplicate-name PR celebration identity. Its exact source is `b287d72` and ASC
-  build is `ef651ca3-...`; it replaced build 59 in review, not public production.
+- Build 61 is the current App Review candidate. Its exact source is `9e8346f` and ASC
+  build is `bbea8736-...`; it replaced build 60 in review, not public production.
 - App Review notes, screenshots, privacy, declarations, usage metrics, migration, and
   physical-device evidence remain distinct from binary processing and submission state.
 - The user explicitly approved docs, GitHub `main`, production, and TestFlight
@@ -1012,14 +1017,14 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
-- `origin/main` merge `b287d72` is the exact binary source for 2.4 build 60.
-  TestFlight build 60 is `VALID` / `IN_BETA_TESTING` internally and
-  `READY_FOR_BETA_SUBMISSION` externally. App Review 2.4 build 60 is `WAITING_FOR_REVIEW`
+- `origin/main` merge `9e8346f` is the exact binary source for 2.4 build 61.
+  TestFlight build 61 is `VALID` / `IN_BETA_TESTING` internally and
+  `READY_FOR_BETA_SUBMISSION` externally. App Review 2.4 build 61 is `WAITING_FOR_REVIEW`
   with no reported blocking issues. App Privacy publish state and
   Regulations/Permits remain website-only verification coverage gaps, not
   blockers reported by the current submission.
-- Active submission `5bd874ad-...` contains build 60. Superseded submission
-  `2233970e-...` is canceled / `COMPLETE`. Manual release and public storefront
+- Active submission `ce4a0d8a-...` contains build 61. Superseded submission
+  `5bd874ad-...` is canceled / `COMPLETE`. Manual release and public storefront
   state remain separate from review submission.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that

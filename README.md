@@ -63,25 +63,27 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 ## Current state (2026-08-24)
 
 App Store **2.3 build 56 remains live**. The current AI-first Add release
-candidate in App Store Connect is **2.4 build 60**, uploaded from exact merged `main` source
-`b287d7238494799818db5947524a5cc05b9c8a9c`. Build 60 is `VALID` and
+candidate in App Store Connect is **2.4 build 61**, uploaded from exact merged `main` source
+`9e8346f6cad4683991a78fbaf223baaf01e9f068`. Build 61 is `VALID` and
 `IN_BETA_TESTING` in internal **test group A**. App Store 2.4 is
-`WAITING_FOR_REVIEW` with build 60 attached under submission
-`5bd874ad-3619-4521-9231-fa45ee18a4b0`; it uses manual release, so submission
-is not public production. The superseded build 59 submission was canceled and is
+`WAITING_FOR_REVIEW` with build 61 attached under submission
+`ce4a0d8a-f5ea-4d1e-9463-03937e467343`; it uses manual release, so submission
+is not public production. The superseded build 60 submission was canceled and is
 `COMPLETE`. Exact IDs and workflow evidence are tracked in
 [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
 
-- **Build 61 UI and accessibility candidate** (local branch, pending merge and upload):
+- **Build 61 UI and accessibility candidate** (exact uploaded `main` source
+  `9e8346f6cad4683991a78fbaf223baaf01e9f068`; App Store Connect build
+  `bbea8736-b964-4175-8c9c-b140ebcea4c1`):
   polishes the default Add composer hierarchy, Calendar, Add Set actions, progress-media
   editing, and grayscale Progress charts across light, dark, Increased Contrast, Reduced
   Transparency, maximum Larger Text, and iPad layouts. It also fixes an adaptive-color
   actor-isolation crash, namespaced iPad Calendar grid identities so the first week cannot
   disappear in landscape, bounds the compact Calendar on landscape iPhones, and makes
   snapshot recording overwrite stale baselines reliably.
-  Build 61 does not change the SwiftData schema (still V6). Until exact-main CI, upload,
-  processing, and live readback complete, build 60 remains the current TestFlight and App
-  Review build.
+  Build 61 does not change the SwiftData schema (still V6). It is `VALID`, internal
+  `IN_BETA_TESTING`, external `READY_FOR_BETA_SUBMISSION`, and strict TestFlight validation
+  is clean. It is attached to App Store 2.4 and `WAITING_FOR_REVIEW` under manual release.
 
 - **Build 60 fixed replacement candidate** (exact uploaded `main` source
   `b287d7238494799818db5947524a5cc05b9c8a9c`; App Store Connect build
@@ -91,9 +93,9 @@ is not public production. The superseded build 59 submission was canceled and is
   exercise identity approved in review. Choosing create-new for a duplicate name
   no longer compares against an unrelated same-named library exercise. Build 60 is
   `VALID` and `IN_BETA_TESTING` in internal **test group A**; its external state is
-  `READY_FOR_BETA_SUBMISSION`. Build 60 is attached to App Store 2.4 and
-  `WAITING_FOR_REVIEW`, but it is not approved or publicly live. Release remains
-  manual and public production remains 2.3 build 56. No schema change (still V6).
+  `READY_FOR_BETA_SUBMISSION`. Its App Review submission is now `COMPLETE` after build 61
+  replaced it; build 60 was never publicly live. Release remains manual and public production
+  remains 2.3 build 56. No schema change (still V6).
 
 - **AI-first Add** (2.4 build 59, feature source `c8200e2`): Add replaces Train as the
   default tab. Paste or type plain-language prose, gym notation, multi-day Notes,
