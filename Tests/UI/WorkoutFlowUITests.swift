@@ -1,6 +1,16 @@
 import XCTest
 
 final class WorkoutFlowUITests: MarbleUITestCase {
+    func testStartWorkoutReachableFromDefaultAddTab() {
+        launchApp(fixtureMode: "empty")
+        navigateToTab(.addWorkout)
+
+        forceTap(waitForIdentifier("Workout.Open"))
+        waitForIdentifier("Workout.List", timeout: 8)
+        forceTap(waitForIdentifier("Workout.Start"))
+        waitForIdentifier("Workout.Finish", timeout: 8)
+    }
+
     func testAddWorkoutSupportsLargestAccessibilityText() {
         launchApp(
             contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,

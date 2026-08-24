@@ -36,6 +36,7 @@ struct WorkoutTextEntryView: View {
     private let autoPreviewOnAppear: Bool
     private let presentation: WorkoutTextEntryPresentation
     private let onShowJournal: (() -> Void)?
+    private let onShowWorkout: (() -> Void)?
     private let prewarmsModel: Bool
     @State private var didAutoPreview = false
 
@@ -44,6 +45,7 @@ struct WorkoutTextEntryView: View {
         autoPreview: Bool? = nil,
         presentation: WorkoutTextEntryPresentation = .sheet,
         onShowJournal: (() -> Void)? = nil,
+        onShowWorkout: (() -> Void)? = nil,
         prewarmsModel: Bool = true
     ) {
         let trimmed = initialText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -51,6 +53,7 @@ struct WorkoutTextEntryView: View {
         self.autoPreviewOnAppear = autoPreview ?? !trimmed.isEmpty
         self.presentation = presentation
         self.onShowJournal = onShowJournal
+        self.onShowWorkout = onShowWorkout
         self.prewarmsModel = prewarmsModel
     }
 
@@ -59,12 +62,14 @@ struct WorkoutTextEntryView: View {
         viewModel: WorkoutTextEntryViewModel,
         presentation: WorkoutTextEntryPresentation = .sheet,
         onShowJournal: (() -> Void)? = nil,
+        onShowWorkout: (() -> Void)? = nil,
         prewarmsModel: Bool = true
     ) {
         _viewModel = State(wrappedValue: viewModel)
         self.autoPreviewOnAppear = false
         self.presentation = presentation
         self.onShowJournal = onShowJournal
+        self.onShowWorkout = onShowWorkout
         self.prewarmsModel = prewarmsModel
     }
 
@@ -625,6 +630,16 @@ struct WorkoutTextEntryView: View {
 
         if presentation == .primaryTab,
            viewModel.phase == .input || viewModel.phase == .imported {
+            if let onShowWorkout {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: onShowWorkout) {
+                        Image(systemName: "figure.strengthtraining.traditional")
+                    }
+                    .accessibilityLabel("Start or open workout")
+                    .accessibilityIdentifier("Workout.Open")
+                }
+            }
+
             ToolbarItem(placement: .topBarLeading) {
                 Button {
                     showingPlan = true

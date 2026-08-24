@@ -19,9 +19,49 @@ External state can change outside git, so always re-run the **Live state checks*
 - **App Review:** 2.4 is `WAITING_FOR_REVIEW`; submission
   `2233970e-2288-4bf4-a52f-8bc5c47f639a` was created 2026-08-24 at
   00:22:40 PDT with build 59 attached and no public-API blockers.
+- **Fixed replacement candidate:** local branch `codex/build-60-release-fixes`
+  carries project build 60. Exact source `BUILD_60_SOURCE_SHA_PENDING`; App Store
+  Connect build `BUILD_60_ASC_ID_PENDING`. It restores workout-start reachability
+  and corrects duplicate-name PR celebration identity. It is not on `main`,
+  TestFlight, App Review, or the public App Store.
 - **Release boundary:** 2.4 uses manual release. Do not cancel the submission,
-  upload or attach a replacement, or issue the final public release before a fresh
-  review-state check. Public App Store 2.3 remains live until that final action.
+  upload or attach a replacement, or issue the final public release without the
+  required explicit approval and a fresh review-state check. Build 59's review stays
+  intact while build 60 is prepared. Public App Store 2.3 remains live.
+
+---
+
+## 2.4 build 60 — fixed replacement candidate, not promoted
+
+**Local branch:** `codex/build-60-release-fixes`
+
+**Exact candidate source:** `BUILD_60_SOURCE_SHA_PENDING`
+
+**App Store Connect build ID / state:** `BUILD_60_ASC_ID_PENDING` — not uploaded
+
+**Current App Review remains unchanged:** submission
+`2233970e-2288-4bf4-a52f-8bc5c47f639a` is `WAITING_FOR_REVIEW` with build 59
+attached; release type is manual.
+
+- Restores a persistent **Start or open workout** toolbar action on the default
+  Add tab. It opens the workout sheet even when no session exists, so starting a
+  workout no longer depends on an active-session accessory already being present.
+  Existing workout deep links use the same reachable surface.
+- PR celebration resolves the exact library exercise UUID approved during review.
+  An explicit create-new exercise stays independent even when another exercise has
+  the same name, preventing a false personal-record celebration against unrelated
+  history.
+- Regression coverage is named in `TESTING.md`; full release-gate and exact-binary
+  results remain pending. No SwiftData schema change (still V6).
+- `AppStore/testflight/2.4-build-60.md` is the canonical internal test plan.
+
+Safe sequencing: finish and commit the fixes, run all release gates, obtain explicit
+approval, upload that exact SHA as build 60 to internal TestFlight, and verify the
+processed binary. TestFlight upload is additive and does not replace App Review.
+Only after exact build 60 passes should a separately approved action cancel the
+current build 59 submission, attach build 60, revalidate, and resubmit. Cancellation
+restarts the review queue. Never describe build 60 as public until storefront
+readback proves a later manual release.
 
 ---
 
@@ -860,6 +900,9 @@ Notes:
   source is `c8200e2`; exact uploaded merge source is `eead033`.
 - App Store version 2.4 is `WAITING_FOR_REVIEW` with submission `2233970e-...`.
   Do not confuse submitted with approved or publicly live.
+- Local build 60 is the fixed replacement candidate for workout-start reachability
+  and duplicate-name PR celebration identity. Its source SHA and ASC build ID are
+  pending; it has not replaced build 59 anywhere.
 - App Review notes, screenshots, privacy, declarations, usage metrics, migration, and
   physical-device evidence remain distinct from binary processing and submission state.
 - The user explicitly approved docs, GitHub `main`, production, and TestFlight
@@ -930,6 +973,9 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
   with no reported blocking issues. App Privacy publish state and
   Regulations/Permits remain website-only verification coverage gaps, not
   blockers reported by the accepted submission.
+- Local branch `codex/build-60-release-fixes` is a build 60 replacement candidate,
+  not a promoted release. Keep the build 59 review submission intact pending
+  explicit approval; an internal TestFlight upload alone does not replace it.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
   holds the Empire source — the branches named `empire-gamification` and

@@ -70,6 +70,16 @@ App Store **2.3 build 56 remains live**. The AI-first Add release is **2.4 build
 approves 2.4 and a separate release action is completed. Exact IDs and workflow
 evidence are tracked in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
 
+- **Build 60 replacement candidate** (local branch `codex/build-60-release-fixes`;
+  source SHA and App Store Connect build ID pending): restores an always-reachable
+  **Start or open workout** action from the default Add tab, including when no
+  session is active, and makes the post-import PR celebration use the exact
+  exercise identity approved in review. Choosing create-new for a duplicate name
+  no longer compares against an unrelated same-named library exercise. Build 60
+  is not on GitHub `main`, TestFlight, App Review, or the public App Store yet.
+  Build 59 remains the submitted binary; its review stays intact pending explicit
+  approval and exact-build-60 verification. No schema change (still V6).
+
 - **AI-first Add** (2.4 build 59, feature source `c8200e2`): Add replaces Train as the
   default tab. Paste or type plain-language prose, gym notation, multi-day Notes,
   or a Hevy/Strong CSV; Apple Intelligence structures prose on device when

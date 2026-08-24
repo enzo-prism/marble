@@ -25,7 +25,8 @@ struct ContentView: View {
         TabView(selection: tabBarSelection) {
             WorkoutTextEntryView(
                 presentation: .primaryTab,
-                onShowJournal: { tabSelection.selectLogMode(.journal) }
+                onShowJournal: { tabSelection.selectLogMode(.journal) },
+                onShowWorkout: { showingActiveWorkout = true }
             )
                 .tabItem {
                     Label("Add", systemImage: "square.and.pencil")
@@ -123,7 +124,7 @@ struct ContentView: View {
             }
             if ["split", "train", "workout"].contains(url.host ?? "") {
                 tabSelection.selected = .addWorkout
-                showingActiveWorkout = !activeSessions.isEmpty
+                showingActiveWorkout = true
                 return
             }
             guard let tab = Self.tab(for: url.host) else { return }
