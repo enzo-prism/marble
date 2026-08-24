@@ -1,14 +1,12 @@
 # Marble Testing
 
-**Release snapshot (verified 2026-08-24):** fixed replacement build 60 was
-uploaded from exact merged `main` source
-`b287d7238494799818db5947524a5cc05b9c8a9c`; App Store Connect build
-`ef651ca3-451f-468b-903a-1239bcf6dc39` is `VALID`, internal
-`IN_BETA_TESTING`, and external `READY_FOR_BETA_SUBMISSION`. Build 60 is attached
-to App Store 2.4; submission `5bd874ad-3619-4521-9231-fa45ee18a4b0` is
-`WAITING_FOR_REVIEW` under manual release. The old build 59 submission
-`2233970e-2288-4bf4-a52f-8bc5c47f639a` was canceled and is `COMPLETE`.
-Build 60 is not approved or publicly released; production remains 2.3 build 56.
+**Release snapshot (verified 2026-08-24):** build 61 was uploaded from exact merged
+`main` source `9e8346f6cad4683991a78fbaf223baaf01e9f068`; App Store Connect build
+`bbea8736-b964-4175-8c9c-b140ebcea4c1` is `VALID`, internal `IN_BETA_TESTING`, and
+external `READY_FOR_BETA_SUBMISSION`. Build 61 is attached to App Store 2.4;
+submission `ce4a0d8a-f5ea-4d1e-9463-03937e467343` is `WAITING_FOR_REVIEW` under
+manual release. The superseded build 60 submission is `COMPLETE`. Build 61 is not
+approved or publicly released; production remains 2.3 build 56.
 
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
@@ -148,7 +146,7 @@ for workflow testing, but it is not full release proof.
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
-## Build 61 UI and accessibility candidate verification (2026-08-24)
+## Build 61 UI, accessibility, and release verification (2026-08-24)
 
 - `make ui`: **58 passed, 0 failed** from the complete non-audit UI suite.
 - `make audit`: **8 selected, 7 passed, 1 skipped, 0 failed**. The skip is the
@@ -173,6 +171,18 @@ for workflow testing, but it is not full release proof.
   migrating the snapshot harness to the current `UITraitCollection` mutation API.
 - Simulator automation does not replace the physical-device VoiceOver swipe-order and touch
   acceptance pass in `AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`.
+- PR #29 merged as exact uploaded `main` source
+  `9e8346f6cad4683991a78fbaf223baaf01e9f068`; exact-main CI run `32771324947`
+  passed. TestFlight workflow `32772039189` archived, signed, exported, uploaded, and
+  processed that SHA successfully.
+- App Store Connect build `bbea8736-b964-4175-8c9c-b140ebcea4c1` is `VALID`, internal
+  `IN_BETA_TESTING`, and external `READY_FOR_BETA_SUBMISSION`; strict TestFlight validation
+  is **0 errors, 0 warnings, 0 blockers, 0 informational findings**. Internal **test group A**
+  receives it through all-build access.
+- Build 60 submission `5bd874ad-3619-4521-9231-fa45ee18a4b0` was canceled and is
+  `COMPLETE`. Build 61 is attached to App Store 2.4 under submission
+  `ce4a0d8a-f5ea-4d1e-9463-03937e467343`, which is `WAITING_FOR_REVIEW` with manual release.
+  Public production remains 2.3 build 56.
 
 ## Build 60 replacement-candidate verification (2026-08-24)
 
@@ -204,11 +214,11 @@ for workflow testing, but it is not full release proof.
   archive/sign/export/upload/processing now pass; the host-sensitive broad snapshot
   drift, migration rerun, physical-device acceptance, and soak remain separate
   evidence rather than implied by TestFlight processing.
-- Replacement completed: the build 59 submission
+- At the build 60 release checkpoint, the build 59 submission
   `2233970e-2288-4bf4-a52f-8bc5c47f639a` was canceled and is `COMPLETE`;
-  build 60 is attached to version 2.4 and fresh submission
-  `5bd874ad-3619-4521-9231-fa45ee18a4b0` is `WAITING_FOR_REVIEW`. Manual release
-  and the public 2.3 storefront remain unchanged.
+  build 60 was attached to version 2.4 under submission
+  `5bd874ad-3619-4521-9231-fa45ee18a4b0`. That submission is now also `COMPLETE`
+  after build 61 replaced it. Manual release and the public 2.3 storefront remain unchanged.
 
 ## Latest verification (2026-08-24, AI-first Add build 59)
 
