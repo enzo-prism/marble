@@ -141,13 +141,14 @@ Use these commands (preferred):
   Health, Garmin (via Health), and Strava (official OAuth). On-device capture is
   `WorkoutScanImporter` over photo OCR and **Paste or Type** (Hevy/Strong CSV, Notes
   pastes, multi-session batch review). **See `INTEGRATIONS.md` for the full design.**
-- **Tab IA (iOS 26):** three tab-bar destinations — **Train** (`AppTab.split`, identifier
-  `Tab.Split`), **Log** (`AppTab.journal`, identifier `Tab.Journal`; Calendar and Supplements
+- **Tab IA (iOS 26):** three tab-bar destinations — **Add** (`AppTab.addWorkout`, identifier
+  `Tab.Add`), **Log** (`AppTab.journal`, identifier `Tab.Journal`; Calendar and Supplements
   are Log modes via `LogModePicker`, identifiers `Tab.Calendar` / `Tab.Supplements`), and
   **Progress** (`AppTab.trends`, identifier `Tab.Trends`). Deep links `marble://calendar` and
-  `marble://supplements` still open those modes. Default tab is Train. UI-test helpers
-  (`navigateToTab`) tap Log first for Calendar/Supplements; visible labels are Train / Log /
-  Progress while identifiers stay `Tab.Split` / `Tab.Journal` / `Tab.Trends`.
+  `marble://supplements` still open those modes. Default tab is Add, which renders the
+  AI-first paste-or-type composer directly. UI-test helpers
+  (`navigateToTab`) tap Log first for Calendar/Supplements; visible labels are Add / Log /
+  Progress while identifiers stay `Tab.Add` / `Tab.Journal` / `Tab.Trends`.
 - `marble/Shared/` — code that is a member of **both** the app and widget targets:
   `SharedDefaults.swift` (+ `SharedKeychain`), `WeeklyGoalWidgetState.swift`,
   `WeeklyGoalWidgetViews.swift` (the five Weekly Goal family layouts — they live here so the
@@ -285,5 +286,5 @@ signing. Do not put `make test`, `make unit`, `make ui`, `make audit`,
   `ASC_PRIVATE_KEY_B64` for API work. GitHub Actions also needs the Apple
   Distribution `.p12` (one-time `scripts/bootstrap_github_release_secrets.sh`
   on the Mac that already ships). The agent token cannot create those secrets.
-- **Tab IA:** Train / Log / Progress. Calendar and Supplements are Log modes, not
-  tab-bar items.
+- **Tab IA:** Add / Log / Progress. Add is the default AI-first workout composer;
+  Calendar and Supplements are Log modes, not tab-bar items.

@@ -1,6 +1,7 @@
 # Marble 2.4 physical-device acceptance checklist
 
-Prepared 2026-08-21. This checklist is not a release or metadata authorization.
+Prepared 2026-08-21; build-59 Add coverage updated 2026-08-23. This checklist is
+not a release or metadata authorization.
 Record the exact build installed on each device.
 
 ## Session record
@@ -22,7 +23,7 @@ hardware evidence yet.
 
 | Gate | iPhone | iPad | Pass evidence |
 |---|---|---|---|
-| VoiceOver + Screen Curtain | [ ] | [ ] | Onboarding; Train start/log/rest/finish; Log create/edit/delete; Calendar/Supplements; pasted and file import review; all Progress Audio Graphs; Settings/backup. No focus trap, unlabeled control, silent state, sighted assistance, or touch. |
+| VoiceOver + Screen Curtain | [ ] | [ ] | Onboarding; Add composer/Paste/File/Review; Plan and active-workout accessory start/log/rest/finish; nested Add Set; Log create/edit/delete; Calendar/Supplements; all Progress Audio Graphs; Settings/backup. No focus trap, unlabeled control, silent state, sighted assistance, or touch. |
 | Voice Control, no touch | [ ] | [ ] | **Show Names** and **Show Numbers** identify every action; visible-name commands work; scrolling, menus, swipe alternatives, dictation/editing, import, and backup are operable by voice. |
 | AX5 / maximum Larger Text | [ ] | [ ] | All common tasks work with keyboard shown; no overlap, severe truncation, clipped text, hidden confirmation, or unreachable control. Rotate and test iPad split layouts where supported. |
 | Dark Interface | [ ] | [ ] | Cold launch and every app/system sheet remain dark with no bright flash. Repeat permission prompts and Files/Photos handoffs. |

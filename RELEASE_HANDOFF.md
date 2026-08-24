@@ -1,7 +1,6 @@
 # Marble Release Handoff
 
-**Live GitHub and TestFlight state verified: 2026-08-23.** Public App Store and App
-Review details below retain their prior 2026-08-21 verification unless stated otherwise.
+**Live GitHub, TestFlight, and App Review state verified: 2026-08-23.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
 ---
@@ -11,15 +10,44 @@ External state can change outside git, so always re-run the **Live state checks*
 - **Public App Store (last verified 2026-08-21):** 2.3 build 56 is live. Its shipped application source is PR #19
   merge `c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb` (Train / Log / Progress IA).
 - **App identity:** App Store Connect app `6757725234`, bundle ID `Prism.marble`.
-- **Canonical baseline:** `origin/main` at `fc37b171` is 2.4 build 58. Local branch
-  `codex/ai-first-workout-entry` contains the AI-first Add candidate at 2.4 build 59;
-  it is not yet on GitHub or TestFlight.
+- **Canonical baseline before promotion:** `origin/main` at `fc37b171` is 2.4 build 58.
+  Branch `codex/ai-first-workout-entry` contains the AI-first Add candidate at
+  application-feature commit `c8200e2`, 2.4 build 59.
 - **TestFlight:** 2.4 build 58 is `VALID` and `IN_BETA_TESTING` in internal
   **test group A**. Its external state is `READY_FOR_BETA_SUBMISSION`. Build 59 is next.
-- **App Review:** not included in the 2026-08-23 verification. Re-run live version and
-  submission checks before changing or acting on the 2.4 draft.
+- **App Review:** 2.4 is `PREPARE_FOR_SUBMISSION` / `NOT_SUBMITTED`, with 0 public-API
+  blockers and 2 informational findings: manual release and App Privacy publish state
+  not verifiable through the public API. Regulations and Permits also require website
+  verification before submission.
 - **Release boundary:** do not re-release 2.3, submit 2.4 for public App Review, bump a
   build, or upload a replacement without fresh live checks and explicit approval.
+
+---
+
+## 2.4 AI-first Add — build 59 promotion
+
+**Application feature source:** `c8200e219b47e44d26720d164cd568f395392f6f`
+
+**Exact uploaded main SHA:** pending
+**App Store Connect build ID / state:** pending
+
+- Add replaces Train as the default tab: **Add / Log / Progress**.
+- Paste/type supports prose, notation, multi-day Notes, TXT, Hevy CSV, and Strong
+  CSV. Apple Intelligence structures prose on supported devices; deterministic
+  parsing is the notation fast path and fallback.
+- Structured review, exact exercise identity, explicit create-new behavior,
+  unresolved-line retry, draft recovery, Shortcut handoff, and active-workout
+  accessory behavior are covered in `AppStore/testflight/2.4-build-59.md`.
+- Automated evidence: 808 unit methods; all 49 snapshot methods passed earlier in
+  the feature branch, with all 5 directly affected methods refreshed and replayed;
+  55 unaffected UI flows passed plus the corrected Accessibility XXXL Add case;
+  final accessibility gate 5 passed / 1 runtime-unsupported skip / 0 failures.
+- No SwiftData schema change (still V6).
+
+Promotion order: merge docs and application source to `main`, wait for exact-main
+CI, upload that exact SHA as build 59, wait for `VALID`, create the en-US TestFlight
+note, then reconcile this section with the live build ID and state. Public App Store
+submission is a separate post-upload gate.
 
 ---
 
@@ -816,14 +844,14 @@ Notes:
   release operation for it without fresh live checks.
 - 2.4 build 58 is `VALID` and `IN_BETA_TESTING` in internal **test group A**. Its
   external state is `READY_FOR_BETA_SUBMISSION`; it has not been submitted externally.
-- The AI-first Add candidate replaces Train with Add / Log / Progress and is local build 59.
-  It is not on GitHub or TestFlight, and build 58 cannot prove it.
+- The AI-first Add candidate replaces Train with Add / Log / Progress at feature
+  commit `c8200e2`, build 59. Build 58 cannot prove it.
 - App Review notes, screenshots, privacy, declarations, usage metrics, migration, and the
   prior 800-test gate are **2026-08-21 audit evidence**, not build-59 proof. Re-run
   those live and exact-candidate gates before any submission decision.
-- Commit the exact build-59 candidate, rerun all local release gates, upload that exact
-  commit only after explicit approval, then complete TestFlight/device verification.
-- Keep App Store submission and public release as separate, explicitly approved mutations.
+- The user explicitly approved docs, GitHub `main`, production, and TestFlight
+  promotion on 2026-08-23. Preserve exact-SHA provenance and complete live readback.
+- Keep App Store submission and public release as distinct states even within that approval.
 
 ## Historical 2.2 release decisions (archived; not current)
 
@@ -883,10 +911,12 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
-- `origin/main` is the canonical development baseline: `fc37b171`, 2.4 build 58.
-  Local `codex/ai-first-workout-entry` is a build-59 candidate layered on top.
+- `origin/main` is the canonical development baseline: `fc37b171`, 2.4 build 58,
+  until the build-59 promotion is merged and fetched back.
   TestFlight build 58 is `VALID` / `IN_BETA_TESTING` internally and
-  `READY_FOR_BETA_SUBMISSION` externally. App Review was not reverified on 2026-08-23.
+  `READY_FOR_BETA_SUBMISSION` externally. App Review 2.4 was reverified on
+  2026-08-23 as `NOT_SUBMITTED` with 0 public-API blockers; App Privacy publish
+  state and Regulations/Permits remain website-only verification gates.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
   holds the Empire source — the branches named `empire-gamification` and

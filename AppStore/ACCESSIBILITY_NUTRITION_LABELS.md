@@ -1,6 +1,7 @@
 # Accessibility Nutrition Labels — declaration worksheet
 
-**Last verified: 2026-08-21 on `42b9061`.**
+**Automated evidence updated: 2026-08-23 for 2.4 build 59 feature source
+`c8200e2`. Physical-device declarations remain unverified.**
 
 ## Current verdict
 
@@ -47,8 +48,8 @@ does not authorize declaring the other.
 | Larger Text | Yes, after device pass | `MarbleTypography`, accessibility-size layout swaps, the snapshot matrix, dedicated XXXL UI flows, and no app-level Dynamic Type cap provide strong evidence. Verify AX5/maximum system text on both families, including keyboard-visible sheets and long imported text. |
 | Dark Interface | Yes, after device pass | `Theme` supplies complete light/dark palettes and the automated matrix covers both appearances. Cold-launch and traverse every system sheet/permission path in Dark Mode with no bright flash. |
 | Differentiate Without Color Alone | Yes, after grayscale pass | Marble is monochrome except semantic sprint results. Those results pair color with check/x/minus symbols, explicit hit/missed text, and spoken labels. Complete all common tasks with the Grayscale color filter on iPhone and iPad. |
-| Sufficient Contrast | Yes, after current audit + device pass | `ThemeContrastTests` enforce 4.5:1 text and 3:1 graphical contrast; `make audit` checks rendered controls in light/dark. Run the current release audit, then repeat the common tasks with Increase Contrast in both appearances on both families. |
-| Reduced Motion | Yes, after current tests + device pass | Daily Highlights stops rotating, and the integration branch now suppresses custom button scaling and custom motion in onboarding, import timing, Exercise Editor, Trends disclosure, and the Add Set live badge when Reduce Motion is enabled. Compile/test those edits, then complete the physical-device common-task pass before claiming support. |
+| Sufficient Contrast | Yes, after device pass | `ThemeContrastTests` enforce 4.5:1 text and 3:1 graphical contrast; build 59's `make audit` selected 6 tests with 5 passes, 1 runtime-unsupported skip, and 0 failures across populated/empty light/dark surfaces. Repeat the common tasks with Increase Contrast in both appearances on both families. |
+| Reduced Motion | Yes, after device pass | Daily Highlights stops rotating, and the app suppresses custom button scaling and custom motion in onboarding, import timing, Exercise Editor, Trends disclosure, and the Add Set live badge when Reduce Motion is enabled. Build 59 compiles/tests these paths; complete the physical-device common-task pass before claiming support. |
 | Captions | No / not applicable | Marble has no dialog-bearing or instructional audio/video content. User progress media is not part of a common task. |
 | Audio Descriptions | No / not applicable | Marble supplies no authored video content that needs an audio-description track. |
 
@@ -82,7 +83,8 @@ accessibility declaration, the minimum common-task set on **both iPhone and iPad
 is:
 
 1. Complete first launch and onboarding.
-2. Start a planned workout, log/repeat/edit a set, run/end rest, and finish.
+2. Use Add to paste/type and review a workout; open Plan, start a workout,
+   log/repeat/edit a set through the active-workout accessory, run/end rest, and finish.
 3. Use Log to create, inspect, edit, and delete history; switch Calendar and
    Supplements modes.
 4. Import and review a pasted Notes workout and a real Hevy or Strong file.

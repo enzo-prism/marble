@@ -3,8 +3,8 @@
 **Release snapshot (verified 2026-08-23):** `origin/main` (`fc37b171`) is the
 canonical 2.4/build-58 baseline. TestFlight 2.4 build 58 is `VALID` and
 `IN_BETA_TESTING` in internal test group A; its external state is
-`READY_FOR_BETA_SUBMISSION`. Local `codex/ai-first-workout-entry` contains the
-AI-first Add candidate at build 59 and is not yet on GitHub or TestFlight.
+`READY_FOR_BETA_SUBMISSION`. Build 59 application feature source is `c8200e2`;
+its GitHub/TestFlight promotion is tracked live in `RELEASE_HANDOFF.md`.
 
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
@@ -495,8 +495,8 @@ Record the full pass in [`AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`](AppStore/P
 - Current live internal TestFlight build: **2.4 (58)**; `VALID` and
   `IN_BETA_TESTING` in internal test group A.
 - External state for build 58 is `READY_FOR_BETA_SUBMISSION`.
-- The AI-first Add candidate is local build 59 and has not been uploaded. Build 58
-  cannot prove it; repeat this full pass on the exact processed build 59.
+- The AI-first Add candidate is build 59 at feature source `c8200e2`. Build 58
+  cannot prove it; repeat this full pass on the exact processed build 59 after upload.
 - This section exercises Apple-owned surfaces beyond the deterministic local gate. It is
   required as the product acceptance pass before submitting 2.4 App Review.
 
