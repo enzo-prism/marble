@@ -41,6 +41,11 @@ final class TrendsSnapshotTests: SnapshotTestCase {
             .modelContainer(container)
             .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_Populated")
+        assertSnapshot(
+            view,
+            named: "Trends_Populated",
+            variants: SnapshotMatrix.regularWidthVariants
+        )
     }
 
     func testTrendsDailyHighlights() {

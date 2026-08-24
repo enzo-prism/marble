@@ -11,7 +11,7 @@ final class SettingsFlowUITests: MarbleUITestCase {
     private func openSettings() {
         launchApp()
         navigateToTab(.addWorkout)
-        forceTap(waitForIdentifier("Workout.Data", timeout: 8))
+        openAddToolbarAction("Workout.Settings")
         waitForIdentifier("Settings.Done", timeout: 8)
     }
 

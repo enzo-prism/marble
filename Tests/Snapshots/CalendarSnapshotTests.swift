@@ -14,6 +14,16 @@ final class CalendarSnapshotTests: SnapshotTestCase {
             .environment(QuickLogCoordinator())
             .environment(makeTabSelection(.calendar))
         assertSnapshot(view, named: "Calendar_MonthMarkers")
+        assertSnapshot(
+            view,
+            named: "Calendar_MonthMarkers",
+            variants: SnapshotMatrix.regularWidthVariants
+        )
+        assertSnapshot(
+            view,
+            named: "Calendar_MonthMarkers",
+            variants: SnapshotMatrix.compactWidthLandscapeVariants
+        )
     }
 
     func testCalendarDaySheetWithEntries() throws {

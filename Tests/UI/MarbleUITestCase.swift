@@ -109,6 +109,9 @@ class MarbleUITestCase: XCTestCase {
         switch tab {
         case .journal:
             tapTabBarItem(.journal)
+            if app.buttons["Log.Mode.Menu"].waitForExistence(timeout: 4) {
+                forceTap(app.buttons["Log.Mode.Menu"])
+            }
             let setsMode = app.descendants(matching: .any)
                 .matching(identifier: "Log.Mode.Sets")
                 .firstMatch
@@ -122,6 +125,9 @@ class MarbleUITestCase: XCTestCase {
             }
         case .calendar, .supplements:
             tapTabBarItem(.journal)
+            if app.buttons["Log.Mode.Menu"].waitForExistence(timeout: 4) {
+                forceTap(app.buttons["Log.Mode.Menu"])
+            }
             let modeIdentifier = tab == .calendar ? "Tab.Calendar" : "Tab.Supplements"
             let mode = app.descendants(matching: .any).matching(identifier: modeIdentifier).firstMatch
             if mode.waitForExistence(timeout: 6) {
@@ -198,6 +204,11 @@ class MarbleUITestCase: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    func openAddToolbarAction(_ identifier: String) {
+        forceTap(waitForIdentifier("Workout.More", timeout: 8))
+        forceTap(waitForIdentifier(identifier, timeout: 8))
     }
 
     func waitFor(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {
@@ -385,7 +396,7 @@ class MarbleUITestCase: XCTestCase {
             return navSaveButton
         }
 
-        let saveButton = app.descendants(matching: .any).matching(identifier: "AddSet.BottomSave").firstMatch
+        let saveButton = app.descendants(matching: .any).matching(identifier: "AddSet.SaveAndNext").firstMatch
         if saveButton.exists {
             return saveButton
         }
@@ -488,10 +499,44 @@ class MarbleUITestCase: XCTestCase {
         file: StaticString = #file,
         line: UInt = #line
     ) -> XCUIElement {
-        let field = textInput(identifier)
-        if !field.waitForExistence(timeout: 2) || !field.isHittable {
-            scrollToElement(field, in: addSetListContainer(), maxSwipes: 8)
+        let list = addSetListContainer()
+
+        // Re-resolve the query after every swipe. Lazy List rows can leave the
+        // accessibility hierarchy while scrolling, and retaining the original
+        // generic descendant query can oscillate past a newly materialized
+        // TextField when cards above the metrics change the row's position.
+        for scrollsForward in [true, false] {
+            for _ in 0..<10 {
+                let candidate = textInput(identifier)
+                if candidate.exists, candidate.isHittable {
+                    return candidate
+                }
+
+                if candidate.exists {
+                    // Once the lazy row materializes, avoid a full reverse
+                    // swipe. The metrics field commonly lands just beneath
+                    // fixed navigation chrome, where a full swipe down sends
+                    // it back out of the lazy hierarchy and causes an
+                    // up/down oscillation. Nudge the content toward the
+                    // unobscured center instead, then re-resolve the field.
+                    let visibleFrame = unobscuredFrame(in: list.exists ? list : nil)
+                    let isAboveViewport = candidate.frame.midY < visibleFrame.midY
+                    let start = list.coordinate(
+                        withNormalizedOffset: CGVector(dx: 0.5, dy: isAboveViewport ? 0.35 : 0.65)
+                    )
+                    let end = list.coordinate(
+                        withNormalizedOffset: CGVector(dx: 0.5, dy: isAboveViewport ? 0.55 : 0.45)
+                    )
+                    start.press(forDuration: 0.01, thenDragTo: end)
+                } else if list.isHittable {
+                    if scrollsForward { list.swipeUp() } else { list.swipeDown() }
+                } else {
+                    if scrollsForward { app.swipeUp() } else { app.swipeDown() }
+                }
+            }
         }
+
+        let field = textInput(identifier)
         XCTAssertTrue(field.waitForExistence(timeout: timeout), file: file, line: line)
         XCTAssertTrue(field.isHittable, file: file, line: line)
         return field

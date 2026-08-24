@@ -5,7 +5,7 @@ final class SplitFlowUITests: MarbleUITestCase {
         launchApp(fixtureMode: "empty")
         navigateToTab(.addWorkout)
 
-        forceTap(waitForIdentifier("Workout.Plan"))
+        openAddToolbarAction("Workout.Plan")
 
         let mondayRow = waitForIdentifier("Split.Day.Monday")
         forceTap(mondayRow)

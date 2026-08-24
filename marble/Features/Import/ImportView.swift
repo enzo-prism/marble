@@ -428,7 +428,7 @@ struct ImportView: View {
                 Image(systemName: "info.circle")
                     .font(.system(size: 17, weight: .regular))
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .frame(minWidth: 32, minHeight: 32)
+                    .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

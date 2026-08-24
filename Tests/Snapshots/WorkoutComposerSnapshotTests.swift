@@ -15,6 +15,11 @@ final class WorkoutComposerSnapshotTests: SnapshotTestCase {
             composer(viewModel: viewModel, container: container),
             named: "WorkoutComposer_Empty"
         )
+        assertSnapshot(
+            composer(viewModel: viewModel, container: container),
+            named: "WorkoutComposer_Empty",
+            variants: SnapshotMatrix.regularWidthVariants
+        )
     }
 
     func testWorkoutComposerLivePreview() {

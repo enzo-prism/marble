@@ -357,6 +357,8 @@ struct TrendsContentView: View {
 
                 }
                 .padding(MarbleLayout.pagePadding)
+                .frame(maxWidth: MarbleLayout.dashboardMaxWidth)
+                .frame(maxWidth: .infinity)
             }
             .safeAreaInset(edge: .bottom) {
                 Color.clear
@@ -827,7 +829,7 @@ struct TrendsContentView: View {
                     )
                     .foregroundStyle(TrendsPalette.barGradient(item.series.color(for: colorScheme)))
                     .position(by: .value("Series", item.series.label))
-                    .cornerRadius(3)
+                    .cornerRadius(item.series.cornerRadius)
                     .accessibilityHidden(true)
                 }
 
@@ -931,7 +933,11 @@ struct TrendsContentView: View {
             if !presentSeries.isEmpty {
                 HStack(spacing: MarbleSpacing.s) {
                     ForEach(presentSeries, id: \.self) { series in
-                        TrendsLegendChip(label: series.label, color: series.color(for: colorScheme))
+                        TrendsLegendChip(
+                            label: series.label,
+                            color: series.color(for: colorScheme),
+                            symbol: series.legendSymbol
+                        )
                     }
                 }
                 .padding(.top, MarbleSpacing.xxxs)
@@ -1949,6 +1955,24 @@ enum VolumeSeries: String, CaseIterable {
             return TrendsPalette.volumeReps.color(for: scheme)
         case .duration:
             return TrendsPalette.volumeDuration.color(for: scheme)
+        }
+    }
+
+    /// Shape cues keep grouped bars and their legend distinguishable without
+    /// depending on gray shade alone.
+    var legendSymbol: TrendsLegendSymbol {
+        switch self {
+        case .weighted: .circle
+        case .reps: .square
+        case .duration: .triangle
+        }
+    }
+
+    var cornerRadius: CGFloat {
+        switch self {
+        case .weighted: 4
+        case .reps: 0
+        case .duration: 8
         }
     }
 }

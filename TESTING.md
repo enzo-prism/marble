@@ -110,14 +110,14 @@ for workflow testing, but it is not full release proof.
   orphan) and each backfill skip reason now enforced by the store predicate (missing
   duration, unprescribed exercise, invalid prescription).
 
-## Current suite inventory (counted from source, 2026-08-23)
+## Current suite inventory (counted from source, 2026-08-24)
 
-- `Tests/Unit/` — **74 files, 808 test methods**.
+- `Tests/Unit/` — **74 files, 812 test methods**.
 - `Tests/Snapshots/` — **16 test files, 49 test methods**. The full runner schedules
   39 result-bundle groups and fails immediately if a source test is omitted.
-- `Tests/UI/` — **21 files, 60 test methods**: **56 flow/focused accessibility cases**
-  run by `make ui`; `AccessibilityAuditUITests` contributes the 4 cases skipped there.
-  `make audit` runs those 4 plus the 2 focused largest-text suites.
+- `Tests/UI/` — **21 files, 64 test methods**: **58 flow/focused accessibility cases**
+  run by `make ui`; `AccessibilityAuditUITests` contributes the 6 cases skipped there.
+  `make audit` runs those 6 plus the 2 focused largest-text suites.
 
 ## Suite inventory (counted from source, 2026-07-25 — build 49)
 - Build 49 additions: `Tests/Snapshots/WeeklyGoalWidgetSnapshotTests.swift` (9 cases × light/dark
@@ -147,6 +147,32 @@ for workflow testing, but it is not full release proof.
 - Counts here are derived by counting source, not by hand-editing the previous number
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
+
+## Build 61 UI and accessibility candidate verification (2026-08-24)
+
+- `make ui`: **58 passed, 0 failed** from the complete non-audit UI suite.
+- `make audit`: **8 selected, 7 passed, 1 skipped, 0 failed**. The skip is the
+  explicit iOS 26.5 runtime boundary: `performAccessibilityAudit` does not support the
+  accessibility Dynamic Type category. Dedicated AX5 Add Set and Log mode suites passed.
+- Literal `make test` passed. Unit: **812 executed, 811 passed, 1 skipped, 0 failed**.
+  Snapshots: **49 executed across all 39 result-bundle groups, 49 passed, 0 failed**.
+- Focused snapshot record/replay: the dedicated `MarbleSnapshotRecord` test plan rewrote the
+  Calendar baseline (mtime changed with identical pixels), and a normal replay passed. This
+  forward-tests the fixed recording path instead of treating a recording-mode exit code as
+  proof that stale baselines were replaced.
+- iPad Calendar portrait and landscape snapshots exposed reused sibling grid identities that
+  hid January 1–6 in landscape. Weekday, leading-blank, and day identities are now namespaced;
+  all four light/dark × default/AX5 iPad variants show the complete month and replay cleanly.
+- Four compact-width iPhone landscape variants cover light/dark × default/AX5. They pin the
+  readable-width height cap that prevents an 852-point landscape proposal from creating a
+  roughly 920-point calendar on a 393-point-tall screen.
+- After that final landscape-only layout correction,
+  `make only TEST=MarbleUITests/CalendarFlowUITests` passed **3 of 3** cases. This closes the
+  source delta after the earlier complete `make ui` run without overstating that run's timing.
+- `make typecheck-tests`: **TEST BUILD SUCCEEDED** with no deprecation warning output after
+  migrating the snapshot harness to the current `UITraitCollection` mutation API.
+- Simulator automation does not replace the physical-device VoiceOver swipe-order and touch
+  acceptance pass in `AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`.
 
 ## Build 60 replacement-candidate verification (2026-08-24)
 

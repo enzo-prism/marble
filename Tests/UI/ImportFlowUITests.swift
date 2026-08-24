@@ -31,9 +31,8 @@ final class ImportFlowUITests: MarbleUITestCase {
     func testTypedWorkoutIsTheDefaultPersistentDestination() {
         launchApp(fixtureMode: "populated")
         navigateToTab(.addWorkout)
-        waitForIdentifier("TextEntry.Input", timeout: 5)
         let editor = app.textViews["TextEntry.Editor"]
-        XCTAssertTrue(editor.exists)
+        waitFor(editor, timeout: 5)
         XCTAssertTrue(app.buttons["TextEntry.ChooseFile"].exists)
 
         editor.tap()

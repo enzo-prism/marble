@@ -108,6 +108,7 @@ struct NotificationEditorView: View {
             .accessibilityIdentifier("NotificationEditor.ConfirmDelete")
 
             Button("Cancel", role: .cancel) {}
+                .accessibilityIdentifier("NotificationEditor.Delete.Cancel")
         } message: {
             Text("This reminder will stop immediately.")
         }

@@ -141,16 +141,19 @@ struct ExerciseEditorView: View {
         }
         .alert("Exercise Is In Use", isPresented: $showDeleteBlocked) {
             Button("OK", role: .cancel) {}
+                .accessibilityIdentifier("ExerciseEditor.DeleteBlocked.OK")
         } message: {
             Text(deleteBlockedMessage)
         }
         .alert("Unable to Save", isPresented: $showSaveError) {
             Button("OK", role: .cancel) {}
+                .accessibilityIdentifier("ExerciseEditor.SaveError.OK")
         } message: {
             Text("Marble couldn't save this exercise. Please try again.")
         }
         .alert("Unable to Delete", isPresented: $showDeleteError) {
             Button("OK", role: .cancel) {}
+                .accessibilityIdentifier("ExerciseEditor.DeleteError.OK")
         } message: {
             Text("Marble couldn't delete this exercise. Please try again.")
         }

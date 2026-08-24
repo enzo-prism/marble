@@ -8,21 +8,20 @@ final class LogModePickerUITests: MarbleUITestCase {
             extraEnvironment: ["MARBLE_INITIAL_TAB": "journal"]
         )
 
-        let sets = modeButton("Log.Mode.Sets")
-        let calendar = modeButton("Tab.Calendar")
-        let supplements = modeButton("Tab.Supplements")
+        let menu = app.buttons["Log.Mode.Menu"]
+        waitFor(menu, timeout: 8)
+        XCTAssertTrue(menu.isHittable)
+        XCTAssertTrue(menu.label.contains("Sets"))
 
-        XCTAssertEqual(sets.label, "Sets")
-        XCTAssertEqual(calendar.label, "Calendar")
-        XCTAssertEqual(supplements.label, "Supplements")
-        XCTAssertLessThanOrEqual(sets.frame.maxY, calendar.frame.minY)
-        XCTAssertLessThanOrEqual(calendar.frame.maxY, supplements.frame.minY)
-
-        forceTap(calendar)
+        forceTap(menu)
+        forceTap(modeButton("Tab.Calendar"))
         waitForIdentifier("Calendar.View", timeout: 8)
+        XCTAssertTrue(app.buttons["Log.Mode.Menu"].label.contains("Calendar"))
 
+        forceTap(app.buttons["Log.Mode.Menu"])
         forceTap(modeButton("Tab.Supplements"))
         waitForIdentifier("Supplements.List", timeout: 8)
+        XCTAssertTrue(app.buttons["Log.Mode.Menu"].label.contains("Supplements"))
     }
 
     private func modeButton(

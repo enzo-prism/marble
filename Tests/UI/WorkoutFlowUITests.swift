@@ -25,6 +25,23 @@ final class WorkoutFlowUITests: MarbleUITestCase {
         XCTAssertTrue(waitForIdentifier("TextEntry.Preview", timeout: 8).exists)
     }
 
+    func testWorkoutTextCanBeClearedWithoutSelectingEditorText() {
+        launchApp(fixtureMode: "empty")
+        navigateToTab(.addWorkout)
+
+        let editor = app.textViews["TextEntry.Editor"]
+        waitFor(editor, timeout: 8)
+        forceTap(editor)
+        editor.typeText("Bench press 3x8 @ 185 lb")
+
+        let clear = waitForIdentifier("TextEntry.Clear", timeout: 8)
+        XCTAssertTrue(clear.isHittable)
+        forceTap(clear)
+
+        XCTAssertEqual(editor.value as? String, "", "Clear should empty the workout draft in one explicit action.")
+        XCTAssertFalse(app.buttons["TextEntry.Preview"].isEnabled)
+    }
+
     func testActiveWorkoutAccessoryOpensAndFinishesWorkout() {
         launchApp(
             fixtureMode: "screenshots",
@@ -57,7 +74,7 @@ final class WorkoutFlowUITests: MarbleUITestCase {
         launchApp(fixtureMode: "populated")
         navigateToTab(.addWorkout)
 
-        forceTap(waitForIdentifier("Workout.Data"))
+        openAddToolbarAction("Workout.Settings")
         // 2.2 moved Data & Backups behind the new Settings screen, below the
         // fold of a lazy List — it isn't in the tree until we scroll to it.
         scrollToElement(app.descendants(matching: .any).matching(identifier: "Settings.Data").firstMatch, in: app)

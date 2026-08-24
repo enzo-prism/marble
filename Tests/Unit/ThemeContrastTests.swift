@@ -1,4 +1,6 @@
 import XCTest
+import SwiftUI
+import UIKit
 @testable import marble
 
 @MainActor
@@ -17,6 +19,12 @@ final class ThemeContrastTests: MarbleTestCase {
 
         let darkRatio = contrastRatio(ThemePalette.darkSecondaryText, ThemePalette.darkBackground)
         XCTAssertGreaterThanOrEqual(darkRatio, 4.5, "Dark secondary text should be >= 4.5:1")
+
+        let lightHighContrastRatio = contrastRatio(ThemePalette.lightSecondaryTextHighContrast, ThemePalette.lightBackground)
+        XCTAssertGreaterThan(lightHighContrastRatio, lightRatio, "Increase Contrast should strengthen light secondary text")
+
+        let darkHighContrastRatio = contrastRatio(ThemePalette.darkSecondaryTextHighContrast, ThemePalette.darkBackground)
+        XCTAssertGreaterThan(darkHighContrastRatio, darkRatio, "Increase Contrast should strengthen dark secondary text")
     }
 
     func testDividerContrast() {
@@ -25,6 +33,43 @@ final class ThemeContrastTests: MarbleTestCase {
 
         let darkRatio = contrastRatio(ThemePalette.darkDivider, ThemePalette.darkBackground)
         XCTAssertGreaterThanOrEqual(darkRatio, 3.0, "Dark divider should be >= 3:1")
+
+        let lightHighContrastRatio = contrastRatio(ThemePalette.lightDividerHighContrast, ThemePalette.lightBackground)
+        XCTAssertGreaterThan(lightHighContrastRatio, lightRatio, "Increase Contrast should strengthen light dividers")
+
+        let darkHighContrastRatio = contrastRatio(ThemePalette.darkDividerHighContrast, ThemePalette.darkBackground)
+        XCTAssertGreaterThan(darkHighContrastRatio, darkRatio, "Increase Contrast should strengthen dark dividers")
+    }
+
+    func testDestructiveActionContrast() {
+        let lightRatio = contrastRatio(ThemePalette.lightDestructiveAction, ThemePalette.lightBackground)
+        XCTAssertGreaterThanOrEqual(lightRatio, 4.5, "Light destructive actions should be >= 4.5:1")
+
+        let darkRatio = contrastRatio(ThemePalette.darkDestructiveAction, ThemePalette.darkBackground)
+        XCTAssertGreaterThanOrEqual(darkRatio, 4.5, "Dark destructive actions should be >= 4.5:1")
+    }
+
+    func testAdaptiveSecondaryTextResolvesForIncreaseContrast() {
+        let highContrastTraits = UITraitCollection(mutations: { traits in
+            traits.accessibilityContrast = .high
+        })
+
+        assertGray(
+            UIColor(Theme.secondaryTextColor(for: .light)).resolvedColor(with: highContrastTraits),
+            equals: ThemePalette.lightSecondaryTextHighContrast
+        )
+        assertGray(
+            UIColor(Theme.secondaryTextColor(for: .dark)).resolvedColor(with: highContrastTraits),
+            equals: ThemePalette.darkSecondaryTextHighContrast
+        )
+    }
+
+    private func assertGray(_ color: UIColor, equals expected: Double) {
+        var white: CGFloat = 0
+        var alpha: CGFloat = 0
+        XCTAssertTrue(color.getWhite(&white, alpha: &alpha))
+        XCTAssertEqual(white, expected, accuracy: 0.001)
+        XCTAssertEqual(alpha, 1, accuracy: 0.001)
     }
 
     private func contrastRatio(_ c1: Double, _ c2: Double) -> Double {

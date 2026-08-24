@@ -54,6 +54,7 @@ struct SupplementTypeManagerView: View {
         }
         .alert("Cannot Delete Type", isPresented: $showCannotDelete) {
             Button("OK", role: .cancel) {}
+                .accessibilityIdentifier("SupplementType.DeleteBlocked.OK")
         } message: {
             Text("\"\(cannotDeleteName)\" has logged entries. Remove those entries before deleting.")
         }

@@ -1,10 +1,9 @@
 import SwiftUI
 
 /// Switches Journal / Calendar / Supplements inside the Log tab. The standard
-/// layout stays segmented, while accessibility text sizes use full-width rows
-/// so the labels never compete for horizontal space. Identifiers stay on the
-/// controls (never the container) so tests can still find `Tab.Calendar` and
-/// `Tab.Supplements` after those destinations left the tab bar.
+/// layout stays segmented, while accessibility text sizes use a compact menu
+/// so navigation doesn't consume most of the screen. Identifiers stay on the
+/// controls (never the container) so UI automation can select every mode.
 struct LogModePicker: View {
     @Environment(TabSelection.self) private var tabSelection
     @Environment(\.colorScheme) private var colorScheme
@@ -42,7 +41,7 @@ struct LogModePicker: View {
     }
 
     private func accessibilityPicker(selection: Binding<AppTab>) -> some View {
-        VStack(spacing: MarbleSpacing.xxs) {
+        Menu {
             accessibilityModeButton(
                 title: "Sets",
                 identifier: "Log.Mode.Sets",
@@ -61,9 +60,36 @@ struct LogModePicker: View {
                 tab: .supplements,
                 selection: selection
             )
+        } label: {
+            HStack(spacing: MarbleSpacing.s) {
+                Text(accessibilityTitle(for: selection.wrappedValue))
+                    .font(MarbleTypography.rowTitle)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: MarbleSpacing.s)
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.body.weight(.semibold))
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, MarbleSpacing.s)
+            .padding(.vertical, MarbleSpacing.xs)
+            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            .background(
+                RoundedRectangle(cornerRadius: MarbleCornerRadius.small, style: .continuous)
+                    .fill(Theme.chipFillColor(for: colorScheme))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: MarbleCornerRadius.small, style: .continuous)
+                    .stroke(Theme.dividerColor(for: colorScheme), lineWidth: 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.small, style: .continuous))
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Log section")
+        .accessibilityLabel("Log section, \(accessibilityTitle(for: selection.wrappedValue))")
+        .accessibilityHint("Shows Sets, Calendar, and Supplements.")
+        .accessibilityIdentifier("Log.Mode.Menu")
     }
 
     private func accessibilityModeButton(
@@ -77,44 +103,19 @@ struct LogModePicker: View {
         return Button {
             selection.wrappedValue = tab
         } label: {
-            HStack(spacing: MarbleSpacing.s) {
-                Text(title)
-                    .font(MarbleTypography.rowTitle)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Spacer(minLength: MarbleSpacing.s)
-
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.body.weight(.semibold))
-                        .accessibilityHidden(true)
-                }
-            }
-            .padding(.horizontal, MarbleSpacing.s)
-            .padding(.vertical, MarbleSpacing.xs)
-            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-            .background(
-                RoundedRectangle(cornerRadius: MarbleCornerRadius.small, style: .continuous)
-                    .fill(isSelected
-                        ? Theme.chipFillColor(for: colorScheme)
-                        : Theme.surfaceColor(for: colorScheme))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: MarbleCornerRadius.small, style: .continuous)
-                    .stroke(
-                        isSelected
-                            ? Theme.dividerColor(for: colorScheme)
-                            : Theme.subtleDividerColor(for: colorScheme),
-                        lineWidth: isSelected ? 1 : 0.75
-                    )
-            )
-            .contentShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.small, style: .continuous))
+            Label(title, systemImage: isSelected ? "checkmark" : "circle")
         }
-        .buttonStyle(.plain)
         .accessibilityIdentifier(identifier)
         .accessibilityLabel(title)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func accessibilityTitle(for tab: AppTab) -> String {
+        switch tab {
+        case .journal: "Sets"
+        case .calendar: "Calendar"
+        case .supplements: "Supplements"
+        default: "Sets"
+        }
     }
 }

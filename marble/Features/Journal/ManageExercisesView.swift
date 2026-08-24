@@ -88,6 +88,7 @@ struct ManageExercisesView: View {
         }
         .alert("Unable to Update Favorite", isPresented: $showFavoriteError) {
             Button("OK", role: .cancel) {}
+                .accessibilityIdentifier("ManageExercises.FavoriteError.OK")
         } message: {
             Text("Marble couldn't update this exercise. Please try again.")
         }

@@ -19,6 +19,8 @@ enum MarbleCornerRadius {
 
 enum MarbleLayout {
     static let pagePadding: CGFloat = MarbleSpacing.m
+    static let formMaxWidth: CGFloat = 680
+    static let dashboardMaxWidth: CGFloat = 900
     static let rowInsets = EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
     static let rowIconSize: CGFloat = 26
     static let rowSpacing: CGFloat = MarbleSpacing.s

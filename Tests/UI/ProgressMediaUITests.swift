@@ -36,9 +36,18 @@ final class ProgressMediaUITests: MarbleUITestCase {
         scrollToElement(editCropButton, in: detailList)
         forceTap(editCropButton)
 
-        let cropEditor = waitForIdentifier("Calendar.ProgressMedia.Crop.Editor", timeout: 8)
+        let cropEditor = app.navigationBars["Edit Crop"]
+        waitFor(cropEditor, timeout: 8)
+        let cropSave = app.buttons["Calendar.ProgressMedia.Crop.Save"]
+        waitFor(cropSave, timeout: 8)
+        let cropSaveCoordinate = cropSave.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)
+        )
         forceTap(app.buttons["Calendar.ProgressMedia.Crop.Reset"])
-        forceTap(app.buttons["Calendar.ProgressMedia.Crop.Save"])
+        // iOS 26.5 can briefly return an empty automation snapshot immediately
+        // after Reset updates the gesture-backed crop canvas. The toolbar does
+        // not move, so retain its already-verified coordinate for this tap.
+        cropSaveCoordinate.tap()
         waitForDisappearance(cropEditor, timeout: 8)
 
         let deleteButton = app.buttons["Calendar.ProgressMedia.Delete"]
