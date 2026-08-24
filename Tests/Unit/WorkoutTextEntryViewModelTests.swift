@@ -163,6 +163,24 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertTrue(exercises.contains { $0.name == "Cable Woodchop" })
     }
 
+    func testCommitHonorsCreateNewWhenAnExactLibraryNameExists() async throws {
+        let context = makeInMemoryContext()
+        let existing = insertExercise("Bench Press", in: context)
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench Press 3x8 @ 185"
+
+        await viewModel.preview(in: context)
+        let exerciseID = try XCTUnwrap(viewModel.draft.exercises.first?.id)
+        viewModel.choose(.createNew, for: exerciseID)
+        viewModel.commit(into: context)
+
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+        let entries = try context.fetch(FetchDescriptor<SetEntry>())
+        XCTAssertEqual(exercises.filter { $0.name == "Bench Press" }.count, 2)
+        XCTAssertTrue(entries.allSatisfy { $0.exercise.id != existing.id })
+        XCTAssertTrue(viewModel.text.isEmpty, "Saved source text must not remain as an appendable draft")
+    }
+
     func testSameTextTwiceSetsAlreadyImportedAndSkips() async {
         let context = makeInMemoryContext()
 
@@ -264,6 +282,44 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertEqual(viewModel.draft.exercises.count, 1)
     }
 
+    private struct YieldingRetryParser: WorkoutScanParsing {
+        func parse(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft {
+            if ocrText.contains("Bench 3x8") {
+                return ParsedWorkoutDraft(exercises: [
+                    ParsedExerciseDraft(name: "Bench", sets: [ParsedSetDraft(reps: 8)])
+                ])
+            }
+            // Keep both retries in flight so identical source strings exercise
+            // row identity instead of accidentally passing via serial timing.
+            try? await Task.sleep(for: .milliseconds(20))
+            let name = ocrText.contains("Squat") ? "Squat" : "Row"
+            return ParsedWorkoutDraft(exercises: [
+                ParsedExerciseDraft(name: name, sets: [ParsedSetDraft(reps: 5)])
+            ])
+        }
+    }
+
+    func testConcurrentRetriesKeepIdenticalUnparsedRowsDistinct() async {
+        let context = makeInMemoryContext()
+        let viewModel = WorkoutTextEntryViewModel(parser: YieldingRetryParser())
+        viewModel.text = "Bench 3x8\nround 2 of 3 felt easy\nround 2 of 3 felt easy"
+        await viewModel.preview(in: context)
+        XCTAssertEqual(viewModel.unparsedLines, ["round 2 of 3 felt easy", "round 2 of 3 felt easy"])
+
+        let first = Task { @MainActor in
+            await viewModel.retryUnparsedLine(at: 0, replacement: "Squat 1x5")
+        }
+        await Task.yield()
+        let second = Task { @MainActor in
+            await viewModel.retryUnparsedLine(at: 1, replacement: "Row 1x5")
+        }
+        await first.value
+        await second.value
+
+        XCTAssertTrue(viewModel.unparsedLines.isEmpty)
+        XCTAssertEqual(Set(viewModel.draft.exercises.map(\.name)), ["Bench", "Squat", "Row"])
+    }
+
     // MARK: - Live preview
 
     func testLivePreviewRecognizesAndFlagsLines() {
@@ -327,10 +383,21 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         }
     }
 
+    private actor RecordingParser: WorkoutScanParsing {
+        private(set) var parseCallCount = 0
+
+        func parse(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft {
+            parseCallCount += 1
+            return ParsedWorkoutDraft(exercises: [
+                ParsedExerciseDraft(name: "Unexpected model result", sets: [ParsedSetDraft(reps: 1)])
+            ])
+        }
+    }
+
     func testParseStageTracksParserCallbacksAndEndsFinalizing() async {
         let context = makeInMemoryContext()
         let viewModel = WorkoutTextEntryViewModel(parser: StageStubParser())
-        viewModel.text = "Bench 1x5"
+        viewModel.text = "I did a hard workout this morning"
         XCTAssertEqual(viewModel.parseStage, .readingNotation)
 
         await viewModel.preview(in: context)
@@ -338,6 +405,22 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertEqual(viewModel.phase, .review)
         XCTAssertEqual(viewModel.parseStage, .finalizing,
                        "The stub's last stage (finalizing) must be reflected on the view model")
+    }
+
+    func testCompleteNotationUsesDeterministicFastPathWithoutModelParser() async {
+        let context = makeInMemoryContext()
+        let parser = RecordingParser()
+        let viewModel = WorkoutTextEntryViewModel(parser: parser)
+        viewModel.text = "Bench Press 3x8 @ 185 lb rest 90s"
+
+        await viewModel.preview(in: context)
+
+        XCTAssertEqual(viewModel.phase, .review)
+        XCTAssertEqual(viewModel.draft.exercises.first?.name, "Bench Press")
+        XCTAssertEqual(viewModel.draft.exercises.first?.sets.count, 3)
+        let parseCallCount = await parser.parseCallCount
+        XCTAssertEqual(parseCallCount, 0,
+                       "A complete notation parse should not invoke the model parser")
     }
 
     // MARK: - Reordering
@@ -737,10 +820,20 @@ final class PendingTextImportTests: MarbleTestCase {
         XCTAssertNil(PendingTextImport.consume())
     }
 
-    func testReviewWorkoutTextIntentStagesPendingPaste() async throws {
+    func testReviewWorkoutTextIntentSignalsTheComposer() async throws {
+        let notification = expectation(description: "Open workout text composer")
+        let observer = NotificationCenter.default.addObserver(
+            forName: .marbleOpenTextImport,
+            object: nil,
+            queue: nil
+        ) { _ in
+            notification.fulfill()
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
         var intent = ReviewWorkoutTextIntent()
         intent.text = "Squat 5x5"
         _ = try await intent.perform()
-        XCTAssertEqual(PendingTextImport.consume(), "Squat 5x5")
+        await fulfillment(of: [notification], timeout: 1)
     }
 }

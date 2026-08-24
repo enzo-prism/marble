@@ -60,6 +60,7 @@ enum WorkoutScanImporter {
         let exercisesBefore = WorkoutImporter.exerciseCount(in: context)
         var setCount = 0
         var createdEntries: [SetEntry] = []
+        var exerciseResolver = WorkoutImportMapper.Resolver(in: context)
 
         // Review-order preservation: imported sets usually share one workout-level
         // date, and the journal sorts by `performedAt` descending — ties come back
@@ -76,12 +77,13 @@ enum WorkoutScanImporter {
         for exercise in exercises {
             let name = exercise.trimmedName
             let profile = exercise.metricsProfile
-            let resolved = try WorkoutImportMapper.resolveExercise(
+            let resolved = try exerciseResolver.resolve(
                 name: name,
                 category: WorkoutImportMapper.inferredCategory(for: name),
                 metrics: profile,
                 defaultRestSeconds: defaultRestSeconds(for: profile),
-                in: context
+                libraryExerciseID: exercise.libraryExerciseID,
+                createNew: exercise.createsNewLibraryExercise
             )
 
             for set in exercise.sets {

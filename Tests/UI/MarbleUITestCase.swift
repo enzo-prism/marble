@@ -16,22 +16,22 @@ enum MarbleAppearance {
 }
 
 enum MarbleTab: String, CaseIterable {
+    case addWorkout = "Add Workout"
     case journal = "Journal"
     case calendar = "Calendar"
-    case split = "Workout"
     case supplements = "Supplements"
     case trends = "Trends"
 
     var identifier: String {
-        self == .split ? "Tab.Split" : "Tab.\(rawValue)"
+        self == .addWorkout ? "Tab.Add" : "Tab.\(rawValue)"
     }
 
-    /// Visible tab-bar label after the Train / Log / Progress IA.
+    /// Visible tab-bar label after the Add / Log / Progress IA.
     /// Calendar and Supplements are Log modes, not tab-bar items.
     var tabBarLabel: String {
         switch self {
         case .journal: return "Log"
-        case .split: return "Train"
+        case .addWorkout: return "Add"
         case .trends: return "Progress"
         case .calendar, .supplements: return rawValue
         }
@@ -290,6 +290,10 @@ class MarbleUITestCase: XCTestCase {
 
     func dismissKeyboardIfPresent() {
         guard app.keyboards.count > 0 else { return }
+        if app.descendants(matching: .any).matching(identifier: "TextEntry.Keyboard.Done").firstMatch.exists {
+            app.descendants(matching: .any).matching(identifier: "TextEntry.Keyboard.Done").firstMatch.tap()
+            return
+        }
         if app.buttons["Keyboard.Done"].exists {
             app.buttons["Keyboard.Done"].tap()
             return
@@ -312,6 +316,19 @@ class MarbleUITestCase: XCTestCase {
             return
         }
         app.tap()
+    }
+
+    /// Bottom accessories intentionally sit above and can overlap the tab bar's
+    /// accessibility frame. Tap their own visual center instead of routing
+    /// through `forceTap`, which clips coordinates to the content area.
+    func tapBottomAccessory(
+        _ element: XCUIElement,
+        timeout: TimeInterval = 8,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
+        waitFor(element, timeout: timeout, file: file, line: line)
+        element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     func waitForDisappearance(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {

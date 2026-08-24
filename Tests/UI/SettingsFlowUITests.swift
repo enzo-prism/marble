@@ -10,7 +10,7 @@ import XCTest
 final class SettingsFlowUITests: MarbleUITestCase {
     private func openSettings() {
         launchApp()
-        navigateToTab(.split)
+        navigateToTab(.addWorkout)
         forceTap(waitForIdentifier("Workout.Data", timeout: 8))
         waitForIdentifier("Settings.Done", timeout: 8)
     }

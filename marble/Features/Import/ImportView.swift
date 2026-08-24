@@ -9,7 +9,6 @@ struct ImportView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openURL) private var openURL
     @State private var showingScan = false
-    @State private var textImportSeed: TextImportSeed?
     @State private var autoImportEnabled = HealthAutoImportService.shared.isEnabled
     @State private var healthExportEnabled = UserDefaults.standard.bool(forKey: HealthSessionExporter.enabledDefaultsKey)
     @State private var detailSelection: DetailSelection?
@@ -36,13 +35,6 @@ struct ImportView: View {
         let loadsHeartRate: Bool
     }
 
-    /// Fresh identity each time the typed-import sheet opens so a Shortcuts
-    /// follow-up can replace the seed while the previous sheet is up.
-    private struct TextImportSeed: Identifiable {
-        let id = UUID()
-        let text: String
-    }
-
     init(viewModel: ImportViewModel) {
         _viewModel = State(wrappedValue: viewModel)
     }
@@ -51,8 +43,6 @@ struct ImportView: View {
         NavigationStack {
             List {
                 scanSection
-
-                textEntrySection
 
                 ForEach(viewModel.sources, id: \.self) { source in
                     sourceSection(for: source)
@@ -103,22 +93,11 @@ struct ImportView: View {
                 }
             }
             .task {
-                presentPendingTextImportIfNeeded()
                 await viewModel.refreshStatus()
                 await autoImport.syncIfEnabled(into: modelContext)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .marbleOpenTextImport)) { _ in
-                presentPendingTextImportIfNeeded()
-            }
             .sheet(isPresented: $showingScan) {
                 WorkoutScanView()
-                    .modelContext(modelContext)
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
-                    .sheetGlassBackground()
-            }
-            .sheet(item: $textImportSeed) { seed in
-                WorkoutTextEntryView(initialText: seed.text)
                     .modelContext(modelContext)
                     .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
@@ -152,12 +131,6 @@ struct ImportView: View {
         }
     }
 
-    private func presentPendingTextImportIfNeeded() {
-        if let pending = PendingTextImport.consume() {
-            textImportSeed = TextImportSeed(text: pending)
-        }
-    }
-
     /// Entry point for the on-device handwritten-workout scanner. It has no remote
     /// service, so it lives outside the provider list and opens its own review flow.
     private var scanSection: some View {
@@ -183,35 +156,6 @@ struct ImportView: View {
                 .buttonStyle(.bordered)
                 .popoverTip(scanTip)
                 .accessibilityIdentifier("Import.Scan.Open")
-            }
-            .marbleRowInsets()
-            .listRowBackground(Theme.backgroundColor(for: colorScheme))
-        }
-    }
-
-    /// Entry point for typing or pasting a workout as free text. Like the scanner
-    /// it is fully on-device and opens its own review flow.
-    private var textEntrySection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                HStack(spacing: MarbleSpacing.s) {
-                    Image(systemName: ImportSource.textEntry.systemImage)
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                    Text(ImportSource.textEntry.displayName)
-                        .font(MarbleTypography.rowTitle)
-                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                }
-
-                Text("Write or paste a workout in plain words — or drop in a Hevy/Strong CSV. Marble structures it on your device, splits a week into separate workouts, and matches your exercise library before anything is logged.")
-                    .font(MarbleTypography.rowMeta)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-
-                Button("Paste or Type") {
-                    textImportSeed = TextImportSeed(text: "")
-                }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("Import.TextEntry.Open")
             }
             .marbleRowInsets()
             .listRowBackground(Theme.backgroundColor(for: colorScheme))

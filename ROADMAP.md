@@ -1,14 +1,12 @@
 # Marble — H2 2026 Implementation Plan (written 2026-07-20)
 
-> **CURRENT RELEASE SNAPSHOT 2026-08-21:** App Store 2.3 build 56 is live;
-> `origin/main` (`42b9061`) is 2.4 build 57; the pushed release-readiness branch is
-> `origin/codex/marble-next-steps-20260821` (`39704d9`), with the active local
-> candidate layered on top. TestFlight build 57 is
-> waiting for external Beta App Review; App Store 2.4 is a staged
-> `PREPARE_FOR_SUBMISSION` draft, not a public App Review submission. The local
-> candidate passed unit, snapshot, UI, accessibility, widget-plist, and shipped-2.3
-> migration gates; physical-device, exact-binary TestFlight, privacy, final screenshot,
-> declaration, and soak gates remain. Build 58 is next.
+> **CURRENT RELEASE SNAPSHOT 2026-08-23:** App Store 2.3 build 56 is live.
+> The AI-first Add candidate is 2.4 build 59 at application-source commit
+> `c8200e2`; its promotion to `main`, TestFlight, and the 2.4 App Store draft is
+> tracked in `RELEASE_HANDOFF.md`. TestFlight build 58 is currently `VALID` and
+> internal; App Store 2.4 remains `PREPARE_FOR_SUBMISSION`. Physical-device,
+> privacy-publication, final screenshot, accessibility declaration, and soak gates
+> remain separate from automated release evidence.
 
 > **STATUS 2026-07-23 — Phases 0–3, the follow-up polish, and the Apple-best-practices
 > pass (PR #12) are on `main` and internal TestFlight as 2.2 build 47.**
@@ -20,6 +18,7 @@
 >
 > | Phase | State |
 > |---|---|
+> | — build 59 candidate (2026-08-23) | **AI-first Add:** Add replaces Train as the default tab and directly hosts the paste-or-type composer. On-device Apple Intelligence handles prose when available; deterministic notation/CSV parsing remains the fast path and fallback. Structured review precedes save, with draft recovery, Shortcut handoff, exact exercise identity, stable unresolved-line retry, and active-session access from the tab-bar accessory. No schema change (still V6). Source: `c8200e2`; 808 unit methods, 49 snapshot methods, 60 UI methods. |
 > | — main (2026-08-20) | **Bulk import honesty (2.4 TestFlight build 57 `VALID`, buildId `a8f9716a-…`):** Hevy `set_index` resets stay two blocks; EU/Android Strong CSV (`;`, `Weight (kg)`, decimal commas); Strong distance is km/mi not metres; `superset_id` → notes; typed/scanned `RPE 8` / `@RPE 8`; `Day 1` / `Session 2` split a paste **and are not saved as exercises**; Hevy failure 0-rep rows kept; Strong `(Barbell)` suffixes stripped after grouping; weak matches default to a new exercise; scan N==1 uses the library matcher; review shows rest/RPE/notes and says blank RPE saves as 8; scan review can reorder exercises; re-scan copy is skip not duplicate. Marketing version **2.4** because Apple closed the 2.3 train (`ITMS-90186`). No schema change (still V6). CI `make unit` green (800 tests). |
 > | — main (2026-08-20) | **Bulk import fidelity (PR #23 merge `cbd5116`):** Hevy CSV skips warmup sets, maps RPE + notes, and keeps the session clock (`end_time` / `Duration`); multi-page scans concatenate OCR and hand a dated week to Paste or Type; batch review shows library / new / weak matches and unique new-exercise counts; file picker no longer promises JSON. No schema change (still V6). CI `make unit` green (774 tests). 2.3 TestFlight of this wave was rejected — the 2.3 train is closed. |
 > | — App Store (verified 2026-08-21) | **Train / Log / Progress IA shipped publicly as 2.3 build 56:** three tab-bar destinations; Calendar + Supplements are Log modes; one-tap complete-set on planned rows with history (`SetLogging`); medium morphing Log Set sheet; session accessory; lock-screen widget drops two-digit streaks. No schema change (still V6). Shipped application source: PR #19 merge `c0cef9e`. |

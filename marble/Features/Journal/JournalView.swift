@@ -138,14 +138,6 @@ struct JournalView: View {
                     .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .marbleOpenTextImport)) { _ in
-                showingImport = true
-            }
-            .onAppear {
-                if PendingTextImport.hasPending {
-                    showingImport = true
-                }
-            }
             .navigationDestination(for: UUID.self) { entryID in
                 if let entry = entries.first(where: { $0.id == entryID }) {
                     SetDetailView(entry: entry)

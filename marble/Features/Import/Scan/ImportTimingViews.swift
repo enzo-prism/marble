@@ -210,6 +210,8 @@ struct ImportSetTimingRows<Row: View>: View {
             Button(action: removeOverride) {
                 Image(systemName: "xmark.circle")
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Remove date & time override")

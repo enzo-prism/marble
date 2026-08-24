@@ -34,6 +34,8 @@ enum WorkoutImportMapper {
         category: ExerciseCategory,
         metrics: ExerciseMetricsProfile,
         defaultRestSeconds: Int,
+        libraryExerciseID: UUID? = nil,
+        createNew: Bool = false,
         in context: ModelContext
     ) throws -> Exercise {
         var resolver = Resolver(in: context)
@@ -41,16 +43,21 @@ enum WorkoutImportMapper {
             name: name,
             category: category,
             metrics: metrics,
-            defaultRestSeconds: defaultRestSeconds
+            defaultRestSeconds: defaultRestSeconds,
+            libraryExerciseID: libraryExerciseID,
+            createNew: createNew
         )
     }
 
     /// Batch-internal resolver that loads all exercises once and reuses the
     /// case-insensitive name index for every set in a single workout, instead
     /// of scanning the table once per `ImportedStrengthSet`.
-    private struct Resolver {
+    struct Resolver {
         let context: ModelContext
-        private var cache: [String: Exercise] = [:]
+        private var automaticCache: [String: Exercise] = [:]
+        private var libraryCache: [UUID: Exercise] = [:]
+        private var newExerciseCache: [String: Exercise] = [:]
+        private var allExercises: [Exercise]?
 
         init(in context: ModelContext) {
             self.context = context
@@ -60,20 +67,83 @@ enum WorkoutImportMapper {
             name: String,
             category: ExerciseCategory,
             metrics: ExerciseMetricsProfile,
-            defaultRestSeconds: Int
+            defaultRestSeconds: Int,
+            libraryExerciseID: UUID? = nil,
+            createNew: Bool = false
         ) throws -> Exercise {
             let key = name.lowercased()
-            if let cached = cache[key] {
+
+            if let libraryExerciseID {
+                if let cached = libraryCache[libraryExerciseID] { return cached }
+                let existing = try loadedExercises()
+                if let match = existing.first(where: { $0.id == libraryExerciseID }) {
+                    libraryCache[libraryExerciseID] = match
+                    return match
+                }
+                // A library row can disappear while review is open. Preserve
+                // the user's workout by creating the reviewed name instead of
+                // silently attaching its sets to another duplicate-name row.
+                return Self.makeExercise(
+                    context: context,
+                    name: name,
+                    category: category,
+                    metrics: metrics,
+                    defaultRestSeconds: defaultRestSeconds,
+                    cacheKey: key,
+                    in: &newExerciseCache
+                )
+            }
+
+            if createNew {
+                return Self.makeExercise(
+                    context: context,
+                    name: name,
+                    category: category,
+                    metrics: metrics,
+                    defaultRestSeconds: defaultRestSeconds,
+                    cacheKey: key,
+                    in: &newExerciseCache
+                )
+            }
+
+            if let cached = automaticCache[key] {
                 return cached
             }
 
-            let descriptor = FetchDescriptor<Exercise>()
-            let existing = try context.fetch(descriptor)
+            let existing = try loadedExercises()
             if let match = existing.first(where: { $0.name.lowercased() == key }) {
-                cache[key] = match
+                automaticCache[key] = match
                 return match
             }
 
+            return Self.makeExercise(
+                context: context,
+                name: name,
+                category: category,
+                metrics: metrics,
+                defaultRestSeconds: defaultRestSeconds,
+                cacheKey: key,
+                in: &automaticCache
+            )
+        }
+
+        private mutating func loadedExercises() throws -> [Exercise] {
+            if let allExercises { return allExercises }
+            let fetched = try context.fetch(FetchDescriptor<Exercise>())
+            allExercises = fetched
+            return fetched
+        }
+
+        private static func makeExercise(
+            context: ModelContext,
+            name: String,
+            category: ExerciseCategory,
+            metrics: ExerciseMetricsProfile,
+            defaultRestSeconds: Int,
+            cacheKey: String,
+            in cache: inout [String: Exercise]
+        ) -> Exercise {
+            if let cached = cache[cacheKey] { return cached }
             let exercise = Exercise(
                 name: name,
                 category: category,
@@ -81,7 +151,7 @@ enum WorkoutImportMapper {
                 defaultRestSeconds: defaultRestSeconds
             )
             context.insert(exercise)
-            cache[key] = exercise
+            cache[cacheKey] = exercise
             return exercise
         }
     }

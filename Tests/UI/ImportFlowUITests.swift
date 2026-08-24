@@ -27,31 +27,49 @@ final class ImportFlowUITests: MarbleUITestCase {
         XCTAssertTrue(journalList.exists)
     }
 
-    /// The typed/paste importer is reachable from the Import hub and renders
-    /// its input editor (parse/review is covered by unit tests).
-    func testOpenTypedWorkoutFromImportHub() {
+    /// Text entry is the default Add destination rather than a nested import sheet.
+    func testTypedWorkoutIsTheDefaultPersistentDestination() {
         launchApp(fixtureMode: "populated")
-        navigateToTab(.journal)
-
-        let importButton = app.buttons["Journal.ImportWorkouts"]
-        waitFor(importButton)
-        importButton.tap()
-
-        let textOpen = waitForIdentifier("Import.TextEntry.Open", timeout: 8)
-        if !textOpen.isHittable {
-            let importList = app.collectionViews.firstMatch
-            scrollToElement(textOpen, in: importList.exists ? importList : app.otherElements.firstMatch)
-        }
-        textOpen.tap()
-
+        navigateToTab(.addWorkout)
         waitForIdentifier("TextEntry.Input", timeout: 5)
-        XCTAssertTrue(app.textViews["TextEntry.Editor"].exists)
+        let editor = app.textViews["TextEntry.Editor"]
+        XCTAssertTrue(editor.exists)
         XCTAssertTrue(app.buttons["TextEntry.ChooseFile"].exists)
 
-        let dismiss = waitForIdentifier("TextEntry.Dismiss", timeout: 3)
-        dismiss.tap()
-        let reopen = waitForIdentifier("Import.TextEntry.Open", timeout: 5)
-        XCTAssertTrue(reopen.exists)
+        editor.tap()
+        editor.typeText("Bench 3x8 @ 185 lb")
+        dismissKeyboardIfPresent()
+        navigateToTab(.journal)
+        navigateToTab(.addWorkout)
+        XCTAssertTrue((editor.value as? String)?.contains("Bench 3x8") == true)
+    }
+
+    func testAddTabReviewsBeforeSavingStructuredSets() {
+        launchApp(fixtureMode: "empty")
+
+        let editor = app.textViews["TextEntry.Editor"]
+        waitFor(editor, timeout: 8)
+        editor.tap()
+        editor.typeText("Bench Press 3x8 @ 185 lb rest 90s")
+        dismissKeyboardIfPresent()
+        forceTap(waitForIdentifier("TextEntry.Preview", timeout: 8))
+
+        waitFor(app.navigationBars["Review Workout"], timeout: 10)
+        XCTAssertTrue(waitForIdentifier("TextEntry.Title", timeout: 8).exists)
+
+        // Review is non-destructive: nothing reaches the Log before confirmation.
+        navigateToTab(.journal)
+        XCTAssertTrue(waitForIdentifier("Journal.StartChecklist", timeout: 8).exists)
+        navigateToTab(.addWorkout)
+
+        forceTap(waitForIdentifier("TextEntry.Import", timeout: 8))
+        XCTAssertTrue(waitForIdentifier("TextEntry.Imported", timeout: 8).exists)
+        forceTap(waitForIdentifier("TextEntry.Imported.ViewLog", timeout: 8))
+
+        let rows = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'SetRow.'"))
+        XCTAssertGreaterThanOrEqual(rows.count, 3)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'Bench Press'")).firstMatch.exists)
     }
 
     /// The hub's history section lists previously imported workouts and opens

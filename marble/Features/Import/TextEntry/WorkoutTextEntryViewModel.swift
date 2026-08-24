@@ -82,12 +82,17 @@ final class WorkoutTextEntryViewModel {
     /// never loses work silently. Editable inline; a fixed line re-parses into
     /// the draft.
     private(set) var unparsedLines: [String] = []
+    /// Stable identity for each displayed row. The same dropped line can occur
+    /// more than once, so its text is not a safe concurrency key while retries
+    /// yield to the parser.
+    private var unparsedLineIDs: [UUID] = []
+    private var retryingUnparsedLineIDs: Set<UUID> = []
     /// Debounced parse of the in-progress text for the input step's live
     /// per-line feedback. Deterministic parser only — it is pure and cheap, and
     /// the feedback must work on devices without the on-device model.
     private(set) var livePreview: LivePreview?
-    /// Current pipeline stage while `phase == .processing` — drives the
-    /// determinate progress bar. Reset to the first stage on every preview.
+    /// Current pipeline stage while `phase == .processing` — drives the status
+    /// copy beside an indeterminate spinner. Reset on every preview.
     private(set) var parseStage: WorkoutParseStage = .readingNotation
     /// 1-based index of the session currently being parsed, when a paste
     /// split into more than one workout.
@@ -286,7 +291,7 @@ final class WorkoutTextEntryViewModel {
         let meaningfulDrops = diagnostics.droppedLines.filter { line in
             !HandwrittenWorkoutParser.isSessionSplitHeader(line, referenceDate: AppEnvironment.now)
         }
-        if sessionCount > 1, meaningfulDrops.isEmpty, diagnostics.draft.hasContent {
+        if meaningfulDrops.isEmpty, diagnostics.draft.hasContent {
             var draft = diagnostics.draft
             if draft.title == ParsedWorkoutDraft().title { draft.title = Self.defaultTitle }
             return (draft, [])
@@ -311,6 +316,7 @@ final class WorkoutTextEntryViewModel {
         reviewingSessionID = id
         draft = session.draft
         unparsedLines = session.unparsedLines
+        unparsedLineIDs = unparsedLines.map { _ in UUID() }
         alreadyImported = session.alreadyImported
         externalID = session.externalID
     }
@@ -360,23 +366,35 @@ final class WorkoutTextEntryViewModel {
     /// now yields exercises joins the draft (with fresh library matching) and
     /// leaves the list; one that still doesn't parse stays, updated in place.
     func retryUnparsedLine(at index: Int, replacement: String) async {
-        guard unparsedLines.indices.contains(index) else { return }
+        guard unparsedLines.indices.contains(index),
+              unparsedLineIDs.indices.contains(index) else { return }
+        let lineID = unparsedLineIDs[index]
+        guard retryingUnparsedLineIDs.insert(lineID).inserted else { return }
+        defer { retryingUnparsedLineIDs.remove(lineID) }
         let trimmed = replacement.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            unparsedLines.remove(at: index)
+            if let currentIndex = unparsedLineIDs.firstIndex(of: lineID) {
+                unparsedLines.remove(at: currentIndex)
+                unparsedLineIDs.remove(at: currentIndex)
+            }
             return
         }
         let parsed = await parser.parse(ocrText: trimmed, referenceDate: AppEnvironment.now)
+        // Parsing yields the main actor. Another retry may have removed or
+        // moved this row, so resolve it again by stable identity rather than
+        // text, which may be identical in another row.
+        guard let currentIndex = unparsedLineIDs.firstIndex(of: lineID) else { return }
         let newExercises = parsed.importableExercises
         guard !newExercises.isEmpty else {
-            unparsedLines[index] = trimmed
+            unparsedLines[currentIndex] = trimmed
             return
         }
         for exercise in newExercises {
             draft.exercises.append(exercise)
             resolutions[exercise.id] = makeResolution(for: exercise.name)
         }
-        unparsedLines.remove(at: index)
+        unparsedLines.remove(at: currentIndex)
+        unparsedLineIDs.remove(at: currentIndex)
     }
 
     // MARK: - Live preview
@@ -649,6 +667,7 @@ final class WorkoutTextEntryViewModel {
                     in: context
                 )
             finishCommit(summary: summary)
+            refreshSystemSurfaces(after: summary, in: context)
         } catch {
             errorMessage = "Couldn't save the workout. Please try again."
             MarbleHaptics.error()
@@ -701,6 +720,7 @@ final class WorkoutTextEntryViewModel {
                 )
             }
             finishCommit(summary: summary)
+            refreshSystemSurfaces(after: summary, in: context)
         } catch {
             errorMessage = "Couldn't save the workouts. Please try again."
             MarbleHaptics.error()
@@ -711,8 +731,20 @@ final class WorkoutTextEntryViewModel {
         var toImport = draft
         for index in toImport.exercises.indices {
             let id = toImport.exercises[index].id
-            if case let .library(_, name)? = resolutions[id]?.choice {
+            guard let resolution = resolutions[id] else { continue }
+            switch resolution.choice {
+            case let .library(libraryID, name):
                 toImport.exercises[index].name = name
+                toImport.exercises[index].libraryExerciseID = libraryID
+                toImport.exercises[index].createsNewLibraryExercise = false
+            case .createNew:
+                toImport.exercises[index].libraryExerciseID = nil
+                // Bypass name reuse only when an exact row already exists and
+                // the user explicitly selected "Create new" in review.
+                let reviewedName = toImport.exercises[index].trimmedName
+                toImport.exercises[index].createsNewLibraryExercise = resolution.suggestions.contains {
+                    $0.candidate.name.caseInsensitiveCompare(reviewedName) == .orderedSame
+                }
             }
         }
         return toImport
@@ -733,7 +765,21 @@ final class WorkoutTextEntryViewModel {
         if summary.createdExercises > 0 {
             Task { await ExerciseSpotlightIndex.refreshAfterLibraryChange() }
         }
+        // The imported result no longer has unsaved source text. Clearing it
+        // prevents a later Shortcut handoff from appending the saved workout
+        // and importing the same sets again under a new content hash.
+        text = ""
         phase = .imported
+    }
+
+    /// Text entry is now Marble's primary logging path, so its successful saves
+    /// must refresh the same widget, reminder, and Health surfaces as App Intents.
+    private func refreshSystemSurfaces(after summary: WorkoutImporter.Summary, in context: ModelContext) {
+        guard summary.importedSets > 0 else { return }
+        Task {
+            await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
+            await HealthSessionExporter.shared.exportIfEnabled(from: context)
+        }
     }
 
     /// Back to the input step keeping the text, so a bad parse is editable.
@@ -817,11 +863,22 @@ final class WorkoutTextEntryViewModel {
         alreadyImported = false
         externalID = ""
         unparsedLines = []
+        unparsedLineIDs = []
+        retryingUnparsedLineIDs = []
         sessions = []
         reviewingSessionID = nil
         batchProgress = nil
         livePreview = nil
         parseStage = .readingNotation
         celebration = ImportCelebration(volumeText: nil, prExercises: [])
+    }
+
+    /// Starts a fresh root-tab draft from a Shortcut or deep-link handoff.
+    /// This is an explicit user action, so replacing any previous root draft is
+    /// less surprising than silently appending unrelated workouts together.
+    func startNewWorkout(with initialText: String) {
+        reset()
+        text = initialText
+        updateLivePreview()
     }
 }

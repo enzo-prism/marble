@@ -5,13 +5,17 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 ## What it is
 
-The tab bar is three destinations: **Train**, **Log**, and **Progress**. Calendar and
+The tab bar is three destinations: **Add**, **Log**, and **Progress**. Calendar and
 Supplements are modes inside Log (not separate tabs). Deep links `marble://calendar` and
 `marble://supplements` still open those modes.
 
-- **Train** — start and finish timed workout sessions, complete a planned set in one tap
-  when that exercise already has history, and review recent sessions. The weekly split
-  remains the editable plan behind Settings. An active session shows a tab-bar accessory
+- **Add** — Marble's default AI-first composer. Paste or type a workout in plain language,
+  common gym notation, or a Hevy/Strong CSV; Apple Intelligence structures prose on device
+  when available, while the deterministic parser handles notation and provides the fallback.
+  Nothing is logged until the user reviews and confirms the structured sets. Raw composer
+  text persists across tab switches and app relaunches; reviewed edits remain unsaved until
+  confirmation. Plan, Settings, and manual quick log remain toolbar
+  actions. Existing active sessions open from the tab-bar accessory as a secondary sheet
   (rest timer wins over the session pill).
 - **Log** — fast logging of sets (weight, reps, distance, duration, RPE, rest) with
   per-exercise metric profiles, plus Calendar and Supplements as Log modes.
@@ -56,17 +60,22 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-08-21)
+## Current state (2026-08-23)
 
-App Store **2.3 build 56 is live**. `origin/main` at `42b9061` is **2.4 build 57**;
-the pushed release-readiness branch is `origin/codex/marble-next-steps-20260821` at
-`39704d9`, with the active local candidate layered on top.
-Build 57 is waiting for external Beta App Review. App Store 2.4 exists as a
-`PREPARE_FOR_SUBMISSION` draft with build 57 attached; it is not in public review.
-The active local candidate is green across 800 unit tests, 46 snapshot methods,
-55 UI tests, the 6-test accessibility gate, widget plist verification, and the
-shipped-2.3 Release migration gate; it still requires build 58 and the external
-release gates documented in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
+App Store **2.3 build 56 is live**. The AI-first Add candidate is **2.4 build 59**
+at application-source commit `c8200e2`; promotion to `main`, TestFlight, and the
+2.4 App Store draft is tracked in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
+TestFlight 2.4 build 58 remains `VALID` and `IN_BETA_TESTING` in internal
+**test group A** until build 59 finishes processing. App Store 2.4 remains a
+`PREPARE_FOR_SUBMISSION` draft and is not yet in public review.
+
+- **AI-first Add** (2.4 build 59 candidate `c8200e2`): Add replaces Train as the
+  default tab. Paste or type plain-language prose, gym notation, multi-day Notes,
+  or a Hevy/Strong CSV; Apple Intelligence structures prose on device when
+  available, while deterministic parsing handles notation and fallback. Users
+  review the structured workout before saving. Draft recovery, Shortcut handoff,
+  exact exercise identity, unresolved-line retry, and the active-workout accessory
+  are covered by the build-59 test plan. No schema change (still V6).
 
 - **Bulk import honesty** (2.4 TestFlight build 57 `VALID`, buildId
   `a8f9716a-5b39-4013-a795-181344ff54a6`, PR #24 merge `df05585`): Hevy same-lift
@@ -187,7 +196,7 @@ release gates documented in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
      (schedule/cancel are serialized).
   9. **Reps prefill** is no longer silently clamped to 20 (only the slider pins to its track).
   10. Demo-recording seed hook: `MARBLE_SEED_DEMO_FIXTURES` seeds the screenshots fixture on
-     a normal (non-UI-testing) launch, and the fixture's Workout-tab session now matches
+     a normal (non-UI-testing) launch, and the fixture's active session now matches
      whatever split the capture day seeds.
 - Unit suite **519 tests** green after the pass; full test-target compile clean.
 
@@ -333,7 +342,7 @@ release gates documented in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
 
 ## Architecture
 
-- **SwiftUI + SwiftData, local-only.** Tab bar: **Train / Log / Progress** (Calendar and
+- **SwiftUI + SwiftData, local-only.** Tab bar: **Add / Log / Progress** (Calendar and
   Supplements are Log modes). Feature folders under `marble/Features/` still use the
   historical names: `Body`, `Calendar`, `Import`, `Journal`, `Notifications`, `Onboarding`,
   `RestTimer`, `Settings`, `Split`, `Supplements`, `Trends`, and `Workout`. Code shared

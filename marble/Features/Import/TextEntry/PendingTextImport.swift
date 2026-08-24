@@ -1,9 +1,8 @@
 import Foundation
 
-/// Holds workout text that should open the Paste or Type sheet once the
-/// Import hub is on screen. Written by the Review Workout Text/File intents
-/// and consumed by `ImportView` so the paste never lives in a URL or a
-/// background commit.
+/// Holds workout text that should open the primary Add composer. Written by the
+/// Review Workout Text/File intents and consumed by `WorkoutTextEntryView` so
+/// the paste never lives in a URL or a background commit.
 @MainActor
 enum PendingTextImport {
     private(set) static var hasPending = false

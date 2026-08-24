@@ -55,11 +55,23 @@ nonisolated struct ParsedExerciseDraft: Equatable, Sendable, Identifiable {
     var id: UUID
     var name: String
     var sets: [ParsedSetDraft]
+    /// Review-time import instructions. Parsers leave these at their defaults;
+    /// the review model fills them only after the user approves a library match.
+    var libraryExerciseID: UUID?
+    var createsNewLibraryExercise: Bool
 
-    init(id: UUID = UUID(), name: String, sets: [ParsedSetDraft] = []) {
+    init(
+        id: UUID = UUID(),
+        name: String,
+        sets: [ParsedSetDraft] = [],
+        libraryExerciseID: UUID? = nil,
+        createsNewLibraryExercise: Bool = false
+    ) {
         self.id = id
         self.name = name
         self.sets = sets
+        self.libraryExerciseID = libraryExerciseID
+        self.createsNewLibraryExercise = createsNewLibraryExercise
     }
 
     var trimmedName: String {

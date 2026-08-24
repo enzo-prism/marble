@@ -23,6 +23,9 @@ nonisolated enum TestHooks {
     nonisolated(unsafe) static var overrideNow: Date?
 
     static let isUITesting: Bool = environmentFlag("MARBLE_UI_TESTING")
+    /// Unit and snapshot test hosts do not set `MARBLE_UI_TESTING`, but they
+    /// still must not read or mutate a real composer draft between test runs.
+    static let isXCTestProcess: Bool = environmentValue("XCTestConfigurationFilePath") != nil
     static let disableAnimations: Bool = environmentFlag("MARBLE_DISABLE_ANIMATIONS") || isUITesting
     static let forcedColorScheme: ColorScheme? = TestHooks.parseColorScheme(environmentValue("MARBLE_FORCE_COLOR_SCHEME"))
     static let forcedDynamicType: ContentSizeCategory? = TestHooks.parseContentSize(environmentValue("MARBLE_FORCE_DYNAMIC_TYPE"))

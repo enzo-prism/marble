@@ -32,15 +32,7 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
 
     func test02PasteOrTypeReview() {
         launchScreenshotApp()
-        navigateToTab(.journal)
-        forceTap(waitForIdentifier("Journal.ImportWorkouts", timeout: 10))
-
-        let textOpen = waitForIdentifier("Import.TextEntry.Open", timeout: 8)
-        if !textOpen.isHittable {
-            let importList = app.collectionViews.firstMatch
-            scrollToElement(textOpen, in: importList.exists ? importList : app.otherElements.firstMatch)
-        }
-        forceTap(textOpen)
+        navigateToTab(.addWorkout)
 
         let editor = app.textViews["TextEntry.Editor"]
         waitFor(editor, timeout: 8)
@@ -79,7 +71,12 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
     }
 
     func test04ActiveWorkout() {
-        launchScreenshotApp(initialTab: "split")
+        launchScreenshotApp(
+            initialTab: "add",
+            extraEnvironment: ["MARBLE_ENABLE_REST_PILL": "1"]
+        )
+        tapBottomAccessory(waitForIdentifier("SessionPill", timeout: 10))
+        _ = waitForIdentifier("Workout.List", timeout: 10)
         _ = waitForIdentifier("Workout.Finish", timeout: 10)
         let workoutSet = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'Workout.Set.'"))
@@ -109,7 +106,7 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
     }
 
     func test08EmojiExerciseLibrary() {
-        launchScreenshotApp(initialTab: "split")
+        launchScreenshotApp(initialTab: "add")
         forceTap(waitForIdentifier("Workout.Data", timeout: 10))
         // 2.2 moved Data & Backups behind the new Settings screen, below the
         // fold of a lazy List — it isn't in the tree until we scroll to it.
@@ -130,7 +127,7 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
     }
 
     func test09PrivateBackup() {
-        launchScreenshotApp(initialTab: "split")
+        launchScreenshotApp(initialTab: "add")
         forceTap(waitForIdentifier("Workout.Data", timeout: 10))
         // 2.2 moved Data & Backups behind the new Settings screen, below the
         // fold of a lazy List — it isn't in the tree until we scroll to it.

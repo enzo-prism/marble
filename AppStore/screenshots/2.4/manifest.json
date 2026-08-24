@@ -12,18 +12,18 @@
   ],
   "screenshots": [
     {
-      "order": 1,
+      "order": 2,
       "rawName": "01-journal",
       "headline": "Every workout. Beautifully organized.",
       "supportingText": "Log sets, runs, notes, rest, and effort in one private journal.",
       "feature": "Log"
     },
     {
-      "order": 2,
+      "order": 1,
       "rawName": "02-paste-or-type-review",
-      "headline": "Import a week in one pass.",
-      "supportingText": "Review each workout, date, exercise match, and set before anything is saved.",
-      "feature": "Paste or Type batch review"
+      "headline": "Your workout, in your own words.",
+      "supportingText": "Paste or type naturally, then review every structured set before anything is saved.",
+      "feature": "AI-first Add"
     },
     {
       "order": 3,
@@ -35,9 +35,9 @@
     {
       "order": 4,
       "rawName": "04-active-workout",
-      "headline": "Train with a plan.",
+      "headline": "Stay with your plan.",
       "supportingText": "Run a focused session while every completed set stays organized in Log.",
-      "feature": "Train"
+      "feature": "Active workout"
     },
     {
       "order": 5,

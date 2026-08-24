@@ -1,13 +1,19 @@
-import Combine
 import SwiftData
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
+/// Where the text-entry flow lives. The primary tab keeps a draft alive across
+/// tab switches; the sheet mode preserves the scan/import handoff experience.
+enum WorkoutTextEntryPresentation: Equatable {
+    case sheet
+    case primaryTab
+}
+
 /// The end-to-end "type or paste a workout" flow: free text → on-device parse →
-/// review matches/edit → add to journal. Presented as a sheet from the import
-/// screen; the review step is the scan flow's reviewer plus per-exercise library
-/// matching, so the user approves exactly which rows are reused or created.
+/// review matches/edit → add to journal. The review step is the scan flow's
+/// reviewer plus per-exercise library matching, so the user approves exactly
+/// which rows are reused or created.
 struct WorkoutTextEntryView: View {
     @State private var viewModel: WorkoutTextEntryViewModel
     @Environment(\.modelContext) private var modelContext
@@ -20,19 +26,46 @@ struct WorkoutTextEntryView: View {
     /// prompt; refreshed when the sheet appears and when the app foregrounds.
     @State private var clipboardHasText = false
     @State private var showingFileImporter = false
+    @State private var showingPlan = false
+    @State private var showingSettings = false
+    @State private var showingIncomingTextChoice = false
+    @State private var pendingIncomingText: String?
+    /// Restores the raw composer text after termination. Structured review
+    /// edits remain intentionally ephemeral until the user adds the workout.
+    @AppStorage("WorkoutEntry.Draft") private var restoredDraft = ""
     private let autoPreviewOnAppear: Bool
+    private let presentation: WorkoutTextEntryPresentation
+    private let onShowJournal: (() -> Void)?
+    private let prewarmsModel: Bool
     @State private var didAutoPreview = false
 
-    init(initialText: String = "", autoPreview: Bool? = nil) {
+    init(
+        initialText: String = "",
+        autoPreview: Bool? = nil,
+        presentation: WorkoutTextEntryPresentation = .sheet,
+        onShowJournal: (() -> Void)? = nil,
+        prewarmsModel: Bool = true
+    ) {
         let trimmed = initialText.trimmingCharacters(in: .whitespacesAndNewlines)
         _viewModel = State(wrappedValue: WorkoutTextEntryViewModel(initialText: initialText))
         self.autoPreviewOnAppear = autoPreview ?? !trimmed.isEmpty
+        self.presentation = presentation
+        self.onShowJournal = onShowJournal
+        self.prewarmsModel = prewarmsModel
     }
 
     /// Test seam so unit-driven previews aren't required to go through `init(initialText:)`.
-    init(viewModel: WorkoutTextEntryViewModel) {
+    init(
+        viewModel: WorkoutTextEntryViewModel,
+        presentation: WorkoutTextEntryPresentation = .sheet,
+        onShowJournal: (() -> Void)? = nil,
+        prewarmsModel: Bool = true
+    ) {
         _viewModel = State(wrappedValue: viewModel)
         self.autoPreviewOnAppear = false
+        self.presentation = presentation
+        self.onShowJournal = onShowJournal
+        self.prewarmsModel = prewarmsModel
     }
 
     var body: some View {
@@ -47,7 +80,7 @@ struct WorkoutTextEntryView: View {
         // HIG sheet-dismissal protection: a swipe-down must not silently throw
         // away typed text or a reviewed draft; the imported phase stays freely
         // dismissible.
-        .interactiveDismissDisabled(hasUnsavedEdits)
+        .interactiveDismissDisabled(presentation == .sheet && hasUnsavedEdits)
         .confirmationDialog(
             "Discard this import?",
             isPresented: $showingDiscardDialog,
@@ -56,17 +89,51 @@ struct WorkoutTextEntryView: View {
             Button("Discard", role: .destructive) { dismiss() }
             Button("Keep Editing", role: .cancel) {}
         }
+        .confirmationDialog(
+            "You already have a workout draft",
+            isPresented: $showingIncomingTextChoice,
+            titleVisibility: .visible
+        ) {
+            Button("Add to Current Draft") { applyIncomingText(replacing: false) }
+                .accessibilityIdentifier("WorkoutEntry.Incoming.Append")
+            Button("Replace Current Draft", role: .destructive) { applyIncomingText(replacing: true) }
+                .accessibilityIdentifier("WorkoutEntry.Incoming.Replace")
+            Button("Keep Current Draft", role: .cancel) { pendingIncomingText = nil }
+                .accessibilityIdentifier("WorkoutEntry.Incoming.Keep")
+        } message: {
+            Text("Choose how to handle the workout sent to Marble.")
+        }
         // Load the on-device model while the user is still typing, so the first
         // parse doesn't pay model-load latency inside the processing spinner.
-        .task { FoundationModelsWorkoutScanParser.prewarm() }
+        .task {
+            guard prewarmsModel else { return }
+            FoundationModelsWorkoutScanParser.prewarm()
+        }
         .task { clipboardHasText = UIPasteboard.general.hasStrings }
         .task {
             guard autoPreviewOnAppear, !didAutoPreview else { return }
             didAutoPreview = true
             await viewModel.preview(in: modelContext)
         }
+        .task {
+            restoreDraftIfNeeded()
+            consumePendingTextImportIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .marbleOpenTextImport)) { _ in
+            consumePendingTextImportIfNeeded()
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             clipboardHasText = UIPasteboard.general.hasStrings
+        }
+        .onChange(of: viewModel.text) { _, newValue in
+            guard presentation == .primaryTab,
+                  !TestHooks.isUITesting,
+                  !TestHooks.isXCTestProcess else { return }
+            restoredDraft = newValue
+        }
+        .onChange(of: viewModel.phase) { _, newValue in
+            guard presentation == .primaryTab, newValue == .imported else { return }
+            restoredDraft = ""
         }
         .fileImporter(
             isPresented: $showingFileImporter,
@@ -74,6 +141,18 @@ struct WorkoutTextEntryView: View {
             allowsMultipleSelection: true
         ) { result in
             ingestFiles(result)
+        }
+        .sheet(isPresented: $showingPlan) {
+            SplitView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .sheetGlassBackground()
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .sheetGlassBackground()
         }
     }
 
@@ -98,11 +177,62 @@ struct WorkoutTextEntryView: View {
     private var inputView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: MarbleSpacing.m) {
-                Text("Paste a workout, a week of notes, or a Hevy/Strong export. Marble reads it on your device, splits it into workouts, and matches your exercise library before anything is logged.")
+                VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                    Label(
+                        viewModel.usesOnDeviceModel ? "Apple Intelligence" : "On-device parsing",
+                        systemImage: viewModel.usesOnDeviceModel ? "apple.intelligence" : "iphone"
+                    )
+                    .font(MarbleTypography.smallLabel)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .accessibilityIdentifier("WorkoutEntry.IntelligenceStatus")
+
+                    Text("Paste or type your workout")
+                        .font(MarbleTypography.emptyTitle)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                }
+                .accessibilityIdentifier("TextEntry.Input")
+
+                // The editor is the primary task, so it precedes explanatory
+                // copy and import shortcuts. This keeps it reachable on the
+                // first screen even at Accessibility XXXL.
+                TextEditor(text: $viewModel.text)
+                    .font(MarbleTypography.rowSubtitle)
+                    .focused($textFocused)
+                    .marbleKeyboardToolbar(doneIdentifier: "TextEntry.Keyboard.Done")
+                    .scrollContentBackground(.hidden)
+                    .writingToolsBehavior(.disabled)
+                    .padding(MarbleSpacing.s)
+                    .frame(minHeight: presentation == .primaryTab ? 280 : 200)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Theme.chipFillColor(for: colorScheme))
+                    )
+                    .overlay(alignment: .topLeading) {
+                        if viewModel.text.isEmpty {
+                            Text("Push day\nI did 3 sets of 8 on bench at 185 lb\nIncline dumbbell press, 3 sets of 10 at 60\nCable fly 3x12\nPlank 3x45 seconds")
+                                .font(MarbleTypography.rowSubtitle)
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                .padding(MarbleSpacing.s)
+                                .padding(.top, 8)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .accessibilityIdentifier("TextEntry.Editor")
+                    .accessibilityLabel("Workout text")
+                    .accessibilityHint("Type or paste a workout in plain language or common workout notation.")
+                    .onChange(of: viewModel.text) { _, _ in viewModel.updateLivePreview() }
+                    .dropDestination(for: String.self) { items, _ in
+                        guard let pasted = items.first else { return false }
+                        viewModel.ingestPastedText(pasted)
+                        return true
+                    }
+
+                Text("Write it naturally. Marble turns your words into structured sets for you to review before saving.")
                     .font(MarbleTypography.rowMeta)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("TextEntry.Input")
 
                 // System PasteButton: one tap moves a copied workout (Hevy,
                 // Strong, Notes) into the editor with no clipboard-permission
@@ -130,53 +260,31 @@ struct WorkoutTextEntryView: View {
                     }
                 }
 
-                TextEditor(text: $viewModel.text)
-                    .font(MarbleTypography.rowSubtitle)
-                    .focused($textFocused)
-                    .marbleKeyboardToolbar(doneIdentifier: "TextEntry.Keyboard.Done")
-                    .scrollContentBackground(.hidden)
-                    .writingToolsBehavior(.disabled)
-                    .padding(MarbleSpacing.s)
-                    .frame(minHeight: 200)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Theme.chipFillColor(for: colorScheme))
-                    )
-                    .overlay(alignment: .topLeading) {
-                        if viewModel.text.isEmpty {
-                            Text("Push day\nBench press 3x8 @ 185, rest 90s\nIncline DB press 3x10 @ 60\nCable fly 3x12\nPlank 3x45s")
-                                .font(MarbleTypography.rowSubtitle)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.6))
-                                .padding(MarbleSpacing.s)
-                                .padding(.top, 8)
-                                .allowsHitTesting(false)
+                if viewModel.text.isEmpty {
+                    Menu {
+                        Button("Strength workout") {
+                            viewModel.startNewWorkout(with: "Bench press 3 sets of 8 at 185 lb, resting 90 seconds\nIncline dumbbell press 3x10 @ 60 lb\nPlank 3x45 seconds")
                         }
+                        .accessibilityIdentifier("WorkoutEntry.Example.Strength")
+                        Button("Run") {
+                            viewModel.startNewWorkout(with: "Easy run today: 5 kilometers in 28 minutes")
+                        }
+                        .accessibilityIdentifier("WorkoutEntry.Example.Run")
+                        Button("Multiple days") {
+                            viewModel.startNewWorkout(with: "Monday — Push\nBench 3x8 @ 185 lb\nCable fly 3x12\n\nWednesday — Pull\nDeadlift 3x5 @ 225 lb\nPull ups 3x8")
+                        }
+                        .accessibilityIdentifier("WorkoutEntry.Example.Multiple")
+                    } label: {
+                        Label("Try an example", systemImage: "text.quote")
                     }
-                    .accessibilityIdentifier("TextEntry.Editor")
-                    .onChange(of: viewModel.text) { _, _ in viewModel.updateLivePreview() }
-                    .dropDestination(for: String.self) { items, _ in
-                        guard let pasted = items.first else { return false }
-                        viewModel.ingestPastedText(pasted)
-                        return true
-                    }
+                    .buttonStyle(.bordered)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("WorkoutEntry.Examples")
+                }
 
                 if let preview = viewModel.livePreview {
                     livePreviewView(preview)
                 }
-
-                Button {
-                    textFocused = false
-                    Task { await viewModel.preview(in: modelContext) }
-                } label: {
-                    Text(previewButtonTitle)
-                }
-                .buttonStyle(MarbleActionButtonStyle(
-                    isEnabledOverride: !viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                    expandsHorizontally: true,
-                    prominence: .primary
-                ))
-                .disabled(viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .accessibilityIdentifier("TextEntry.Preview")
 
                 Label(
                     viewModel.privacyCaption,
@@ -194,33 +302,37 @@ struct WorkoutTextEntryView: View {
             }
             .padding(MarbleSpacing.m)
         }
+        .accessibilityIdentifier("WorkoutEntry.Root")
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom) {
+            reviewButton
+        }
+    }
+
+    private var reviewButton: some View {
+        Button {
+            textFocused = false
+            Task { await viewModel.preview(in: modelContext) }
+        } label: {
+            Text(previewButtonTitle)
+        }
+        .buttonStyle(MarbleActionButtonStyle(
+            isEnabledOverride: !viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            expandsHorizontally: true,
+            prominence: .primary
+        ))
+        .disabled(viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        .padding(.horizontal, MarbleSpacing.m)
+        .padding(.vertical, MarbleSpacing.s)
+        .background(Theme.backgroundColor(for: colorScheme))
+        .accessibilityIdentifier("TextEntry.Preview")
     }
 
     private var previewButtonTitle: String {
         if let preview = viewModel.livePreview, preview.sessionCount > 1 {
-            return "Preview Workouts"
+            return "Review Workouts"
         }
-        return "Preview Workout"
-    }
-
-    /// Eased display value for the processing bar. Real parse stages anchor it;
-    /// the timer eases toward the current anchor so the bar keeps moving during
-    /// a long on-device model pass without ever crossing into the next stage.
-    @State private var processingProgress: Double = 0
-    private let processingTimer = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
-
-    /// Fraction each parse stage anchors the progress bar to. Exact percentages
-    /// are unknowable (the model exposes no token count), so the anchors split
-    /// the pipeline where the time actually goes: the two model readings.
-    private var processingTarget: Double {
-        if let batch = viewModel.batchProgress, batch.total > 1 {
-            return min(0.95, Double(batch.current) / Double(batch.total))
-        }
-        switch viewModel.parseStage {
-        case .readingNotation: return 0.18
-        case .interpreting(let pass, _): return pass <= 1 ? 0.52 : 0.8
-        case .finalizing: return 0.95
-        }
+        return "Review Workout"
     }
 
     private var processingStageLabel: String {
@@ -236,25 +348,17 @@ struct WorkoutTextEntryView: View {
 
     private var processingView: some View {
         VStack(spacing: MarbleSpacing.s) {
-            ProgressView(value: processingProgress)
+            ProgressView()
                 .tint(Theme.primaryTextColor(for: colorScheme))
-            HStack {
-                Text(processingStageLabel)
-                Spacer()
-                Text("\(Int((processingProgress * 100).rounded()))%")
-                    .monospacedDigit()
-            }
+            Text(processingStageLabel)
             .font(MarbleTypography.caption)
             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-            .accessibilityIdentifier("TextEntry.Processing")
         }
         .frame(maxWidth: 260)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { processingProgress = 0.03 }
-        .onReceive(processingTimer) { _ in
-            guard viewModel.phase == .processing else { return }
-            processingProgress += (processingTarget - processingProgress) * 0.045
-        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(processingStageLabel)
+        .accessibilityIdentifier("TextEntry.Processing")
     }
 
     /// Per-line feedback under the editor, recomputed per keystroke by the
@@ -416,8 +520,9 @@ struct WorkoutTextEntryView: View {
 
     private var importButtonTitle: String {
         let count = viewModel.draft.totalSetCount
-        guard count > 0 else { return "Add to Journal" }
-        return "Add \(count) set\(count == 1 ? "" : "s") to Journal"
+        let destination = presentation == .primaryTab ? "Log" : "Journal"
+        guard count > 0 else { return "Add to \(destination)" }
+        return "Add \(count) set\(count == 1 ? "" : "s") to \(destination)"
     }
 
     private var importedView: some View {
@@ -425,6 +530,7 @@ struct WorkoutTextEntryView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 52, weight: .light))
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .accessibilityHidden(true)
             if let summary = viewModel.lastSummary {
                 Text(importedHeadline(summary))
                     .font(MarbleTypography.emptyTitle)
@@ -458,10 +564,21 @@ struct WorkoutTextEntryView: View {
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 }
             }
-            Button("Done") { dismiss() }
-                .buttonStyle(MarbleActionButtonStyle(prominence: .primary))
-                .accessibilityIdentifier("TextEntry.ImportedDone")
-                .padding(.top, MarbleSpacing.s)
+            if presentation == .primaryTab {
+                Button("View Log") { onShowJournal?() }
+                    .buttonStyle(MarbleActionButtonStyle(prominence: .primary))
+                    .accessibilityIdentifier("TextEntry.Imported.ViewLog")
+                    .padding(.top, MarbleSpacing.s)
+
+                Button("Add Another Workout") { viewModel.reset() }
+                    .buttonStyle(MarbleActionButtonStyle(prominence: .standard))
+                    .accessibilityIdentifier("TextEntry.Imported.AddAnother")
+            } else {
+                Button("Done") { dismiss() }
+                    .buttonStyle(MarbleActionButtonStyle(prominence: .primary))
+                    .accessibilityIdentifier("TextEntry.ImportedDone")
+                    .padding(.top, MarbleSpacing.s)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(MarbleSpacing.l)
@@ -481,20 +598,56 @@ struct WorkoutTextEntryView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
-            Button(leadingToolbarTitle) {
-                if viewModel.isDrillingInFromBatch {
-                    viewModel.returnToBatch()
-                } else if viewModel.phase == .batchReview {
-                    viewModel.editText()
-                } else if hasUnsavedEdits {
-                    showingDiscardDialog = true
-                } else {
-                    dismiss()
+        if presentation == .sheet {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(leadingToolbarTitle) {
+                    if viewModel.isDrillingInFromBatch {
+                        viewModel.returnToBatch()
+                    } else if viewModel.phase == .batchReview {
+                        viewModel.editText()
+                    } else if hasUnsavedEdits {
+                        showingDiscardDialog = true
+                    } else {
+                        dismiss()
+                    }
                 }
+                .accessibilityIdentifier("TextEntry.Dismiss")
             }
-            .accessibilityIdentifier("TextEntry.Dismiss")
         }
+
+        if presentation == .primaryTab,
+           viewModel.isDrillingInFromBatch {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Workouts") { viewModel.returnToBatch() }
+                    .accessibilityIdentifier("TextEntry.Batch.Back")
+            }
+        }
+
+        if presentation == .primaryTab,
+           viewModel.phase == .input || viewModel.phase == .imported {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    showingPlan = true
+                } label: {
+                    Image(systemName: "list.bullet.clipboard")
+                }
+                .accessibilityLabel("Workout plan")
+                .accessibilityIdentifier("Workout.Plan")
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel("Settings")
+                .accessibilityIdentifier("Workout.Data")
+            }
+
+            LogSetToolbarItems()
+        }
+
         if viewModel.phase == .review {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Edit Text") { viewModel.editText() }
@@ -543,10 +696,50 @@ struct WorkoutTextEntryView: View {
     private var navigationTitle: String {
         switch viewModel.phase {
         case .batchReview: return "Review Workouts"
-        case .review: return viewModel.isDrillingInFromBatch ? viewModel.draft.title : "Paste or Type"
-        case .imported: return "Imported"
-        default: return "Paste or Type"
+        case .review:
+            if viewModel.isDrillingInFromBatch { return viewModel.draft.title }
+            return presentation == .primaryTab ? "Review Workout" : "Paste or Type"
+        case .imported: return presentation == .primaryTab ? "Workout Added" : "Imported"
+        default: return presentation == .primaryTab ? "Add Workout" : "Paste or Type"
         }
+    }
+
+    /// Review Workout intents and `marble://import` route to the primary editor.
+    /// The staged text never enters a URL and is consumed by exactly this root
+    /// destination, then reviewed through the same parser as direct input.
+    private func consumePendingTextImportIfNeeded() {
+        guard presentation == .primaryTab,
+              let seed = PendingTextImport.consume() else { return }
+        let incoming = seed.trimmingCharacters(in: .whitespacesAndNewlines)
+        let current = viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !incoming.isEmpty else { return }
+        if !current.isEmpty, current != incoming {
+            pendingIncomingText = incoming
+            showingIncomingTextChoice = true
+            return
+        }
+        viewModel.startNewWorkout(with: incoming)
+        Task { await viewModel.preview(in: modelContext) }
+    }
+
+    private func applyIncomingText(replacing: Bool) {
+        guard let incoming = pendingIncomingText else { return }
+        pendingIncomingText = nil
+        if replacing {
+            viewModel.startNewWorkout(with: incoming)
+        } else {
+            viewModel.ingestPastedText(incoming)
+        }
+        Task { await viewModel.preview(in: modelContext) }
+    }
+
+    private func restoreDraftIfNeeded() {
+        guard presentation == .primaryTab,
+              !TestHooks.isUITesting,
+              !TestHooks.isXCTestProcess,
+              viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !restoredDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        viewModel.startNewWorkout(with: restoredDraft)
     }
 
     private func ingestFiles(_ result: Result<[URL], Error>) {
@@ -677,6 +870,8 @@ private struct TextEntryExerciseSection: View {
                 Button { onMove(-1) } label: {
                     Image(systemName: "chevron.up")
                         .font(.system(size: 11, weight: .semibold))
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
@@ -687,6 +882,8 @@ private struct TextEntryExerciseSection: View {
                 Button { onMove(1) } label: {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 11, weight: .semibold))
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
@@ -698,6 +895,8 @@ private struct TextEntryExerciseSection: View {
                     Label("Remove", systemImage: "trash")
                         .labelStyle(.iconOnly)
                         .font(MarbleTypography.caption)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))

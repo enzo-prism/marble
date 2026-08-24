@@ -228,8 +228,18 @@ final class WorkoutScanViewModel {
         var toImport = draft
         for index in toImport.exercises.indices {
             let id = toImport.exercises[index].id
-            if case let .library(_, name)? = resolutions[id]?.choice {
+            guard let resolution = resolutions[id] else { continue }
+            switch resolution.choice {
+            case let .library(libraryID, name):
                 toImport.exercises[index].name = name
+                toImport.exercises[index].libraryExerciseID = libraryID
+                toImport.exercises[index].createsNewLibraryExercise = false
+            case .createNew:
+                toImport.exercises[index].libraryExerciseID = nil
+                let reviewedName = toImport.exercises[index].trimmedName
+                toImport.exercises[index].createsNewLibraryExercise = resolution.suggestions.contains {
+                    $0.candidate.name.caseInsensitiveCompare(reviewedName) == .orderedSame
+                }
             }
         }
         return toImport

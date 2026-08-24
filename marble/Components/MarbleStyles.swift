@@ -131,7 +131,6 @@ struct MarbleActionButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
                     .stroke(borderColor(isEnabled: isEnabled), lineWidth: prominence == .primary ? 0 : 0.75)
             )
-            .opacity(isEnabled ? 1.0 : 0.55)
             .scaleEffect(isPressed && !reduceMotion ? 0.985 : 1)
             .animation(reduceMotion ? nil : .snappy(duration: 0.16), value: isPressed)
     }
