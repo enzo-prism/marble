@@ -547,11 +547,13 @@ struct AddSetView: View {
             }
             .alert("Unable to Save", isPresented: $showSaveError) {
                 Button("OK", role: .cancel) {}
+                    .accessibilityIdentifier("AddSet.SaveError.OK")
             } message: {
                 Text("Couldn't save this set. Please try again.")
             }
             .alert("Exercise Removed", isPresented: $showMissingExercise) {
                 Button("OK", role: .cancel) {}
+                    .accessibilityIdentifier("AddSet.MissingExercise.OK")
             } message: {
                 Text("That exercise was removed. Choose another one before saving.")
             }
@@ -768,10 +770,7 @@ struct AddSetView: View {
     }
 
     private var saveButtons: some View {
-        VStack(spacing: MarbleSpacing.s) {
-            saveAndNextButtonContent
-            saveButtonContent
-        }
+        saveAndNextButtonContent
         .padding(.horizontal, MarbleLayout.pagePadding)
         .padding(.top, MarbleSpacing.s)
         .padding(.bottom, MarbleSpacing.m)
@@ -783,10 +782,7 @@ struct AddSetView: View {
     }
 
     private var saveButtonRow: some View {
-        VStack(spacing: MarbleSpacing.s) {
-            saveAndNextButtonContent
-            saveButtonContent
-        }
+        saveAndNextButtonContent
             .listRowBackground(Theme.backgroundColor(for: colorScheme))
             .padding(.vertical, MarbleSpacing.s)
             .marbleRowInsets()
@@ -805,18 +801,6 @@ struct AddSetView: View {
         .disabled(!effectiveCanSave)
         .allowsHitTesting(effectiveCanSave)
         .accessibilityIdentifier(isFinalSprintRep ? "AddSet.Sprint.SaveFinal" : "AddSet.SaveAndNext")
-    }
-
-    private var saveButtonContent: some View {
-        Button {
-            save()
-        } label: {
-            saveActionLabel(title: "Save Set", systemImage: "checkmark")
-        }
-        .buttonStyle(MarbleActionButtonStyle(isEnabledOverride: effectiveCanSave, expandsHorizontally: true, prominence: .primary))
-        .disabled(!effectiveCanSave)
-        .allowsHitTesting(effectiveCanSave)
-        .accessibilityIdentifier("AddSet.BottomSave")
     }
 
     @ViewBuilder

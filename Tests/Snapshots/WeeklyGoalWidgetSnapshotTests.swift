@@ -118,10 +118,10 @@ final class WeeklyGoalWidgetSnapshotTests: SnapshotTestCase {
                         .frame(width: size.width, height: size.height)
                         .background(scheme == .dark ? Color.black : Color.white)
 
-                    let traits = UITraitCollection(traitsFrom: [
-                        UITraitCollection(userInterfaceIdiom: .phone),
-                        UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light)
-                    ])
+                    let traits = UITraitCollection { mutableTraits in
+                        mutableTraits.userInterfaceIdiom = .phone
+                        mutableTraits.userInterfaceStyle = scheme == .dark ? .dark : .light
+                    }
 
                     let failure = verifySnapshot(
                         of: configured,

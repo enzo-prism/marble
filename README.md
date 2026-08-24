@@ -63,7 +63,7 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 ## Current state (2026-08-24)
 
 App Store **2.3 build 56 remains live**. The current AI-first Add release
-candidate is **2.4 build 60**, uploaded from exact merged `main` source
+candidate in App Store Connect is **2.4 build 60**, uploaded from exact merged `main` source
 `b287d7238494799818db5947524a5cc05b9c8a9c`. Build 60 is `VALID` and
 `IN_BETA_TESTING` in internal **test group A**. App Store 2.4 is
 `WAITING_FOR_REVIEW` with build 60 attached under submission
@@ -71,6 +71,17 @@ candidate is **2.4 build 60**, uploaded from exact merged `main` source
 is not public production. The superseded build 59 submission was canceled and is
 `COMPLETE`. Exact IDs and workflow evidence are tracked in
 [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
+
+- **Build 61 UI and accessibility candidate** (local branch, pending merge and upload):
+  polishes the default Add composer hierarchy, Calendar, Add Set actions, progress-media
+  editing, and grayscale Progress charts across light, dark, Increased Contrast, Reduced
+  Transparency, maximum Larger Text, and iPad layouts. It also fixes an adaptive-color
+  actor-isolation crash, namespaced iPad Calendar grid identities so the first week cannot
+  disappear in landscape, bounds the compact Calendar on landscape iPhones, and makes
+  snapshot recording overwrite stale baselines reliably.
+  Build 61 does not change the SwiftData schema (still V6). Until exact-main CI, upload,
+  processing, and live readback complete, build 60 remains the current TestFlight and App
+  Review build.
 
 - **Build 60 fixed replacement candidate** (exact uploaded `main` source
   `b287d7238494799818db5947524a5cc05b9c8a9c`; App Store Connect build

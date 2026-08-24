@@ -67,7 +67,7 @@ final class OnboardingFlowUITests: MarbleUITestCase {
         waitForIdentifier("Tab.Journal", timeout: 10)
 
         navigateToTab(.addWorkout)
-        forceTap(waitForIdentifier("Workout.Data", timeout: 8))
+        openAddToolbarAction("Workout.Settings")
 
         let settingsUnit = waitForIdentifier("Settings.WeightUnit", timeout: 8)
         XCTAssertTrue(

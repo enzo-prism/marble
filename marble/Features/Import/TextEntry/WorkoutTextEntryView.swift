@@ -19,6 +19,7 @@ struct WorkoutTextEntryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var textFocused: Bool
     @State private var showingDiscardDialog = false
     /// Whether the clipboard holds text worth offering a Paste button for.
@@ -192,11 +193,23 @@ struct WorkoutTextEntryView: View {
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .accessibilityIdentifier("WorkoutEntry.IntelligenceStatus")
 
-                    Text("Paste or type your workout")
-                        .font(MarbleTypography.emptyTitle)
-                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
+                            inputTitle
+                            Spacer(minLength: MarbleSpacing.s)
+                            if !viewModel.text.isEmpty {
+                                clearWorkoutButton
+                            }
+                        }
+
+                        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                            inputTitle
+                            if !viewModel.text.isEmpty {
+                                clearWorkoutButton
+                            }
+                        }
+                    }
                 }
-                .accessibilityIdentifier("TextEntry.Input")
 
                 // The editor is the primary task, so it precedes explanatory
                 // copy and import shortcuts. This keeps it reachable on the
@@ -208,14 +221,14 @@ struct WorkoutTextEntryView: View {
                     .scrollContentBackground(.hidden)
                     .writingToolsBehavior(.disabled)
                     .padding(MarbleSpacing.s)
-                    .frame(minHeight: presentation == .primaryTab ? 280 : 200)
+                    .frame(minHeight: editorMinimumHeight)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Theme.chipFillColor(for: colorScheme))
                     )
                     .overlay(alignment: .topLeading) {
                         if viewModel.text.isEmpty {
-                            Text("Push day\nI did 3 sets of 8 on bench at 185 lb\nIncline dumbbell press, 3 sets of 10 at 60\nCable fly 3x12\nPlank 3x45 seconds")
+                            Text("Bench press 3x8 @ 185 lb\nIncline press 3x10 @ 60 lb\nPlank 3x45 seconds")
                                 .font(MarbleTypography.rowSubtitle)
                                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                                 .padding(MarbleSpacing.s)
@@ -250,6 +263,7 @@ struct WorkoutTextEntryView: View {
                         Label("Choose File", systemImage: "folder")
                     }
                     .buttonStyle(.bordered)
+                    .tint(Theme.primaryTextColor(for: colorScheme))
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("TextEntry.ChooseFile")
                     Spacer()
@@ -259,7 +273,7 @@ struct WorkoutTextEntryView: View {
                             viewModel.ingestPastedText(pasted)
                         }
                         .labelStyle(.titleAndIcon)
-                        .tint(Theme.secondaryTextColor(for: colorScheme))
+                        .tint(Theme.primaryTextColor(for: colorScheme))
                         .frame(minHeight: 44)
                         .accessibilityIdentifier("TextEntry.Paste")
                     }
@@ -283,6 +297,7 @@ struct WorkoutTextEntryView: View {
                         Label("Try an example", systemImage: "text.quote")
                     }
                     .buttonStyle(.bordered)
+                    .tint(Theme.primaryTextColor(for: colorScheme))
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("WorkoutEntry.Examples")
                 }
@@ -306,6 +321,8 @@ struct WorkoutTextEntryView: View {
                 }
             }
             .padding(MarbleSpacing.m)
+            .frame(maxWidth: MarbleLayout.formMaxWidth)
+            .frame(maxWidth: .infinity)
         }
         .accessibilityIdentifier("WorkoutEntry.Root")
         .scrollDismissesKeyboard(.interactively)
@@ -329,8 +346,36 @@ struct WorkoutTextEntryView: View {
         .disabled(viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         .padding(.horizontal, MarbleSpacing.m)
         .padding(.vertical, MarbleSpacing.s)
+        .frame(maxWidth: MarbleLayout.formMaxWidth)
+        .frame(maxWidth: .infinity)
         .background(Theme.backgroundColor(for: colorScheme))
         .accessibilityIdentifier("TextEntry.Preview")
+    }
+
+    private var inputTitle: some View {
+        Text("Paste or type your workout")
+            .font(MarbleTypography.emptyTitle)
+            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+    }
+
+    private var clearWorkoutButton: some View {
+        Button {
+            viewModel.text = ""
+        } label: {
+            Label("Clear", systemImage: "xmark.circle.fill")
+        }
+        .font(MarbleTypography.button)
+        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+        .frame(minHeight: 44)
+        .accessibilityIdentifier("TextEntry.Clear")
+        .accessibilityHint("Removes all text from the workout editor.")
+    }
+
+    private var editorMinimumHeight: CGFloat {
+        if dynamicTypeSize.isAccessibilitySize {
+            return presentation == .primaryTab ? 380 : 300
+        }
+        return presentation == .primaryTab ? 280 : 200
     }
 
     private var previewButtonTitle: String {
@@ -629,9 +674,9 @@ struct WorkoutTextEntryView: View {
         }
 
         if presentation == .primaryTab,
-           viewModel.phase == .input || viewModel.phase == .imported {
+           (viewModel.phase == .input || viewModel.phase == .imported) {
             if let onShowWorkout {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button(action: onShowWorkout) {
                         Image(systemName: "figure.strengthtraining.traditional")
                     }
@@ -640,24 +685,26 @@ struct WorkoutTextEntryView: View {
                 }
             }
 
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    showingPlan = true
-                } label: {
-                    Image(systemName: "list.bullet.clipboard")
-                }
-                .accessibilityLabel("Workout plan")
-                .accessibilityIdentifier("Workout.Plan")
-            }
-
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingSettings = true
+                Menu {
+                    Button {
+                        showingPlan = true
+                    } label: {
+                        Label("Workout Plan", systemImage: "list.bullet.clipboard")
+                    }
+                    .accessibilityIdentifier("Workout.Plan")
+
+                    Button {
+                        showingSettings = true
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    .accessibilityIdentifier("Workout.Settings")
                 } label: {
-                    Image(systemName: "gearshape")
+                    Image(systemName: "ellipsis")
                 }
-                .accessibilityLabel("Settings")
-                .accessibilityIdentifier("Workout.Data")
+                .accessibilityLabel("More")
+                .accessibilityIdentifier("Workout.More")
             }
 
             LogSetToolbarItems()

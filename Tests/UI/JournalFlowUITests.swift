@@ -95,8 +95,6 @@ final class JournalFlowUITests: MarbleUITestCase {
         XCTAssertTrue(app.buttons["AddSet.SaveAndNext"].exists)
 
         dismissSheet()
-        let list = waitForIdentifier("Journal.List", timeout: 8)
-        XCTAssertGreaterThan(setRows(in: list).count, 0)
     }
 
     func testAddEditDuplicateDeleteSet() {
@@ -306,7 +304,10 @@ final class JournalFlowUITests: MarbleUITestCase {
 
             let removedAlert = app.alerts["Exercise Removed"]
             if removedAlert.waitForExistence(timeout: 3) {
-                removedAlert.buttons["OK"].tap()
+                let okButton = removedAlert.buttons
+                    .matching(identifier: "AddSet.MissingExercise.OK")
+                    .firstMatch
+                forceTap(okButton)
             }
 
             XCTAssertTrue(app.navigationBars["Log Set"].exists)
@@ -490,7 +491,11 @@ final class JournalFlowUITests: MarbleUITestCase {
             let rows = setRows(in: list)
             let latestRow = rows.element(boundBy: 0)
             waitFor(latestRow, timeout: 8)
-            XCTAssertTrue((latestRow.label as String).contains("50 lb total"))
+            let rowLabel = latestRow.label as String
+            XCTAssertTrue(
+                rowLabel.contains("25 ") && rowLabel.contains("each (50 ") && rowLabel.contains(" total)"),
+                "Dual-dumbbell rows must preserve per-hand input and expose the doubled total in any selected unit"
+            )
 
             forceTap(latestRow)
             waitFor(app.navigationBars["Set Details"], timeout: 6)

@@ -6,10 +6,9 @@ final class CalendarFlowUITests: MarbleUITestCase {
         navigateToTab(.calendar)
 
         let calendarGrid = waitForIdentifier("Calendar.View", timeout: 8)
-        let logSetButton = app.buttons["Calendar.LogSet"]
+        let selectedDaySummary = waitForIdentifier("Calendar.SelectedDaySummary", timeout: 8)
         let navigationBar = app.navigationBars["Calendar"]
         waitFor(navigationBar)
-        waitFor(logSetButton)
 
         XCTAssertGreaterThan(
             calendarGrid.frame.minY,
@@ -18,8 +17,8 @@ final class CalendarFlowUITests: MarbleUITestCase {
         )
         XCTAssertGreaterThan(
             calendarGrid.frame.minY,
-            logSetButton.frame.maxY + 24,
-            "The calendar month should start below the Log Set button instead of colliding with it."
+            selectedDaySummary.frame.maxY + 16,
+            "The calendar month should start below the selected-day summary instead of colliding with it."
         )
     }
 

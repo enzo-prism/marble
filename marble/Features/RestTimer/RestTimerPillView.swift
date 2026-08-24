@@ -42,7 +42,7 @@ struct RestTimerPillView: View {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .frame(minWidth: 32, minHeight: 32)
+                    .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)

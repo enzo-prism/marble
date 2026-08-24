@@ -21,6 +21,30 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         try runDailyHighlightsAccessibilityAudit(appearance: .dark)
     }
 
+    func testAddNativeGlassAccessibilityAudit_Light() throws {
+        try runAddNativeGlassAccessibilityAudit(appearance: .light)
+    }
+
+    func testAddNativeGlassAccessibilityAudit_Dark() throws {
+        try runAddNativeGlassAccessibilityAudit(appearance: .dark)
+    }
+
+    private func runAddNativeGlassAccessibilityAudit(appearance: MarbleAppearance) throws {
+        guard #available(iOS 17.0, *) else {
+            throw XCTSkip("performAccessibilityAudit requires iOS 17+ runtimes")
+        }
+
+        launchApp(
+            appearance: appearance,
+            fixtureMode: "empty",
+            forceReduceTransparency: false,
+            accessibilityAudit: true
+        )
+        navigateToTab(.addWorkout)
+        waitFor(app.textViews["TextEntry.Editor"], timeout: 8)
+        try runAudit(name: "AddWorkout_NativeGlass_\(appearance.envValue)_Default")
+    }
+
     private func runDailyHighlightsAccessibilityAudit(appearance: MarbleAppearance) throws {
         guard #available(iOS 17.0, *) else {
             throw XCTSkip("performAccessibilityAudit requires iOS 17+ runtimes")

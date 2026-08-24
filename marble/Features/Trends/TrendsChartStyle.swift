@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// Color identity for one Trends metric. Trends is the single surface where
-/// Marble's monochrome brand allows color: one restrained accent per chart,
-/// tuned brighter on dark backgrounds so marks stay vivid on pure black and
-/// deep enough on white to hold ~3:1 graphical contrast.
+/// Monochrome identity for one Trends metric. Light and dark values remain
+/// distinct enough for graphical contrast while preserving Marble's strict
+/// black, white, and grey palette.
 struct TrendsChartAccent {
     let light: Color
     let dark: Color
@@ -14,67 +13,57 @@ struct TrendsChartAccent {
 }
 
 enum TrendsPalette {
-    /// Consistency line + area: indigo.
+    /// Single-series charts use the strongest neutral.
     static let consistency = TrendsChartAccent(
-        light: Color(red: 0.30, green: 0.36, blue: 0.95),
-        dark: Color(red: 0.52, green: 0.58, blue: 1.00)
+        light: Color(white: 0.10),
+        dark: Color(white: 0.90)
     )
 
-    /// Weekly volume series: a warm family that groups visually but stays
-    /// distinguishable bar-to-bar.
+    /// Multi-series charts use separated neutral values so adjacent bars stay
+    /// distinguishable without introducing brand-breaking color.
     static let volumeWeighted = TrendsChartAccent(
-        light: Color(red: 0.93, green: 0.42, blue: 0.10),
-        dark: Color(red: 1.00, green: 0.58, blue: 0.26)
+        light: Color(white: 0.08),
+        dark: Color(white: 0.92)
     )
     static let volumeReps = TrendsChartAccent(
-        light: Color(red: 0.85, green: 0.62, blue: 0.06),
-        dark: Color(red: 1.00, green: 0.78, blue: 0.30)
+        light: Color(white: 0.28),
+        dark: Color(white: 0.72)
     )
     static let volumeDuration = TrendsChartAccent(
-        light: Color(red: 0.76, green: 0.34, blue: 0.28),
-        dark: Color(red: 0.94, green: 0.54, blue: 0.46)
+        light: Color(white: 0.48),
+        dark: Color(white: 0.52)
     )
 
-    /// Supplements line + area: teal.
     static let supplements = TrendsChartAccent(
-        light: Color(red: 0.00, green: 0.55, blue: 0.50),
-        dark: Color(red: 0.25, green: 0.80, blue: 0.72)
+        light: Color(white: 0.18),
+        dark: Color(white: 0.82)
     )
 
-    /// Per-exercise progress: violet.
     static let progress = TrendsChartAccent(
-        light: Color(red: 0.52, green: 0.31, blue: 0.93),
-        dark: Color(red: 0.71, green: 0.55, blue: 1.00)
+        light: Color(white: 0.12),
+        dark: Color(white: 0.88)
     )
 
-    /// Personal-record markers and trophies: gold.
     static let personalRecord = TrendsChartAccent(
-        light: Color(red: 0.80, green: 0.56, blue: 0.04),
-        dark: Color(red: 0.97, green: 0.76, blue: 0.26)
+        light: Color(white: 0.02),
+        dark: Color(white: 0.98)
     )
 
-    /// Estimated 1RM: steel blue, apart from the violet raw-progress line —
-    /// the HIG asks that different data read as visibly different charts.
     static let strength = TrendsChartAccent(
-        light: Color(red: 0.16, green: 0.48, blue: 0.85),
-        dark: Color(red: 0.45, green: 0.70, blue: 1.00)
+        light: Color(white: 0.22),
+        dark: Color(white: 0.78)
     )
 
-    /// Effort (average RPE): the warm red already used for duration volume.
     static let effort = volumeDuration
 
-    /// Bodyweight: a cool slate-green, distinct from the violet raw-progress
-    /// line, the steel-blue e1RM line, and the teal supplements line.
     static let bodyweight = TrendsChartAccent(
-        light: Color(red: 0.13, green: 0.52, blue: 0.44),
-        dark: Color(red: 0.40, green: 0.82, blue: 0.70)
+        light: Color(white: 0.32),
+        dark: Color(white: 0.68)
     )
 
-    /// Sprint speed + hit rate: magenta-pink, apart from the warm red of
-    /// duration volume and the gold of PR markers.
     static let sprint = TrendsChartAccent(
-        light: Color(red: 0.78, green: 0.15, blue: 0.45),
-        dark: Color(red: 1.00, green: 0.45, blue: 0.70)
+        light: Color(white: 0.40),
+        dark: Color(white: 0.60)
     )
 
     /// Soft fill under line charts, fading to transparent at the baseline.
@@ -89,26 +78,25 @@ enum TrendsPalette {
     /// Vertical sheen for bars so columns read as lit objects, not flat ink.
     static func barGradient(_ accent: Color) -> LinearGradient {
         LinearGradient(
-            gradient: Gradient(colors: [accent, accent.opacity(0.62)]),
+            gradient: Gradient(colors: [accent, accent.opacity(0.84)]),
             startPoint: .top,
             endPoint: .bottom
         )
     }
 }
 
-/// Small colored-dot legend entry used under multi-series charts in place of
+/// Small neutral-dot legend entry used under multi-series charts in place of
 /// the default Swift Charts legend.
 struct TrendsLegendChip: View {
     let label: String
     let color: Color
+    let symbol: TrendsLegendSymbol
 
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: MarbleSpacing.xxs) {
-            Circle()
-                .fill(color)
-                .frame(width: 7, height: 7)
+            legendSymbol
             Text(label)
                 .font(MarbleTypography.rowMeta)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
@@ -116,6 +104,30 @@ struct TrendsLegendChip: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(label)
     }
+
+    @ViewBuilder
+    private var legendSymbol: some View {
+        switch symbol {
+        case .circle:
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+        case .square:
+            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                .fill(color)
+                .frame(width: 8, height: 8)
+        case .triangle:
+            Image(systemName: "triangle.fill")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(color)
+        }
+    }
+}
+
+enum TrendsLegendSymbol {
+    case circle
+    case square
+    case triangle
 }
 
 /// Selection marker: a soft halo around a solid accent core, ringed with the
@@ -141,7 +153,7 @@ struct TrendsSelectionDot: View {
     }
 }
 
-/// Personal-record marker: a gold ring with a background-knockout center.
+/// Personal-record marker: a high-contrast ring with a background-knockout center.
 struct TrendsPRDot: View {
     @Environment(\.colorScheme) private var colorScheme
 

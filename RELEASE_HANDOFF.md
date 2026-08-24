@@ -7,6 +7,11 @@ External state can change outside git, so always re-run the **Live state checks*
 
 ## Current release snapshot
 
+- **Next candidate:** local branch `codex/build-61-ui-polish-20260824` carries 2.4 build 61.
+  It is not yet merged, uploaded, attached, or submitted. Build 60 remains the verified live
+  TestFlight/App Review source until exact-main CI and App Store Connect readback prove the
+  replacement.
+
 - **Public App Store (US storefront verified 2026-08-24):** 2.3 build 56 is live. Its shipped application source is PR #19
   merge `c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb` (Train / Log / Progress IA).
 - **App identity:** App Store Connect app `6757725234`, bundle ID `Prism.marble`.
@@ -30,6 +35,35 @@ External state can change outside git, so always re-run the **Live state checks*
   upload or attach a replacement, or issue the final public release without the
   required explicit approval and a fresh review-state check. Public App Store 2.3
   remains live; `WAITING_FOR_REVIEW` is not production release.
+
+---
+
+## 2.4 build 61 — UI and accessibility replacement candidate
+
+**State:** local candidate pending GitHub merge, exact-main CI, TestFlight upload, processing,
+strict validation, and App Review replacement.
+
+- Refines the AI-first Add task hierarchy while preserving the persistent Start/open workout
+  action, deterministic parser fallback, review-before-save, draft recovery, and exact exercise
+  identity.
+- Uses adaptive monochrome surfaces for light, dark, Increased Contrast, and Reduced
+  Transparency appearances; Progress series and status cues no longer depend on color alone.
+- Simplifies Calendar and Add Set actions, restores 44-point targets, and keeps controls usable
+  at maximum Larger Text.
+- Adds iPad portrait and landscape snapshots for Add, Calendar, and populated Progress. Those
+  baselines exposed and fixed reused SwiftUI grid identities that hid the first calendar week
+  in landscape.
+- Adds compact-width iPhone landscape Calendar snapshots and caps height to the readable grid
+  width, preventing a wide 852-point proposal from creating a roughly 920-point month view.
+- Fixes the adaptive-color actor-isolation runtime trap and the snapshot record path that could
+  accept a run without overwriting stale PNGs.
+- No SwiftData schema change (still V6). Canonical internal acceptance copy is
+  `AppStore/testflight/2.4-build-61.md`.
+
+Replacement boundary: freshly verify build 60 is still `WAITING_FOR_REVIEW` before canceling
+submission `5bd874ad-3619-4521-9231-fa45ee18a4b0`. Only after build 61 is `VALID` and strict
+TestFlight validation is clean should it be attached and submitted. Release remains manual;
+do not issue a public release command.
 
 ---
 

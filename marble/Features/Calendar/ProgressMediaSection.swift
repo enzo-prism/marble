@@ -473,6 +473,7 @@ struct ProgressMediaDetailView: View {
             .accessibilityIdentifier("Calendar.ProgressMedia.ConfirmDelete")
 
             Button("Cancel", role: .cancel) {}
+                .accessibilityIdentifier("Calendar.ProgressMedia.Delete.Cancel")
         }
         .onAppear {
             if attachment.kind == .video {
@@ -646,10 +647,6 @@ private struct ProgressPhotoCropEditor: View {
                 .accessibilityIdentifier("Calendar.ProgressMedia.Crop.Save")
             }
         }
-        // Without `.contain`, the identifier is pushed down onto every descendant
-        // (clobbering Crop.Reset / Crop.Zoom on iOS 26), instead of naming this container.
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("Calendar.ProgressMedia.Crop.Editor")
     }
 
     private var cropControls: some View {

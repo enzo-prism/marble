@@ -211,12 +211,7 @@ struct CalendarView: View {
     }
 
     private func calendarActionRow(metrics: CalendarSummaryMetrics) -> some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-            selectedDaySummaryCard(metrics: metrics)
-            if !dynamicTypeSize.isAccessibilitySize {
-                logSetButton
-            }
-        }
+        selectedDaySummaryCard(metrics: metrics)
     }
 
     private func selectedDaySummaryCard(metrics: CalendarSummaryMetrics) -> some View {
@@ -240,23 +235,6 @@ struct CalendarView: View {
         .accessibilityIdentifier("Calendar.SelectedDaySummary")
     }
 
-    @ViewBuilder
-    private var logSetButton: some View {
-        Button(action: logSelectedDateSet) {
-            Label("Log Set", systemImage: "plus")
-                .lineLimit(1)
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .primary))
-        .accessibilityIdentifier("Calendar.LogSet")
-        .accessibilityHint("Logs a set for \(DateHelper.dayLabel(for: headerDate)).")
-    }
-
-    private func logSelectedDateSet() {
-        let targetDate = selectedDate ?? AppEnvironment.now
-        quickLog.open(prefillDate: targetDate)
-    }
-
     private func calendarHeader(streak: Int) -> some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
             if dynamicTypeSize.isAccessibilitySize {
@@ -278,13 +256,6 @@ struct CalendarView: View {
                 }
             }
 
-            Text(monthContextLine)
-                .font(MarbleTypography.rowSubtitle)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .lineLimit(nil)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("Calendar.Header.Summary")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -331,10 +302,6 @@ struct CalendarView: View {
 
     private var headerDate: Date {
         selectedDate ?? activeDay
-    }
-
-    private var monthContextLine: String {
-        "Sets and progress media by day."
     }
 
     private var calendarContentTopMargin: CGFloat {
@@ -455,6 +422,7 @@ private struct RegularWidthCalendarGrid: View {
     let onSelect: (DateComponents) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private let calendar = Calendar.current
     private let columns = Array(repeating: GridItem(.flexible(), spacing: MarbleSpacing.xs), count: 7)
@@ -471,24 +439,28 @@ private struct RegularWidthCalendarGrid: View {
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
                 .accessibilityIdentifier("Calendar.PreviousMonth")
                 Button("Next month", systemImage: "chevron.right") {
                     moveMonth(by: 1)
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
                 .accessibilityIdentifier("Calendar.NextMonth")
             }
 
             LazyVGrid(columns: columns, spacing: MarbleSpacing.xs) {
-                ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
-                    Text(symbol.uppercased())
+                ForEach(weekdayCells) { weekday in
+                    Text(weekday.symbol.uppercased())
                         .font(MarbleTypography.smallLabel)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .frame(maxWidth: .infinity)
                 }
 
-                ForEach(0..<leadingBlankCount, id: \.self) { _ in
+                ForEach((0..<leadingBlankCount).map { "calendar-blank-\($0)" }, id: \.self) { _ in
                     Color.clear
                         .frame(height: 50)
                         .accessibilityHidden(true)
@@ -501,7 +473,10 @@ private struct RegularWidthCalendarGrid: View {
                         VStack(spacing: MarbleSpacing.xxxs) {
                             Text("\(day)")
                                 .font(MarbleTypography.rowSubtitle.monospacedDigit())
-                                .frame(width: 34, height: 34)
+                                .frame(
+                                    minWidth: dynamicTypeSize.isAccessibilitySize ? 44 : 34,
+                                    minHeight: dynamicTypeSize.isAccessibilitySize ? 44 : 34
+                                )
                                 .foregroundStyle(isToday(day) ? Theme.backgroundColor(for: colorScheme) : Theme.primaryTextColor(for: colorScheme))
                                 .background {
                                     if isToday(day) {
@@ -513,7 +488,7 @@ private struct RegularWidthCalendarGrid: View {
                                 .frame(width: 5, height: 5)
                                 .opacity(isActive(day) ? 1 : 0)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 50)
+                        .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 60 : 50)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -550,6 +525,12 @@ private struct RegularWidthCalendarGrid: View {
         return Array(symbols[offset...] + symbols[..<offset])
     }
 
+    private var weekdayCells: [WeekdayCell] {
+        weekdaySymbols.enumerated().map { index, symbol in
+            WeekdayCell(id: "calendar-weekday-\(index)", symbol: symbol)
+        }
+    }
+
     private func components(for day: Int) -> DateComponents {
         DateComponents(year: visibleMonth.year, month: visibleMonth.month, day: day)
     }
@@ -573,6 +554,11 @@ private struct RegularWidthCalendarGrid: View {
         guard let date = calendar.date(byAdding: .month, value: offset, to: monthDate) else { return }
         visibleMonth = calendar.dateComponents([.year, .month], from: date)
     }
+}
+
+private struct WeekdayCell: Identifiable {
+    let id: String
+    let symbol: String
 }
 
 private struct CalendarSelection: Identifiable {
@@ -865,7 +851,28 @@ struct CalendarRepresentable: UIViewRepresentable {
             withHorizontalFittingPriority: .required,
             verticalFittingPriority: .fittingSizeLevel
         )
-        let height = max(measured.height, uiView.intrinsicContentSize.height, 360)
+        // UICalendarView can report an effectively unbounded height when
+        // sizeThatFits receives layoutFittingExpandedSize. Use bounded
+        // Auto Layout/intrinsic measurements plus a width-derived floor.
+        // A landscape iPhone remains compact-width but can propose its full
+        // 852-point screen width. Calendar height must follow the readable
+        // date-grid width, not that wide-screen proposal, or the month grows
+        // beyond twice the visible screen height.
+        let heightReferenceWidth = min(width, 430)
+        let minimumHeight = max(heightReferenceWidth * 1.08, 400)
+        let plausibleMaximumHeight = max(heightReferenceWidth * 1.35, 520)
+        func plausibleHeight(_ value: CGFloat) -> CGFloat {
+            guard value.isFinite, value > 0, value <= plausibleMaximumHeight else {
+                return 0
+            }
+            return value
+        }
+        let measuredHeight = plausibleHeight(measured.height)
+        let intrinsicHeight = plausibleHeight(uiView.intrinsicContentSize.height)
+        let height = min(
+            max(measuredHeight, intrinsicHeight, minimumHeight),
+            plausibleMaximumHeight
+        )
         return CGSize(width: width, height: height)
     }
 
