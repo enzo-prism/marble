@@ -11,37 +11,47 @@ External state can change outside git, so always re-run the **Live state checks*
   merge `c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb` (Train / Log / Progress IA).
 - **App identity:** App Store Connect app `6757725234`, bundle ID `Prism.marble`.
 - **Canonical release source:** `origin/main` merge
-  `eead033f7d454180c61f1e49d7d66a233927c3c8`, containing application-feature
-  commit `c8200e2`, is the exact source uploaded as 2.4 build 59.
-- **TestFlight:** 2.4 build 59 (`3235fff4-515a-40db-9239-41338ec34ead`) is
+  `b287d7238494799818db5947524a5cc05b9c8a9c` is the exact source uploaded as
+  2.4 build 60. It contains the AI-first feature source and both release fixes.
+- **TestFlight:** 2.4 build 60 (`ef651ca3-451f-468b-903a-1239bcf6dc39`) is
   `VALID` and `IN_BETA_TESTING` in internal **test group A**. Its external state
   is `READY_FOR_BETA_SUBMISSION` and external beta was not requested.
-- **App Review:** 2.4 is `WAITING_FOR_REVIEW`; submission
-  `2233970e-2288-4bf4-a52f-8bc5c47f639a` was created 2026-08-24 at
-  00:22:40 PDT with build 59 attached and no public-API blockers.
-- **Fixed replacement candidate:** local branch `codex/build-60-release-fixes`
-  carries project build 60. Exact source `BUILD_60_SOURCE_SHA_PENDING`; App Store
-  Connect build `BUILD_60_ASC_ID_PENDING`. It restores workout-start reachability
-  and corrects duplicate-name PR celebration identity. It is not on `main`,
-  TestFlight, App Review, or the public App Store.
+- **App Review:** 2.4 build 60 is `WAITING_FOR_REVIEW`; submission
+  `5bd874ad-3619-4521-9231-fa45ee18a4b0` was created 2026-08-24 at
+  01:25:53 PDT. The former build 59 submission
+  `2233970e-2288-4bf4-a52f-8bc5c47f639a` was canceled and is `COMPLETE`.
+- **Fixed replacement candidate:** exact GitHub `main` source
+  `b287d7238494799818db5947524a5cc05b9c8a9c` was uploaded as build 60
+  (`ef651ca3-451f-468b-903a-1239bcf6dc39`). It is `VALID`, internal
+  `IN_BETA_TESTING`, and external `READY_FOR_BETA_SUBMISSION`. It restores
+  workout-start reachability and corrects duplicate-name PR celebration identity.
+  It is attached to App Store 2.4 and submitted, but not approved or publicly live.
 - **Release boundary:** 2.4 uses manual release. Do not cancel the submission,
   upload or attach a replacement, or issue the final public release without the
-  required explicit approval and a fresh review-state check. Build 59's review stays
-  intact while build 60 is prepared. Public App Store 2.3 remains live.
+  required explicit approval and a fresh review-state check. Public App Store 2.3
+  remains live; `WAITING_FOR_REVIEW` is not production release.
 
 ---
 
-## 2.4 build 60 — fixed replacement candidate, not promoted
+## 2.4 build 60 — fixed internal TestFlight replacement candidate
 
-**Local branch:** `codex/build-60-release-fixes`
+**Exact uploaded GitHub `main` source:**
+`b287d7238494799818db5947524a5cc05b9c8a9c`
 
-**Exact candidate source:** `BUILD_60_SOURCE_SHA_PENDING`
+**App Store Connect build ID / state:**
+`ef651ca3-451f-468b-903a-1239bcf6dc39` — `VALID`, internal
+`IN_BETA_TESTING`, external `READY_FOR_BETA_SUBMISSION`
 
-**App Store Connect build ID / state:** `BUILD_60_ASC_ID_PENDING` — not uploaded
+**GitHub evidence:** exact-main CI `32704746418` passed; TestFlight workflow
+`32705379775` passed.
 
-**Current App Review remains unchanged:** submission
-`2233970e-2288-4bf4-a52f-8bc5c47f639a` is `WAITING_FOR_REVIEW` with build 59
-attached; release type is manual.
+**TestFlight validation:** 0 errors, 0 warnings, 0 blockers, 0 informational
+findings. Internal **test group A** has all-build access.
+
+**Current App Review:** submission
+`5bd874ad-3619-4521-9231-fa45ee18a4b0` is `WAITING_FOR_REVIEW` with build 60
+attached; release type is manual. Superseded build 59 submission
+`2233970e-2288-4bf4-a52f-8bc5c47f639a` is canceled / `COMPLETE`.
 
 - Restores a persistent **Start or open workout** toolbar action on the default
   Add tab. It opens the workout sheet even when no session exists, so starting a
@@ -51,17 +61,16 @@ attached; release type is manual.
   An explicit create-new exercise stays independent even when another exercise has
   the same name, preventing a false personal-record celebration against unrelated
   history.
-- Regression coverage is named in `TESTING.md`; full release-gate and exact-binary
-  results remain pending. No SwiftData schema change (still V6).
+- Regression coverage and local verification are named in `TESTING.md`.
+  Exact-main CI and exact-binary archive/sign/export/upload/processing passed.
+  Physical-device acceptance and soak remain separate. No SwiftData schema change
+  (still V6).
 - `AppStore/testflight/2.4-build-60.md` is the canonical internal test plan.
 
-Safe sequencing: finish and commit the fixes, run all release gates, obtain explicit
-approval, upload that exact SHA as build 60 to internal TestFlight, and verify the
-processed binary. TestFlight upload is additive and does not replace App Review.
-Only after exact build 60 passes should a separately approved action cancel the
-current build 59 submission, attach build 60, revalidate, and resubmit. Cancellation
-restarts the review queue. Never describe build 60 as public until storefront
-readback proves a later manual release.
+Build 60 promotion to GitHub `main`, internal TestFlight, and App Review completed.
+The old build 59 submission was canceled; build 60 was attached, revalidated, and
+submitted under a new review submission. Never describe build 60 as public until
+review approval, a later manual release, and storefront readback prove it.
 
 ---
 
@@ -78,8 +87,9 @@ readback proves a later manual release.
 **GitHub evidence:** PR #27 merge `eead033`; exact-main CI run `32700219443`
 passed; TestFlight run `32700683071` passed in 5m48s.
 
-**App Review:** submission `2233970e-2288-4bf4-a52f-8bc5c47f639a` is
-`WAITING_FOR_REVIEW`; release type is manual.
+**Historical App Review disposition:** submission
+`2233970e-2288-4bf4-a52f-8bc5c47f639a` was canceled and is `COMPLETE`; build 60
+now owns the active 2.4 review submission. Release type remains manual.
 
 - Add replaces Train as the default tab: **Add / Log / Progress**.
 - Paste/type supports prose, notation, multi-day Notes, TXT, Hevy CSV, and Strong
@@ -894,15 +904,16 @@ Notes:
 
 - 2.3 build 56 was public at the 2026-08-24 US storefront verification. Do not invoke another
   release operation for it without fresh live checks.
-- 2.4 build 59 is `VALID` and `IN_BETA_TESTING` in internal **test group A**.
+- 2.4 build 60 is `VALID` and `IN_BETA_TESTING` in internal **test group A**.
   Its external state is `READY_FOR_BETA_SUBMISSION`; external beta review was not requested.
 - The AI-first Add release replaces Train with Add / Log / Progress. Its feature
   source is `c8200e2`; exact uploaded merge source is `eead033`.
-- App Store version 2.4 is `WAITING_FOR_REVIEW` with submission `2233970e-...`.
+- App Store version 2.4 is `WAITING_FOR_REVIEW` with build 60 under submission
+  `5bd874ad-...`. Old build 59 submission `2233970e-...` is canceled / `COMPLETE`.
   Do not confuse submitted with approved or publicly live.
-- Local build 60 is the fixed replacement candidate for workout-start reachability
-  and duplicate-name PR celebration identity. Its source SHA and ASC build ID are
-  pending; it has not replaced build 59 anywhere.
+- Build 60 is the fixed App Review candidate for workout-start reachability and
+  duplicate-name PR celebration identity. Its exact source is `b287d72` and ASC
+  build is `ef651ca3-...`; it replaced build 59 in review, not public production.
 - App Review notes, screenshots, privacy, declarations, usage metrics, migration, and
   physical-device evidence remain distinct from binary processing and submission state.
 - The user explicitly approved docs, GitHub `main`, production, and TestFlight
@@ -967,15 +978,15 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
-- `origin/main` merge `eead033` is the exact binary source for 2.4 build 59.
-  TestFlight build 59 is `VALID` / `IN_BETA_TESTING` internally and
-  `READY_FOR_BETA_SUBMISSION` externally. App Review 2.4 is `WAITING_FOR_REVIEW`
+- `origin/main` merge `b287d72` is the exact binary source for 2.4 build 60.
+  TestFlight build 60 is `VALID` / `IN_BETA_TESTING` internally and
+  `READY_FOR_BETA_SUBMISSION` externally. App Review 2.4 build 60 is `WAITING_FOR_REVIEW`
   with no reported blocking issues. App Privacy publish state and
   Regulations/Permits remain website-only verification coverage gaps, not
-  blockers reported by the accepted submission.
-- Local branch `codex/build-60-release-fixes` is a build 60 replacement candidate,
-  not a promoted release. Keep the build 59 review submission intact pending
-  explicit approval; an internal TestFlight upload alone does not replace it.
+  blockers reported by the current submission.
+- Active submission `5bd874ad-...` contains build 60. Superseded submission
+  `2233970e-...` is canceled / `COMPLETE`. Manual release and public storefront
+  state remain separate from review submission.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
   holds the Empire source — the branches named `empire-gamification` and

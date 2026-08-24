@@ -30,13 +30,14 @@ project-local notes.
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
 - Live App Store version: `2.3` (build 56), verified on the US storefront 2026-08-24
-- Working project version: `2.4` (local replacement candidate build 60).
-  TestFlight build 59 (`3235fff4-515a-40db-9239-41338ec34ead`) is `VALID`
-  and internal. App Store version `a368547f-2331-4856-a064-8357f21ea9e2`
-  is `WAITING_FOR_REVIEW` with submission
-  `2233970e-2288-4bf4-a52f-8bc5c47f639a`. App Store Connect now reports build
-  60 as the next upload. Build 60 source SHA and ASC build ID are pending; it has
-  not been uploaded or attached, and the build 59 review remains intact.
+- Working project version: `2.4` (fixed replacement build 60). Exact uploaded
+  `main` source is `b287d7238494799818db5947524a5cc05b9c8a9c`;
+  TestFlight build 60 (`ef651ca3-451f-468b-903a-1239bcf6dc39`) is `VALID`,
+  internal `IN_BETA_TESTING`, and external `READY_FOR_BETA_SUBMISSION`. App Store
+  version `a368547f-2331-4856-a064-8357f21ea9e2` has build 60 attached and is
+  `WAITING_FOR_REVIEW` under submission
+  `5bd874ad-3619-4521-9231-fa45ee18a4b0`. The old build 59 submission
+  `2233970e-2288-4bf4-a52f-8bc5c47f639a` was canceled and is `COMPLETE`.
   The 2.3 train is closed (`ITMS-90186`) and already released.
 - Version review and validation of a **new** binary should use `2.4`. Do not
   target 2.2 or 2.3 for a new upload.
@@ -46,8 +47,8 @@ project-local notes.
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches. It is the dated source of truth; this file is the command reference.
 - **State as of 2026-08-24:** `2.3` (build 56) is live on the App Store.
-  TestFlight 2.4 build 59 is `VALID` and `IN_BETA_TESTING` in internal
-  **test group A**. App Store 2.4 is `WAITING_FOR_REVIEW`. Release type is
+  TestFlight 2.4 build 60 is `VALID` and `IN_BETA_TESTING` in internal
+  **test group A**. App Store 2.4 is `WAITING_FOR_REVIEW` with build 60. Release type is
   manual, so approval will still require `asc versions release` after a fresh
   state check.
 - Always run `make asc-version` before acting — the CLI can report a blank generated
@@ -218,10 +219,11 @@ current CLI. `asc review status` and `asc review doctor` are better for review
 state and blocker diagnosis.
 
 For the next TestFlight build on the 2.4 train, use `make asc-next-build`; it reads
-`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. For the
-local build-60 replacement candidate, expect **60** before upload — stop and reconcile if
-live ASC reports anything else. Uploading 60 to TestFlight is additive and does not replace
-the build 59 binary currently submitted to App Review.
+`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. Build 60
+is already processed, so expect **61** for a future upload — stop and reconcile if live ASC
+reports anything else. Uploading 60 to TestFlight was additive and did not replace the build
+59 App Review binary by itself; the later approved replacement flow canceled the old
+submission, attached build 60, and created the current submission.
 
 ### Create A Deterministic Archive
 
@@ -307,13 +309,14 @@ gh workflow run release-testflight.yml \
 
 Current phone-test state as of 2026-08-24:
 
-- Build `2.4 (59)` is `VALID` and `IN_BETA_TESTING` in TestFlight:
-  `3235fff4-515a-40db-9239-41338ec34ead`.
-- `make asc-next-build` should now report `60`; stop and reconcile if it does not.
-- Build 60 is a local fixed replacement candidate. Source
-  `BUILD_60_SOURCE_SHA_PENDING`; ASC build `BUILD_60_ASC_ID_PENDING`. Do not
-  describe it as uploaded, processed, attached, submitted, or public until live
-  readback proves each state.
+- Build `2.4 (60)` is `VALID`, internal `IN_BETA_TESTING`, and external
+  `READY_FOR_BETA_SUBMISSION`: `ef651ca3-451f-468b-903a-1239bcf6dc39`.
+- Exact uploaded `main` source is
+  `b287d7238494799818db5947524a5cc05b9c8a9c`; exact-main CI
+  `32704746418` and TestFlight workflow `32705379775` passed.
+- Strict TestFlight validation reports 0 errors / 0 warnings / 0 blockers /
+  0 informational findings.
+- `make asc-next-build` should now report `61`; stop and reconcile if it does not.
 - Internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has
   `hasAccessToAllBuilds = true`, so no explicit per-group add is required.
 - External beta remains unsubmitted.
@@ -352,11 +355,11 @@ requires `ASC_APPSTORE_PUBLISH_VERSION` so it cannot silently publish the local 
 version.
 
 As of 2026-08-24, `2.3` build 56 remains public and App Store 2.4
-`a368547f-2331-4856-a064-8357f21ea9e2` is `WAITING_FOR_REVIEW` with build 59
-attached under manual release. Local build 60 is only a replacement candidate. A
-processed build 60 can be tested internally without cancelling review, but replacing
-the App Store binary requires explicit approval to cancel the current submission,
-attach build 60, revalidate, and resubmit. Cancellation restarts the review queue.
+`a368547f-2331-4856-a064-8357f21ea9e2` is `WAITING_FOR_REVIEW` with build 60
+attached under manual release. Fresh submission
+`5bd874ad-3619-4521-9231-fa45ee18a4b0` replaced canceled build 59 submission
+`2233970e-2288-4bf4-a52f-8bc5c47f639a`. Submission and approval do not imply
+public release; production remains 2.3 until a later manual release completes.
 
 Dry-run first when possible:
 
