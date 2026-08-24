@@ -808,9 +808,23 @@ final class WorkoutTextEntryViewModel {
                 // Only an existing library exercise has records to beat; a freshly
                 // created one is celebrated as "new in your library" instead.
                 let name = exercise.trimmedName
-                var descriptor = FetchDescriptor<Exercise>(predicate: #Predicate { $0.name == name })
-                descriptor.fetchLimit = 1
-                guard let existing = (try? context.fetch(descriptor))?.first else { continue }
+                let existing: Exercise?
+                if let selectedID = exercise.libraryExerciseID {
+                    var descriptor = FetchDescriptor<Exercise>(
+                        predicate: #Predicate { $0.id == selectedID }
+                    )
+                    descriptor.fetchLimit = 1
+                    existing = (try? context.fetch(descriptor))?.first
+                } else if exercise.createsNewLibraryExercise {
+                    existing = nil
+                } else {
+                    var descriptor = FetchDescriptor<Exercise>(
+                        predicate: #Predicate { $0.name == name }
+                    )
+                    descriptor.fetchLimit = 1
+                    existing = (try? context.fetch(descriptor))?.first
+                }
+                guard let existing else { continue }
                 // A plain local UUID: the predicate macro can't capture member
                 // access (`existing.id`) into a fetched object.
                 let existingID = existing.id

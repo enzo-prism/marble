@@ -3,7 +3,11 @@
 **Release snapshot (verified 2026-08-24):** merged source `eead033` is the exact
 2.4/build-59 binary source. TestFlight build 59 (`3235fff4-...`) is `VALID` and
 `IN_BETA_TESTING` in internal test group A; its external state is
-`READY_FOR_BETA_SUBMISSION`. App Store 2.4 is `WAITING_FOR_REVIEW`.
+`READY_FOR_BETA_SUBMISSION`. App Store 2.4 is `WAITING_FOR_REVIEW` with manual
+release. Local branch `codex/build-60-release-fixes` is a build 60 replacement
+candidate; source SHA and App Store Connect build ID are pending. It has not been
+uploaded, attached, submitted, approved, or publicly released, and build 59's
+review submission remains intact pending explicit approval.
 
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
@@ -142,6 +146,33 @@ for workflow testing, but it is not full release proof.
 - Counts here are derived by counting source, not by hand-editing the previous number
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
+
+## Build 60 replacement-candidate verification (2026-08-24, pending)
+
+- Working project version: **2.4 build 60** on local branch
+  `codex/build-60-release-fixes`. Exact source SHA: `BUILD_60_SOURCE_SHA_PENDING`.
+  App Store Connect build ID: `BUILD_60_ASC_ID_PENDING`.
+- Reachability regression coverage:
+  `WorkoutFlowUITests.testStartWorkoutReachableFromDefaultAddTab` launches the
+  default Add tab, opens the workout from `Workout.Open`, and starts a session
+  with no pre-existing active-workout accessory.
+- PR-celebration regression coverage:
+  `WorkoutTextEntryViewModelTests.testCelebrationStaysQuietWhenReviewCreatesDuplicateExercise`
+  and `testCelebrationUsesReviewedLibraryIDForDuplicateNames` pin explicit
+  create-new behavior and exact reviewed-library UUID resolution.
+- Local candidate checks completed before commit: 810 unit tests passed with one
+  intentional skip; test-bundle typecheck succeeded; the three focused workout UI
+  regressions passed; and the six-test accessibility gate passed with one
+  runtime-unsupported Dynamic Type audit skipped. The affected
+  `JournalSnapshotTests.testDefaultAddTabVisible` snapshot also passed without
+  re-recording. The broad snapshot run still has host-rendering/scroll-position
+  drift in the unchanged Add Set baseline, so full snapshot, migration,
+  archive/sign/export, exact-main CI, and exact-TestFlight-build proof remain
+  pending until the final committed SHA and processed ASC build are recorded.
+- Uploading build 60 to internal TestFlight does not replace the build 59 App
+  Review binary. Keep submission `2233970e-2288-4bf4-a52f-8bc5c47f639a`
+  intact unless cancellation, build replacement, and resubmission are explicitly
+  approved after build 60 passes its exact-binary gates.
 
 ## Latest verification (2026-08-24, AI-first Add build 59)
 
@@ -499,6 +530,9 @@ Record the full pass in [`AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`](AppStore/P
 - External state for build 59 is `READY_FOR_BETA_SUBMISSION`.
 - The AI-first Add release is build 59 at feature source `c8200e2`, uploaded from
   exact merged source `eead033`. Run this full pass against that TestFlight build.
+- Build 60 is a local replacement candidate only. If it is uploaded after explicit
+  approval, repeat this full pass against exact processed build 60 before changing
+  the current build 59 App Review submission.
 - This section exercises Apple-owned surfaces beyond the deterministic local gate. It is
   remains the product acceptance/soak evidence before manual public release.
 

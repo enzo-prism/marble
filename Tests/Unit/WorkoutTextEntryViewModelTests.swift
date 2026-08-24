@@ -473,11 +473,8 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
             restAfterSeconds: 90
         ))
         try? context.save()
-        let viewModel = WorkoutTextEntryViewModel(
-            parser: HeuristicWorkoutScanParser(defaultWeightUnit: .lb),
-            defaultWeightUnit: .lb
-        )
-        viewModel.text = "bench press 1x5 @ 225"
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench Press 1x5 @ 225 lb"
 
         await viewModel.preview(in: context)
         viewModel.commit(into: context)
@@ -508,6 +505,77 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
 
         XCTAssertTrue(viewModel.celebration.prExercises.isEmpty)
         XCTAssertEqual(viewModel.celebration.volumeText, "300 lb")
+    }
+
+    func testCelebrationStaysQuietWhenReviewCreatesDuplicateExercise() async {
+        let context = makeInMemoryContext()
+        let existing = insertExercise("Bench Press", in: context)
+        context.insert(SetEntry(
+            exercise: existing,
+            performedAt: Date(timeIntervalSinceNow: -86400),
+            weight: 135,
+            weightUnit: .lb,
+            reps: 5,
+            restAfterSeconds: 90
+        ))
+        try? context.save()
+        let viewModel = WorkoutTextEntryViewModel(
+            importHandler: { _, _, _ in
+                WorkoutImporter.Summary(importedWorkouts: 1, importedSets: 1)
+            },
+            defaultWeightUnit: .lb
+        )
+        viewModel.draft = ParsedWorkoutDraft(exercises: [
+            ParsedExerciseDraft(
+                name: "Bench Press",
+                sets: [ParsedSetDraft(weight: 225, weightUnit: .lb, reps: 5)],
+                createsNewLibraryExercise: true
+            )
+        ])
+
+        viewModel.commit(into: context)
+
+        XCTAssertTrue(viewModel.celebration.prExercises.isEmpty)
+    }
+
+    func testCelebrationUsesReviewedLibraryIDForDuplicateNames() async {
+        let context = makeInMemoryContext()
+        let unselected = insertExercise("Bench Press", in: context)
+        let selected = insertExercise("Bench Press", in: context)
+        context.insert(SetEntry(
+            exercise: unselected,
+            performedAt: Date(timeIntervalSinceNow: -86400),
+            weight: 135,
+            weightUnit: .lb,
+            reps: 5,
+            restAfterSeconds: 90
+        ))
+        context.insert(SetEntry(
+            exercise: selected,
+            performedAt: Date(timeIntervalSinceNow: -86400),
+            weight: 315,
+            weightUnit: .lb,
+            reps: 5,
+            restAfterSeconds: 90
+        ))
+        try? context.save()
+        let viewModel = WorkoutTextEntryViewModel(
+            importHandler: { _, _, _ in
+                WorkoutImporter.Summary(importedWorkouts: 1, importedSets: 1)
+            },
+            defaultWeightUnit: .lb
+        )
+        viewModel.draft = ParsedWorkoutDraft(exercises: [
+            ParsedExerciseDraft(
+                name: "Bench Press",
+                sets: [ParsedSetDraft(weight: 225, weightUnit: .lb, reps: 5)],
+                libraryExerciseID: selected.id
+            )
+        ])
+
+        viewModel.commit(into: context)
+
+        XCTAssertTrue(viewModel.celebration.prExercises.isEmpty)
     }
 
     // MARK: - Bulk sessions
