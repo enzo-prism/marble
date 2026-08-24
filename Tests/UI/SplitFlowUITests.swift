@@ -3,7 +3,7 @@ import XCTest
 final class SplitFlowUITests: MarbleUITestCase {
     func testEditSplitDay() {
         launchApp(fixtureMode: "empty")
-        navigateToTab(.split)
+        navigateToTab(.addWorkout)
 
         forceTap(waitForIdentifier("Workout.Plan"))
 

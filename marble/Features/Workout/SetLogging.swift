@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 /// Shared "log the same set again" path used by the Journal duplicate action
-/// and the Train tab's one-thumb complete-set rows.
+/// and the active workout's one-thumb complete-set rows.
 enum SetLogging {
     @discardableResult
     static func repeatLatest(

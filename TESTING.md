@@ -1,12 +1,10 @@
 # Marble Testing
 
-**Release snapshot (verified 2026-08-21):** App Store 2.3 build 56 is live;
-`origin/main` (`42b9061`) is the canonical 2.4/build-57 baseline; the pushed
-release-readiness branch is `origin/codex/marble-next-steps-20260821` (`39704d9`).
-The active local candidate contains additional integrated app, test, documentation,
-and snapshot changes on top of that pushed head. TestFlight build 57 is
-`WAITING_FOR_BETA_REVIEW`; App Store 2.4 is a `PREPARE_FOR_SUBMISSION` draft with
-build 57 attached and is not in public review. Build 58 is next.
+**Release snapshot (verified 2026-08-23):** `origin/main` (`fc37b171`) is the
+canonical 2.4/build-58 baseline. TestFlight 2.4 build 58 is `VALID` and
+`IN_BETA_TESTING` in internal test group A; its external state is
+`READY_FOR_BETA_SUBMISSION`. Local `codex/ai-first-workout-entry` contains the
+AI-first Add candidate at build 59 and is not yet on GitHub or TestFlight.
 
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
@@ -24,10 +22,12 @@ build 57 attached and is not in public review. Build 58 is next.
   (`WeeklyGoalWidgetSnapshotTests`).
 - UI tests: `MarbleUITests` (end-to-end flows + screenshots), including first-run onboarding
   (`OnboardingFlowUITests`) and Settings, with the weigh-in log → edit → delete round trip
-  (`SettingsFlowUITests`). Tab bar is **Train / Log / Progress** (`Tab.Split` /
+  (`SettingsFlowUITests`). Tab bar is **Add / Log / Progress** (`Tab.Add` /
   `Tab.Journal` / `Tab.Trends`). Calendar and Supplements are Log modes: `navigateToTab`
   taps Log first, then `Tab.Calendar` / `Tab.Supplements` on `LogModePicker` segments.
-  Visible labels are Train / Log / Progress; identifiers stay on the historical names.
+  The Add destination renders `WorkoutTextEntryView` directly and is the launch default.
+- Composer snapshots: `WorkoutComposerSnapshotTests` cover empty input, live parsing feedback,
+  and structured review across the full light/dark, regular/AX, SE/Pro matrix.
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
 ## Durable release-gate evidence
@@ -91,7 +91,7 @@ for workflow testing, but it is not full release proof.
   Journal grouping, and the Exercise Picker against histories of 5,000–10,000 entries.
 - `ExercisePickerDerivedDataTests` pins recent/favorite/all partitioning after the picker moved
   to one cached derivation pass, and `WorkoutSessionQueryTests` pins the one-active/five-completed
-  fetch limits used by the Train tab.
+  fetch limits used by the active workout sheet.
 - `SeedDataTests.testOrphanMaintenanceRunsOncePerVersion` protects the versioned maintenance
   gate that keeps full-store orphan sweeps off routine launches.
 - `DailyHighlightQueriesTests` is the correctness tripwire for the scoped Daily Highlights
@@ -106,12 +106,12 @@ for workflow testing, but it is not full release proof.
   orphan) and each backfill skip reason now enforced by the store predicate (missing
   duration, unprescribed exercise, invalid prescription).
 
-## Current suite inventory (counted from source, 2026-08-21)
+## Current suite inventory (counted from source, 2026-08-23)
 
-- `Tests/Unit/` — **73 files, 800 test methods**.
-- `Tests/Snapshots/` — **11 test files, 46 test methods**. The full runner schedules
-  38 result-bundle groups and now fails immediately if a source test is omitted.
-- `Tests/UI/` — **21 files, 59 test methods**: **55 flow/focused accessibility cases**
+- `Tests/Unit/` — **74 files, 808 test methods**.
+- `Tests/Snapshots/` — **16 test files, 49 test methods**. The full runner schedules
+  39 result-bundle groups and fails immediately if a source test is omitted.
+- `Tests/UI/` — **21 files, 60 test methods**: **56 flow/focused accessibility cases**
   run by `make ui`; `AccessibilityAuditUITests` contributes the 4 cases skipped there.
   `make audit` runs those 4 plus the 2 focused largest-text suites.
 
@@ -143,6 +143,26 @@ for workflow testing, but it is not full release proof.
 - Counts here are derived by counting source, not by hand-editing the previous number
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
+
+## Latest verification (2026-08-23, AI-first Add candidate build 59)
+
+- Local branch `codex/ai-first-workout-entry` is **2.4 build 59**. It has not yet
+  been pushed to GitHub or uploaded to TestFlight.
+- Integrated unit suite: **808 tests executed, 1 skipped, 0 failures**.
+- The complete snapshot suite passed earlier in this feature branch across all
+  **49 source methods / 39 result-bundle groups**. After the final Add hierarchy
+  and disabled-action contrast refinements, the 5 directly affected methods
+  (`WorkoutComposerSnapshotTests`, the default Add tab, and the component gallery)
+  were re-recorded, visually reviewed, and replayed with **0 failures**.
+- `make ui` passed **55 of 56** flow cases before exposing one real Accessibility
+  XXXL hierarchy regression on the Add screen. The editor was moved ahead of
+  supporting copy; that previously failing case then passed in isolation. The 55
+  unaffected cases were not redundantly rerun after the layout-only correction.
+- `make audit` selected **6 tests: 5 passed, 1 skipped, 0 failures**. The skip is
+  the existing runtime-unsupported Dynamic Type audit. The full default-text audit
+  covered populated/empty and light/dark states, including the new Add screen.
+- `make typecheck-tests` succeeded. The only output is the three already known
+  test-harness deprecation warnings in snapshot support code.
 
 ## Latest verification (2026-08-21, 2.4 release readiness)
 
@@ -451,7 +471,8 @@ below before submission approval. Complete this gate on the release Mac:
    verified immutable shipped source.
 3. Walk fresh-install onboarding and completed-user relaunch on iPhone. Verify onboarding,
    Settings, and the core layouts on iPad.
-4. Exercise `marble://trends` and `marble://quicklog` with `xcrun simctl openurl`, and inspect
+4. Exercise `marble://trends`, `marble://quicklog`, and `marble://import` with
+   `xcrun simctl openurl`, and inspect
    the built app's `CFBundleURLTypes`.
 5. Use the focused widget/keychain, Live Activity controller, App Intent, Spotlight entity,
    Health mapping/import, backup/restore, and notification tests as acceptance proof for
@@ -471,12 +492,11 @@ pass locally.
 
 Record the full pass in [`AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md).
 
-- Current phone-test build: **2.4 (57)**, build ID
-  `a8f9716a-5b39-4013-a795-181344ff54a6`; TestFlight `VALID`.
-- Build 57 was archived from `df05585` and does not contain the current candidate's later
-  app/accessibility changes. If those changes ship, repeat this full pass on build 58.
-- Internal group `test group A` receives all builds. External Test Group B is submitted and
-  waiting for Beta App Review.
+- Current live internal TestFlight build: **2.4 (58)**; `VALID` and
+  `IN_BETA_TESTING` in internal test group A.
+- External state for build 58 is `READY_FOR_BETA_SUBMISSION`.
+- The AI-first Add candidate is local build 59 and has not been uploaded. Build 58
+  cannot prove it; repeat this full pass on the exact processed build 59.
 - This section exercises Apple-owned surfaces beyond the deterministic local gate. It is
   required as the product acceptance pass before submitting 2.4 App Review.
 
@@ -485,9 +505,10 @@ Record the full pass in [`AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`](AppStore/P
 - **Real import soak** — import representative Hevy and Strong exports, including EU
   semicolon/decimal-comma CSV, plus multi-day Notes and multi-page scans. Confirm session
   boundaries, exercise matching, order, RPE/rest/notes, failed sets, and dedup behavior.
-- **Accessibility acceptance** — complete core Train / Log / Progress and import flows with
-  VoiceOver, Accessibility 5 text size, and Voice Control. Record any device-only failures
-  before declaring accessibility features in App Store Connect.
+- **Accessibility acceptance** — complete core Add / Log / Progress flows with VoiceOver,
+  Accessibility 5 text size, and Voice Control. Include paste/type → review → structured
+  save plus active-workout accessory → Add Set. Record device-only failures before
+  declaring accessibility features in App Store Connect.
 - **Daily Highlights** — after logging today, open Trends during the default 8:00 PM–11:59 PM
   window. Confirm the card shows only truthful progress from that day, uses the clean
   monochrome hierarchy, and cycles among three quotes. Confirm the quote stays visually

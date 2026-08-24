@@ -75,7 +75,7 @@ struct WorkoutView: View {
                 .scrollContentBackground(.hidden)
                 .background(Theme.backgroundColor(for: colorScheme))
                 .accessibilityIdentifier("Workout.List")
-                .navigationTitle("Train")
+                .navigationTitle("Workout")
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationBarGlassBackground()
                 .toolbar {
@@ -106,6 +106,23 @@ struct WorkoutView: View {
                     LogSetToolbarItems()
                 }
             }
+        }
+        .sheet(isPresented: quickLogPresentation, onDismiss: {
+            quickLog.clearPresentationContext()
+        }) {
+            AddSetView(
+                initialPerformedAt: quickLog.prefillDate,
+                initialExercise: fetchExercise(id: quickLog.prefillExerciseID),
+                context: quickLog.context,
+                activeSession: fetchWorkoutSession(id: quickLog.workoutSessionID) ?? activeSession,
+                isPresented: quickLogPresentation
+            )
+            .modelContext(modelContext)
+            .environment(quickLog)
+            .presentationDetents([.medium, .large], selection: quickLogDetent)
+            .presentationContentInteraction(.scrolls)
+            .presentationDragIndicator(.visible)
+            .sheetGlassBackground()
         }
         .sheet(isPresented: $showingPlan) {
             SplitView()
@@ -140,6 +157,38 @@ struct WorkoutView: View {
     }
 
     private var activePlan: SplitPlan? { plans.first }
+
+    private var quickLogPresentation: Binding<Bool> {
+        Binding(
+            get: { quickLog.isPresentingAddSet },
+            set: { quickLog.isPresentingAddSet = $0 }
+        )
+    }
+
+    private var quickLogDetent: Binding<PresentationDetent> {
+        Binding(
+            get: { quickLog.sheetDetent },
+            set: { quickLog.sheetDetent = $0 }
+        )
+    }
+
+    private func fetchExercise(id: UUID?) -> Exercise? {
+        guard let id else { return nil }
+        var descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate<Exercise> { $0.id == id }
+        )
+        descriptor.fetchLimit = 1
+        return try? modelContext.fetch(descriptor).first
+    }
+
+    private func fetchWorkoutSession(id: UUID?) -> WorkoutSession? {
+        guard let id else { return nil }
+        var descriptor = FetchDescriptor<WorkoutSession>(
+            predicate: #Predicate<WorkoutSession> { $0.id == id }
+        )
+        descriptor.fetchLimit = 1
+        return try? modelContext.fetch(descriptor).first
+    }
 
     private var todayPlannedSets: [PlannedSet] {
         guard let day = todaySplitDay else { return [] }
@@ -183,14 +232,14 @@ struct WorkoutView: View {
         quickLog.open(
             prefillExerciseID: plannedSet.exercise.id,
             workoutSessionID: session.id,
-            context: QuickLogContext(title: "Train", source: suggestedTitle)
+            context: QuickLogContext(title: "Workout", source: suggestedTitle)
         )
     }
 
     private func openAddSet() {
         quickLog.open(
             workoutSessionID: activeSession?.id,
-            context: QuickLogContext(title: "Train", source: activeSession?.title ?? suggestedTitle)
+            context: QuickLogContext(title: "Workout", source: activeSession?.title ?? suggestedTitle)
         )
     }
 

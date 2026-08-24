@@ -66,7 +66,7 @@ final class OnboardingFlowUITests: MarbleUITestCase {
         forceTap(waitForIdentifier("Onboarding.Done", timeout: 8))
         waitForIdentifier("Tab.Journal", timeout: 10)
 
-        navigateToTab(.split)
+        navigateToTab(.addWorkout)
         forceTap(waitForIdentifier("Workout.Data", timeout: 8))
 
         let settingsUnit = waitForIdentifier("Settings.WeightUnit", timeout: 8)

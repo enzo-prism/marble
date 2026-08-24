@@ -5,13 +5,17 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 ## What it is
 
-The tab bar is three destinations: **Train**, **Log**, and **Progress**. Calendar and
+The tab bar is three destinations: **Add**, **Log**, and **Progress**. Calendar and
 Supplements are modes inside Log (not separate tabs). Deep links `marble://calendar` and
 `marble://supplements` still open those modes.
 
-- **Train** — start and finish timed workout sessions, complete a planned set in one tap
-  when that exercise already has history, and review recent sessions. The weekly split
-  remains the editable plan behind Settings. An active session shows a tab-bar accessory
+- **Add** — Marble's default AI-first composer. Paste or type a workout in plain language,
+  common gym notation, or a Hevy/Strong CSV; Apple Intelligence structures prose on device
+  when available, while the deterministic parser handles notation and provides the fallback.
+  Nothing is logged until the user reviews and confirms the structured sets. Raw composer
+  text persists across tab switches and app relaunches; reviewed edits remain unsaved until
+  confirmation. Plan, Settings, and manual quick log remain toolbar
+  actions. Existing active sessions open from the tab-bar accessory as a secondary sheet
   (rest timer wins over the session pill).
 - **Log** — fast logging of sets (weight, reps, distance, duration, RPE, rest) with
   per-exercise metric profiles, plus Calendar and Supplements as Log modes.
@@ -333,7 +337,7 @@ release gates documented in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
 
 ## Architecture
 
-- **SwiftUI + SwiftData, local-only.** Tab bar: **Train / Log / Progress** (Calendar and
+- **SwiftUI + SwiftData, local-only.** Tab bar: **Add / Log / Progress** (Calendar and
   Supplements are Log modes). Feature folders under `marble/Features/` still use the
   historical names: `Body`, `Calendar`, `Import`, `Journal`, `Notifications`, `Onboarding`,
   `RestTimer`, `Settings`, `Split`, `Supplements`, `Trends`, and `Workout`. Code shared

@@ -2,9 +2,9 @@ import Foundation
 import SwiftUI
 
 enum AppTab: Hashable {
+    case addWorkout
     case journal
     case calendar
-    case split
     case supplements
     case trends
 
@@ -13,7 +13,7 @@ enum AppTab: Hashable {
         switch self {
         case .calendar, .supplements:
             return .journal
-        case .journal, .split, .trends:
+        case .addWorkout, .journal, .trends:
             return self
         }
     }
@@ -22,7 +22,7 @@ enum AppTab: Hashable {
         switch self {
         case .journal, .calendar, .supplements:
             return true
-        case .split, .trends:
+        case .addWorkout, .trends:
             return false
         }
     }
@@ -32,7 +32,7 @@ enum AppTab: Hashable {
 final class TabSelection {
     /// Logical destination, including Log subsections (calendar / supplements)
     /// that share the Log tab.
-    var selected: AppTab = .split
+    var selected: AppTab = .addWorkout
 
     /// Last Log subsection, restored when returning to the Log tab.
     var lastLogTab: AppTab = .journal

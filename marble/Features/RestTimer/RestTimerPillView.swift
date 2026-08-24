@@ -63,8 +63,8 @@ struct RestTimerPillView: View {
     }
 }
 
-/// Now-playing chrome for an active Train session when rest is not running.
-/// Tapping it returns to the Train tab. Rest always wins over this pill.
+/// Now-playing chrome for an active workout when rest is not running.
+/// Tapping it opens the secondary active-workout sheet. Rest always wins.
 struct SessionAccessoryView: View {
     let session: WorkoutSession
     let onOpen: () -> Void
@@ -107,11 +107,14 @@ struct SessionAccessoryView: View {
                 }
             }
             .padding(.horizontal, MarbleSpacing.m)
+            .padding(.vertical, MarbleSpacing.xs)
+            .contentShape(Rectangle())
         }
+        .frame(maxWidth: .infinity, minHeight: 44)
         .buttonStyle(.plain)
         .accessibilityIdentifier("SessionPill")
         .accessibilityLabel("Active workout, \(session.title)")
-        .accessibilityHint("Opens the Train tab")
+        .accessibilityHint("Opens the active workout")
     }
 }
 

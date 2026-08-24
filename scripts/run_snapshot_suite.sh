@@ -30,7 +30,7 @@ SNAPSHOT_GROUPS_FULL=(
   "MarbleSnapshotTests/JournalSnapshotTests/testJournalPopulated"
   "MarbleSnapshotTests/JournalSnapshotTests/testJournalLongName"
   "MarbleSnapshotTests/JournalSnapshotTests/testJournalExtremes"
-  "MarbleSnapshotTests/JournalSnapshotTests/testQuickLogVisible"
+  "MarbleSnapshotTests/JournalSnapshotTests/testDefaultAddTabVisible"
   "MarbleSnapshotTests/JournalSnapshotTests/testJournalBodyweightBest"
   "MarbleSnapshotTests/JournalSnapshotTests/testJournalRunBest"
   "MarbleSnapshotTests/LastTimeSnapshotTests/testLastTimeCardHistory"
@@ -52,6 +52,7 @@ SNAPSHOT_GROUPS_FULL=(
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsConsistencyTooltip"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsVolumeTooltip"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsSupplementsTooltip"
+  "MarbleSnapshotTests/WorkoutComposerSnapshotTests"
   # Widget families — the app's only surface outside itself. One group: these
   # render fixed-size cards, not full screens, so they are fast.
   "MarbleSnapshotTests/WeeklyGoalWidgetSnapshotTests"
@@ -64,6 +65,7 @@ SNAPSHOT_GROUPS_QUICK=(
   "MarbleSnapshotTests/SupplementsSnapshotTests/testSupplementsPopulated"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsPopulated"
   "MarbleSnapshotTests/AddSetSnapshotTests/testAddSetWeightAndReps"
+  "MarbleSnapshotTests/WorkoutComposerSnapshotTests/testWorkoutComposerEmpty"
 )
 
 verify_full_coverage() {

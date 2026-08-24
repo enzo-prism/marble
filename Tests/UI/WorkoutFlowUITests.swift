@@ -1,41 +1,38 @@
 import XCTest
 
 final class WorkoutFlowUITests: MarbleUITestCase {
-    func testWorkoutSupportsLargestAccessibilityText() {
+    func testAddWorkoutSupportsLargestAccessibilityText() {
         launchApp(
             contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
             fixtureMode: "populated"
         )
-        navigateToTab(.split)
+        navigateToTab(.addWorkout)
 
-        let start = waitForIdentifier("Workout.Start", timeout: 8)
-        XCTAssertTrue(start.isHittable)
-        XCTAssertGreaterThan(start.frame.height, 80, "The primary action should grow to fit its wrapped label")
-
-        let list = app.descendants(matching: .any).matching(identifier: "Workout.List").firstMatch
-        let editPlan = app.descendants(matching: .any).matching(identifier: "Workout.EditPlan").firstMatch
-        scrollToElement(editPlan, in: list)
-        waitFor(editPlan)
-        XCTAssertTrue(editPlan.isHittable)
-        XCTAssertGreaterThan(editPlan.frame.height, 44)
+        let editor = app.textViews["TextEntry.Editor"]
+        waitFor(editor, timeout: 8)
+        XCTAssertTrue(editor.isHittable)
+        XCTAssertGreaterThan(editor.frame.height, 180, "The primary editor must remain useful at accessibility sizes")
+        XCTAssertTrue(waitForIdentifier("TextEntry.Preview", timeout: 8).exists)
     }
 
-    func testStartAndFinishWorkout() {
-        launchApp(fixtureMode: "empty")
-        navigateToTab(.split)
+    func testActiveWorkoutAccessoryOpensAndFinishesWorkout() {
+        launchApp(
+            fixtureMode: "screenshots",
+            extraEnvironment: ["MARBLE_ENABLE_REST_PILL": "1"]
+        )
+        navigateToTab(.addWorkout)
 
-        forceTap(waitForIdentifier("Workout.Start", timeout: 8))
-        forceTap(waitForIdentifier("Workout.AddSet"))
-        selectExercise(identifier: "BenchPress")
-        let weightField = revealAddSetTextInput("AddSet.Weight")
-        clearAndType(weightField, text: "135")
-        dismissKeyboardIfPresent()
-        forceTap(revealAddSetSaveButton())
-        waitForDisappearance(app.navigationBars["Log Set"], timeout: 6)
+        tapBottomAccessory(waitForIdentifier("SessionPill", timeout: 8))
+        waitForIdentifier("Workout.List", timeout: 8)
         let workoutSet = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'Workout.Set.'"))
             .firstMatch
         waitFor(workoutSet, timeout: 8)
+
+        forceTap(waitForIdentifier("Workout.AddSet", timeout: 8))
+        waitForIdentifier("AddSet.List", timeout: 8)
+        forceTap(waitForIdentifier("AddSet.Cancel", timeout: 8))
+        waitForIdentifier("Workout.List", timeout: 8)
 
         forceTap(waitForIdentifier("Workout.Finish"))
 
@@ -48,7 +45,7 @@ final class WorkoutFlowUITests: MarbleUITestCase {
 
     func testDataManagementOpensFromWorkout() {
         launchApp(fixtureMode: "populated")
-        navigateToTab(.split)
+        navigateToTab(.addWorkout)
 
         forceTap(waitForIdentifier("Workout.Data"))
         // 2.2 moved Data & Backups behind the new Settings screen, below the

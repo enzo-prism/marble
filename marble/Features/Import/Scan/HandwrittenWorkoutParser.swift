@@ -5,7 +5,7 @@ import Foundation
 /// Conformers are interchangeable so the scan flow can prefer the on-device model
 /// when it's available (`FoundationModelsWorkoutScanParser`) and fall back to the
 /// deterministic notation parser (`HeuristicWorkoutScanParser`) otherwise.
-/// Coarse stages of a text parse, surfaced as determinate progress in the
+/// Coarse stages of a text parse, surfaced as honest status text in the
 /// processing UI. The deterministic pass is instant and the post-parse work
 /// (library matching) is near-instant; the on-device model passes are where
 /// the seconds go, so they are reported individually.

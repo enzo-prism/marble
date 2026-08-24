@@ -16,18 +16,22 @@ struct ContentView: View {
     @State private var activeDay = DateHelper.startOfDay(for: AppEnvironment.now)
     @State private var persistenceIssues = PersistenceIssueCenter.shared
     @State private var showingOnboarding = false
+    @State private var showingActiveWorkout = false
     @Namespace private var logSetZoom
 
     private let restTimer = RestActivityController.shared
 
     var body: some View {
         TabView(selection: tabBarSelection) {
-            WorkoutView()
+            WorkoutTextEntryView(
+                presentation: .primaryTab,
+                onShowJournal: { tabSelection.selectLogMode(.journal) }
+            )
                 .tabItem {
-                    Label("Train", systemImage: "figure.strengthtraining.traditional")
-                        .accessibilityIdentifier("Tab.Split")
+                    Label("Add", systemImage: "square.and.pencil")
+                        .accessibilityIdentifier("Tab.Add")
                 }
-                .tag(AppTab.split)
+                .tag(AppTab.addWorkout)
 
             LogHubView()
                 .tabItem {
@@ -50,7 +54,7 @@ struct ContentView: View {
                 RestActivityController.shared.cancelRest()
             },
             onOpenSession: {
-                tabSelection.selected = .split
+                showingActiveWorkout = true
             }
         )
         .environment(tabSelection)
@@ -98,7 +102,7 @@ struct ContentView: View {
             quickLog.open()
         }
         .onReceive(NotificationCenter.default.publisher(for: .marbleOpenTextImport)) { _ in
-            tabSelection.selected = .journal
+            tabSelection.selected = .addWorkout
         }
         .onOpenURL { url in
             // Widget deep links (`marble://trends`, `marble://quicklog`).
@@ -113,14 +117,19 @@ struct ContentView: View {
                 return
             }
             if url.host == "import" {
-                tabSelection.selected = .journal
+                tabSelection.selected = .addWorkout
                 NotificationCenter.default.post(name: .marbleOpenTextImport, object: nil)
+                return
+            }
+            if ["split", "train", "workout"].contains(url.host ?? "") {
+                tabSelection.selected = .addWorkout
+                showingActiveWorkout = !activeSessions.isEmpty
                 return
             }
             guard let tab = Self.tab(for: url.host) else { return }
             tabSelection.selected = tab
         }
-        .sheet(isPresented: $quickLog.isPresentingAddSet, onDismiss: {
+        .sheet(isPresented: rootQuickLogPresentation, onDismiss: {
             quickLog.clearPresentationContext()
         }) {
             AddSetView(
@@ -136,7 +145,7 @@ struct ContentView: View {
                     ?? (Calendar.current.isDate(quickLog.prefillDate, inSameDayAs: AppEnvironment.now)
                         ? activeSessions.first
                         : nil),
-                isPresented: $quickLog.isPresentingAddSet
+                isPresented: rootQuickLogPresentation
             )
                 .modelContext(modelContext)
                 .environment(quickLog)
@@ -146,6 +155,15 @@ struct ContentView: View {
                     set: { quickLog.sheetDetent = $0 }
                 ))
                 .presentationContentInteraction(.scrolls)
+                .presentationDragIndicator(.visible)
+                .sheetGlassBackground()
+        }
+        .sheet(isPresented: $showingActiveWorkout) {
+            WorkoutView()
+                .modelContext(modelContext)
+                .environment(quickLog)
+                .environment(\.logSetZoomNamespace, logSetZoom)
+                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()
         }
@@ -223,8 +241,8 @@ struct ContentView: View {
             return .journal
         case "calendar":
             return .calendar
-        case "split", "train", "workout":
-            return .split
+        case "add", "compose", "import", "split", "train", "workout":
+            return .addWorkout
         case "supplements":
             return .supplements
         case "trends", "progress":
@@ -232,6 +250,19 @@ struct ContentView: View {
         default:
             return nil
         }
+    }
+
+    /// The active workout presents its own Add Set sheet from inside its sheet
+    /// hierarchy. Keeping the root binding false while Workout is open avoids
+    /// competing sibling sheet presentations in SwiftUI.
+    private var rootQuickLogPresentation: Binding<Bool> {
+        Binding(
+            get: { quickLog.isPresentingAddSet && !showingActiveWorkout },
+            set: { newValue in
+                guard !showingActiveWorkout else { return }
+                quickLog.isPresentingAddSet = newValue
+            }
+        )
     }
 
     private func refreshActiveDay() {

@@ -72,9 +72,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         navigateToTab(.calendar)
         try runAudit(name: "Calendar_Month_\(appearance.envValue)_\(sizeLabel)")
 
-        navigateToTab(.split)
-        waitForIdentifier("Workout.List")
-        try runAudit(name: "Workout_Populated_\(appearance.envValue)_\(sizeLabel)")
+        navigateToTab(.addWorkout)
+        waitForIdentifier("WorkoutEntry.Root")
+        try runAudit(name: "AddWorkout_Empty_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.supplements)
         try runAudit(name: "Supplements_Populated_\(appearance.envValue)_\(sizeLabel)")
@@ -165,9 +165,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         navigateToTab(.calendar)
         try runAudit(name: "Calendar_Month_Empty_\(appearance.envValue)_\(sizeLabel)")
 
-        navigateToTab(.split)
-        waitForIdentifier("Workout.List")
-        try runAudit(name: "Workout_Empty_\(appearance.envValue)_\(sizeLabel)")
+        navigateToTab(.addWorkout)
+        waitForIdentifier("WorkoutEntry.Root")
+        try runAudit(name: "AddWorkout_Empty_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.supplements)
         waitForIdentifier("Supplements.EmptyState")
@@ -235,6 +235,14 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                     return false
                 }
                 if issue.auditType == .contrast && shouldIgnoreTrendsContrast(issue) {
+                    return false
+                }
+                // Disabled controls are exempt from contrast requirements, and
+                // this CTA is intentionally unavailable until text exists. Keep
+                // auditing the same element as soon as it becomes enabled.
+                if issue.auditType == .contrast,
+                   element.identifier == "TextEntry.Preview",
+                   !element.isEnabled {
                     return false
                 }
                 if shouldIgnoreVerifiedWorkoutTextClipping(issue) {

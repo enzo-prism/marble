@@ -57,7 +57,7 @@ final class JournalSnapshotTests: SnapshotTestCase {
         assertSnapshot(view, named: "Journal_Extremes")
     }
 
-    func testQuickLogVisible() {
+    func testDefaultAddTabVisible() {
         let container = SnapshotFixtures.makeContainer()
         let context = ModelContext(container)
         SnapshotFixtures.seedBase(in: context)
@@ -66,7 +66,7 @@ final class JournalSnapshotTests: SnapshotTestCase {
 
         let view = ContentView()
             .modelContainer(container)
-        assertSnapshot(view, named: "Journal_QuickLog")
+        assertSnapshot(view, named: "Default_AddTab")
     }
 
     func testJournalBodyweightBest() {

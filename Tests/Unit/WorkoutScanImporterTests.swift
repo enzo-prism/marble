@@ -247,6 +247,63 @@ final class WorkoutScanImporterTests: MarbleTestCase {
         XCTAssertEqual(try ledgerCount(in: context), 2)
     }
 
+    func testReviewedLibraryIDWinsWhenDuplicateNamesExist() throws {
+        let context = makeInMemoryContext()
+        let first = Exercise(
+            name: "Bench Press",
+            category: .chest,
+            metrics: .weightAndRepsRequired,
+            defaultRestSeconds: 60
+        )
+        let selected = Exercise(
+            name: "Bench Press",
+            category: .chest,
+            metrics: .weightAndRepsRequired,
+            defaultRestSeconds: 120
+        )
+        context.insert(first)
+        context.insert(selected)
+        let draft = ParsedWorkoutDraft(exercises: [
+            ParsedExerciseDraft(
+                name: "Bench Press",
+                sets: [ParsedSetDraft(weight: 185, reps: 8)],
+                libraryExerciseID: selected.id
+            )
+        ])
+
+        _ = try WorkoutScanImporter.import(draft, externalID: "selected-duplicate", in: context)
+
+        let entry = try XCTUnwrap(try context.fetch(FetchDescriptor<SetEntry>()).first)
+        XCTAssertEqual(entry.exercise.id, selected.id)
+        XCTAssertNotEqual(entry.exercise.id, first.id)
+        XCTAssertEqual(entry.restAfterSeconds, 120)
+    }
+
+    func testReviewedCreateNewBypassesExistingExactName() throws {
+        let context = makeInMemoryContext()
+        let existing = Exercise(
+            name: "Bench Press",
+            category: .chest,
+            metrics: .weightAndRepsRequired,
+            defaultRestSeconds: 60
+        )
+        context.insert(existing)
+        let draft = ParsedWorkoutDraft(exercises: [
+            ParsedExerciseDraft(
+                name: "Bench Press",
+                sets: [ParsedSetDraft(weight: 185, reps: 8)],
+                createsNewLibraryExercise: true
+            )
+        ])
+
+        _ = try WorkoutScanImporter.import(draft, externalID: "new-duplicate", in: context)
+
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+        let entry = try XCTUnwrap(try context.fetch(FetchDescriptor<SetEntry>()).first)
+        XCTAssertEqual(exercises.filter { $0.name == "Bench Press" }.count, 2)
+        XCTAssertNotEqual(entry.exercise.id, existing.id)
+    }
+
     /// Sets with their own explicit date & time keep chronological priority:
     /// the cascade only orders otherwise-identical timestamps.
     func testExplicitPerSetDatesStillOrderChronologically() throws {
