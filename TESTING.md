@@ -1,10 +1,9 @@
 # Marble Testing
 
-**Release snapshot (verified 2026-08-23):** `origin/main` (`fc37b171`) is the
-canonical 2.4/build-58 baseline. TestFlight 2.4 build 58 is `VALID` and
+**Release snapshot (verified 2026-08-24):** merged source `eead033` is the exact
+2.4/build-59 binary source. TestFlight build 59 (`3235fff4-...`) is `VALID` and
 `IN_BETA_TESTING` in internal test group A; its external state is
-`READY_FOR_BETA_SUBMISSION`. Build 59 application feature source is `c8200e2`;
-its GitHub/TestFlight promotion is tracked live in `RELEASE_HANDOFF.md`.
+`READY_FOR_BETA_SUBMISSION`. App Store 2.4 is `WAITING_FOR_REVIEW`.
 
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
@@ -144,10 +143,13 @@ for workflow testing, but it is not full release proof.
   forward. The long-stale "264" and "254" both came from carrying an old number through a
   docs commit.
 
-## Latest verification (2026-08-23, AI-first Add candidate build 59)
+## Latest verification (2026-08-24, AI-first Add build 59)
 
-- Local branch `codex/ai-first-workout-entry` is **2.4 build 59**. It has not yet
-  been pushed to GitHub or uploaded to TestFlight.
+- PR #27 merged as `eead033`; exact-main CI run `32700219443` passed. TestFlight
+  release run `32700683071` archived, signed, exported, uploaded, and processed
+  that exact SHA successfully.
+- App Store Connect build `3235fff4-515a-40db-9239-41338ec34ead` is `VALID`,
+  internal `IN_BETA_TESTING`, and passes `asc validate testflight` with 0 issues.
 - Integrated unit suite: **808 tests executed, 1 skipped, 0 failures**.
 - The complete snapshot suite passed earlier in this feature branch across all
   **49 source methods / 39 result-bundle groups**. After the final Add hierarchy
@@ -492,13 +494,13 @@ pass locally.
 
 Record the full pass in [`AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md).
 
-- Current live internal TestFlight build: **2.4 (58)**; `VALID` and
+- Current live internal TestFlight build: **2.4 (59)**; `VALID` and
   `IN_BETA_TESTING` in internal test group A.
-- External state for build 58 is `READY_FOR_BETA_SUBMISSION`.
-- The AI-first Add candidate is build 59 at feature source `c8200e2`. Build 58
-  cannot prove it; repeat this full pass on the exact processed build 59 after upload.
+- External state for build 59 is `READY_FOR_BETA_SUBMISSION`.
+- The AI-first Add release is build 59 at feature source `c8200e2`, uploaded from
+  exact merged source `eead033`. Run this full pass against that TestFlight build.
 - This section exercises Apple-owned surfaces beyond the deterministic local gate. It is
-  required as the product acceptance pass before submitting 2.4 App Review.
+  remains the product acceptance/soak evidence before manual public release.
 
 ### 2.4 and carried-forward device payload
 

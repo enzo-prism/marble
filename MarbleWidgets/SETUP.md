@@ -64,8 +64,9 @@ widget, and a Control Center control.
 - `Prism.marble.MarbleWidgets`
 
 `.asc/ExportOptions.plist` (tracked in git) maps both bundle IDs to the two pinned profiles,
-and Release signing is pinned per target in the project. Build **2.2 (47)** is the current
-proof of this path (verified end to end 2026-07-23, see `RELEASE_HANDOFF.md`) — the
+and Release signing is pinned per target in the project. Build **2.4 (59)** is the current
+proof of this path (verified end to end 2026-08-24 from `main` merge `eead033`, see
+`RELEASE_HANDOFF.md`) — the
 uploaded IPA includes the signed `MarbleWidgets.appex`, with
 entitlements read back off the archive as `marble.app` →
 `['L49MKXGVM4.Prism.marble', 'L49MKXGVM4.Prism.marble.shared']` and `MarbleWidgets.appex` →

@@ -29,11 +29,13 @@ project-local notes.
 - Archive path: `.asc/artifacts/marble.xcarchive`
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
-- Live App Store version: `2.3` (build 56), verified public 2026-08-21
-- Working project version: `2.4` (build 59 release candidate).
-  App Store draft `a368547f-2331-4856-a064-8357f21ea9e2` is
-  `PREPARE_FOR_SUBMISSION`; TestFlight build 58 is `VALID` and internal, and
-  App Store Connect reports build 59 as the next upload.
+- Live App Store version: `2.3` (build 56), verified on the US storefront 2026-08-24
+- Working project version: `2.4` (build 59).
+  TestFlight build 59 (`3235fff4-515a-40db-9239-41338ec34ead`) is `VALID`
+  and internal. App Store version `a368547f-2331-4856-a064-8357f21ea9e2`
+  is `WAITING_FOR_REVIEW` with submission
+  `2233970e-2288-4bf4-a52f-8bc5c47f639a`. App Store Connect now reports build
+  60 as the next upload.
   The 2.3 train is closed (`ITMS-90186`) and already released.
 - Version review and validation of a **new** binary should use `2.4`. Do not
   target 2.2 or 2.3 for a new upload.
@@ -42,10 +44,11 @@ project-local notes.
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches. It is the dated source of truth; this file is the command reference.
-- **State as of 2026-08-23:** `2.3` (build 56) is live on the App Store.
-  TestFlight 2.4 build 58 is `VALID` and `IN_BETA_TESTING` in internal
-  **test group A**. App Store 2.4 is `PREPARE_FOR_SUBMISSION`; no public App
-  Review submission exists. Build 59 is next.
+- **State as of 2026-08-24:** `2.3` (build 56) is live on the App Store.
+  TestFlight 2.4 build 59 is `VALID` and `IN_BETA_TESTING` in internal
+  **test group A**. App Store 2.4 is `WAITING_FOR_REVIEW`. Release type is
+  manual, so approval will still require `asc versions release` after a fresh
+  state check.
 - Always run `make asc-version` before acting — the CLI can report a blank generated
   marketing version, so the Makefile prints a reliable fallback.
 - Do not cancel an in-flight review, upload a replacement build, or submit to
@@ -299,12 +302,11 @@ gh workflow run release-testflight.yml \
   -f dry_run=false
 ```
 
-Current phone-test state as of 2026-08-23:
+Current phone-test state as of 2026-08-24:
 
-- Build `2.4 (58)` is `VALID` and `IN_BETA_TESTING` in TestFlight:
-  `b11df541-3c9e-42c1-8d26-9d21e7c4c958`.
-- Before uploading build 59, `make asc-next-build` should report `59`; stop and
-  reconcile if it does not.
+- Build `2.4 (59)` is `VALID` and `IN_BETA_TESTING` in TestFlight:
+  `3235fff4-515a-40db-9239-41338ec34ead`.
+- `make asc-next-build` should now report `60`; stop and reconcile if it does not.
 - Internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has
   `hasAccessToAllBuilds = true`, so no explicit per-group add is required.
 - External beta remains unsubmitted.
@@ -313,7 +315,7 @@ Useful verification commands:
 
 ```bash
 asc builds build-beta-detail view \
-  --build-id "b11df541-3c9e-42c1-8d26-9d21e7c4c958" \
+  --build-id "3235fff4-515a-40db-9239-41338ec34ead" \
   --output json --pretty
 
 asc testflight groups view \

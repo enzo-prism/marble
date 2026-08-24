@@ -1,26 +1,27 @@
 # Marble Release Handoff
 
-**Live GitHub, TestFlight, and App Review state verified: 2026-08-23.**
+**Live GitHub, TestFlight, and App Review state verified: 2026-08-24.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
 ---
 
 ## Current release snapshot
 
-- **Public App Store (last verified 2026-08-21):** 2.3 build 56 is live. Its shipped application source is PR #19
+- **Public App Store (US storefront verified 2026-08-24):** 2.3 build 56 is live. Its shipped application source is PR #19
   merge `c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb` (Train / Log / Progress IA).
 - **App identity:** App Store Connect app `6757725234`, bundle ID `Prism.marble`.
-- **Canonical baseline before promotion:** `origin/main` at `fc37b171` is 2.4 build 58.
-  Branch `codex/ai-first-workout-entry` contains the AI-first Add candidate at
-  application-feature commit `c8200e2`, 2.4 build 59.
-- **TestFlight:** 2.4 build 58 is `VALID` and `IN_BETA_TESTING` in internal
-  **test group A**. Its external state is `READY_FOR_BETA_SUBMISSION`. Build 59 is next.
-- **App Review:** 2.4 is `PREPARE_FOR_SUBMISSION` / `NOT_SUBMITTED`, with 0 public-API
-  blockers and 2 informational findings: manual release and App Privacy publish state
-  not verifiable through the public API. Regulations and Permits also require website
-  verification before submission.
-- **Release boundary:** do not re-release 2.3, submit 2.4 for public App Review, bump a
-  build, or upload a replacement without fresh live checks and explicit approval.
+- **Canonical release source:** `origin/main` merge
+  `eead033f7d454180c61f1e49d7d66a233927c3c8`, containing application-feature
+  commit `c8200e2`, is the exact source uploaded as 2.4 build 59.
+- **TestFlight:** 2.4 build 59 (`3235fff4-515a-40db-9239-41338ec34ead`) is
+  `VALID` and `IN_BETA_TESTING` in internal **test group A**. Its external state
+  is `READY_FOR_BETA_SUBMISSION` and external beta was not requested.
+- **App Review:** 2.4 is `WAITING_FOR_REVIEW`; submission
+  `2233970e-2288-4bf4-a52f-8bc5c47f639a` was created 2026-08-24 at
+  00:22:40 PDT with build 59 attached and no public-API blockers.
+- **Release boundary:** 2.4 uses manual release. Do not cancel the submission,
+  upload or attach a replacement, or issue the final public release before a fresh
+  review-state check. Public App Store 2.3 remains live until that final action.
 
 ---
 
@@ -28,8 +29,17 @@ External state can change outside git, so always re-run the **Live state checks*
 
 **Application feature source:** `c8200e219b47e44d26720d164cd568f395392f6f`
 
-**Exact uploaded main SHA:** pending
-**App Store Connect build ID / state:** pending
+**Exact uploaded main SHA:** `eead033f7d454180c61f1e49d7d66a233927c3c8`
+
+**App Store Connect build ID / state:**
+`3235fff4-515a-40db-9239-41338ec34ead` — `VALID`, internal
+`IN_BETA_TESTING`, external `READY_FOR_BETA_SUBMISSION`
+
+**GitHub evidence:** PR #27 merge `eead033`; exact-main CI run `32700219443`
+passed; TestFlight run `32700683071` passed in 5m48s.
+
+**App Review:** submission `2233970e-2288-4bf4-a52f-8bc5c47f639a` is
+`WAITING_FOR_REVIEW`; release type is manual.
 
 - Add replaces Train as the default tab: **Add / Log / Progress**.
 - Paste/type supports prose, notation, multi-day Notes, TXT, Hevy CSV, and Strong
@@ -44,10 +54,12 @@ External state can change outside git, so always re-run the **Live state checks*
   final accessibility gate 5 passed / 1 runtime-unsupported skip / 0 failures.
 - No SwiftData schema change (still V6).
 
-Promotion order: merge docs and application source to `main`, wait for exact-main
-CI, upload that exact SHA as build 59, wait for `VALID`, create the en-US TestFlight
-note, then reconcile this section with the live build ID and state. Public App Store
-submission is a separate post-upload gate.
+Promotion completed 2026-08-24: docs and application source merged to `main`,
+exact-main CI passed, that SHA was uploaded as build 59, ASC processing reached
+`VALID`, the en-US TestFlight note was applied, canonical metadata was staged,
+build 59 was attached to App Store version 2.4, strict readiness passed with no
+blockers, and 2.4 was submitted for review. Public release remains a separate
+post-approval action.
 
 ---
 
@@ -838,19 +850,20 @@ Notes:
 
 ---
 
-## Current release decisions (2026-08-23)
+## Current release decisions (2026-08-24)
 
-- 2.3 build 56 was public at the last 2026-08-21 verification. Do not invoke another
+- 2.3 build 56 was public at the 2026-08-24 US storefront verification. Do not invoke another
   release operation for it without fresh live checks.
-- 2.4 build 58 is `VALID` and `IN_BETA_TESTING` in internal **test group A**. Its
-  external state is `READY_FOR_BETA_SUBMISSION`; it has not been submitted externally.
-- The AI-first Add candidate replaces Train with Add / Log / Progress at feature
-  commit `c8200e2`, build 59. Build 58 cannot prove it.
-- App Review notes, screenshots, privacy, declarations, usage metrics, migration, and the
-  prior 800-test gate are **2026-08-21 audit evidence**, not build-59 proof. Re-run
-  those live and exact-candidate gates before any submission decision.
+- 2.4 build 59 is `VALID` and `IN_BETA_TESTING` in internal **test group A**.
+  Its external state is `READY_FOR_BETA_SUBMISSION`; external beta review was not requested.
+- The AI-first Add release replaces Train with Add / Log / Progress. Its feature
+  source is `c8200e2`; exact uploaded merge source is `eead033`.
+- App Store version 2.4 is `WAITING_FOR_REVIEW` with submission `2233970e-...`.
+  Do not confuse submitted with approved or publicly live.
+- App Review notes, screenshots, privacy, declarations, usage metrics, migration, and
+  physical-device evidence remain distinct from binary processing and submission state.
 - The user explicitly approved docs, GitHub `main`, production, and TestFlight
-  promotion on 2026-08-23. Preserve exact-SHA provenance and complete live readback.
+  promotion on 2026-08-24. Preserve exact-SHA provenance and complete live readback.
 - Keep App Store submission and public release as distinct states even within that approval.
 
 ## Historical 2.2 release decisions (archived; not current)
@@ -911,12 +924,12 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
-- `origin/main` is the canonical development baseline: `fc37b171`, 2.4 build 58,
-  until the build-59 promotion is merged and fetched back.
-  TestFlight build 58 is `VALID` / `IN_BETA_TESTING` internally and
-  `READY_FOR_BETA_SUBMISSION` externally. App Review 2.4 was reverified on
-  2026-08-23 as `NOT_SUBMITTED` with 0 public-API blockers; App Privacy publish
-  state and Regulations/Permits remain website-only verification gates.
+- `origin/main` merge `eead033` is the exact binary source for 2.4 build 59.
+  TestFlight build 59 is `VALID` / `IN_BETA_TESTING` internally and
+  `READY_FOR_BETA_SUBMISSION` externally. App Review 2.4 is `WAITING_FOR_REVIEW`
+  with no reported blocking issues. App Privacy publish state and
+  Regulations/Permits remain website-only verification coverage gaps, not
+  blockers reported by the accepted submission.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
   holds the Empire source — the branches named `empire-gamification` and

@@ -1,7 +1,8 @@
 # Accessibility Nutrition Labels — declaration worksheet
 
-**Automated evidence updated: 2026-08-23 for 2.4 build 59 feature source
-`c8200e2`. Physical-device declarations remain unverified.**
+**Automated evidence updated: 2026-08-24 for 2.4 build 59 feature source
+`c8200e2`, uploaded from merge `eead033`. Physical-device declarations remain
+unverified.**
 
 ## Current verdict
 
@@ -13,7 +14,7 @@ device passes below.
 
 The App Store Connect API currently returns **no accessibility declarations** for
 app `6757725234` — no draft and no published iPhone, iPad, or Apple Watch record.
-The public App Store version is 2.3.
+The public App Store version remains 2.3; version 2.4 is `WAITING_FOR_REVIEW`.
 
 There is no Apple Watch app target. Do not create an `APPLE_WATCH` declaration
 for the iPhone/iPad widget extension or for Apple Health imports from Apple Watch.

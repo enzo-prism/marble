@@ -1,14 +1,14 @@
 # Marble 2.4 physical-device acceptance checklist
 
-Prepared 2026-08-21; build-59 Add coverage updated 2026-08-23. This checklist is
+Prepared 2026-08-21; build-59 Add coverage updated 2026-08-24. This checklist is
 not a release or metadata authorization.
 Record the exact build installed on each device.
 
 ## Session record
 
-- Candidate commit:
-- Marketing version / build:
-- Installation source: local signed build / TestFlight
+- Candidate commit: `eead033f7d454180c61f1e49d7d66a233927c3c8`
+- Marketing version / build: 2.4 / 59
+- Installation source: TestFlight (`3235fff4-515a-40db-9239-41338ec34ead`)
 - iPhone model / iOS / UDID:
 - iPad model / iPadOS / UDID:
 - Paired Apple Watch model / watchOS (integration source only; no Marble Watch app):

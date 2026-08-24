@@ -60,16 +60,17 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-08-23)
+## Current state (2026-08-24)
 
-App Store **2.3 build 56 is live**. The AI-first Add candidate is **2.4 build 59**
-at application-source commit `c8200e2`; promotion to `main`, TestFlight, and the
-2.4 App Store draft is tracked in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
-TestFlight 2.4 build 58 remains `VALID` and `IN_BETA_TESTING` in internal
-**test group A** until build 59 finishes processing. App Store 2.4 remains a
-`PREPARE_FOR_SUBMISSION` draft and is not yet in public review.
+App Store **2.3 build 56 remains live**. The AI-first Add release is **2.4 build
+59** at application-source commit `c8200e2`, built from merged `main` SHA
+`eead033f7d454180c61f1e49d7d66a233927c3c8`. Build 59 is `VALID` and
+`IN_BETA_TESTING` in internal **test group A**. App Store 2.4 is
+`WAITING_FOR_REVIEW`; it uses manual release, so 2.3 remains public until Apple
+approves 2.4 and a separate release action is completed. Exact IDs and workflow
+evidence are tracked in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
 
-- **AI-first Add** (2.4 build 59 candidate `c8200e2`): Add replaces Train as the
+- **AI-first Add** (2.4 build 59, feature source `c8200e2`): Add replaces Train as the
   default tab. Paste or type plain-language prose, gym notation, multi-day Notes,
   or a Hevy/Strong CSV; Apple Intelligence structures prose on device when
   available, while deterministic parsing handles notation and fallback. Users
