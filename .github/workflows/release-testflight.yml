@@ -85,9 +85,9 @@ jobs:
           xcodebuild -version
 
       - name: Setup App Store Connect CLI
-        uses: rudrankriyam/setup-asc@v1
+        uses: rudrankriyam/setup-asc@5358c70a27a3f0d1517604b0f1fdc43e70c1cc4d # v1.0.1
         with:
-          version: latest
+          version: 4.9.0
 
       - name: Import signing identity and profiles
         run: scripts/ci_import_signing.sh

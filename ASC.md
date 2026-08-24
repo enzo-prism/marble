@@ -6,8 +6,8 @@ instead of re-discovering the release setup.
 
 ## Current Baseline
 
-- Installed CLI checked on 2026-07-23: `asc 2.8.2`
-- Install source: Homebrew `homebrew/core/asc`
+- Installed CLI checked on 2026-08-23: `asc 4.9.0` (`563ee9e`)
+- Install source: verified official arm64 release asset at `/Users/enzo/.local/bin/asc`
 - Public CLI docs: https://docs.asccli.sh/
 - CLI project: https://github.com/rorkai/App-Store-Connect-CLI
 - Apple App Store Connect API docs: https://developer.apple.com/documentation/appstoreconnectapi
@@ -29,10 +29,10 @@ project-local notes.
 - Archive path: `.asc/artifacts/marble.xcarchive`
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
-- Live App Store version: `2.3` (build 56), verified public 2026-08-21
-- Working project version: `2.4` (build 57, TestFlight `WAITING_FOR_BETA_REVIEW`).
+- Live App Store version: `2.3` (build 56), verified in ASC 2026-08-23
+- Working project version: `2.4` (build 58, TestFlight `IN_BETA_TESTING` internally).
   App Store draft `a368547f-2331-4856-a064-8357f21ea9e2` is
-  `PREPARE_FOR_SUBMISSION`; build 58 is next.
+  `PREPARE_FOR_SUBMISSION` with build 58 attached; build 59 is next.
   The 2.3 train is closed (`ITMS-90186`) and already released.
 - Version review and validation of a **new** binary should use `2.4`. Do not
   target 2.2 or 2.3 for a new upload.
@@ -41,10 +41,11 @@ project-local notes.
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches. It is the dated source of truth; this file is the command reference.
-- **State as of 2026-08-21:** `2.3` (build 56) is live on the App Store.
-  TestFlight 2.4 build 57 is **`WAITING_FOR_BETA_REVIEW`** in external Test Group B.
-  App Store 2.4 is a `PREPARE_FOR_SUBMISSION` draft with build 57 attached; no public
-  App Review submission exists. Build 58 is next.
+- **State as of 2026-08-23:** `2.3` (build 56) is live on the App Store.
+  TestFlight 2.4 build 58 is **`IN_BETA_TESTING`** in internal `test group A`;
+  its external state is `READY_FOR_BETA_SUBMISSION`.
+  App Store 2.4 is a `PREPARE_FOR_SUBMISSION` draft with build 58 attached; no public
+  App Review submission exists. Build 59 is next.
 - Always run `make asc-version` before acting — the CLI can report a blank generated
   marketing version, so the Makefile prints a reliable fallback.
 - Do not cancel an in-flight review, upload a replacement build, or submit to
@@ -105,9 +106,10 @@ marketing version) for the next upload number.
 
 ## New Machine Checklist
 
-1. Upgrade `asc`.
+1. Install the pinned `asc` version documented above.
 2. Confirm auth storage and network validation.
 3. Confirm Xcode has the required iOS platform installed.
+   Keep Derived Data and compilation caches on the internal FileVault disk.
 4. Confirm `.asc/ExportOptions.plist` is present (it is tracked in git, so a clean clone has it).
 5. Confirm Apple agreements are current.
 6. Confirm signing/provisioning exists for the containing app and widget extension.
@@ -116,7 +118,6 @@ marketing version) for the next upload number.
 Recommended checks:
 
 ```bash
-brew update && brew upgrade homebrew/core/asc
 asc --version
 make asc-auth
 make asc-doctor
@@ -214,8 +215,8 @@ current CLI. `asc review status` and `asc review doctor` are better for review
 state and blocker diagnosis.
 
 For the next TestFlight build on the 2.4 train, use `make asc-next-build`; it reads
-`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. Build 57
-is already uploaded, so expect **58** — stop and reconcile if live ASC reports anything else.
+`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. Build 58
+is already uploaded, so expect **59** — stop and reconcile if live ASC reports anything else.
 
 ### Create A Deterministic Archive
 
@@ -298,11 +299,12 @@ make asc-publish-testflight \
   ASC_TESTFLIGHT_GROUP="test group A"
 ```
 
-Current phone-test state as of 2026-08-21:
+Current phone-test state as of 2026-08-23:
 
-- Build `2.4 (57)` is `VALID` in TestFlight:
-  `a8f9716a-5b39-4013-a795-181344ff54a6`.
-- `make asc-next-build` should report `58`; stop and reconcile if it does not.
+- Build `2.4 (58)` is `VALID` and `IN_BETA_TESTING` internally:
+  `b11df541-3c9e-42c1-8d26-9d21e7c4c958`.
+- External beta state is `READY_FOR_BETA_SUBMISSION`; no external submission was made.
+- `make asc-next-build` should report `59`; stop and reconcile if it does not.
 - Internal group `test group A` (`514a95e2-28fc-436b-b624-9aaec2963adc`) has
   `hasAccessToAllBuilds = true`, so no explicit per-group add is required.
 - External beta remains unsubmitted.
@@ -311,7 +313,7 @@ Useful verification commands:
 
 ```bash
 asc builds build-beta-detail view \
-  --build-id "a8f9716a-5b39-4013-a795-181344ff54a6" \
+  --build-id "b11df541-3c9e-42c1-8d26-9d21e7c4c958" \
   --output json --pretty
 
 asc testflight groups view \
@@ -340,8 +342,8 @@ target without explicit approval and a clean release branch. The target intentio
 requires `ASC_APPSTORE_PUBLISH_VERSION` so it cannot silently publish the local marketing
 version.
 
-As of 2026-08-21, `2.3` build 56 is public and App Store 2.4 draft
-`a368547f-2331-4856-a064-8357f21ea9e2` is staged with build 57 and metadata in
+As of 2026-08-23, `2.3` build 56 is public and App Store 2.4 draft
+`a368547f-2331-4856-a064-8357f21ea9e2` is staged with build 58 and metadata in
 `PREPARE_FOR_SUBMISSION`. It has not been submitted for public App Review. Submission
 still needs explicit approval — see "Current release decisions" in `RELEASE_HANDOFF.md`.
 

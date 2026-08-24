@@ -1,6 +1,6 @@
 # Marble Release Handoff
 
-**Last verified: 2026-08-21.** This file is the single source of truth for "where the
+**Last verified: 2026-08-23.** This file is the single source of truth for "where the
 project is right now." App Store review and ASC build state can change outside git, so
 always re-run the **Live state checks** (bottom of this file) before acting.
 
@@ -10,20 +10,25 @@ always re-run the **Live state checks** (bottom of this file) before acting.
 
 - **Public App Store:** 2.3 build 56 is live. Its shipped application source is PR #19
   merge `c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb` (Train / Log / Progress IA).
-- **Canonical baseline:** `origin/main` at `42b9061` is 2.4 build 57. The pushed
-  release-readiness branch is `origin/codex/marble-next-steps-20260821` at `39704d9`;
-  the active local candidate contains additional integrated changes on top of it.
-- **TestFlight:** 2.4 build 57 is `VALID`, assigned to external **Test Group B**, and
-  `WAITING_FOR_BETA_REVIEW` (submitted 2026-08-21). Build 58 is next.
+- **Canonical baseline:** `origin/main` at `fc37b171f323de89cf99503981ce5eb2f4ed2d78`
+  is the exact 2.4 build 58 source uploaded by Actions run `32595166557`.
+- **TestFlight:** 2.4 build 58 (`b11df541-3c9e-42c1-8d26-9d21e7c4c958`) is `VALID`
+  and `IN_BETA_TESTING` in internal **test group A**. Its external state is
+  `READY_FOR_BETA_SUBMISSION`; no external beta submission is active. Build 59 is next.
 - **App Review:** App Store 2.4 draft `a368547f-2331-4856-a064-8357f21ea9e2` is
-  `PREPARE_FOR_SUBMISSION`, with build 57 and en-US metadata attached. It has **not**
+  `PREPARE_FOR_SUBMISSION`, with build 58 and en-US metadata attached. It has **not**
   been submitted for public App Review.
 - **Release boundary:** do not re-release 2.3, submit 2.4 for public App Review, bump a
   build, or upload a replacement without fresh live checks and explicit approval.
 
 ---
 
-## 2.4 Bulk import honesty — TestFlight VALID (build 57)
+The dated sections below preserve historical release evidence. When a historical snapshot
+conflicts with the current snapshot above, the current snapshot wins.
+
+---
+
+## 2.4 Bulk import honesty — historical TestFlight build 57
 
 **On `main` (PR #24 merge `df05585`, 2026-08-20).** `MARKETING_VERSION = 2.4`,
 `CURRENT_PROJECT_VERSION = 57`. Apple closed the **2.3** train: uploading another
@@ -772,12 +777,18 @@ Because the Live Activity widget is now embedded, export signing also needs a pr
 profile for `Prism.marble.MarbleWidgets`.
 
 **Build 48 signing refresh (2026-07-24):** the older active profiles above were tied to a
-distribution certificate whose private key is not installed on this Mac. Two replacement
-App Store profiles were created with the installed Apple Distribution certificate
+distribution certificate whose private key was not installed on this Mac. Two replacement
+App Store profiles were created with the then-installed Apple Distribution certificate
 `9M47KCWLU8` and are now pinned in the project and both export-options files:
 
 - `Prism marble App Store build 48 2026-07-24` (`G545NTS973`)
 - `Prism marble MarbleWidgets App Store build 48 2026-07-24` (`JF52GQ2SSV`)
+
+**Current local signing check (2026-08-23):** both pinned profiles are ACTIVE and were
+reinstalled into both Xcode profile directories. The matching `9M47KCWLU8` certificate and
+private-key identity are not present in the default local keychains, so local archive/export
+remains blocked. The GitHub Actions signing bundle is healthy and produced build 58; do not
+rotate it or change the pinned profiles until the matching local PKCS#12 can be identified.
 
 **Resolution used for build 23**:
 - ASC Bundle ID `Prism.marble.MarbleWidgets` exists (`4L93LB6CMY`).
@@ -810,21 +821,18 @@ Notes:
 
 ---
 
-## Current release decisions (2026-08-21)
+## Current release decisions (2026-08-23)
 
 - 2.3 build 56 is already public. Do not invoke another release operation for it.
-- 2.4 build 57 is `VALID`, in external Test Group B, and waiting for Beta App Review.
+- 2.4 build 58 is `VALID` and `IN_BETA_TESTING` in internal test group A. External beta is
+  `READY_FOR_BETA_SUBMISSION`, so no external Beta App Review is active.
   The App Store 2.4 draft exists in `PREPARE_FOR_SUBMISSION`; no public App Review
-  submission exists. Build 58 is next if a replacement is explicitly approved.
-- Build 57 was archived from `df05585`. The current integrated candidate includes later app
-  and accessibility changes, so those changes require build 58 and exact-binary TestFlight,
-  soak, and device verification; build 57 cannot prove them.
-- The external soak has not started. Build 57 beta-usage metrics report **1 install,
-  1 invite, 0 sessions, 0 crashes, and 0 feedback**. Test Group B and build 57 have no
-  directly attached testers and group tester-usage has 0 rows. App-wide P30D metrics
-  separately report 15 sessions from one tester, so they cannot be attributed to build 57.
-  Public-link usage is unavailable because ASC returned malformed/null metrics, not a
-  verified zero.
+  submission exists. Build 59 is next if a replacement is explicitly approved.
+- Build 58 was archived from exact source `fc37b171f323de89cf99503981ce5eb2f4ed2d78`,
+  which is also current `origin/main`. Do not merge maintenance-only release-tooling changes
+  into `main` until the next binary plan is chosen, or exact SHA parity will be lost.
+- The external build-58 soak has not started because build 58 has not been submitted to an
+  external group. Internal availability does not prove external beta behavior.
 - The draft's live App Review notes still start with `# Marble 2.2 review notes` and are
   2,311 characters. Replace them with `AppStore/review/2.4.md` before public submission;
   the prepared replacement is 3,792 characters and fits the 4,000-character limit.
@@ -906,11 +914,11 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
-- `origin/main` is the canonical development baseline: `42b9061`, 2.4 build 57;
-  the pushed release-readiness branch is `origin/codex/marble-next-steps-20260821` at
-  `39704d9`, with the active local candidate layered on top.
-  TestFlight build 57 is `WAITING_FOR_BETA_REVIEW`. Released to users: **2.3 (build
-  56)**. App Store 2.4 is a `PREPARE_FOR_SUBMISSION` draft and is not in public review.
+- `origin/main` is the exact 2.4 build 58 source at
+  `fc37b171f323de89cf99503981ce5eb2f4ed2d78`. TestFlight build 58 is `VALID` and
+  `IN_BETA_TESTING` internally; external state is `READY_FOR_BETA_SUBMISSION`.
+  Released to users: **2.3 (build 56)**. App Store 2.4 is a `PREPARE_FOR_SUBMISSION`
+  draft with build 58 attached and is not in public review.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
   holds the Empire source — the branches named `empire-gamification` and
@@ -932,8 +940,8 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # expect MARKETING_VERSION 2.4, CURRENT_PROJECT_VERSION 57
+make asc-version      # expect MARKETING_VERSION 2.4, CURRENT_PROJECT_VERSION 58
 make asc-status
 make asc-builds
-make asc-next-build   # expect 58; stop and reconcile if ASC reports anything else
+make asc-next-build   # expect 59; stop and reconcile if ASC reports anything else
 ```
