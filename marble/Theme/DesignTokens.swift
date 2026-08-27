@@ -18,6 +18,7 @@ enum MarbleCornerRadius {
 }
 
 enum MarbleLayout {
+    static let minimumTouchTarget: CGFloat = 44
     static let pagePadding: CGFloat = MarbleSpacing.m
     static let formMaxWidth: CGFloat = 680
     static let dashboardMaxWidth: CGFloat = 900

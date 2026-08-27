@@ -77,7 +77,7 @@ final class TrendsSnapshotTests: SnapshotTestCase {
             reps: 5
         )
 
-        let view = TrendsView()
+        let view = TrendsView(initiallyShowsDetails: true)
             .modelContainer(container)
             .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_DailyHighlights")

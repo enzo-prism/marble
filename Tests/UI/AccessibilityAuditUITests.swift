@@ -58,6 +58,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             accessibilityAudit: true
         )
         navigateToTab(.trends)
+        revealDetailedTrends()
         waitForIdentifier("Trends.DailyHighlights", timeout: 8)
         try runAudit(name: "DailyHighlights_\(appearance.envValue)_Default")
     }
@@ -104,8 +105,11 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         try runAudit(name: "Supplements_Populated_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.trends)
+        waitForIdentifier("Trends.Overview.Status", timeout: 8)
+        try runAudit(name: "Trends_Overview_\(appearance.envValue)_\(sizeLabel)")
+        revealDetailedTrends()
         waitForIdentifier("Trends.DailyHighlights", timeout: 8)
-        try runAudit(name: "Trends_Populated_\(appearance.envValue)_\(sizeLabel)")
+        try runAudit(name: "Trends_Detailed_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.journal)
         openAddSet()
@@ -367,9 +371,6 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         // dedicated XXXL UI tests verify that the actions grow and remain hittable.
         if app.descendants(matching: .any).matching(identifier: "Workout.List").firstMatch.exists {
             return label == "Start Workout" || label == "Edit Workout Plan"
-        }
-        if app.scrollViews["Trends.Scroll"].exists {
-            return label == "Explore Detailed Analytics" || label == "Hide Detailed Analytics"
         }
         return false
     }

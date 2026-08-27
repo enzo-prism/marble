@@ -7,6 +7,7 @@ final class TrendsSmokeUITests: MarbleUITestCase {
             nowISO8601: MarbleUITestCase.fixtureNowISO8601(hour: 21)
         )
         navigateToTab(.trends)
+        revealDetailedTrends()
 
         let highlights = waitForIdentifier("Trends.DailyHighlights", timeout: 10)
         XCTAssertTrue(highlights.exists)
@@ -42,6 +43,7 @@ final class TrendsSmokeUITests: MarbleUITestCase {
             nowISO8601: MarbleUITestCase.fixtureNowISO8601(hour: 12)
         )
         navigateToTab(.trends)
+        revealDetailedTrends()
 
         let hiddenHighlights = app.descendants(matching: .any)
             .matching(identifier: "Trends.DailyHighlights")
@@ -56,12 +58,32 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         )
         navigateToTab(.trends)
 
-        let scrollView = app.scrollViews["Trends.Scroll"]
         let toggle = app.descendants(matching: .any).matching(identifier: "Trends.Details.Toggle").firstMatch
-        scrollToElement(toggle, in: scrollView)
         waitFor(toggle, timeout: 8)
         XCTAssertTrue(toggle.isHittable)
-        XCTAssertGreaterThan(toggle.frame.height, 80, "The detailed analytics action should grow to fit its wrapped label")
+        XCTAssertEqual(toggle.label, "Details")
+        XCTAssertGreaterThanOrEqual(toggle.frame.width, 44, "The Details action should retain comfortable horizontal reach")
+        XCTAssertGreaterThanOrEqual(
+            toggle.frame.height,
+            36,
+            "System navigation controls expose a 36-point visual frame while the navigation bar supplies the full hit region"
+        )
+    }
+
+    func testProgressOverviewKeepsDetailedDataOutOfTheDefaultState() {
+        launchApp(fixtureMode: "populated")
+        navigateToTab(.trends)
+
+        waitForIdentifier("Trends.Overview.Status", timeout: 8)
+        let details = waitForIdentifier("Trends.Details.Toggle", timeout: 8)
+        XCTAssertTrue(details.isHittable)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "Trends.Range").firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "Trends.DailyHighlights").firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "Trends.Focus").firstMatch.exists)
+
+        forceTap(details)
+        waitForIdentifier("Trends.Range", timeout: 8)
+        waitForIdentifier("Trends.Details.Overview", timeout: 8)
     }
 
     func testTrendsChartsRender() {

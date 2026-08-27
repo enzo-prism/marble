@@ -17,6 +17,7 @@ struct TrendsView: View {
     private let initialSupplementType: SupplementType?
     private let initialSelectedSupplementDay: Date?
     private let prioritizesInitialDetail: Bool
+    private let initiallyShowsDetails: Bool
 
     init(
         initialRange: TrendRange = .thirtyDays,
@@ -25,7 +26,8 @@ struct TrendsView: View {
         initialSelectedWeekStart: Date? = nil,
         initialSupplementType: SupplementType? = nil,
         initialSelectedSupplementDay: Date? = nil,
-        prioritizesInitialDetail: Bool = false
+        prioritizesInitialDetail: Bool = false,
+        initiallyShowsDetails: Bool = false
     ) {
         _range = State(initialValue: initialRange)
         self.initialExercise = initialExercise
@@ -34,6 +36,7 @@ struct TrendsView: View {
         self.initialSupplementType = initialSupplementType
         self.initialSelectedSupplementDay = initialSelectedSupplementDay
         self.prioritizesInitialDetail = prioritizesInitialDetail
+        self.initiallyShowsDetails = initiallyShowsDetails
     }
 
     var body: some View {
@@ -44,7 +47,8 @@ struct TrendsView: View {
             initialSelectedWeekStart: initialSelectedWeekStart,
             initialSupplementType: initialSupplementType,
             initialSelectedSupplementDay: initialSelectedSupplementDay,
-            prioritizesInitialDetail: prioritizesInitialDetail
+            prioritizesInitialDetail: prioritizesInitialDetail,
+            initiallyShowsDetails: initiallyShowsDetails
         )
     }
 }
@@ -134,7 +138,8 @@ struct TrendsContentView: View {
         initialSelectedWeekStart: Date? = nil,
         initialSupplementType: SupplementType? = nil,
         initialSelectedSupplementDay: Date? = nil,
-        prioritizesInitialDetail: Bool = false
+        prioritizesInitialDetail: Bool = false,
+        initiallyShowsDetails: Bool = false
     ) {
         _range = range
         _selectedExerciseID = State(initialValue: initialExercise?.id)
@@ -143,7 +148,8 @@ struct TrendsContentView: View {
         _selectedSupplementTypeID = State(initialValue: initialSupplementType?.id)
         _selectedSupplementDay = State(initialValue: initialSelectedSupplementDay)
         self.prioritizesInitialDetail = prioritizesInitialDetail
-        _showsDetailedAnalytics = State(initialValue: prioritizesInitialDetail)
+        _showsDetailedAnalytics = State(
+            initialValue: prioritizesInitialDetail || initiallyShowsDetails)
 
         // Rebuilt whenever the range changes (the shell re-inits this view):
         // ranged modes fetch only rows on/after the range start, served by the
@@ -167,216 +173,223 @@ struct TrendsContentView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                let signature = currentInputSignature(highlightOccurrence: nil)
-                let derived = derivedMemo.value(for: signature) {
-                    makeDerivedData(highlightOccurrence: nil)
-                }
-                VStack(alignment: .leading, spacing: MarbleSpacing.l) {
-                    let hasSetData = !derived.filteredEntries.isEmpty
-                    let hasSupplementData = !derived.filteredSupplementEntries.isEmpty
-
-                    rangePicker
-
-                    TimedDailyHighlightsSection(
-                        enabled: dailyHighlightsEnabled,
-                        window: dailyHighlightWindow,
-                        displayWeightUnit: WeightUnit(rawValue: preferredWeightUnitRaw) ?? .lb,
-                        latestEntryUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast,
-                        onCustomize: { isPresentingDailyHighlightsSettings = true }
-                    )
-
-                    if derived.consistencySnapshot.lifetimeSets > 0 && !prioritizesInitialDetail {
-                        TrendsFocusView(
-                            snapshot: derived.consistencySnapshot,
-                            weeklyTarget: $weeklyTarget,
-                            report: derived.monthlyReport,
-                            assessments: derived.strengthAssessments,
-                            onSelectExercise: { selectedExerciseID = $0 },
-                            onOpenReport: { monthlyReportForSheet = $0 }
-                        )
+            GeometryReader { proxy in
+                ScrollView {
+                    let signature = currentInputSignature(highlightOccurrence: nil)
+                    let derived = derivedMemo.value(for: signature) {
+                        makeDerivedData(highlightOccurrence: nil)
                     }
+                    VStack(alignment: .leading, spacing: MarbleSpacing.xxl) {
+                        let hasSetData = !derived.filteredEntries.isEmpty
+                        let hasSupplementData = !derived.filteredSupplementEntries.isEmpty
 
-                    if (hasSetData || hasSupplementData) && !prioritizesInitialDetail {
-                        Button {
-                            if reduceMotion {
-                                showsDetailedAnalytics.toggle()
-                            } else {
-                                withAnimation(.snappy) {
-                                    showsDetailedAnalytics.toggle()
-                                }
-                            }
-                        } label: {
-                            Label(
-                                title: {
-                                    Text(showsDetailedAnalytics ? "Hide Detailed Analytics" : "Explore Detailed Analytics")
-                                        .fixedSize(horizontal: false, vertical: true)
-                                },
-                                icon: {
-                                    Image(systemName: showsDetailedAnalytics ? "chevron.up" : "chart.xyaxis.line")
-                                }
+                        if showsDetailedAnalytics {
+
+                            ProgressDetailHeading(title: "Summary")
+
+                            rangePicker
+
+                            TimedDailyHighlightsSection(
+                                enabled: dailyHighlightsEnabled,
+                                window: dailyHighlightWindow,
+                                displayWeightUnit: WeightUnit(rawValue: preferredWeightUnitRaw)
+                                    ?? .lb,
+                                latestEntryUpdate: latestUpdatedEntries.first?.updatedAt
+                                    ?? .distantPast,
+                                onCustomize: { isPresentingDailyHighlightsSettings = true }
                             )
-                            .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
-                        .accessibilityIdentifier("Trends.Details.Toggle")
-                    }
 
-                    if !hasSetData && !hasSupplementData {
-                        EmptyStateView(
-                            title: "No trend data yet",
-                            message: "Log sets or supplements to see trends.",
-                            systemImage: "chart.line.uptrend.xyaxis"
-                        )
-                            .accessibilityIdentifier("Trends.EmptyState")
-                    } else if showsDetailedAnalytics {
-                        if let liftBests = derived.liftBests {
-                            LiftBestsHighlightView(bests: liftBests)
-                        }
-                        trendSummaryStrip(derived: derived)
-
-                        if hasSetData {
-                            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                Text("Consistency")
-                                    .font(MarbleTypography.sectionTitle)
-                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                                consistencyChart(derived: derived)
+                            if derived.consistencySnapshot.lifetimeSets > 0
+                                && !prioritizesInitialDetail
+                            {
+                                TrendsFocusView(
+                                    snapshot: derived.consistencySnapshot,
+                                    weeklyTarget: $weeklyTarget,
+                                    report: derived.monthlyReport,
+                                    assessments: derived.strengthAssessments,
+                                    onSelectExercise: { selectedExerciseID = $0 },
+                                    onOpenReport: { monthlyReportForSheet = $0 }
+                                )
                             }
 
-                            if selectedExercise == nil, !derived.strengthAssessments.isEmpty {
-                                StrengthDashboardView(assessments: derived.strengthAssessments) { exerciseID in
-                                    selectedExerciseID = exerciseID
+                            if !hasSetData && !hasSupplementData {
+                                EmptyStateView(
+                                    title: "No trend data yet",
+                                    message: "Log sets or supplements to see trends.",
+                                    systemImage: "chart.line.uptrend.xyaxis"
+                                )
+                                .accessibilityIdentifier("Trends.EmptyState")
+                            } else {
+                                ProgressDetailHeading(title: "Training")
+
+                                if let liftBests = derived.liftBests {
+                                    LiftBestsHighlightView(bests: liftBests)
                                 }
-                            }
+                                trendSummaryStrip(derived: derived)
 
-                            if selectedExercise != nil {
-                                VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                    Text("Progress")
-                                        .font(MarbleTypography.sectionTitle)
-                                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                                    if derived.progressPoints.isEmpty {
-                                        Text("No progress yet")
-                                            .font(MarbleTypography.rowMeta)
-                                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                                    } else {
-                                        ExerciseProgressChart(points: derived.progressPoints, isScrubbing: $isScrubbingChart) { date in
-                                            sheetDestination = .day(date)
+                                if hasSetData {
+                                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                                        Text("Consistency")
+                                            .font(MarbleTypography.sectionTitle)
+                                            .foregroundStyle(
+                                                Theme.primaryTextColor(for: colorScheme))
+                                        consistencyChart(derived: derived)
+                                    }
+
+                                    if selectedExercise == nil, !derived.strengthAssessments.isEmpty
+                                    {
+                                        StrengthDashboardView(
+                                            assessments: derived.strengthAssessments
+                                        ) { exerciseID in
+                                            selectedExerciseID = exerciseID
                                         }
                                     }
+
+                                    if selectedExercise != nil {
+                                        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                                            Text("Progress")
+                                                .font(MarbleTypography.sectionTitle)
+                                                .foregroundStyle(
+                                                    Theme.primaryTextColor(for: colorScheme))
+                                            if derived.progressPoints.isEmpty {
+                                                Text("No progress yet")
+                                                    .font(MarbleTypography.rowMeta)
+                                                    .foregroundStyle(
+                                                        Theme.secondaryTextColor(for: colorScheme))
+                                            } else {
+                                                ExerciseProgressChart(
+                                                    points: derived.progressPoints,
+                                                    isScrubbing: $isScrubbingChart
+                                                ) { date in
+                                                    sheetDestination = .day(date)
+                                                }
+                                            }
+                                        }
+
+                                        if let oneRepMaxSeries = derived.oneRepMaxSeries {
+                                            VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                                                OneRepMaxSectionView(
+                                                    series: oneRepMaxSeries,
+                                                    accessibilityValue: derived
+                                                        .oneRepMaxAccessibilityValue
+                                                )
+                                                // Renders nothing unless a bodyweight
+                                                // sits within 14 days of a training day.
+                                                RelativeStrengthLine(series: oneRepMaxSeries)
+                                            }
+                                        }
+
+                                        if let hint = derived.doubleProgressionHint {
+                                            DoubleProgressionHintView(hint: hint)
+                                        }
+
+                                        if !derived.repRecords.isEmpty {
+                                            RepRecordsSectionView(records: derived.repRecords)
+                                        }
+                                    }
+
+                                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                                        Text("Weekly Volume")
+                                            .font(MarbleTypography.sectionTitle)
+                                            .foregroundStyle(
+                                                Theme.primaryTextColor(for: colorScheme))
+                                        volumeChart(derived: derived)
+                                    }
+
+                                    if !derived.muscleCoverage.isEmpty {
+                                        MuscleGroupSectionView(
+                                            groups: derived.muscleCoverage,
+                                            accessibilityValue: derived
+                                                .muscleGroupAccessibilityValue
+                                        )
+                                    }
+
+                                    if !derived.repRangeBuckets.isEmpty {
+                                        RepRangeSectionView(buckets: derived.repRangeBuckets)
+                                    }
+
+                                    if derived.effortSummaries.count > 1 {
+                                        EffortSectionView(
+                                            summaries: derived.effortSummaries,
+                                            usesWeeks: consistencyUsesWeeks,
+                                            accessibilityValue: derived.effortAccessibilityValue
+                                        )
+                                    }
+                                } else {
+                                    Text("No workout data for this range.")
+                                        .font(MarbleTypography.rowMeta)
+                                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                                 }
 
-                                if let oneRepMaxSeries = derived.oneRepMaxSeries {
-                                    VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                                        OneRepMaxSectionView(
-                                            series: oneRepMaxSeries,
-                                            accessibilityValue: derived.oneRepMaxAccessibilityValue
-                                        )
-                                        // Renders nothing unless a bodyweight
-                                        // sits within 14 days of a training day.
-                                        RelativeStrengthLine(series: oneRepMaxSeries)
+                                ProgressDetailHeading(title: "Body & Habits")
+
+                                // Outside the hasSetData guard on purpose: a user with
+                                // no sets in range can still be invited to weigh in.
+                                BodyweightTrendSection(
+                                    range: range,
+                                    onLogWeight: { isPresentingWeightEntry = true },
+                                    onShowHistory: { isPresentingWeightHistory = true }
+                                )
+
+                                supplementsSection(derived: derived)
+
+                                if hasSetData {
+                                    ProgressDetailHeading(title: "Milestones")
+                                }
+
+                                if hasSetData, !derived.prEvents.isEmpty {
+                                    PRFeedSectionView(events: derived.prEvents)
+                                }
+
+                                if hasSetData {
+                                    SprintTrendsSection(
+                                        entries: entries,
+                                        latestEntryUpdate: latestUpdatedEntries.first?.updatedAt
+                                            ?? .distantPast
+                                    )
+                                }
+
+                                if hasSetData {
+                                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                                        // Range-scoped bests — distinct on purpose from
+                                        // the all-time records in the feed above.
+                                        Text("Range Bests")
+                                            .font(MarbleTypography.sectionTitle)
+                                            .foregroundStyle(
+                                                Theme.primaryTextColor(for: colorScheme)
+                                            )
+                                            .accessibilityHidden(true)
+                                        prCards(derived: derived)
                                     }
                                 }
-
-                                if let hint = derived.doubleProgressionHint {
-                                    DoubleProgressionHintView(hint: hint)
-                                }
-
-                                if !derived.repRecords.isEmpty {
-                                    RepRecordsSectionView(records: derived.repRecords)
-                                }
-                            }
-
-                            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                Text("Weekly Volume")
-                                    .font(MarbleTypography.sectionTitle)
-                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                                volumeChart(derived: derived)
-                            }
-
-                            if !derived.muscleCoverage.isEmpty {
-                                MuscleGroupSectionView(
-                                    groups: derived.muscleCoverage,
-                                    accessibilityValue: derived.muscleGroupAccessibilityValue
-                                )
-                            }
-
-                            if !derived.repRangeBuckets.isEmpty {
-                                RepRangeSectionView(buckets: derived.repRangeBuckets)
-                            }
-
-                            if derived.effortSummaries.count > 1 {
-                                EffortSectionView(
-                                    summaries: derived.effortSummaries,
-                                    usesWeeks: consistencyUsesWeeks,
-                                    accessibilityValue: derived.effortAccessibilityValue
-                                )
                             }
                         } else {
-                            Text("No workout data for this range.")
-                                .font(MarbleTypography.rowMeta)
-                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        }
-
-                        // Outside the hasSetData guard on purpose: a user with
-                        // no sets in range can still be invited to weigh in.
-                        BodyweightTrendSection(
-                            range: range,
-                            onLogWeight: { isPresentingWeightEntry = true },
-                            onShowHistory: { isPresentingWeightHistory = true }
-                        )
-                        .padding(.top, MarbleSpacing.xxl)
-
-                        supplementsSection(derived: derived)
-                            .padding(.top, MarbleSpacing.xxl)
-
-                        if hasSetData, !derived.prEvents.isEmpty {
-                            PRFeedSectionView(events: derived.prEvents)
-                                .padding(.top, MarbleSpacing.xxl)
-                        }
-
-                        if hasSetData {
-                            SprintTrendsSection(
-                                entries: entries,
-                                latestEntryUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast
-                            )
-                            .padding(.top, MarbleSpacing.xxl)
-                        }
-
-                        if hasSetData {
-                            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                // Range-scoped bests — distinct on purpose from
-                                // the all-time records in the feed above.
-                                Text("Range Bests")
-                                    .font(MarbleTypography.sectionTitle)
-                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                                    .accessibilityHidden(true)
-                                prCards(derived: derived)
-                            }
+                            ProgressOverviewView(snapshot: derived.consistencySnapshot)
+                                .padding(.horizontal, MarbleSpacing.xs)
+                                .frame(
+                                    minHeight: max(proxy.size.height - MarbleSpacing.xxl, 0),
+                                    alignment: .topLeading
+                                )
                         }
                     }
-
+                    .padding(MarbleLayout.pagePadding)
+                    .frame(maxWidth: MarbleLayout.dashboardMaxWidth)
+                    .frame(maxWidth: .infinity)
                 }
-                .padding(MarbleLayout.pagePadding)
-                .frame(maxWidth: MarbleLayout.dashboardMaxWidth)
-                .frame(maxWidth: .infinity)
+                .safeAreaInset(edge: .bottom) {
+                    Color.clear
+                        .frame(height: MarbleSpacing.xxl)
+                        .accessibilityHidden(true)
+                }
+                .scrollDisabled(isScrubbingChart)
+                .accessibilityIdentifier("Trends.Scroll")
             }
-            .safeAreaInset(edge: .bottom) {
-                Color.clear
-                    .frame(height: MarbleSpacing.xxl)
-                    .accessibilityHidden(true)
-            }
-            .scrollDisabled(isScrubbingChart)
-            .accessibilityIdentifier("Trends.Scroll")
             .background(Theme.backgroundColor(for: colorScheme).ignoresSafeArea())
             .navigationTitle("Progress")
-            .navigationSubtitle(selectedExerciseName)
+            .navigationSubtitle(showsDetailedAnalytics ? selectedExerciseName : "")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    exerciseSearchButton
-                }
-            }
+            .toolbar { progressToolbar }
             .background(Theme.backgroundColor(for: colorScheme).ignoresSafeArea())
         }
         .sheet(item: $sheetDestination) { destination in
@@ -386,7 +399,9 @@ struct TrendsContentView: View {
                     DayDetailsSheet(date: date, entries: entriesForDay(date))
                 case .week(let weekStart):
                     let weekEnd = TrendsDateHelper.endOfWeek(for: weekStart)
-                    WeekDetailsSheet(weekStart: weekStart, weekEnd: weekEnd, entries: entriesForWeek(weekStart: weekStart))
+                    WeekDetailsSheet(
+                        weekStart: weekStart, weekEnd: weekEnd,
+                        entries: entriesForWeek(weekStart: weekStart))
                 case .supplementDay(let date):
                     SupplementDayDetailsSheet(date: date, entries: supplementEntriesForDay(date))
                 case .supplementWeek(let weekStart):
@@ -445,23 +460,81 @@ struct TrendsContentView: View {
             clearSelections()
         }
         .onChange(of: selectedDay) { _, newValue in
-            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, !TestHooks.isAppStoreScreenshotting else { return }
+            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit,
+                !TestHooks.isAppStoreScreenshotting
+            else { return }
             if let day = newValue {
                 openConsistencyDrilldown(for: day)
             }
         }
         .onChange(of: selectedWeekStart) { _, newValue in
-            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, !TestHooks.isAppStoreScreenshotting else { return }
+            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit,
+                !TestHooks.isAppStoreScreenshotting
+            else { return }
             if let weekStart = newValue {
                 sheetDestination = .week(weekStart)
             }
         }
         .onChange(of: selectedSupplementDay) { _, newValue in
-            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit, !TestHooks.isAppStoreScreenshotting else { return }
+            guard TestHooks.isUITesting, !TestHooks.isAccessibilityAudit,
+                !TestHooks.isAppStoreScreenshotting
+            else { return }
             if let day = newValue {
                 openSupplementDrilldown(for: day)
             }
         }
+    }
+
+    @ToolbarContentBuilder
+    private var progressToolbar: some ToolbarContent {
+        if showsDetailedAnalytics {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(action: showOverview) {
+                    Text("Overview")
+                        .font(MarbleTypography.button)
+                        .frame(minHeight: MarbleLayout.minimumTouchTarget)
+                        .contentShape(Rectangle())
+                }
+                .controlSize(.large)
+                .accessibilityHint("Returns to the minimal Progress overview")
+                .accessibilityIdentifier("Trends.Details.Overview")
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                exerciseSearchButton
+            }
+        } else {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: showDetails) {
+                    Text("Details")
+                        .font(MarbleTypography.button)
+                        .frame(minHeight: MarbleLayout.minimumTouchTarget)
+                        .contentShape(Rectangle())
+                }
+                .controlSize(.large)
+                .accessibilityHint("Shows goals, charts, records, body metrics, and supplements")
+                .accessibilityIdentifier("Trends.Details.Toggle")
+            }
+        }
+    }
+
+    private func showDetails() {
+        setDetailedAnalyticsVisible(true)
+    }
+
+    private func showOverview() {
+        setDetailedAnalyticsVisible(false)
+    }
+
+    private func setDetailedAnalyticsVisible(_ isVisible: Bool) {
+        if reduceMotion {
+            showsDetailedAnalytics = isVisible
+        } else {
+            withAnimation(.snappy) {
+                showsDetailedAnalytics = isVisible
+            }
+        }
+        MarbleHaptics.selection()
     }
 
     private func makeDerivedData(highlightOccurrence: DailyHighlightOccurrence?) -> TrendsDerivedData {
@@ -565,15 +638,36 @@ struct TrendsContentView: View {
         return supplementTypes.first { $0.id == selectedSupplementTypeID }
     }
 
+    @ViewBuilder
     private var rangePicker: some View {
-        Picker("Range", selection: $range) {
-            ForEach(TrendRange.allCases) { range in
-                Text(range.label).tag(range)
+        if dynamicTypeSize.isAccessibilitySize {
+            HStack(spacing: MarbleSpacing.s) {
+                Text("Range")
+                    .font(MarbleTypography.rowTitle)
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+
+                Spacer(minLength: MarbleSpacing.s)
+
+                Picker("Range", selection: $range) {
+                    ForEach(TrendRange.allCases) { range in
+                        Text(range.label).tag(range)
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(Theme.primaryTextColor(for: colorScheme))
+                .accessibilityIdentifier("Trends.Range")
             }
+            .frame(minHeight: 44)
+        } else {
+            Picker("Range", selection: $range) {
+                ForEach(TrendRange.allCases) { range in
+                    Text(range.label).tag(range)
+                }
+            }
+            .pickerStyle(.segmented)
+            .tint(Theme.primaryTextColor(for: colorScheme))
+            .accessibilityIdentifier("Trends.Range")
         }
-        .pickerStyle(.segmented)
-        .tint(Theme.primaryTextColor(for: colorScheme))
-        .accessibilityIdentifier("Trends.Range")
     }
 
     private var exerciseSearchButton: some View {

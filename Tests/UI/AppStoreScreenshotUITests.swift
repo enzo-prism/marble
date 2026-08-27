@@ -87,12 +87,8 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
 
     func test05StrengthTrends() {
         launchScreenshotApp(initialTab: "trends")
-        _ = waitForIdentifier("Trends.Focus", timeout: 15)
-        let dailyHighlights = app.descendants(matching: .any)
-            .matching(identifier: "Trends.DailyHighlights")
-            .firstMatch
-        scrollToElement(dailyHighlights, in: app)
-        _ = waitForIdentifier("Trends.DailyHighlights", timeout: 15)
+        _ = waitForIdentifier("Trends.Overview.Status", timeout: 15)
+        _ = waitForIdentifier("Trends.Details.Toggle", timeout: 15)
         takeScreenshot("05-strength-trends")
     }
 
