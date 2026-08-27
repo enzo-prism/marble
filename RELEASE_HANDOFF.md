@@ -1,6 +1,6 @@
 # Marble Release Handoff
 
-**Live GitHub, TestFlight, and App Review state verified: 2026-08-24.**
+**Live GitHub, TestFlight, and App Review state verified: 2026-08-27.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
 ---
@@ -8,18 +8,18 @@ External state can change outside git, so always re-run the **Live state checks*
 ## Current release snapshot
 
 - **Current candidate:** exact GitHub `main` source
-  `9e8346f6cad4683991a78fbaf223baaf01e9f068` is uploaded as 2.4 build 61.
+  `bfcb9a5b3924e7e4e433c8d9f04c8432d71f9bbe` is uploaded as 2.4 build 62.
 
 - **Public App Store (US storefront verified 2026-08-24):** 2.3 build 56 is live. Its shipped application source is PR #19
   merge `c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb` (Train / Log / Progress IA).
 - **App identity:** App Store Connect app `6757725234`, bundle ID `Prism.marble`.
-- **Canonical release source:** `origin/main` merge
-  `9e8346f6cad4683991a78fbaf223baaf01e9f068` is the exact source uploaded as
-  2.4 build 61. Exact-main CI run `32771324947` passed.
-- **TestFlight:** 2.4 build 61 (`bbea8736-b964-4175-8c9c-b140ebcea4c1`) is
+- **Canonical release source:** `origin/main`
+  `bfcb9a5b3924e7e4e433c8d9f04c8432d71f9bbe` is the exact source uploaded as
+  2.4 build 62. Exact-main CI run `33100185442` passed.
+- **TestFlight:** 2.4 build 62 (`c7bf290e-388d-4761-b7a0-8c1987ecd2d7`) is
   `VALID` and `IN_BETA_TESTING` in internal **test group A**. Its external state
   is `READY_FOR_BETA_SUBMISSION`; external beta was not requested. TestFlight workflow
-  `32772039189` archived, signed, exported, uploaded, and processed the exact main SHA.
+  `33100988181` archived, signed, exported, uploaded, and processed the exact main SHA.
   Strict validation is 0 errors, 0 warnings, 0 blockers, and 0 informational findings.
 - **App Review:** 2.4 build 61 is `WAITING_FOR_REVIEW`; submission
   `ce4a0d8a-f5ea-4d1e-9463-03937e467343` was created 2026-08-24 at
@@ -32,7 +32,42 @@ External state can change outside git, so always re-run the **Live state checks*
 
 ---
 
-## 2.4 build 61 — current TestFlight and App Review candidate
+## 2.4 build 62 — current internal TestFlight candidate
+
+**Exact uploaded GitHub `main` source:**
+`bfcb9a5b3924e7e4e433c8d9f04c8432d71f9bbe`
+
+**App Store Connect build ID / state:**
+`c7bf290e-388d-4761-b7a0-8c1987ecd2d7` — `VALID`, internal
+`IN_BETA_TESTING`, external `READY_FOR_BETA_SUBMISSION`
+
+**GitHub evidence:** exact-main CI `33100185442` passed; TestFlight workflow
+`33100988181` passed from tag
+`publish/testflight/20260827T175640Z-bfcb9a5`.
+
+**TestFlight validation:** 0 errors, 0 warnings, 0 blockers, 0 informational findings.
+The en-US What to Test note is attached through localization
+`24af7075-656c-4f6a-b3d6-6c3bac08abb4`. Internal **test group A** receives all builds.
+
+**App Review boundary:** the existing 2.4 build 61 submission
+`ce4a0d8a-f5ea-4d1e-9463-03937e467343` remains `WAITING_FOR_REVIEW` under manual
+release. Build 62 was not attached to App Review, external Beta App Review was not
+triggered, and no public release action was taken.
+
+- Replaces the dense default Progress page with a quiet weekly status and a single
+  Details action, preserving generous whitespace across iPhone and iPad.
+- Organizes weekly goals, daily highlights, training analytics, reports, body metrics,
+  habits, supplements, and milestones in the detailed view.
+- Adds focused Progress navigation, accessibility, smoke, screenshot, and snapshot
+  coverage across light/dark, Larger Text, iPhone SE, regular iPhone, and iPad layouts.
+- Automated evidence before release: 812 unit tests passed with 1 intentional skip;
+  all 8 focused Progress snapshots, 4 Progress smoke UI tests, accessibility execution,
+  and 10 App Store screenshot flows passed. No SwiftData schema change (still V6).
+- Canonical internal acceptance copy is `AppStore/testflight/2.4-build-62.md`.
+
+---
+
+## 2.4 build 61 — current App Review candidate
 
 **Exact uploaded GitHub `main` source:**
 `9e8346f6cad4683991a78fbaf223baaf01e9f068`
