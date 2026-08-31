@@ -47,8 +47,8 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
     }
 
     /// Loads the model into memory ahead of the first parse so the processing phase
-    /// doesn't pay model-load latency. Call when an entry sheet appears; a no-op when
-    /// the model is unavailable.
+    /// doesn't pay model-load latency. Call only after a strong near-term signal,
+    /// such as focused typing in the workout editor; a no-op when unavailable.
     /// Workout text is the user's own content being transformed, not open-ended
     /// generation — the exact use case Apple's relaxed guardrail mode exists for.
     /// Default guardrails refuse benign gym prose ("leg day: squats five sets of

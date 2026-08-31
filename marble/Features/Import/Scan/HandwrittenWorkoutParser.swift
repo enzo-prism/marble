@@ -68,7 +68,8 @@ nonisolated struct WorkoutParseResult: Equatable, Sendable {
 /// Supported per-line patterns (the rules are intentionally explicit so behavior is
 /// predictable and regression-tested):
 ///   • Date headers — `M/D`, `M/D/YY`, `M/D/YYYY`, `YYYY-MM-DD` set the session date,
-///     as do the relative words "yesterday"/"today"/"tonight"/"last night".
+///     as do leading relative words when they are a standalone header or precede
+///     set notation ("yesterday" / "today Bench 3x8").
 ///   • Word-only lines (no digits) become the workout title — unless set rows or
 ///     bare set lines follow, in which case the line is the exercise name (the
 ///     Strong/Hevy/Notes layout: a name line, then its sets).
@@ -151,15 +152,28 @@ nonisolated enum HandwrittenWorkoutParser {
         /// next content line says which.
         var pendingWordLine: String? = nil
 
+        func appendNote(_ note: String) {
+            let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            if let existing = draft.notes?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !existing.isEmpty {
+                draft.notes = existing + "\n" + trimmed
+            } else {
+                draft.notes = trimmed
+            }
+        }
+
         /// Gives a pending word-only line its title role: the first one wins
-        /// (existing behavior), later ones are noise unless a set row promotes
-        /// them to an exercise name.
+        /// before any exercises. Once sets exist, trailing prose is a workout
+        /// note unless a following set row promotes it to an exercise name.
         func resolvePendingAsTitle() {
             guard let pending = pendingWordLine else { return }
             pendingWordLine = nil
-            if !titleAssigned, !isWeekday(pending) {
+            if draft.exercises.isEmpty, !titleAssigned, !isWeekday(pending) {
                 draft.title = cleanTitle(pending)
                 titleAssigned = true
+            } else if !isWeekday(pending) {
+                appendNote(pending)
             }
         }
 
@@ -186,7 +200,7 @@ nonisolated enum HandwrittenWorkoutParser {
 
             // Relative date words ("yesterday", "today") act like explicit date
             // headers: set the session date and leave the line.
-            if let relative = detectRelativeDate(in: line, referenceDate: referenceDate) {
+            if let relative = detectLeadingRelativeDate(in: line, referenceDate: referenceDate) {
                 if draft.performedAt == nil { draft.performedAt = relative.date }
                 line = normalize(line.replacingCharacters(in: relative.range, with: " "))
                 guard !line.isEmpty else { continue }
@@ -1154,11 +1168,14 @@ nonisolated enum HandwrittenWorkoutParser {
         HandwrittenWorkoutDateParser.numberedSessionHeaderRemainder(rawLine)
     }
 
-    private static func detectRelativeDate(
+    private static func detectLeadingRelativeDate(
         in line: String,
         referenceDate: Date
     ) -> HandwrittenWorkoutDateParser.Match? {
-        HandwrittenWorkoutDateParser.detectRelativeDate(in: line, referenceDate: referenceDate)
+        HandwrittenWorkoutDateParser.detectLeadingRelativeDate(
+            in: line,
+            referenceDate: referenceDate
+        )
     }
 
     private static func detectDate(

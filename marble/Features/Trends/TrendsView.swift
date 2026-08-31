@@ -124,12 +124,20 @@ struct TrendsContentView: View {
     @State private var isPresentingWeightEntry = false
     @State private var isPresentingWeightHistory = false
     @State private var isPresentingDailyHighlightsSettings = false
+    /// `@Query` updates cover rows in the visible range, while a context save
+    /// notification also catches deletion of older history used by lifetime
+    /// consistency and record analytics.
+    @State private var dataRevision = 0
     private let prioritizesInitialDetail: Bool
 
     // Caches the derived snapshot so scrubbing a chart (which mutates UI-only
     // state and re-runs `body`) doesn't re-filter/-group/-sort the full history
     // every frame. Rebuilt only when the signature below changes.
     @State private var derivedMemo = RenderMemo<TrendsInputSignature, TrendsDerivedData>()
+    // The quiet overview needs only the weekly consistency state. Keeping a
+    // separate memo means opening Progress does not also build charts, records,
+    // coaching, reports, and bodyweight analytics hidden behind Details.
+    @State private var overviewMemo = RenderMemo<TrendsOverviewSignature, TrainingConsistency.Snapshot>()
 
     init(
         range: Binding<TrendRange>,
@@ -175,15 +183,14 @@ struct TrendsContentView: View {
         NavigationStack {
             GeometryReader { proxy in
                 ScrollView {
-                    let signature = currentInputSignature(highlightOccurrence: nil)
-                    let derived = derivedMemo.value(for: signature) {
-                        makeDerivedData(highlightOccurrence: nil)
-                    }
                     VStack(alignment: .leading, spacing: MarbleSpacing.xxl) {
-                        let hasSetData = !derived.filteredEntries.isEmpty
-                        let hasSupplementData = !derived.filteredSupplementEntries.isEmpty
-
                         if showsDetailedAnalytics {
+                            let signature = currentInputSignature(highlightOccurrence: nil)
+                            let derived = derivedMemo.value(for: signature) {
+                                makeDerivedData(highlightOccurrence: nil)
+                            }
+                            let hasSetData = !derived.filteredEntries.isEmpty
+                            let hasSupplementData = !derived.filteredSupplementEntries.isEmpty
 
                             ProgressDetailHeading(title: "Summary")
 
@@ -364,7 +371,11 @@ struct TrendsContentView: View {
                                 }
                             }
                         } else {
-                            ProgressOverviewView(snapshot: derived.consistencySnapshot)
+                            let signature = currentOverviewSignature
+                            let snapshot = overviewMemo.value(for: signature) {
+                                makeOverviewSnapshot()
+                            }
+                            ProgressOverviewView(snapshot: snapshot)
                                 .padding(.horizontal, MarbleSpacing.xs)
                                 .frame(
                                     minHeight: max(proxy.size.height - MarbleSpacing.xxl, 0),
@@ -453,6 +464,14 @@ struct TrendsContentView: View {
             MarbleHaptics.selection()
             clearSelections()
         }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: ModelContext.didSave,
+                object: modelContext
+            )
+        ) { _ in
+            dataRevision &+= 1
+        }
         .onChange(of: selectedExerciseID) { _, _ in
             clearSelections()
         }
@@ -527,7 +546,10 @@ struct TrendsContentView: View {
     }
 
     private func setDetailedAnalyticsVisible(_ isVisible: Bool) {
-        if reduceMotion {
+        // Building the full analytics tree is intentionally deferred until
+        // Details opens. Insert it without a broad transition so large histories
+        // do not compete with an animation; the lightweight return can animate.
+        if reduceMotion || isVisible {
             showsDetailedAnalytics = isVisible
         } else {
             withAnimation(.snappy) {
@@ -552,6 +574,24 @@ struct TrendsContentView: View {
         )
     }
 
+    private func makeOverviewSnapshot() -> TrainingConsistency.Snapshot {
+        TrainingConsistency.snapshot(
+            history: fetchHistoryEntries(),
+            target: weeklyTarget,
+            now: AppEnvironment.now
+        )
+    }
+
+    private var currentOverviewSignature: TrendsOverviewSignature {
+        TrendsOverviewSignature(
+            visibleEntryCount: entries.count,
+            latestEntryUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast,
+            activeDay: activeDay,
+            weeklyTarget: weeklyTarget,
+            dataRevision: dataRevision
+        )
+    }
+
     private var dailyHighlightWindow: DailyHighlightWindow {
         DailyHighlightWindow(
             startMinute: dailyHighlightsStartMinute,
@@ -573,9 +613,8 @@ struct TrendsContentView: View {
     /// One-shot full-history fetch for the coaching layer (records, streaks,
     /// and verdicts describe the lifter, not the visible range). Runs only
     /// when the memo rebuilds — never per render — and reuses the live query
-    /// when the range is already unbounded. The freshness probe catches every
-    /// insert/edit; a deletion of a pre-range row can stay stale until the
-    /// next signature change, which is acceptable for a feed of past records.
+    /// when the range is already unbounded. The live freshness probe catches
+    /// inserts/edits and `dataRevision` catches deletes outside the range.
     private func fetchHistoryEntries() -> [SetEntry] {
         if range == .all { return Array(entries) }
         let descriptor = FetchDescriptor<SetEntry>()
@@ -604,7 +643,8 @@ struct TrendsContentView: View {
             dailyHighlightsStartMinute: dailyHighlightsStartMinute,
             dailyHighlightsEndMinute: dailyHighlightsEndMinute,
             preferredWeightUnitRaw: preferredWeightUnitRaw,
-            latestBodyweightUpdate: latestUpdatedBodyMetrics.first?.updatedAt ?? .distantPast
+            latestBodyweightUpdate: latestUpdatedBodyMetrics.first?.updatedAt ?? .distantPast,
+            dataRevision: dataRevision
         )
     }
 
@@ -2094,10 +2134,24 @@ struct TrendsInputSignature: Equatable {
     /// editing one has to invalidate the memo. Same one-row `updatedAt` probe the
     /// set and supplement signatures use.
     let latestBodyweightUpdate: Date
+    /// Context-save fallback catches deletions that leave one-row latest-update
+    /// probes unchanged, including history outside the selected range.
+    let dataRevision: Int
 }
 
-/// `nonisolated`: the pure analytics engines (`LifterAnalytics`,
-/// `ExerciseProgressBuilder`) take a range, and they run off the main actor.
+/// Compact invalidation key for the intentionally minimal Progress overview.
+/// The context revision closes the deletion gap in one-row query probes; even
+/// when another saved model invalidates it, only consistency is rebuilt.
+struct TrendsOverviewSignature: Equatable {
+    let visibleEntryCount: Int
+    let latestEntryUpdate: Date
+    let activeDay: Date
+    let weeklyTarget: Int
+    let dataRevision: Int
+}
+
+/// `nonisolated`: this value carries no UI state and is safe to pass into pure
+/// analytics work regardless of the caller's actor.
 nonisolated enum TrendRange: String, CaseIterable, Identifiable {
     case sevenDays
     case thirtyDays
