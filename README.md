@@ -61,17 +61,27 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-08-24)
+## Current state (2026-08-30)
 
-App Store **2.3 build 56 remains live**. The current AI-first Add release
-candidate in App Store Connect is **2.4 build 61**, uploaded from exact merged `main` source
-`9e8346f6cad4683991a78fbaf223baaf01e9f068`. Build 61 is `VALID` and
-`IN_BETA_TESTING` in internal **test group A**. App Store 2.4 is
+App Store **2.3 build 56 remains live**. The current internal TestFlight build is
+**2.4 build 63**, uploaded from exact merged `main` source
+`cbeb6d2f7131c14ab1327ff07e703f812a6fc754`. Build 63 is `VALID`,
+`IN_BETA_TESTING` in internal **test group A**, and strict TestFlight validation
+is clean. App Store 2.4 separately remains
 `WAITING_FOR_REVIEW` with build 61 attached under submission
 `ce4a0d8a-f5ea-4d1e-9463-03937e467343`; it uses manual release, so submission
-is not public production. The superseded build 60 submission was canceled and is
-`COMPLETE`. Exact IDs and workflow evidence are tracked in
+is not public production. Build 63 did not replace or modify that submission.
+Exact IDs and workflow evidence are tracked in
 [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
+
+- **Build 63 Add responsiveness + Progress performance** (exact uploaded `main`
+  source `cbeb6d2f7131c14ab1327ff07e703f812a6fc754`; App Store Connect build
+  `15fc9492-9fa6-487c-aa8c-271f5aefc867`): defers hidden Progress analytics until
+  Details, debounces/cancels live workout previews off the main actor, stabilizes
+  preview row identity, keeps relative-date prose as notes, and prevents unreadable
+  multi-workout blocks from disappearing. Exact-main CI passed 824 tests with one
+  intentional skip; TestFlight is `VALID` / `IN_BETA_TESTING` with clean strict
+  validation. App Review remains on build 61. No schema change (still V6).
 
 - **Build 61 UI and accessibility candidate** (exact uploaded `main` source
   `9e8346f6cad4683991a78fbaf223baaf01e9f068`; App Store Connect build

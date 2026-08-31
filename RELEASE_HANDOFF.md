@@ -1,6 +1,6 @@
 # Marble Release Handoff
 
-**Live GitHub, TestFlight, and App Review state verified: 2026-08-27.**
+**Live GitHub, TestFlight, and App Review state verified: 2026-08-30.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
 ---
@@ -8,18 +8,18 @@ External state can change outside git, so always re-run the **Live state checks*
 ## Current release snapshot
 
 - **Current candidate:** exact GitHub `main` source
-  `bfcb9a5b3924e7e4e433c8d9f04c8432d71f9bbe` is uploaded as 2.4 build 62.
+  `cbeb6d2f7131c14ab1327ff07e703f812a6fc754` is uploaded as 2.4 build 63.
 
 - **Public App Store (US storefront verified 2026-08-24):** 2.3 build 56 is live. Its shipped application source is PR #19
   merge `c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb` (Train / Log / Progress IA).
 - **App identity:** App Store Connect app `6757725234`, bundle ID `Prism.marble`.
 - **Canonical release source:** `origin/main`
-  `bfcb9a5b3924e7e4e433c8d9f04c8432d71f9bbe` is the exact source uploaded as
-  2.4 build 62. Exact-main CI run `33100185442` passed.
-- **TestFlight:** 2.4 build 62 (`c7bf290e-388d-4761-b7a0-8c1987ecd2d7`) is
+  `cbeb6d2f7131c14ab1327ff07e703f812a6fc754` is the exact source uploaded as
+  2.4 build 63. PR CI `33344445695` and exact-main CI `33350786978` passed.
+- **TestFlight:** 2.4 build 63 (`15fc9492-9fa6-487c-aa8c-271f5aefc867`) is
   `VALID` and `IN_BETA_TESTING` in internal **test group A**. Its external state
   is `READY_FOR_BETA_SUBMISSION`; external beta was not requested. TestFlight workflow
-  `33100988181` archived, signed, exported, uploaded, and processed the exact main SHA.
+  `33351130547` archived, signed, exported, uploaded, and processed the exact main SHA.
   Strict validation is 0 errors, 0 warnings, 0 blockers, and 0 informational findings.
 - **App Review:** 2.4 build 61 is `WAITING_FOR_REVIEW`; submission
   `ce4a0d8a-f5ea-4d1e-9463-03937e467343` was created 2026-08-24 at
@@ -32,7 +32,43 @@ External state can change outside git, so always re-run the **Live state checks*
 
 ---
 
-## 2.4 build 62 — current internal TestFlight candidate
+## 2.4 build 63 — current internal TestFlight candidate
+
+**Exact uploaded GitHub `main` source:**
+`cbeb6d2f7131c14ab1327ff07e703f812a6fc754`
+
+**App Store Connect build ID / state:**
+`15fc9492-9fa6-487c-aa8c-271f5aefc867` — `VALID`, internal
+`IN_BETA_TESTING`, external `READY_FOR_BETA_SUBMISSION`
+
+**GitHub evidence:** PR #31 candidate `d14350a4e8b0e5bcd3b4e26bfd24d4cae888df7f`
+passed CI `33344445695`; byte-identical merge source `cbeb6d2` passed exact-main
+CI `33350786978` with 824 tests executed, 1 intentional skip, and 0 failures.
+TestFlight workflow `33351130547` passed.
+
+**TestFlight validation:** 0 errors, 0 warnings, 0 blockers, 0 informational findings.
+The en-US What to Test note is attached through localization
+`72d21275-c2ea-4d9a-b0c3-cf39f21ec4b5`. Internal **test group A** receives all builds.
+
+**App Review boundary:** 2.4 build 61 remains attached to submission
+`ce4a0d8a-f5ea-4d1e-9463-03937e467343`, which is still `WAITING_FOR_REVIEW`
+under manual release. Build 63 was not attached, external Beta App Review was not
+triggered, and no public release action was taken.
+
+- Keeps the build-62 whitespace-first Progress overview while deferring charts,
+  records, reports, body metrics, and supplement analytics until Details opens.
+- Debounces live workout preview parsing off the main actor, cooperatively cancels
+  stale work, and keeps stable row identity during rapid typing.
+- Prevents relative-date prose from creating phantom workouts and keeps unreadable
+  multi-workout blocks visible and blocking until reviewed, avoiding silent loss.
+- Uses context-save invalidation so deleting older history refreshes Progress caches.
+- Local final snapshot/UI/accessibility/migration evidence remains incomplete after
+  actual host `ENOSPC`; do not use this internal build as public-release evidence.
+  Canonical acceptance copy is `AppStore/testflight/2.4-build-63.md`.
+
+---
+
+## 2.4 build 62 — prior internal TestFlight candidate
 
 **Exact uploaded GitHub `main` source:**
 `bfcb9a5b3924e7e4e433c8d9f04c8432d71f9bbe`

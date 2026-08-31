@@ -1,12 +1,13 @@
 # Marble Testing
 
-**Release snapshot (verified 2026-08-24):** build 61 was uploaded from exact merged
-`main` source `9e8346f6cad4683991a78fbaf223baaf01e9f068`; App Store Connect build
-`bbea8736-b964-4175-8c9c-b140ebcea4c1` is `VALID`, internal `IN_BETA_TESTING`, and
-external `READY_FOR_BETA_SUBMISSION`. Build 61 is attached to App Store 2.4;
-submission `ce4a0d8a-f5ea-4d1e-9463-03937e467343` is `WAITING_FOR_REVIEW` under
-manual release. The superseded build 60 submission is `COMPLETE`. Build 61 is not
-approved or publicly released; production remains 2.3 build 56.
+**Release snapshot (verified 2026-08-30):** internal TestFlight build 63 was
+uploaded from exact merged `main` source
+`cbeb6d2f7131c14ab1327ff07e703f812a6fc754`; App Store Connect build
+`15fc9492-9fa6-487c-aa8c-271f5aefc867` is `VALID`, internal `IN_BETA_TESTING`,
+external `READY_FOR_BETA_SUBMISSION`, and strict validation is clean. App Store
+2.4 separately remains `WAITING_FOR_REVIEW` with build 61 under submission
+`ce4a0d8a-f5ea-4d1e-9463-03937e467343`. Build 63 was not attached to App Review;
+production remains 2.3 build 56.
 
 ## Suites
 - Unit tests: `MarbleTests` (logic, seed data, date grouping, contrast, workout-import
@@ -108,14 +109,32 @@ for workflow testing, but it is not full release proof.
   orphan) and each backfill skip reason now enforced by the store predicate (missing
   duration, unprescribed exercise, invalid prescription).
 
-## Current suite inventory (counted from source, 2026-08-24)
+## Current suite inventory (counted from source, 2026-08-30)
 
-- `Tests/Unit/` — **74 files, 812 test methods**.
+- `Tests/Unit/` — **74 files, 824 test methods**.
 - `Tests/Snapshots/` — **16 test files, 49 test methods**. The full runner schedules
   39 result-bundle groups and fails immediately if a source test is omitted.
-- `Tests/UI/` — **21 files, 64 test methods**: **58 flow/focused accessibility cases**
-  run by `make ui`; `AccessibilityAuditUITests` contributes the 6 cases skipped there.
-  `make audit` runs those 6 plus the 2 focused largest-text suites.
+- `Tests/UI/` — **21 files, 65 test methods**. `make ui` excludes the dedicated
+  `AccessibilityAuditUITests`; `make audit` runs those audits plus focused largest-text suites.
+
+## Build 63 internal TestFlight verification (2026-08-30)
+
+- PR #31 candidate `d14350a4e8b0e5bcd3b4e26bfd24d4cae888df7f` passed CI
+  `33344445695`. Byte-identical merge source
+  `cbeb6d2f7131c14ab1327ff07e703f812a6fc754` passed exact-main CI
+  `33350786978`: **824 executed, 823 passed, 1 intentional skip, 0 failures**.
+- Before the final audit fixes, 108 focused parser/view-model tests passed and all
+  eight updated composer live-preview snapshots were visually reviewed and replayed.
+  The final local full snapshot/UI/accessibility/migration gate was attempted twice
+  but hit a real host `ENOSPC` during simulator install/linking. It is not claimed as
+  fresh build-63 evidence; build 63 remains internal TestFlight only.
+- TestFlight workflow `33351130547` archived, signed, exported, and uploaded exact
+  main. Build `15fc9492-9fa6-487c-aa8c-271f5aefc867` is `VALID`, internal
+  `IN_BETA_TESTING`, external `READY_FOR_BETA_SUBMISSION`, and strict validation is
+  0 errors, 0 warnings, 0 blockers, 0 informational findings. The en-US test note is
+  localization `72d21275-c2ea-4d9a-b0c3-cf39f21ec4b5`.
+- App Review 2.4 remains `WAITING_FOR_REVIEW` on build 61 and submission
+  `ce4a0d8a-f5ea-4d1e-9463-03937e467343`. No external beta or public release occurred.
 
 ## Suite inventory (counted from source, 2026-07-25 — build 49)
 - Build 49 additions: `Tests/Snapshots/WeeklyGoalWidgetSnapshotTests.swift` (9 cases × light/dark
