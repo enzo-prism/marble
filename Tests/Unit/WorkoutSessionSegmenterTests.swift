@@ -38,6 +38,39 @@ final class WorkoutSessionSegmenterTests: MarbleTestCase {
         XCTAssertEqual(WorkoutSessionSegmenter.segments(from: text, referenceDate: now).count, 2)
     }
 
+    func testRelativeDateInsideWorkoutNoteDoesNotSplitSession() {
+        let text = """
+        Bench 3x8 @ 185
+        Felt strong today
+        """
+
+        XCTAssertEqual(WorkoutSessionSegmenter.segments(from: text, referenceDate: now).count, 1)
+        XCTAssertFalse(
+            HandwrittenWorkoutParser.isSessionDateHeader(
+                "Felt strong today",
+                referenceDate: now
+            )
+        )
+    }
+
+    func testLeadingWeekdayTitlesStillSplitBuiltInMultiDayExample() {
+        let text = """
+        Monday — Push
+        Bench 3x8 @ 185 lb
+        Cable fly 3x12
+
+        Wednesday — Pull
+        Deadlift 3x5 @ 225 lb
+        Pull ups 3x8
+        """
+
+        let segments = WorkoutSessionSegmenter.segments(from: text, referenceDate: now)
+
+        XCTAssertEqual(segments.count, 2)
+        XCTAssertTrue(segments[0].hasPrefix("Monday — Push"))
+        XCTAssertTrue(segments[1].hasPrefix("Wednesday — Pull"))
+    }
+
     func testDateOnSetLineDoesNotSplit() {
         let text = """
         3/5 Bench 3x8 @ 185
@@ -117,6 +150,48 @@ final class HandwrittenWorkoutParserSessionHeaderTests: MarbleTestCase {
         XCTAssertTrue(HandwrittenWorkoutParser.isSessionDateHeader("3/5", referenceDate: now))
         XCTAssertTrue(HandwrittenWorkoutParser.isSessionDateHeader("2025-03-05", referenceDate: now))
         XCTAssertTrue(HandwrittenWorkoutParser.isSessionDateHeader("yesterday", referenceDate: now))
+    }
+
+    func testRelativeDateProseIsNotAHeader() {
+        XCTAssertFalse(
+            HandwrittenWorkoutParser.isSessionDateHeader(
+                "Felt strong today",
+                referenceDate: now
+            )
+        )
+        XCTAssertFalse(
+            HandwrittenWorkoutParser.isSessionDateHeader(
+                "Recovery felt better yesterday",
+                referenceDate: now
+            )
+        )
+        XCTAssertFalse(
+            HandwrittenWorkoutParser.isSessionDateHeader(
+                "Today felt strong",
+                referenceDate: now
+            )
+        )
+    }
+
+    func testLeadingWeekdayMayCarryWorkoutTitle() {
+        XCTAssertTrue(
+            HandwrittenWorkoutParser.isSessionDateHeader(
+                "Monday — Push",
+                referenceDate: now
+            )
+        )
+        XCTAssertTrue(
+            HandwrittenWorkoutParser.isSessionDateHeader(
+                "Wednesday — Pull",
+                referenceDate: now
+            )
+        )
+        XCTAssertTrue(
+            HandwrittenWorkoutParser.isSessionDateHeader(
+                "Today: Push",
+                referenceDate: now
+            )
+        )
     }
 
     func testDateWithExerciseIsNotHeader() {

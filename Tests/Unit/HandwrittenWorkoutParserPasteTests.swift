@@ -201,6 +201,30 @@ final class HandwrittenWorkoutParserPasteTests: MarbleTestCase {
         XCTAssertEqual(draft.exercises.map(\.name), ["Bench"])
     }
 
+    func testTrailingProseWithRelativeWordStaysAsWorkoutNote() {
+        let result = parseDetailed("""
+        Bench 3x8 @ 185
+        Felt strong today
+        """)
+
+        XCTAssertEqual(result.draft.exercises.map(\.name), ["Bench"])
+        XCTAssertEqual(result.draft.notes, "Felt strong today")
+        XCTAssertNil(result.draft.performedAt)
+        XCTAssertTrue(result.droppedLines.isEmpty)
+    }
+
+    func testLeadingRelativeProseAfterSetsStaysAsWorkoutNote() {
+        let result = parseDetailed("""
+        Bench 3x8 @ 185
+        Today felt strong
+        """)
+
+        XCTAssertEqual(result.draft.exercises.map(\.name), ["Bench"])
+        XCTAssertEqual(result.draft.notes, "Today felt strong")
+        XCTAssertNil(result.draft.performedAt)
+        XCTAssertTrue(result.droppedLines.isEmpty)
+    }
+
     // MARK: - Name cleanup
 
     func testEmojiBulletStripsFromName() {

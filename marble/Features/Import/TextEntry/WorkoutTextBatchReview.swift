@@ -11,10 +11,21 @@ struct WorkoutTextBatchReview: View {
     var body: some View {
         List {
             Section {
-                Text(summaryLine)
-                    .font(MarbleTypography.rowMeta)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                    Text(summaryLine)
+                        .font(MarbleTypography.rowMeta)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    if viewModel.unresolvedSessionCount > 0 {
+                        Label(
+                            unresolvedSummary,
+                            systemImage: "exclamationmark.circle"
+                        )
+                        .font(MarbleTypography.caption)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .accessibilityIdentifier("TextEntry.Batch.Unresolved")
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
             }
 
             Section {
@@ -59,11 +70,11 @@ struct WorkoutTextBatchReview: View {
                 Text(importTitle)
             }
             .buttonStyle(MarbleActionButtonStyle(
-                isEnabledOverride: !viewModel.importableSelectedSessions.isEmpty,
+                isEnabledOverride: viewModel.canCommitSelectedSessions,
                 expandsHorizontally: true,
                 prominence: .primary
             ))
-            .disabled(viewModel.importableSelectedSessions.isEmpty)
+            .disabled(!viewModel.canCommitSelectedSessions)
             .padding(.horizontal, MarbleSpacing.m)
             .padding(.bottom, MarbleSpacing.s)
             .accessibilityIdentifier("TextEntry.Batch.Import")
@@ -78,10 +89,16 @@ struct WorkoutTextBatchReview: View {
     }
 
     private var importTitle: String {
+        if viewModel.unresolvedSessionCount > 0 { return "Review All Workouts" }
         let workouts = viewModel.selectedSessionCount
         let sets = viewModel.selectedSetCount
         guard workouts > 0 else { return "Add to Journal" }
         return "Add \(workouts) workout\(workouts == 1 ? "" : "s") (\(sets) set\(sets == 1 ? "" : "s"))"
+    }
+
+    private var unresolvedSummary: String {
+        let count = viewModel.unresolvedSessionCount
+        return "\(count) workout\(count == 1 ? "" : "s") need review before this batch can be added."
     }
 
     @ViewBuilder
@@ -92,17 +109,21 @@ struct WorkoutTextBatchReview: View {
             } label: {
                 Image(systemName: session.alreadyImported
                       ? "checkmark.circle"
-                      : (session.selected ? "checkmark.circle.fill" : "circle"))
+                      : (!session.draft.hasContent
+                         ? "exclamationmark.circle"
+                         : (session.selected ? "checkmark.circle.fill" : "circle")))
                     .font(.system(size: 22, weight: .regular))
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             }
             .buttonStyle(.plain)
-            .disabled(session.alreadyImported)
+            .disabled(session.alreadyImported || !session.draft.hasContent)
             .frame(minWidth: 44, minHeight: 44)
             .accessibilityLabel(session.draft.title)
             .accessibilityValue(session.alreadyImported
                 ? "Already in your journal"
-                : (session.selected ? "Selected" : "Not selected"))
+                : (!session.draft.hasContent
+                   ? "Needs review"
+                   : (session.selected ? "Selected" : "Not selected")))
             .accessibilityIdentifier("TextEntry.Session.Toggle.\(session.id.uuidString)")
 
             Button {
@@ -123,6 +144,10 @@ struct WorkoutTextBatchReview: View {
                     }
                     if session.alreadyImported {
                         Text("Already in your journal")
+                            .font(MarbleTypography.caption)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    } else if !session.draft.hasContent {
+                        Text("Needs review before it can be added")
                             .font(MarbleTypography.caption)
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     } else if !session.unparsedLines.isEmpty {

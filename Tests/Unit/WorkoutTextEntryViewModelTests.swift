@@ -344,6 +344,90 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertNil(viewModel.livePreview)
     }
 
+    func testLivePreviewDoesNotInventWorkoutFromTrailingNote() {
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench Press 3x8 @ 185 lb\nFelt strong today"
+
+        viewModel.updateLivePreview()
+
+        XCTAssertEqual(viewModel.livePreview?.sessionCount, 1)
+        XCTAssertEqual(viewModel.livePreview?.totalSets, 3)
+        XCTAssertEqual(viewModel.livePreview?.recognized.map(\.name), ["Bench Press"])
+        XCTAssertTrue(viewModel.livePreview?.unrecognized.isEmpty ?? false)
+    }
+
+    func testLivePreviewKeepsDelimitedSessionCountWhenOneSessionIsUnrecognized() {
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        Monday
+        Bench Press 3x8 @ 185 lb
+
+        Tuesday
+        Movement details unavailable
+        """
+
+        viewModel.updateLivePreview()
+
+        XCTAssertEqual(viewModel.livePreview?.sessionCount, 2)
+        XCTAssertEqual(viewModel.livePreview?.recognized.count, 1)
+        XCTAssertEqual(viewModel.livePreview?.totalSets, 3)
+        XCTAssertTrue(
+            viewModel.livePreview?.unrecognized.contains("Movement details unavailable") ?? false
+        )
+    }
+
+    func testMultiSessionLivePreviewKeepsDropsFromRecognizedSession() {
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        Monday
+        Bench Press 3x8 @ 185 lb
+        round 2 of 3 felt easy
+
+        Tuesday
+        Squat 5x5 @ 225 lb
+        """
+
+        viewModel.updateLivePreview()
+
+        XCTAssertEqual(viewModel.livePreview?.sessionCount, 2)
+        XCTAssertEqual(viewModel.livePreview?.recognized.count, 2)
+        XCTAssertEqual(viewModel.livePreview?.totalSets, 8)
+        XCTAssertEqual(viewModel.livePreview?.unrecognized, ["round 2 of 3 felt easy"])
+    }
+
+    func testDebouncedLivePreviewNeverPublishesStaleText() async {
+        let viewModel = makeViewModel()
+        let staleText = "Bench 3x8 @ 185"
+        viewModel.text = staleText
+        let staleUpdate = Task { @MainActor in
+            await viewModel.updateLivePreview(
+                for: staleText,
+                debounce: .milliseconds(30)
+            )
+        }
+
+        await Task.yield()
+        let currentText = "Squat 5x5 @ 225"
+        viewModel.text = currentText
+        await viewModel.updateLivePreview(for: currentText, debounce: .zero)
+        await staleUpdate.value
+
+        XCTAssertEqual(viewModel.livePreview?.recognized.map(\.name), ["Squat"])
+        XCTAssertEqual(viewModel.livePreview?.totalSets, 5)
+    }
+
+    func testLivePreviewRowIdentityIsStableAcrossEquivalentParses() {
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 3x8 @ 185\nBench 2x5 @ 205"
+
+        viewModel.updateLivePreview()
+        let firstIDs = viewModel.livePreview?.recognized.map(\.id)
+        XCTAssertFalse(firstIDs?.isEmpty ?? true)
+        viewModel.updateLivePreview()
+
+        XCTAssertEqual(viewModel.livePreview?.recognized.map(\.id), firstIDs)
+    }
+
     // MARK: - Preferred weight unit
 
     func testUnitlessWeightsUseInjectedDefaultUnit() async {
@@ -598,6 +682,37 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertEqual(viewModel.sessions.map(\.draft.importableExercises.first?.name), ["Bench", "Squat"])
         XCTAssertTrue(viewModel.sessions.allSatisfy(\.selected))
         XCTAssertEqual(viewModel.selectedSetCount, 8)
+    }
+
+    func testMultiDayPastePreservesUnreadableSessionAndBlocksImport() async throws {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = """
+        Monday
+        Bench Press 3x8 @ 185 lb
+
+        Tuesday
+        Movement details unavailable
+        """
+
+        await viewModel.preview(in: context)
+
+        XCTAssertEqual(viewModel.phase, .batchReview)
+        XCTAssertEqual(viewModel.sessions.count, 2)
+        XCTAssertTrue(viewModel.sessions[0].draft.hasContent)
+        XCTAssertFalse(viewModel.sessions[1].draft.hasContent)
+        XCTAssertFalse(viewModel.sessions[1].selected)
+        XCTAssertEqual(viewModel.sessions[1].unparsedLines, ["Movement details unavailable"])
+        XCTAssertEqual(viewModel.unresolvedSessionCount, 1)
+        XCTAssertFalse(viewModel.canCommitSelectedSessions)
+
+        viewModel.toggleSessionSelected(viewModel.sessions[1].id)
+        XCTAssertFalse(viewModel.sessions[1].selected)
+
+        viewModel.commitSelected(into: context)
+        XCTAssertEqual(viewModel.phase, .batchReview)
+        XCTAssertNotNil(viewModel.errorMessage)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<SetEntry>()).isEmpty)
     }
 
     func testBatchCommitImportsTwoWorkoutsAndLinksLedger() async throws {

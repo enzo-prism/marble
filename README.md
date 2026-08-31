@@ -22,8 +22,9 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   **Personal-best (PR) badges** celebrate record sets right in the history, and the logging
   screen shows your current PR (heaviest + most reps) and usual range so you can shoot to
   beat it — with a live "New PR!" cue the moment your entry passes your best.
-- **Progress** — a focused weekly goal, priority lift, and monthly report first; detailed
-  consistency, volume, per-exercise, supplement, and PR charts remain one tap away.
+- **Progress** — a quiet weekly status and one Details action by default, with generous
+  whitespace; goals, highlights, training analytics, reports, body metrics, habits,
+  supplements, milestones, and records remain organized one tap away.
 - **Exercise library** — a searchable, category-filterable home for creating, favoriting,
   and safely editing reusable exercises. Explicit tracking types keep standard setup short,
   while Custom exposes every metric requirement. See

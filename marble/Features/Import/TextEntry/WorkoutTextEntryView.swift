@@ -40,6 +40,7 @@ struct WorkoutTextEntryView: View {
     private let onShowWorkout: (() -> Void)?
     private let prewarmsModel: Bool
     @State private var didAutoPreview = false
+    @State private var didPrewarmModel = false
 
     init(
         initialText: String = "",
@@ -109,10 +110,15 @@ struct WorkoutTextEntryView: View {
         } message: {
             Text("Choose how to handle the workout sent to Marble.")
         }
-        // Load the on-device model while the user is still typing, so the first
-        // parse doesn't pay model-load latency inside the processing spinner.
-        .task {
-            guard prewarmsModel else { return }
+        // Apple's Foundation Models guidance reserves prewarming for a strong
+        // near-term signal. The first typed character while the editor is
+        // focused is that signal; merely launching the default tab is not.
+        .task(id: textFocused && !viewModel.text.isEmpty) {
+            guard prewarmsModel,
+                  textFocused,
+                  !viewModel.text.isEmpty,
+                  !didPrewarmModel else { return }
+            didPrewarmModel = true
             FoundationModelsWorkoutScanParser.prewarm()
         }
         .task { clipboardHasText = UIPasteboard.general.hasStrings }
@@ -240,7 +246,9 @@ struct WorkoutTextEntryView: View {
                     .accessibilityIdentifier("TextEntry.Editor")
                     .accessibilityLabel("Workout text")
                     .accessibilityHint("Type or paste a workout in plain language or common workout notation.")
-                    .onChange(of: viewModel.text) { _, _ in viewModel.updateLivePreview() }
+                    .task(id: viewModel.text) {
+                        await viewModel.updateLivePreview(for: viewModel.text)
+                    }
                     .dropDestination(for: String.self) { items, _ in
                         guard let pasted = items.first else { return false }
                         viewModel.ingestPastedText(pasted)
@@ -411,8 +419,8 @@ struct WorkoutTextEntryView: View {
         .accessibilityIdentifier("TextEntry.Processing")
     }
 
-    /// Per-line feedback under the editor, recomputed per keystroke by the
-    /// deterministic parser: recognized exercises read as a confirmation, and
+    /// Per-line feedback under the editor, recomputed after a short typing
+    /// pause: recognized exercises read as a confirmation, and
     /// unrecognized lines are flagged while fixing them is cheapest — before
     /// Preview, not after.
     @ViewBuilder
@@ -422,7 +430,9 @@ struct WorkoutTextEntryView: View {
                 if preview.sessionCount > 1 {
                     Label(
                         "Looks like \(preview.sessionCount) workouts · \(preview.totalSets) sets",
-                        systemImage: "checkmark.circle.fill"
+                        systemImage: preview.unrecognized.isEmpty
+                            ? "checkmark.circle.fill"
+                            : "exclamationmark.circle"
                     )
                     .font(MarbleTypography.caption)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
@@ -431,6 +441,16 @@ struct WorkoutTextEntryView: View {
                         Text("\(line.name) · \(line.setCount) set\(line.setCount == 1 ? "" : "s")")
                             .font(MarbleTypography.caption)
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    }
+                    ForEach(Array(preview.unrecognized.prefix(4).enumerated()), id: \.offset) { _, line in
+                        Label(line, systemImage: "exclamationmark.circle")
+                            .font(MarbleTypography.caption)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    }
+                    if !preview.unrecognized.isEmpty {
+                        Text("\(preview.unrecognized.count) line\(preview.unrecognized.count == 1 ? "" : "s") need review before this batch can be added.")
+                            .font(MarbleTypography.caption)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.8))
                     }
                 } else {
                     ForEach(preview.recognized) { line in

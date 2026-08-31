@@ -88,8 +88,8 @@ final class WorkoutTextEntryViewModel {
     private var unparsedLineIDs: [UUID] = []
     private var retryingUnparsedLineIDs: Set<UUID> = []
     /// Debounced parse of the in-progress text for the input step's live
-    /// per-line feedback. Deterministic parser only — it is pure and cheap, and
-    /// the feedback must work on devices without the on-device model.
+    /// per-line feedback. Deterministic parser only, so feedback works on every
+    /// device; the pure parse runs off the main actor for responsive typing.
     private(set) var livePreview: LivePreview?
     /// Current pipeline stage while `phase == .processing` — drives the status
     /// copy beside an indeterminate spinner. Reset on every preview.
@@ -111,9 +111,11 @@ final class WorkoutTextEntryViewModel {
         var prExercises: [String]
     }
 
-    struct LivePreview: Equatable {
-        struct Recognized: Equatable, Identifiable {
-            var id: UUID
+    nonisolated struct LivePreview: Equatable, Sendable {
+        nonisolated struct Recognized: Equatable, Identifiable, Sendable {
+            /// Stable source-position identity keeps SwiftUI from replacing
+            /// every preview row after each debounced parse.
+            var id: String
             var name: String
             var setCount: Int
         }
@@ -181,7 +183,6 @@ final class WorkoutTextEntryViewModel {
         guard !incoming.isEmpty else { return }
         let existing = text.trimmingCharacters(in: .whitespacesAndNewlines)
         text = existing.isEmpty ? incoming : WorkoutImportOrchestrator.joinSources([existing, incoming])
-        updateLivePreview()
     }
 
     func ingestSources(_ parts: [String]) {
@@ -189,7 +190,6 @@ final class WorkoutTextEntryViewModel {
         guard !joined.isEmpty else { return }
         if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             text = joined
-            updateLivePreview()
         } else {
             ingestPastedText(joined)
         }
@@ -228,25 +228,38 @@ final class WorkoutTextEntryViewModel {
             batchProgress = (index + 1, segments.count)
             parseStage = .readingNotation
             let parsed = await parseSegment(segment, sessionCount: segments.count)
-            guard parsed.draft.hasContent else { continue }
+            let hasContent = parsed.draft.hasContent
+            // Keep an unreadable block in a real multi-workout paste so the
+            // review screen can point to it instead of silently dropping it.
+            // A wholly unreadable single workout keeps the existing inline
+            // guidance on the editor.
+            guard hasContent || segments.count > 1 else { continue }
 
             let externalID = WorkoutImportOrchestrator.externalID(for: segment)
-            let alreadyImported = (try? WorkoutScanImporter.alreadyImported(
-                externalID: externalID,
-                source: .textEntry,
-                in: context
-            )) ?? false
-            for exercise in parsed.draft.exercises {
-                resolutions[exercise.id] = makeResolution(for: exercise.name)
+            let alreadyImported: Bool
+            if hasContent {
+                alreadyImported = (try? WorkoutScanImporter.alreadyImported(
+                    externalID: externalID,
+                    source: .textEntry,
+                    in: context
+                )) ?? false
+                for exercise in parsed.draft.exercises {
+                    resolutions[exercise.id] = makeResolution(for: exercise.name)
+                }
+            } else {
+                alreadyImported = false
             }
+            let unparsedLines = hasContent || !parsed.unparsedLines.isEmpty
+                ? parsed.unparsedLines
+                : reviewLines(in: segment.sourceText)
             built.append(WorkoutImportSession(
                 sourceText: segment.sourceText,
                 externalID: externalID,
                 kind: segment.kind,
                 draft: parsed.draft,
-                unparsedLines: parsed.unparsedLines,
+                unparsedLines: unparsedLines,
                 alreadyImported: alreadyImported,
-                selected: !alreadyImported
+                selected: hasContent && !alreadyImported
             ))
         }
 
@@ -255,7 +268,7 @@ final class WorkoutTextEntryViewModel {
         batchProgress = nil
         sessions = built
 
-        guard !sessions.isEmpty else {
+        guard sessions.contains(where: { $0.draft.hasContent }) else {
             errorMessage = "Couldn't find any exercises in that text. Try one exercise per line, like \"Bench Press 3x8 @ 185, rest 90s\", or import a Hevy/Strong CSV."
             phase = .input
             return
@@ -325,8 +338,29 @@ final class WorkoutTextEntryViewModel {
     private func persistOpenReview() {
         guard let id = reviewingSessionID,
               let index = sessions.firstIndex(where: { $0.id == id }) else { return }
+        let previouslyHadContent = sessions[index].draft.hasContent
         sessions[index].draft = draft
         sessions[index].unparsedLines = unparsedLines
+        if !draft.hasContent {
+            sessions[index].selected = false
+        } else if !previouslyHadContent && !sessions[index].alreadyImported {
+            sessions[index].selected = true
+        }
+    }
+
+    /// User-relevant lines from a session the parser could not structure.
+    /// Date/session headers stay represented by the row's date/title and do not
+    /// inflate the "needs review" count.
+    private func reviewLines(in sourceText: String) -> [String] {
+        sourceText.split(whereSeparator: { $0.isNewline })
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter {
+                !$0.isEmpty
+                    && !HandwrittenWorkoutParser.isSessionSplitHeader(
+                        $0,
+                        referenceDate: AppEnvironment.now
+                    )
+            }
     }
 
     private func reloadMatcher(in context: ModelContext) {
@@ -399,56 +433,38 @@ final class WorkoutTextEntryViewModel {
 
     // MARK: - Live preview
 
-    /// Recomputes the input step's per-line feedback. Synchronous and cheap:
-    /// the deterministic parser is pure string work, so per-keystroke is fine.
+    /// Immediate seam for explicit refreshes and deterministic unit/snapshot
+    /// tests. Interactive typing uses the debounced async method below.
     func updateLivePreview() {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            livePreview = nil
-            return
-        }
-        let segments = WorkoutImportOrchestrator.segments(
-            from: trimmed,
+        livePreview = WorkoutLivePreviewBuilder.makePreview(
+            text: text,
             referenceDate: AppEnvironment.now,
             defaultWeightUnit: defaultWeightUnit
         )
-        if segments.count > 1 || segments.contains(where: { $0.draft != nil }) {
-            let drafts: [ParsedWorkoutDraft] = segments.compactMap { segment in
-                if let draft = segment.draft, draft.hasContent { return draft }
-                let parsed = HandwrittenWorkoutParser.parseDetailed(
-                    segment.sourceText,
-                    referenceDate: AppEnvironment.now,
-                    defaultWeightUnit: defaultWeightUnit
-                ).draft
-                return parsed.hasContent ? parsed : nil
-            }
-            livePreview = LivePreview(
-                recognized: drafts.map {
-                    LivePreview.Recognized(
-                        id: $0.exercises.first?.id ?? UUID(),
-                        name: $0.title,
-                        setCount: $0.totalSetCount
-                    )
-                },
-                unrecognized: [],
-                sessionCount: max(drafts.count, segments.count),
-                totalSets: drafts.reduce(0) { $0 + $1.totalSetCount }
-            )
+    }
+
+    /// Waits for a short typing pause, builds off the main actor, then applies
+    /// only if this text is still current. SwiftUI also cancels the enclosing
+    /// `task(id:)`, while the equality checks protect non-view callers.
+    func updateLivePreview(
+        for sourceText: String,
+        debounce: Duration = .milliseconds(180)
+    ) async {
+        do {
+            try await Task.sleep(for: debounce)
+        } catch {
             return
         }
-        let result = HandwrittenWorkoutParser.parseDetailed(
-            trimmed,
-            referenceDate: AppEnvironment.now,
+        guard !Task.isCancelled, sourceText == text else { return }
+
+        let referenceDate = AppEnvironment.now
+        let preview = await WorkoutLivePreviewBuilder.build(
+            text: sourceText,
+            referenceDate: referenceDate,
             defaultWeightUnit: defaultWeightUnit
         )
-        livePreview = LivePreview(
-            recognized: result.draft.importableExercises.map {
-                LivePreview.Recognized(id: $0.id, name: $0.trimmedName, setCount: $0.sets.count)
-            },
-            unrecognized: result.droppedLines,
-            sessionCount: 1,
-            totalSets: result.draft.totalSetCount
-        )
+        guard !Task.isCancelled, sourceText == text else { return }
+        livePreview = preview
     }
 
     /// Exercises that will create a new library row as things stand.
@@ -534,6 +550,17 @@ final class WorkoutTextEntryViewModel {
         sessions.filter { $0.selected && $0.draft.hasContent && !$0.alreadyImported }
     }
 
+    /// Detected workout boundaries that still have no importable set. These
+    /// stay visible in batch review and block saving so source text cannot be
+    /// discarded without an explicit fix.
+    var unresolvedSessionCount: Int {
+        sessions.filter { !$0.draft.hasContent }.count
+    }
+
+    var canCommitSelectedSessions: Bool {
+        unresolvedSessionCount == 0 && !importableSelectedSessions.isEmpty
+    }
+
     var alreadyImportedSessionCount: Int {
         sessions.filter(\.alreadyImported).count
     }
@@ -549,7 +576,7 @@ final class WorkoutTextEntryViewModel {
 
     func toggleSessionSelected(_ id: UUID) {
         guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
-        guard !sessions[index].alreadyImported else { return }
+        guard !sessions[index].alreadyImported, sessions[index].draft.hasContent else { return }
         sessions[index].selected.toggle()
     }
 
@@ -676,6 +703,10 @@ final class WorkoutTextEntryViewModel {
 
     func commitSelected(into context: ModelContext) {
         persistOpenReview()
+        guard unresolvedSessionCount == 0 else {
+            errorMessage = "Review each workout that Marble couldn't read before adding this batch."
+            return
+        }
         let selected = importableSelectedSessions
         guard !selected.isEmpty else {
             if alreadyImportedSessionCount > 0 {
@@ -893,6 +924,5 @@ final class WorkoutTextEntryViewModel {
     func startNewWorkout(with initialText: String) {
         reset()
         text = initialText
-        updateLivePreview()
     }
 }

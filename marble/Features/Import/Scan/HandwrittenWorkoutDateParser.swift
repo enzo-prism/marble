@@ -23,25 +23,31 @@ nonisolated enum HandwrittenWorkoutDateParser {
         guard !line.isEmpty else { return false }
 
         var remainder = line
-        var foundDate = false
-        if let relative = detectRelativeDate(in: remainder, referenceDate: referenceDate) {
-            foundDate = true
-            remainder = HandwrittenWorkoutText.normalize(
-                remainder.replacingCharacters(in: relative.range, with: " ")
-            )
-        }
+        var foundExplicitDate = false
         if let match = detectDate(in: remainder, referenceDate: referenceDate) {
-            foundDate = true
+            foundExplicitDate = true
             remainder = HandwrittenWorkoutText.normalize(
                 remainder.replacingCharacters(in: match.range, with: " ")
             )
         }
-        guard foundDate else { return false }
+        var foundRelativeDate = false
+        if let relative = detectLeadingRelativeDate(in: remainder, referenceDate: referenceDate) {
+            foundRelativeDate = true
+            remainder = HandwrittenWorkoutText.normalize(
+                remainder.replacingCharacters(in: relative.range, with: " ")
+            )
+        }
+        guard foundExplicitDate || foundRelativeDate else { return false }
         remainder = remainder.trimmingCharacters(
             in: CharacterSet.punctuationCharacters.union(.whitespacesAndNewlines)
         )
         if remainder.isEmpty { return true }
-        if HandwrittenWorkoutText.isWeekday(remainder) { return true }
+
+        // Relative words are common in ordinary notes ("Felt strong today"),
+        // so only a leading relative date can introduce a boundary. A leading
+        // weekday/date may still carry a word-only workout title, preserving
+        // inputs such as "Monday — Push" and "Push day 3/5" while rejecting
+        // lines that also contain set notation.
         return HandwrittenWorkoutText.isWordOnly(remainder)
     }
 
@@ -88,6 +94,31 @@ nonisolated enum HandwrittenWorkoutDateParser {
         return Match(date: shifted, range: range)
     }
 
+    /// Relative dates describe a workout only when they lead the line. This
+    /// keeps prose such as "Felt strong today" intact as a note instead of
+    /// changing the workout date or creating a false session boundary. A
+    /// word-only title after the date needs a visible separator, which keeps
+    /// "Today felt strong" as prose while preserving "Today — Push".
+    static func detectLeadingRelativeDate(in line: String, referenceDate: Date) -> Match? {
+        guard let match = detectRelativeDate(in: line, referenceDate: referenceDate) else {
+            return nil
+        }
+        let prefix = line[..<match.range.lowerBound].trimmingCharacters(
+            in: CharacterSet.punctuationCharacters.union(.whitespacesAndNewlines)
+        )
+        guard prefix.isEmpty else { return nil }
+
+        let suffix = line[match.range.upperBound...].trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard !suffix.isEmpty else { return match }
+        if let first = suffix.first, relativeTitleSeparators.contains(first) {
+            return match
+        }
+
+        return HandwrittenWorkoutText.isWordOnly(String(suffix)) ? nil : match
+    }
+
     static func detectDate(in line: String, referenceDate: Date) -> Match? {
         if let iso = isoDateRegex, let match = firstMatch(iso, in: line),
            let year = intGroup(match, 1, line),
@@ -123,6 +154,7 @@ nonisolated enum HandwrittenWorkoutDateParser {
     private static let relativeDateRegex = try? NSRegularExpression(
         pattern: #"(?i)\b(yesterday|last night|this morning|tonight|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|weds|thu|thur|thurs|fri|sat|sun)\b"#
     )
+    private static let relativeTitleSeparators: Set<Character> = [":", "-", "–", "—", "|", "•"]
     private static let numberedSessionHeaderRegex = try? NSRegularExpression(
         pattern: #"^(?i)(day|session|workout)\s+(\d{1,2})(?:\s*[:.\-]\s*(.*))?$"#
     )
