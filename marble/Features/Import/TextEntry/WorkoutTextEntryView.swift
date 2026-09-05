@@ -693,6 +693,8 @@ struct WorkoutTextEntryView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            // Keep the first review heading clear of the navigation scroll edge.
+            .contentMargins(.top, MarbleSpacing.s, for: .scrollContent)
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundColor(for: colorScheme))
             .clipped()
