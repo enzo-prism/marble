@@ -1,6 +1,7 @@
 import SnapshotTesting
 import SwiftUI
 import UIKit
+import Vision
 import XCTest
 @testable import marble
 
@@ -19,13 +20,20 @@ func assertHistorySnapshot<V: View>(
         let activityName = "\(name)_\(variant.suffix)"
         XCTContext.runActivity(named: activityName) { _ in
             autoreleasepool {
+                guard let scene = UIApplication.shared.connectedScenes
+                    .compactMap({ $0 as? UIWindowScene })
+                    .first(where: { $0.activationState == .foregroundActive }) else {
+                    XCTFail("History snapshots require an active UIWindowScene", file: file, line: line)
+                    return
+                }
+                let previousKeyWindow = scene.windows.first(where: \.isKeyWindow)
                 let root = UIViewController()
                 let host = UIHostingController(rootView: content()
                     .environment(\.colorScheme, variant.colorScheme)
                     .environment(\.sizeCategory, variant.sizeCategory)
                     .environment(\.marbleActiveDay, DateHelper.startOfDay(for: SnapshotFixtures.now))
                     .transaction { $0.disablesAnimations = true })
-                let window = HistorySnapshotWindow(size: variant.device.size, insets: variant.device.safeArea)
+                let window = HistorySnapshotWindow(scene: scene, size: variant.device.size, insets: variant.device.safeArea)
                 let style: UIUserInterfaceStyle = variant.colorScheme == .dark ? .dark : .light
                 window.overrideUserInterfaceStyle = style
                 root.addChild(host)
@@ -41,7 +49,10 @@ func assertHistorySnapshot<V: View>(
                 root.setOverrideTraitCollection(traits, forChild: host)
                 host.didMove(toParent: root)
                 window.rootViewController = root
-                window.isHidden = false
+                window.makeKeyAndVisible()
+                window.frame = CGRect(origin: .zero, size: variant.device.size)
+                root.view.frame = window.bounds
+                host.view.frame = root.view.bounds
                 root.beginAppearanceTransition(true, animated: false)
                 root.endAppearanceTransition()
                 defer {
@@ -49,25 +60,18 @@ func assertHistorySnapshot<V: View>(
                     root.endAppearanceTransition()
                     window.isHidden = true
                     window.rootViewController = nil
+                    previousKeyWindow?.makeKey()
                 }
 
                 // Unlike the shared pre-host delay, these turns happen after
                 // List and NavigationStack have joined a visible window.
-                let earliestCapture = Date().addingTimeInterval(0.5)
-                let deadline = Date().addingTimeInterval(3)
-                var labels: String = ""
+                let settleUntil = Date().addingTimeInterval(0.75)
                 repeat {
                     root.view.setNeedsLayout()
                     root.view.layoutIfNeeded()
                     host.view.layoutIfNeeded()
                     RunLoop.main.run(until: Date().addingTimeInterval(0.1))
-                    labels = historyAccessibilityLabels(in: root.view).joined(separator: "\n")
-                } while Date() < deadline && (Date() < earliestCapture || !expectedText.allSatisfy(labels.contains))
-                guard expectedText.allSatisfy(labels.contains) else {
-                    XCTFail("History snapshot did not render expected content: \(expectedText). Labels: \(labels)", file: file, line: line)
-                    return
-                }
-                RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+                } while Date() < settleUntil
                 root.view.layoutIfNeeded()
                 let format = UIGraphicsImageRendererFormat()
                 format.scale = 3
@@ -78,6 +82,22 @@ func assertHistorySnapshot<V: View>(
                 }
                 guard rendered else {
                     XCTFail("History window failed to render", file: file, line: line)
+                    return
+                }
+                do {
+                    let recognized = try historyRecognizedText(in: image)
+                    let normalized = normalizeHistoryText(recognized)
+                    guard !normalized.isEmpty,
+                          expectedText.allSatisfy({ normalized.contains(normalizeHistoryText($0)) }) else {
+                        let attachment = XCTAttachment(image: image)
+                        attachment.name = "MissingContent_\(activityName)"
+                        attachment.lifetime = .keepAlways
+                        XCTContext.runActivity(named: "Inspect failed History capture") { $0.add(attachment) }
+                        XCTFail("History capture is blank or missing expected text \(expectedText). OCR: \(recognized)", file: file, line: line)
+                        return
+                    }
+                } catch {
+                    XCTFail("History capture OCR failed: \(error)", file: file, line: line)
                     return
                 }
                 let verify = {
@@ -95,33 +115,27 @@ func assertHistorySnapshot<V: View>(
 }
 
 @MainActor
-private func historyAccessibilityLabels(in view: UIView) -> [String] {
-    var visited = Set<ObjectIdentifier>()
-    var labels: [String] = []
-    func visit(_ object: NSObject) {
-        guard visited.insert(ObjectIdentifier(object)).inserted else { return }
-        if let label = object.accessibilityLabel { labels.append(label) }
-        if let view = object as? UIView { view.subviews.forEach(visit) }
-        if let elements = object.accessibilityElements {
-            elements.compactMap { $0 as? NSObject }.forEach(visit)
-        }
-        let count = object.accessibilityElementCount()
-        if count > 0 && count < 1_000 {
-            for index in 0..<count {
-                if let element = object.accessibilityElement(at: index) as? NSObject { visit(element) }
-            }
-        }
-    }
-    visit(view)
-    return labels
+private func historyRecognizedText(in image: UIImage) throws -> String {
+    guard let cgImage = image.cgImage else { return "" }
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    request.recognitionLanguages = ["en-US"]
+    request.usesLanguageCorrection = false
+    try VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
+    return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+}
+
+private func normalizeHistoryText(_ text: String) -> String {
+    text.lowercased().unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }.map(String.init).joined()
 }
 
 @MainActor
 private final class HistorySnapshotWindow: UIWindow {
     private let snapshotInsets: UIEdgeInsets
-    init(size: CGSize, insets: UIEdgeInsets) {
+    init(scene: UIWindowScene, size: CGSize, insets: UIEdgeInsets) {
         snapshotInsets = insets
-        super.init(frame: CGRect(origin: .zero, size: size))
+        super.init(windowScene: scene)
+        frame = CGRect(origin: .zero, size: size)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) is unsupported") }
     override var safeAreaInsets: UIEdgeInsets { snapshotInsets }

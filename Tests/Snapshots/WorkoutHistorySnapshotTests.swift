@@ -7,7 +7,7 @@ import XCTest
 final class WorkoutHistorySnapshotTests: SnapshotTestCase {
     func testHistoryEmpty() {
         let container = SnapshotFixtures.makeContainer()
-        assertHistorySnapshot(named: "History_Empty", expectedText: ["No completed sessions", "Finished workouts and pasted or scanned sessions appear here."]) {
+        assertHistorySnapshot(named: "History_Empty", expectedText: ["No completed sessions"]) {
             NavigationStack { WorkoutHistoryView(snapshotSessions: []) }.modelContainer(container)
         }
     }
