@@ -3,6 +3,20 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## Build 66 follow-up — September 5, 2026
+
+Build 65 (`61e67bda1dc29b8aa2ecf690b8df8d7bbc405bcf`) uploaded successfully in
+workflow `33948097701`; ASC build `f2bb9e04-9c78-4b0d-977a-d576839cdf69` is
+VALID / internal IN_BETA_TESTING, and What to Test readback plus strict readiness
+passed. Its final CI `33948095134` passed History snapshot comparisons and all
+four History UI tests, but failed the accessibility audit on decorative leg emoji
+under the set-row accessibility label. Unit/tooling/navigation steps were skipped
+following that failure. Prior passing checks do not override this result.
+
+Build 66 tightens set-row accessibility semantics. Final validation, upload, merge,
+and owner hardware acceptance remain pending. Keep builds 64 and 65 internal.
+The following build-65 preparation record is retained as historical context.
+
 ## Current release snapshot — verified September 4–5, 2026
 
 - Approved scope: complete the reliability, draft recovery, history/repeat, performance,

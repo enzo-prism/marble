@@ -36,15 +36,18 @@ jobs:
       - name: Install xcbeautify (prettier logs)
         run: brew install xcbeautify || true
 
-      - name: Verify History snapshots
-        run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests make snapshot
-
       - name: Audit workout history and recovery
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryAccessibility.xcresult" make only TEST=MarbleUITests/AccessibilityAuditUITests/testHistoryAndRecoveryAccessibilityAudit_DefaultText
 
-      - name: Verify History interactions and largest text
+      - name: Verify History and import interactions
         if: success() || failure()
-        run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryLargestText.xcresult" make only TEST=MarbleUITests/WorkoutHistoryUITests
+        run: |
+          RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryLargestText.xcresult" scripts/xcodebuild_test.sh \
+            -only-testing:MarbleUITests/WorkoutHistoryUITests \
+            -only-testing:MarbleUITests/ImportFlowUITests/testAddTabReviewsBeforeSavingStructuredSets
+
+      - name: Verify History snapshots
+        run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests make snapshot
 
       - name: Run unit tests
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Unit.xcresult" make unit

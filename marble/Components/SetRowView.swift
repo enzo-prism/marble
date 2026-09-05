@@ -119,7 +119,11 @@ struct SetRowView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .background(Theme.backgroundColor(for: resolvedScheme))
-        .accessibilityElement(children: .combine)
+        // This row supplies its own spoken summary and has no child actions.
+        // Expose that single text element rather than retaining decorative
+        // emoji nodes in the combined accessibility subtree.
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isStaticText)
         .accessibilityLabel(accessibilitySummary)
 
         if let accessibilityIdentifier {
