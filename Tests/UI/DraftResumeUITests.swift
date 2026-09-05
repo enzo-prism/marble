@@ -25,10 +25,15 @@ final class DraftResumeUITests: MarbleUITestCase {
             XCTAssertTrue(date.isEnabled)
             XCTAssertTrue(date.isHittable)
             XCTAssertFalse(dateLabel.frame.intersects(date.frame), "The date control must not cover its label")
-            let reviewedDate = try XCTUnwrap(date.value as? String)
+            // The native compact DatePicker exposes its displayed date on its
+            // child button; the DatePicker container itself has an empty value.
+            let dateButton = date.buttons.firstMatch
+            waitFor(dateButton)
+            XCTAssertTrue(dateButton.isHittable)
+            let reviewedDate = try XCTUnwrap(dateButton.value as? String)
             XCTAssertFalse(reviewedDate.isEmpty)
             takeScreenshot("Composer_Date_XXXL_\(appearance.envValue)")
-            date.tap()
+            dateButton.tap()
             takeScreenshot("Composer_DatePicker_Open_XXXL_\(appearance.envValue)")
 
             // Opening the native picker must not change the parsed workout date.
@@ -45,7 +50,9 @@ final class DraftResumeUITests: MarbleUITestCase {
             forceTap(resume)
             let restoredDate = waitForIdentifier("TextEntry.Date", timeout: 10)
             scrollToElement(restoredDate, in: app.collectionViews.firstMatch)
-            XCTAssertEqual(restoredDate.value as? String, reviewedDate)
+            let restoredDateButton = restoredDate.buttons.firstMatch
+            waitFor(restoredDateButton)
+            XCTAssertEqual(restoredDateButton.value as? String, reviewedDate)
 
             let includeTime = app.switches["TextEntry.IncludeTime"]
             scrollToElement(includeTime, in: app.collectionViews.firstMatch)
@@ -89,7 +96,7 @@ final class DraftResumeUITests: MarbleUITestCase {
         XCTAssertTrue(waitForIdentifier("TextEntry.Editor", timeout: 8).exists)
     }
 
-    func testReviewedWeightAndDateSurviveTermination() {
+    func testReviewedWeightAndDateSurviveTermination() throws {
         let environment = ["MARBLE_DRAFT_NAMESPACE": UUID().uuidString]
         launchApp(fixtureMode: "empty", extraEnvironment: environment)
         let editor = app.textViews["TextEntry.Editor"]
@@ -99,8 +106,10 @@ final class DraftResumeUITests: MarbleUITestCase {
         dismissKeyboardIfPresent()
         forceTap(waitForIdentifier("TextEntry.Preview", timeout: 8))
         let date = waitForIdentifier("TextEntry.Date", timeout: 10)
-        let reviewedDate = date.value as? String
-        XCTAssertNotNil(reviewedDate)
+        let dateButton = date.buttons.firstMatch
+        waitFor(dateButton)
+        let reviewedDate = try XCTUnwrap(dateButton.value as? String)
+        XCTAssertFalse(reviewedDate.isEmpty)
         let weight = app.textFields.matching(NSPredicate(format: "identifier BEGINSWITH 'TextEntry.Set.Weight.'")).firstMatch
         scrollToElement(weight, in: app.collectionViews.firstMatch)
         waitFor(weight, timeout: 8)
@@ -112,7 +121,7 @@ final class DraftResumeUITests: MarbleUITestCase {
         app.terminate()
         launchApp(fixtureMode: "empty", resetDB: false, extraEnvironment: environment)
         forceTap(waitForIdentifier("WorkoutEntry.Draft.Resume", timeout: 10))
-        XCTAssertEqual(waitForIdentifier("TextEntry.Date", timeout: 8).value as? String, reviewedDate)
+        XCTAssertEqual(waitForIdentifier("TextEntry.Date", timeout: 8).buttons.firstMatch.value as? String, reviewedDate)
         let restoredWeight = app.textFields[weightID]
         scrollToElement(restoredWeight, in: app.collectionViews.firstMatch)
         XCTAssertEqual(restoredWeight.value as? String, "195")

@@ -23,7 +23,7 @@ jobs:
     # the matching iOS 26 simulator runtime. Switch to a self-hosted runner if the
     # GitHub-hosted macOS 26 image is not yet available to this org.
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -50,6 +50,7 @@ jobs:
       # Temporary baseline capture for the intentional accessible date/time layout.
       # Remove after visual review; final CI must compare committed references.
       - name: Record accessible Composer timing layout
+        if: success() || failure()
         run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutComposerSnapshotTests/testWorkoutComposerReview,MarbleSnapshotTests/WorkoutComposerSnapshotTests/testWorkoutComposerCorrectedWeightAfterRecovery make snapshot-record
 
       - name: Preserve Composer baseline candidates
@@ -61,20 +62,25 @@ jobs:
           if-no-files-found: error
 
       - name: Verify History and Composer snapshots
+        if: success() || failure()
         run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests,MarbleSnapshotTests/WorkoutComposerSnapshotTests make snapshot
 
       - name: Run unit tests
+        if: success() || failure()
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Unit.xcresult" make unit
 
       - name: Verify release tooling
+        if: success() || failure()
         run: |
           ruby scripts/tests/release_candidate_test.rb
           ruby scripts/tests/migration_probe_test.rb
 
       - name: Verify shipped-store migration
+        if: success() || failure()
         run: make migration-release
 
       - name: Run navigation smoke tests
+        if: success() || failure()
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Smoke.xcresult" make ui-smoke
 
       - name: Upload test results
