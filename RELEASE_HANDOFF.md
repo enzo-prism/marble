@@ -35,6 +35,20 @@ The full UI baseline completed 72 tests and exposed a test cursor tap on a round
 field border; the corrected interior tap preserves keyboard and saved-value
 assertions. Focused owner-note, source-order, unresolved-review and PR checks pass.
 
+The final spacing follow-up adds 8 pt above the review content after an independent
+contrast probe reproduced a navigation-edge heading failure. Both Notes audit
+methods then passed (2 tests, zero failures) with no new issue exclusions. The
+exact PR interaction selection passed all 8 local tests, and all 7 Composer methods
+passed normal comparison after 32 deliberately reviewed reference updates. The
+prior remote candidate also passed existing History and Composer references;
+local History scene-inset differences remain a capture-host limitation. Its UTC
+fixture formatter is now pinned and restored after capture.
+
+The prior remote run `33983138346` reported accessibility and interaction failures;
+its failure evidence must be read before treating a later rerun as resolved. Build
+68 upload run `33983356510` was cancelled during archive, before upload. A live ASC
+build-68 query at 18:18 UTC returned no build. No production change is claimed.
+
 This is the pre-release verification checkpoint for PR #34. Final normal snapshot,
 UI, migration and exact-source GitHub evidence remain release gates; inspect
 Actions and the immutable candidate/upload receipts for their final results.
