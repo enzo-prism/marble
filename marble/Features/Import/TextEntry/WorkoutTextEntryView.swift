@@ -67,11 +67,12 @@ struct WorkoutTextEntryView: View {
         self.prewarmsModel = prewarmsModel
     }
 
-    init(initialReviewDraft: ParsedWorkoutDraft) {
-        let model = WorkoutTextEntryViewModel(draftStore: WorkoutEntryDraftStore.applicationStore(slot: "sheet"))
-        if !model.hasRestoredDraft && !model.hasUnreadableSavedDraft { model.startReview(with: initialReviewDraft) }
+    init(initialReviewDraft: ParsedWorkoutDraft, draftStore: (any WorkoutEntryDraftStoring)? = nil) {
+        let model = WorkoutTextEntryViewModel(draftStore: draftStore ?? WorkoutEntryDraftStore.applicationStore(slot: "sheet"))
         self.init(viewModel: model)
-        _pendingReviewDraft = State(initialValue: (model.hasRestoredDraft || model.hasUnreadableSavedDraft) ? initialReviewDraft : nil)
+        // View values can be reconstructed after commit. Only the retained
+        // model's appearance lifecycle may create a new persistent draft.
+        _pendingReviewDraft = State(initialValue: initialReviewDraft)
     }
 
     /// Test seam so unit-driven previews aren't required to go through `init(initialText:)`.
@@ -185,6 +186,12 @@ struct WorkoutTextEntryView: View {
             FoundationModelsWorkoutScanParser.prewarm()
         }
         .task { clipboardHasText = UIPasteboard.general.hasStrings }
+        .task {
+            if let incoming = pendingReviewDraft,
+               viewModel.prepareInitialReview(incoming, in: modelContext) {
+                pendingReviewDraft = nil
+            }
+        }
         .task {
             guard autoPreviewOnAppear, !didAutoPreview, !viewModel.hasRestoredDraft, !viewModel.hasUnreadableSavedDraft else { return }
             didAutoPreview = true

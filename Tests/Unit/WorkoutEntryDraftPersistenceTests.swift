@@ -163,4 +163,64 @@ final class WorkoutEntryDraftPersistenceTests: MarbleTestCase {
         XCTAssertNil(restored.draft.exercises[0].sets[0].weight)
         XCTAssertTrue(restored.draft.exercises[0].metricsProfile.usesWeight)
     }
+
+    func testConstructingRepeatViewDoesNotWriteDraft() {
+        let store = Store()
+        let draft = ParsedWorkoutDraft(exercises: [ParsedExerciseDraft(name: "Bench", sets: [ParsedSetDraft(reps: 8)])])
+        _ = WorkoutTextEntryView(initialReviewDraft: draft, draftStore: store)
+        _ = WorkoutTextEntryView(initialReviewDraft: draft, draftStore: store)
+        XCTAssertNil(store.value, "SwiftUI value reconstruction must not create a saved import")
+    }
+
+    func testRepeatReappearancePreservesEditsAndCannotResurrectCommittedDraft() throws {
+        let store = Store()
+        let context = makeInMemoryContext()
+        let first = model(store)
+        let draft = ParsedWorkoutDraft(exercises: [ParsedExerciseDraft(name: "Bench", sets: [ParsedSetDraft(reps: 8)])])
+        XCTAssertTrue(first.prepareInitialReview(draft, in: context))
+        let identity = first.externalID
+        first.draft.exercises[0].sets[0].reps = 10
+        XCTAssertFalse(first.prepareInitialReview(draft, in: context))
+        XCTAssertEqual(first.draft.exercises[0].sets[0].reps, 10)
+        XCTAssertEqual(first.externalID, identity)
+        first.commit(into: context)
+        XCTAssertEqual(first.phase, .imported)
+        XCTAssertNil(store.value)
+        _ = WorkoutTextEntryView(initialReviewDraft: draft, draftStore: store)
+        XCTAssertFalse(first.prepareInitialReview(draft, in: context))
+        XCTAssertNil(store.value)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<SetEntry>()), 1)
+    }
+
+    func testFreshRepeatCanMatchRenamedExerciseAgainstLibrary() throws {
+        let store = Store()
+        let context = makeInMemoryContext()
+        let exercise = Exercise(name: "Dumbbell Bench Press", category: .chest, metrics: .weightAndRepsRequired, defaultRestSeconds: 90)
+        context.insert(exercise)
+        try context.save()
+        let first = model(store)
+        let draft = ParsedWorkoutDraft(exercises: [ParsedExerciseDraft(name: exercise.name, sets: [ParsedSetDraft(reps: 8)], libraryExerciseID: exercise.id)])
+        first.prepareInitialReview(draft, in: context)
+        let id = first.draft.exercises[0].id
+        XCTAssertEqual(first.resolution(for: id)?.choice, .library(id: exercise.id, name: exercise.name))
+        first.draft.exercises[0].name = "DB Bench Press"
+        first.refreshResolution(forExerciseWithID: id)
+        XCTAssertEqual(first.resolution(for: id)?.choice, .library(id: exercise.id, name: exercise.name))
+        XCTAssertEqual(first.resolution(for: id)?.suggestions.first?.candidate.id, exercise.id)
+    }
+
+    func testInitialRepeatLeavesSavedReviewAndIdentityIntact() {
+        let store = Store()
+        let context = makeInMemoryContext()
+        let previous = model(store)
+        let draft = ParsedWorkoutDraft(exercises: [ParsedExerciseDraft(name: "Bench", sets: [ParsedSetDraft(reps: 8)])])
+        previous.startReview(with: draft)
+        let saved = store.value
+        let restored = model(store)
+        XCTAssertFalse(restored.prepareInitialReview(ParsedWorkoutDraft(title: "Incoming"), in: context))
+        XCTAssertTrue(restored.hasRestoredDraft)
+        XCTAssertEqual(store.value, saved)
+        XCTAssertEqual(restored.externalID, previous.externalID)
+        XCTAssertEqual(restored.resolutions, previous.resolutions)
+    }
 }

@@ -42,7 +42,9 @@ jobs:
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Unit.xcresult" make unit
 
       - name: Verify release tooling
-        run: ruby scripts/tests/release_candidate_test.rb
+        run: |
+          ruby scripts/tests/release_candidate_test.rb
+          ruby scripts/tests/migration_probe_test.rb
 
       - name: Run navigation smoke tests
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Smoke.xcresult" make ui-smoke

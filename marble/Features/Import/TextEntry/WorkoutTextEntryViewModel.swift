@@ -137,6 +137,7 @@ final class WorkoutTextEntryViewModel {
     @ObservationIgnored private let draftStore: (any WorkoutEntryDraftStoring)?
     @ObservationIgnored private var draftSaveTask: Task<Void, Never>?
     @ObservationIgnored private var draftPersistenceEnabled = false
+    @ObservationIgnored private var didPrepareInitialReview = false
     private(set) var hasUnreadableSavedDraft = false
     private(set) var hasRestoredDraft = false
     private(set) var draftStorageMessage: String?
@@ -232,6 +233,19 @@ final class WorkoutTextEntryViewModel {
             draftStorageMessage = "Your latest draft changes couldn't be saved. Keep Marble open and try again."
             return false
         }
+    }
+
+    /// Runs on the retained view model, never from a SwiftUI value initializer.
+    /// Reappearance after a save must not recreate a cleared repeat draft.
+    /// A saved draft keeps its choices until the user resolves the conflict.
+    @discardableResult
+    func prepareInitialReview(_ reviewDraft: ParsedWorkoutDraft, in context: ModelContext) -> Bool {
+        guard !didPrepareInitialReview else { return false }
+        didPrepareInitialReview = true
+        reloadMatcher(in: context)
+        guard !hasRestoredDraft, !hasUnreadableSavedDraft else { return false }
+        startReview(with: reviewDraft)
+        return true
     }
 
     /// A repeat uses a fresh ledger identity, while edits keep the supplied

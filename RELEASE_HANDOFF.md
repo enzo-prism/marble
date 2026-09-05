@@ -3,16 +3,22 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## September 4 — 2.5 build 64 in verification
+## Current release snapshot — verified September 4, 2026
 
 - Approved scope: complete the reliability, draft recovery, history/repeat, performance,
   and release-quality work; merge main; publish TestFlight and production when gates pass.
 - Local source branch: `feature/reliability-history-release`, based on main `ac25a24`.
-  Candidate is 2.5 (64), schema V6 unchanged. It is not yet uploaded or publicly released.
+  Open PR #32 was at `b1a6d56` when inspected. Candidate is 2.5 (64), schema V6
+  unchanged. It is not yet uploaded or publicly released. Record the final candidate
+  commit in `AppStore/PHYSICAL_DEVICE_CHECKLIST_2.5.md` before acceptance testing.
 - ASC readback: 2.4 version `a368547f-2331-4856-a064-8357f21ea9e2` is now
   `READY_FOR_DISTRIBUTION`, attached build 61 `bbea8736-b964-4175-8c9c-b140ebcea4c1`;
   review submission `ce4a0d8a-f5ea-4d1e-9463-03937e467343` is `COMPLETE`.
+  US storefront release date is September 2, 2026 for production 2.4.
   Latest processed build remains 2.4 (63) `15fc9492-9fa6-487c-aa8c-271f5aefc867`.
+- Observed PR CI reports 849 unit tests, five skips, zero failures, plus passing
+  navigation smoke tests. Full release-suite and physical-device acceptance evidence
+  for the final candidate has not yet been verified; these results are not a release signoff.
 - New production gate requires clean-source five-suite evidence, a source-bound upload
   receipt, and verified physical-device signoff. No iPhone was connected at the latest
   check; never infer device acceptance from simulator tests.
@@ -25,7 +31,9 @@ WAITING_FOR_REVIEW and public-2.3 statements are not current ASC status.
 
 ---
 
-## Current release snapshot
+## Archived snapshot — build 63 upload (superseded September 4)
+
+All states in this section describe the earlier upload, not current production.
 
 - **Current candidate:** exact GitHub `main` source
   `cbeb6d2f7131c14ab1327ff07e703f812a6fc754` is uploaded as 2.4 build 63.
@@ -52,7 +60,7 @@ WAITING_FOR_REVIEW and public-2.3 statements are not current ASC status.
 
 ---
 
-## 2.4 build 63 — current internal TestFlight candidate
+## Historical 2.4 build 63 — internal TestFlight upload
 
 **Exact uploaded GitHub `main` source:**
 `cbeb6d2f7131c14ab1327ff07e703f812a6fc754`
@@ -123,7 +131,7 @@ triggered, and no public release action was taken.
 
 ---
 
-## 2.4 build 61 — current App Review candidate
+## Historical 2.4 build 61 — App Review submission (now production)
 
 **Exact uploaded GitHub `main` source:**
 `9e8346f6cad4683991a78fbaf223baaf01e9f068`
@@ -138,7 +146,7 @@ triggered, and no public release action was taken.
 **TestFlight validation:** 0 errors, 0 warnings, 0 blockers, 0 informational findings.
 The en-US What to Test note is attached. Internal **test group A** receives all builds.
 
-**Current App Review:** submission `ce4a0d8a-f5ea-4d1e-9463-03937e467343` is
+**App Review at submission time:** submission `ce4a0d8a-f5ea-4d1e-9463-03937e467343` is
 `WAITING_FOR_REVIEW` with build 61 attached. Release type is `MANUAL`.
 
 - Refines the AI-first Add task hierarchy while preserving the persistent Start/open workout
@@ -1007,8 +1015,8 @@ App Store profiles were created with the installed Apple Distribution certificat
 - `.asc/ExportOptions.plist` maps both `Prism.marble` and `Prism.marble.MarbleWidgets`.
 - Release signing is pinned per target in `marble.xcodeproj/project.pbxproj`.
 
-For the next upload, `make asc-next-build` currently reports **48**. Never guess a build
-number locally.
+At that historical signing check, `make asc-next-build` reported **48**. This is not
+the next build number today; always query ASC again before choosing a number.
 
 Historical planned command, kept for context:
 
@@ -1031,7 +1039,7 @@ Notes:
 
 ---
 
-## Current release decisions (2026-08-24)
+## Historical release decisions (2026-08-24; superseded September 4)
 
 - 2.3 build 56 was public at the 2026-08-24 US storefront verification. Do not invoke another
   release operation for it without fresh live checks.
@@ -1108,15 +1116,12 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 
 ## Release rules
 - Do not cancel an in-flight App Store review by default.
-- `origin/main` merge `9e8346f` is the exact binary source for 2.4 build 61.
-  TestFlight build 61 is `VALID` / `IN_BETA_TESTING` internally and
-  `READY_FOR_BETA_SUBMISSION` externally. App Review 2.4 build 61 is `WAITING_FOR_REVIEW`
-  with no reported blocking issues. App Privacy publish state and
-  Regulations/Permits remain website-only verification coverage gaps, not
-  blockers reported by the current submission.
-- Active submission `ce4a0d8a-...` contains build 61. Superseded submission
-  `5bd874ad-...` is canceled / `COMPLETE`. Manual release and public storefront
-  state remain separate from review submission.
+- Merge `9e8346f` is the exact binary source for production 2.4 build 61.
+  The September 4 ASC readback is `READY_FOR_DISTRIBUTION`; its review submission
+  `ce4a0d8a-...` is `COMPLETE`. Build 63 remains the latest uploaded build.
+- PR #32 is the 2.5 (64) candidate. Bind final suite results, upload receipt, and
+  physical-device signoff to the final source commit and actual installed build.
+  Review submission, approval, and public storefront availability are separate states.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
   `origin` on 2026-07-14. Note `feature/empire-gamification-refresh` is the **only** ref that
   holds the Empire source — the branches named `empire-gamification` and
@@ -1138,8 +1143,8 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # expect MARKETING_VERSION 2.4, CURRENT_PROJECT_VERSION 59
+make asc-version      # reconcile branch version/build; inspected PR candidate is 2.5 (64)
 make asc-status
 make asc-builds
-make asc-next-build   # expect 59 before upload; stop and reconcile otherwise
+make asc-next-build   # query fresh; never reuse a historical expected build number
 ```

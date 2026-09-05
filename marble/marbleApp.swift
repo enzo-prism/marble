@@ -81,6 +81,9 @@ struct MarbleApp: App {
         SeedData.seedIfNeeded(in: context)
         do {
             try context.save()
+            #if targetEnvironment(simulator)
+            try ReleaseMigrationProbe.writeIfRequested(container: container)
+            #endif
         } catch {
             #if DEBUG
             print("Seed data save failed: \(error)")

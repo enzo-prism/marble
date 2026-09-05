@@ -19,6 +19,8 @@ BUILD_DIR="$(mktemp -d "$BUILD_ROOT/marble-migration-build.XXXXXX")"
 BASE_DERIVED_DATA="$BUILD_DIR/base-derived-data"
 CANDIDATE_DERIVED_DATA="$BUILD_DIR/candidate-derived-data"
 BUNDLE_ID="Prism.marble"
+PROBE_TOKEN="$(uuidgen)"
+EXPECTED_PROBE="$RUN_DIR/expected-probe.json"
 
 cleanup() {
     xcrun simctl terminate "$SIMULATOR_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
@@ -134,10 +136,58 @@ if [[ -z "$EXERCISE_COUNT_BEFORE" ]]; then
 fi
 xcrun simctl terminate "$SIMULATOR_UDID" "$BUNDLE_ID"
 
+# Populate only this disposable simulator store, while its owning process is stopped.
+# Keep a real user-created completed session and a user-edited exercise, rather than
+# relying on the default seed count (which a destructive reset can reproduce).
+sqlite3 "$STORE_PATH" '.schema' >"$RUN_DIR/base-schema.sql"
+sqlite3 "$STORE_PATH" <<SQL
+.bail on
+BEGIN IMMEDIATE;
+UPDATE ZEXERCISE SET ZNAME = 'Migration exercise $PROBE_TOKEN' WHERE Z_PK = (SELECT MIN(Z_PK) FROM ZEXERCISE);
+INSERT INTO ZWORKOUTSESSION (Z_PK, Z_ENT, Z_OPT, ZID, ZTITLE, ZSTARTEDAT, ZENDEDAT, ZNOTES, ZCREATEDAT, ZUPDATEDAT)
+SELECT Z_MAX + 1, Z_ENT, 1, X'${PROBE_TOKEN//-/}', 'Migration workout $PROBE_TOKEN', 800000000, 800003600, 'Retain my completed workout', 800000000, 800003600
+FROM Z_PRIMARYKEY WHERE Z_NAME = 'WorkoutSession';
+UPDATE Z_PRIMARYKEY SET Z_MAX = Z_MAX + 1 WHERE Z_NAME = 'WorkoutSession';
+COMMIT;
+SQL
+snapshot_user_rows() {
+    sqlite3 "$1" "SELECT json_object(
+      'exercise_id', hex(e.ZID), 'exercise_name', e.ZNAME,
+      'session_id', hex(s.ZID), 'session_title', s.ZTITLE, 'session_notes', s.ZNOTES,
+      'session_started_at', s.ZSTARTEDAT, 'session_ended_at', s.ZENDEDAT)
+      FROM ZEXERCISE e CROSS JOIN ZWORKOUTSESSION s
+      WHERE e.ZNAME = 'Migration exercise $PROBE_TOKEN' AND s.ZID = X'${PROBE_TOKEN//-/}';"
+}
+snapshot_user_rows "$STORE_PATH" >"$EXPECTED_PROBE"
+[[ -s "$EXPECTED_PROBE" ]] || { echo "Could not create migration user fixture." >&2; exit 1; }
+STORE_UUID_BEFORE="$(sqlite3 "$STORE_PATH" 'SELECT Z_UUID FROM Z_METADATA;')"
+[[ -n "$STORE_UUID_BEFORE" ]] || { echo "Base store has no identity." >&2; exit 1; }
+
+# Reopen the immutable shipped app with the fixture before attempting the upgrade.
+# Any destructive recovery is caught by the retained rows and store UUID below.
+BASE_FIXTURE_LAUNCH="$(xcrun simctl launch "$SIMULATOR_UDID" "$BUNDLE_ID")"
+printf '%s\n' "$BASE_FIXTURE_LAUNCH" >"$RUN_DIR/base-fixture-launch.log"
+BASE_FIXTURE_PID="${BASE_FIXTURE_LAUNCH##*: }"
+BASE_FIXTURE_OPEN=false
+for _ in {1..15}; do
+    kill -0 "$BASE_FIXTURE_PID" >/dev/null 2>&1 || break
+    if lsof -a -p "$BASE_FIXTURE_PID" "$STORE_PATH" >"$RUN_DIR/base-fixture-open-files.log" 2>/dev/null; then
+        BASE_FIXTURE_OPEN=true
+        break
+    fi
+    sleep 1
+done
+[[ "$BASE_FIXTURE_OPEN" == true ]] || { echo "Base app did not reopen its fixture store." >&2; exit 1; }
+xcrun simctl terminate "$SIMULATOR_UDID" "$BUNDLE_ID"
+[[ "$(snapshot_user_rows "$STORE_PATH")" == "$(cat "$EXPECTED_PROBE")" ]] || { echo "Base app changed the fixture." >&2; exit 1; }
+[[ "$(sqlite3 "$STORE_PATH" 'SELECT Z_UUID FROM Z_METADATA;')" == "$STORE_UUID_BEFORE" ]] || { echo "Base app replaced its store." >&2; exit 1; }
+
+# A prior marker must never satisfy a new run, even if the container is retained.
+rm -f "$(dirname "$STORE_PATH")/migration-probe.json"
 echo "Overlaying and launching candidate Release"
 xcrun simctl install "$SIMULATOR_UDID" "$CANDIDATE_APP"
 START_TIME="$(date '+%Y-%m-%d %H:%M:%S')"
-LAUNCH_OUTPUT="$(xcrun simctl launch "$SIMULATOR_UDID" "$BUNDLE_ID")"
+LAUNCH_OUTPUT="$(SIMCTL_CHILD_MARBLE_MIGRATION_PROBE="$PROBE_TOKEN" xcrun simctl launch "$SIMULATOR_UDID" "$BUNDLE_ID")"
 APP_PID="${LAUNCH_OUTPUT##*: }"
 
 CANDIDATE_READY=false
@@ -147,7 +197,11 @@ for _ in {1..15}; do
     if [[ -f "$STORE_PATH" ]]; then
         candidate_tables="$(sqlite3 "$STORE_PATH" '.tables' 2>/dev/null || true)"
         candidate_count="$(sqlite3 "$STORE_PATH" 'SELECT COUNT(*) FROM ZEXERCISE;' 2>/dev/null || true)"
-        if grep -qw 'ZWORKOUTSESSION' <<<"$candidate_tables" \
+        if kill -0 "$APP_PID" >/dev/null 2>&1 \
+            && ruby "$ROOT_DIR/scripts/verify_migration_probe.rb" "$EXPECTED_PROBE" \
+                "$(dirname "$STORE_PATH")/migration-probe.json" "$PROBE_TOKEN" "$APP_PID" "$STORE_PATH" \
+                2>"$RUN_DIR/probe-readiness.log" \
+            && grep -qw 'ZWORKOUTSESSION' <<<"$candidate_tables" \
             && grep -qw 'ZSPRINTPRESCRIPTION' <<<"$candidate_tables" \
             && grep -qw 'ZBODYMETRICENTRY' <<<"$candidate_tables" \
             && [[ "$candidate_count" == "$EXERCISE_COUNT_BEFORE" ]]; then
@@ -167,6 +221,11 @@ if [[ "$CANDIDATE_READY" != true ]]; then
     fi
     exit 1
 fi
+
+kill -0 "$APP_PID" >/dev/null 2>&1 || { echo "Candidate exited after readiness." >&2; exit 1; }
+[[ "$(snapshot_user_rows "$STORE_PATH")" == "$(cat "$EXPECTED_PROBE")" ]] || { echo "Candidate changed retained user rows." >&2; exit 1; }
+[[ "$(sqlite3 "$STORE_PATH" 'SELECT Z_UUID FROM Z_METADATA;')" == "$STORE_UUID_BEFORE" ]] || { echo "Candidate replaced the persistent store." >&2; exit 1; }
+cp "$(dirname "$STORE_PATH")/migration-probe.json" "$RUN_DIR/candidate-probe.json"
 
 LAUNCH_LOG="$RUN_DIR/candidate-launch.log"
 xcrun simctl spawn "$SIMULATOR_UDID" log show \
