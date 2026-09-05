@@ -44,6 +44,7 @@ jobs:
         run: |
           RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryLargestText.xcresult" scripts/xcodebuild_test.sh \
             -only-testing:MarbleUITests/WorkoutHistoryUITests \
+            -only-testing:MarbleUITests/DraftResumeUITests/testLargestTextDateAndTimeControlsRemainReachable \
             -only-testing:MarbleUITests/ImportFlowUITests/testAddTabReviewsBeforeSavingStructuredSets
 
       # Temporary baseline capture for the intentional accessible date/time layout.
