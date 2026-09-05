@@ -21,7 +21,7 @@ final class DraftResumeUITests: MarbleUITestCase {
             let date = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
             scrollToElement(date, in: app.collectionViews.firstMatch)
             waitFor(date, timeout: 10)
-            revealAboveSave(date)
+            revealAboveSave(date, label: app.staticTexts["Date"].firstMatch)
             let dateLabel = app.staticTexts["Date"].firstMatch
             waitFor(dateLabel)
             XCTAssertTrue(dateLabel.isHittable, "The date label must remain visible at largest text")
@@ -54,7 +54,7 @@ final class DraftResumeUITests: MarbleUITestCase {
             let restoredDate = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
             scrollToElement(restoredDate, in: app.collectionViews.firstMatch)
             waitFor(restoredDate, timeout: 10)
-            revealAboveSave(restoredDate)
+            revealAboveSave(restoredDate, label: app.staticTexts["Date"].firstMatch)
             let restoredDateButton = restoredDate.buttons.firstMatch
             waitFor(restoredDateButton)
             XCTAssertEqual(restoredDateButton.value as? String, reviewedDate)
@@ -73,31 +73,55 @@ final class DraftResumeUITests: MarbleUITestCase {
                 predicate: NSPredicate(format: "value == '1'"), object: includeTime
             )
             XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 5), .completed)
+            XCTAssertEqual(includeTime.value as? String, "1")
+            // Inspect the switch while its lazy row is visible. Revealing the
+            // full picker can legitimately scroll that row out of the tree.
             let time = app.descendants(matching: .any).matching(identifier: "TextEntry.Time").firstMatch
             scrollToElement(time, in: app.collectionViews.firstMatch)
             waitFor(time, timeout: 8)
-            revealAboveSave(time)
+            revealAboveSave(time, label: app.staticTexts["Time"].firstMatch)
             let timeLabel = app.staticTexts["Time"].firstMatch
             waitFor(timeLabel)
             XCTAssertTrue(timeLabel.isHittable, "The time label must remain visible at largest text")
             XCTAssertTrue(time.isEnabled)
             XCTAssertTrue(time.isHittable)
             XCTAssertFalse(timeLabel.frame.intersects(time.frame), "The time control must not cover its label")
-            XCTAssertEqual(includeTime.value as? String, "1")
             takeScreenshot("Composer_Time_XXXL_\(appearance.envValue)")
             time.tap()
             takeScreenshot("Composer_TimePicker_Open_XXXL_\(appearance.envValue)")
         }
     }
 
-    private func revealAboveSave(_ element: XCUIElement) {
+    private func revealAboveSave(_ element: XCUIElement, label: XCUIElement) {
         let save = app.buttons["TextEntry.Import"]
         let list = app.collectionViews.firstMatch
-        for _ in 0..<6 where element.frame.maxY > save.frame.minY - 8 {
-            list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
-                .press(forDuration: 0.05, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
+        let navigation = app.navigationBars.firstMatch
+        func bounds() -> CGRect {
+            label.exists ? element.frame.union(label.frame) : element.frame
         }
-        XCTAssertLessThanOrEqual(element.frame.maxY, save.frame.minY - 8,
+        for _ in 0..<10 {
+            let top = max(list.frame.minY, navigation.frame.maxY) + 12
+            let bottom = min(list.frame.maxY, save.frame.minY) - 12
+            let frame = bounds()
+            if frame.minY >= top && frame.maxY <= bottom { break }
+            // A full swipe can overshoot a compact Date/Time row at XXXL.
+            // Correct in either direction, using short, measured drags so both
+            // the label and complete native value fit inside the viewport.
+            let delta = frame.minY < top ? frame.minY - top : frame.maxY - bottom
+            let requested = delta / list.frame.height
+            // Keep the drag larger than touch slop; a few-pixel movement can
+            // be interpreted as a tap on the content instead of a scroll.
+            let fraction = requested < 0
+                ? max(-0.22, min(-0.06, requested))
+                : min(0.22, max(0.06, requested))
+            list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+                .press(forDuration: 0.05,
+                       thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55 - fraction)),
+                       withVelocity: .slow, thenHoldForDuration: 0.3)
+        }
+        XCTAssertGreaterThanOrEqual(bounds().minY, max(list.frame.minY, navigation.frame.maxY) + 8,
+                                    "The label and picker must remain below navigation")
+        XCTAssertLessThanOrEqual(bounds().maxY, min(list.frame.maxY, save.frame.minY) - 8,
                                  "The entire closed picker must fit above the save action")
     }
 

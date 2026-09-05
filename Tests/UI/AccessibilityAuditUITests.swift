@@ -22,7 +22,8 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             for unresolved in [false, true] {
                 launchApp(
                     appearance: appearance, contentSizeCategory: contentSizeCategory,
-                    fixtureMode: "empty", forceReduceTransparency: true, accessibilityAudit: true,
+                    fixtureMode: "empty", nowISO8601: "2026-09-05T12:00:00Z",
+                    forceReduceTransparency: true, accessibilityAudit: true,
                     extraEnvironment: ["MARBLE_DRAFT_NAMESPACE": UUID().uuidString]
                 )
                 let editor = waitForIdentifier("TextEntry.Editor", timeout: 8)
@@ -40,8 +41,32 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                     scrollToElement(detail, in: app.collectionViews.firstMatch)
                 }
                 try runAudit(name: "WorkoutNotes_\(unresolved ? "Unresolved" : "Review")_\(appearance.envValue)_\(sizeLabel)")
+                let includeTime = app.switches["TextEntry.IncludeTime"]
+                let list = app.collectionViews.firstMatch
+                for _ in 0..<12 {
+                    guard includeTime.exists else { list.swipeUp(); continue }
+                    let viewport = workoutNotesAuditViewport(list)
+                    if includeTime.isHittable && viewport.contains(includeTime.frame) { break }
+                    let distance = min(max(viewport.midY - includeTime.frame.midY, -viewport.height * 0.4), viewport.height * 0.4)
+                    let start = list.coordinate(withNormalizedOffset: .zero)
+                        .withOffset(CGVector(dx: viewport.maxX - list.frame.minX - 5, dy: viewport.midY - list.frame.minY))
+                    start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
+                                withVelocity: .slow, thenHoldForDuration: 0.3)
+                }
+                XCTAssertTrue(includeTime.isHittable)
+                XCTAssertTrue(workoutNotesAuditViewport(list).contains(includeTime.frame), "Audit timing controls fully inside the unobscured List viewport")
+                try runAudit(name: "WorkoutNotes_Timing_\(unresolved ? "Unresolved" : "Review")_\(appearance.envValue)_\(sizeLabel)")
             }
         }
+    }
+
+    private func workoutNotesAuditViewport(_ list: XCUIElement) -> CGRect {
+        let frame = list.frame.intersection(app.frame)
+        let navigationBar = app.navigationBars.firstMatch
+        let top = navigationBar.exists ? max(frame.minY, navigationBar.frame.maxY) : frame.minY
+        let footer = app.buttons["TextEntry.Import"]
+        let bottom = footer.exists ? min(frame.maxY, footer.frame.minY) : frame.maxY
+        return CGRect(x: frame.minX, y: top, width: frame.width, height: max(0, bottom - top))
     }
 
     func testHistoryAndRecoveryAccessibilityAudit_DefaultText() throws {
@@ -327,9 +352,37 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
     private func runAudit(name: String) throws {
         takeScreenshot(name)
         var issues: [XCUIAccessibilityAuditIssue] = []
+        var issueVisibility: [ObjectIdentifier: (frame: CGRect, hittable: Bool, listFrame: CGRect)] = [:]
+        // iOS 26's all-category audit can scroll this List while sampling contrast.
+        // Preserve which exact footer labels started outside the visible viewport.
+        let footerLabels = [
+            "Applied to every set unless a set has its own date & time.",
+            "Blank RPE saves as 8. Blank rest uses the exercise default."
+        ]
+        let clippedFooters = name.hasPrefix("WorkoutNotes_") ? footerLabels.filter { label in
+            let element = app.staticTexts[label]
+            let list = app.collectionViews.firstMatch
+            return element.exists && list.exists && !workoutNotesAuditViewport(list).contains(element.frame)
+        } : []
         do {
-            try app.performAccessibilityAudit(for: .all) { issue in
+            // This runtime cannot run the dynamicType audit at XXXL. Keep all
+            // other categories (including textClipped) running in both themes.
+            let auditTypes: XCUIAccessibilityAuditType = name.hasPrefix("WorkoutNotes_") && allowDynamicTypeAuditSkip
+                ? .all.subtracting(.dynamicType) : .all
+            if auditTypes != .all {
+                let note = XCTAttachment(string: "dynamicType category unsupported at largest text on this runtime; all other audit categories requested.")
+                note.name = "Unsupported audit category"
+                note.lifetime = .keepAlways
+                add(note)
+            }
+            try app.performAccessibilityAudit(for: auditTypes) { issue in
                 issues.append(issue)
+                if let element = issue.element {
+                    let list = self.app.collectionViews.firstMatch
+                    issueVisibility[ObjectIdentifier(issue)] = (
+                        element.frame, element.isHittable, list.exists ? list.frame : .null
+                    )
+                }
                 return true
             }
         } catch {
@@ -350,9 +403,30 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 throw XCTSkip("Accessibility audit does not support Dynamic Type sizing on this runtime.")
             }
 
+            var verifiedFooters = Set<String>()
+            for label in clippedFooters where nonDynamicIssues.contains(where: {
+                $0.auditType == .contrast && $0.element?.elementType == .staticText && $0.element?.label == label
+            }) {
+                if try verifyWorkoutFooterContrast(label: label, auditName: name) {
+                    verifiedFooters.insert(label)
+                }
+            }
             let filteredIssues = nonDynamicIssues.filter { issue in
                 guard let element = issue.element else { return false }
-                if element.frame == .zero { return false }
+                if issueVisibility[ObjectIdentifier(issue)]?.frame == .zero { return false }
+                if issue.auditType == .contrast, element.elementType == .staticText,
+                   verifiedFooters.contains(element.label) { return false }
+                // Notes v3 evidence: Include Time at y725.5 is wholly below
+                // List maxY723, yet the contrast engine samples it. The timing
+                // pass above scrolls that control fully onscreen and audits it.
+                // Never exempt a visible/intersecting node or other issue type.
+                if name.hasPrefix("WorkoutNotes_"), issue.auditType == .contrast,
+                   !footerLabels.contains(element.label),
+                   let original = issueVisibility[ObjectIdentifier(issue)],
+                   !original.hittable, !original.listFrame.isNull,
+                   !original.listFrame.intersects(original.frame) {
+                    return false
+                }
                 // A dedicated XXXL test verifies this standard SwiftUI field is
                 // visible and usable; iOS 26.5 still reports theoretical clipping.
                 if element.identifier == "ExerciseEditor.Name" { return false }
@@ -401,6 +475,32 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 XCTFail(details)
             }
         }
+    }
+
+    @available(iOS 17.0, *)
+    private func verifyWorkoutFooterContrast(label: String, auditName: String) throws -> Bool {
+        let element = app.staticTexts[label]
+        let list = app.collectionViews.firstMatch
+        for _ in 0..<12 {
+            guard element.exists, list.exists else { return false }
+            let viewport = workoutNotesAuditViewport(list)
+            if element.isHittable && viewport.contains(element.frame) { break }
+            let distance = min(max(viewport.midY - element.frame.midY, -viewport.height * 0.4), viewport.height * 0.4)
+            let start = list.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: viewport.maxX - list.frame.minX - 5, dy: viewport.midY - list.frame.minY))
+            start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
+                                withVelocity: .slow, thenHoldForDuration: 0.3)
+        }
+        guard element.isHittable, workoutNotesAuditViewport(list).contains(element.frame) else { return false }
+        takeScreenshot("\(auditName)_FullyVisible_\(label.hasPrefix("Applied") ? "TimingHelp" : "DefaultsHelp")")
+        var failed = false
+        // Only resolve the original viewport sampling report after this same
+        // meaningful text passes contrast fully visible. Evidence: Notes v7.
+        try app.performAccessibilityAudit(for: .contrast) { issue in
+            if issue.element?.label == label || issue.element == nil { failed = true }
+            return true
+        }
+        return !failed && element.isHittable && workoutNotesAuditViewport(list).contains(element.frame)
     }
 
     // CI 33969909543 reports four contrast issues on the decorative leg glyph

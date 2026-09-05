@@ -115,9 +115,12 @@ regression cases, not an unseen final test set. See the saved analysis
 coordinating workspace. The harness ran on macOS 26.6.2 with Foundation Models
 available; it compiles feature sources with minimal dependency stubs.
 
-Full UI, snapshot, accessibility, migration and final-source release gates are
-still in progress. No final build-68 commit or upload is established by these
-results, and physical-device acceptance remains unverified.
+Local Notes review/timing audits passed in light/dark at default and largest text.
+The largest simulator size does not support the Dynamic Type audit category;
+contrast, clipping and interaction checks remain active. Native scroll-induced
+footer contrast reports require an independent fully-visible re-audit before being
+resolved. Full snapshots, UI, migration and exact-source GitHub checks are release
+gates; these local results do not establish an uploaded or device-accepted build.
 
 The old aggregate live corpus threshold and first-set-only expectations are
 historical diagnostics, not sufficient release evidence. Exact per-set/nil

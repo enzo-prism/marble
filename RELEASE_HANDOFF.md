@@ -1,6 +1,6 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-09-04.**
+**App Store Connect state refreshed: 2026-09-05 (pre-upload checkpoint).**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
 ## Build 68 Add Workout follow-up — September 5, 2026
@@ -26,9 +26,20 @@ results retain unresolved source for review. History details and Repeat now pres
 source exercise/set order. See `WORKOUT_TEXT_ENTRY.md` and the coordinating
 workspace's `outputs/marble-workout-ai-evaluation.md` for evidence and limits.
 
-Full UI, snapshot, accessibility, migration and final-source release gates are
-still in progress. There is no final build-68 commit or upload yet. Physical-device
-acceptance remains unverified; Mac model results are separate from iPhone behavior.
+Local Notes accessibility checks passed both methods across 16 review/timing
+screens in light/dark and default/largest text. The simulator does not support the
+Dynamic Type audit category at the largest size; other categories still run there.
+Exact footer contrast reports caused by native scrolling require a separate fully
+visible contrast pass, with original visibility captured before any re-audit.
+The full UI baseline completed 72 tests and exposed a test cursor tap on a rounded
+field border; the corrected interior tap preserves keyboard and saved-value
+assertions. Focused owner-note, source-order, unresolved-review and PR checks pass.
+
+This is the pre-release verification checkpoint for PR #34. Final normal snapshot,
+UI, migration and exact-source GitHub evidence remain release gates; inspect
+Actions and the immutable candidate/upload receipts for their final results.
+Physical-device acceptance remains unverified; Mac model results are separate from
+iPhone behavior.
 The iPhone last reported Developer Mode disabled. Production authorization is
 already provided, conditional on actual release gates; no new permission request
 is needed. Do not fabricate hardware results or treat source/CI as an uploaded binary.

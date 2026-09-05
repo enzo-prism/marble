@@ -1,7 +1,7 @@
 name: CI
 
-# Runs unit tests, navigation smoke tests, and the History/recovery accessibility
-# audit on every PR and release-line push. Full snapshots, UI, accessibility, and
+# Runs unit tests, import/history interactions, focused snapshots, and workout
+# review/History/recovery accessibility on every PR and release-line push. Full snapshots, UI, accessibility, and
 # migration checks run separately in the pinned Release checks workflow.
 #
 # TestFlight / App Store uploads are NOT this workflow. See
