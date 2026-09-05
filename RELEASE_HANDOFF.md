@@ -3,25 +3,42 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## Current release snapshot — verified September 4, 2026
+## Current release snapshot — verified September 4–5, 2026
 
 - Approved scope: complete the reliability, draft recovery, history/repeat, performance,
   and release-quality work; merge main; publish TestFlight and production when gates pass.
-- Local source branch: `feature/reliability-history-release`, based on main `ac25a24`.
-  Open PR #32 was at `b1a6d56` when inspected. Candidate is 2.5 (64), schema V6
-  unchanged. It is not yet uploaded or publicly released. Record the final candidate
-  commit in `AppStore/PHYSICAL_DEVICE_CHECKLIST_2.5.md` before acceptance testing.
-- ASC readback: 2.4 version `a368547f-2331-4856-a064-8357f21ea9e2` is now
-  `READY_FOR_DISTRIBUTION`, attached build 61 `bbea8736-b964-4175-8c9c-b140ebcea4c1`;
-  review submission `ce4a0d8a-f5ea-4d1e-9463-03937e467343` is `COMPLETE`.
-  US storefront release date is September 2, 2026 for production 2.4.
-  Latest processed build remains 2.4 (63) `15fc9492-9fa6-487c-aa8c-271f5aefc867`.
-- Observed PR CI reports 849 unit tests, five skips, zero failures, plus passing
-  navigation smoke tests. Full release-suite and physical-device acceptance evidence
-  for the final candidate has not yet been verified; these results are not a release signoff.
-- New production gate requires clean-source five-suite evidence, a source-bound upload
-  receipt, and verified physical-device signoff. No iPhone was connected at the latest
-  check; never infer device acceptance from simulator tests.
+- PR #32 branch `feature/reliability-history-release` contains uploaded candidate
+  **2.5 (64)**, source `d3364db57ba5e7c9b39ca1ac21e9616735f527d9`, based on
+  main `ac25a24`. Schema V6 is unchanged. **Build 65 is in progress** to correct
+  History contrast and clipped text in empty and detail states. Its final source SHA,
+  full validation, and upload are pending; build-64 evidence does not sign off build 65.
+- ASC production remains **2.4 build 61**: version
+  `a368547f-2331-4856-a064-8357f21ea9e2` is `READY_FOR_DISTRIBUTION`, attached
+  build `bbea8736-b964-4175-8c9c-b140ebcea4c1`; review submission
+  `ce4a0d8a-f5ea-4d1e-9463-03937e467343` is `COMPLETE`.
+  US storefront release date is September 2, 2026. No public 2.5 release occurred.
+- Latest verified uploaded build is **2.5 (64)**,
+  `9c965892-fc3f-4eb1-bf88-f93826b8436d`: `VALID`, internal `IN_BETA_TESTING`.
+  TestFlight workflow `33938114946` succeeded for exact source `d3364db…`.
+  The en-US What to Test note matched readback, and strict TestFlight validation
+  returned zero errors, warnings, or blockers. Keep this build internal while the
+  accessibility failures are corrected. No external beta invitations or Beta App
+  Review submission have been made for this candidate.
+- Build-64 automated evidence: **853 unit tests with five skips**, all **42 snapshot
+  groups**, and **66 UI tests** passed. The full accessibility gate **failed** on
+  History empty-state contrast/clipping; subsequent focused work also identified
+  History detail issues. Two Dynamic Type audit cases were skipped because the
+  simulator runtime did not support that audit. Other passing tests do not erase
+  these failures or substitute for the skipped audit coverage.
+- Migration checks from shipped **2.4 build 61** and older **2.3 build 56** to
+  build-64 source passed. They verified retained fixture data and persistent-store
+  identity; this is simulator evidence, not physical-device acceptance.
+- An iPhone is paired. Developer Mode was last confirmed **disabled**; the owner
+  is enabling it, but successful reinspection and physical acceptance remain pending.
+  Bind the final build-65 SHA, uploaded binary receipt, and actual installed build in
+  `AppStore/PHYSICAL_DEVICE_CHECKLIST_2.5.md` before acceptance testing.
+- Production gates require clean-source five-suite evidence, a source-bound upload
+  receipt, and verified physical-device signoff. Final build-65 gates are incomplete.
 - CI toolchain is pinned to Xcode 26.6 (17F113), iOS 26.5, ASC 4.11.0.
   App Store mutations use workflow dispatch with `evidence_run_id`, `upload_run_id`,
   and `device_signoff`. Unsupported submit/release tags were removed.
@@ -1118,8 +1135,9 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 - Do not cancel an in-flight App Store review by default.
 - Merge `9e8346f` is the exact binary source for production 2.4 build 61.
   The September 4 ASC readback is `READY_FOR_DISTRIBUTION`; its review submission
-  `ce4a0d8a-...` is `COMPLETE`. Build 63 remains the latest uploaded build.
-- PR #32 is the 2.5 (64) candidate. Bind final suite results, upload receipt, and
+  `ce4a0d8a-...` is `COMPLETE`. Build 64 is the latest verified uploaded build.
+- PR #32 is preparing corrected 2.5 (65); final SHA and upload are pending.
+  Build 64 remains internal with known accessibility failures. Bind final suite results, upload receipt, and
   physical-device signoff to the final source commit and actual installed build.
   Review submission, approval, and public storefront availability are separate states.
 - **Never delete a branch without pushing it first.** Every local-only branch was archived to
@@ -1143,7 +1161,7 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # reconcile branch version/build; inspected PR candidate is 2.5 (64)
+make asc-version      # reconcile branch version/build; corrected PR candidate is 2.5 (65), pending final SHA/upload
 make asc-status
 make asc-builds
 make asc-next-build   # query fresh; never reuse a historical expected build number

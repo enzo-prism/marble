@@ -1,15 +1,17 @@
-# Marble 2.5 (64) physical-device acceptance
+# Marble 2.5 (65) physical-device acceptance
 
-Prepared September 4, 2026 for PR #32. **Status: not run; no device acceptance is claimed.**
+Updated September 5, 2026 for PR #32. **Status: not run; no device acceptance is claimed.**
 Record the final commit and actual installed build before testing. If the candidate
 changes, update this record and rerun affected checks; never carry signoff silently
 between builds. Simulator results do not satisfy the hardware checks below.
 
 ## Candidate and evidence record
 
-- Intended version / build: **2.5 / 64** (reconcile against fresh ASC readback)
-- Final candidate full commit: **TO FILL before testing**
-- PR #32 commit inspected during analysis: `b1a6d56` (not final-build proof)
+- Intended version / build: **2.5 / 65** (reconcile against fresh ASC readback)
+- Final candidate full commit: **PENDING: build-65 corrections are in progress**
+- Previous build 64 source: `d3364db57ba5e7c9b39ca1ac21e9616735f527d9`;
+  uploaded internally as ASC build `9c965892-fc3f-4eb1-bf88-f93826b8436d` by
+  workflow `33938114946`. This is not build-65 proof or physical acceptance.
 - ASC build ID / installation source / upload receipt:
 - Exact-source release-suite run URL and result (unit, snapshots, UI, accessibility, migration):
 - Tester / test date:
@@ -17,6 +19,14 @@ between builds. Simulator results do not satisfy the hardware checks below.
 - iPad model / iPadOS / installed version and build:
 - Paired Apple Watch model / watchOS, if tested:
 - Evidence location (screenshots, recordings, logs, issue links; exclude private workout data):
+
+Current prerequisites: build 65 has not yet completed full validation or upload.
+The paired iPhone's Developer Mode was last confirmed disabled; the owner is
+enabling it, with reinspection pending. Every hardware result below remains **Not run**.
+Build-64 unit, snapshot, UI, and simulator migration successes do not satisfy these
+checks; its accessibility gate failed, with two additional runtime Dynamic Type
+skips. Recheck History empty and detail text contrast/wrapping on the corrected build.
+No external beta invitations or Beta App Review submission have been made.
 
 Use a dedicated test dataset. Export and independently preserve a backup before
 upgrades or recovery tests. Never deliberately corrupt a tester's only real store.
@@ -30,7 +40,7 @@ exercise identity, body measurements, supplements, settings, and progress media.
 
 | Scenario | Result | Evidence |
 |---|---|---|
-| Install production **2.4 build 61**, seed/use a representative dataset, then upgrade in place to candidate **2.5 (64)**. Cold launch, inspect history, save another workout, terminate and relaunch. Existing records and new writes persist without duplicates or unexpected recovery. | Not run | |
+| Install production **2.4 build 61**, seed/use a representative dataset, then upgrade in place to candidate **2.5 (65)**. Cold launch, inspect history, save another workout, terminate and relaunch. Existing records and new writes persist without duplicates or unexpected recovery. | Not run | |
 | Upgrade an available genuine **2.3** installation/store to the candidate. Record the exact old build and provenance. Verify the same records and settings after launch and another save. A fresh candidate install is not a substitute. | Not run | |
 | Fresh signed candidate install on both iPhone and iPad; complete onboarding, save, terminate and relaunch. | Not run | |
 | Exercise unreadable-store handling with a disposable fixture through the documented test harness. Original store remains available for recovery; UI explains the failure and does not silently substitute an empty or temporary writable store. Record harness/fixture and whether this ran on hardware or only in automation. | Not run | |

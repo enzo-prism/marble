@@ -27,6 +27,8 @@ jobs:
       - name: Run candidate checks
         env:
           RELEASE_EVIDENCE_ROOT: ${{ runner.temp }}/marble-release-evidence
+          DERIVED_DATA_PATH: ${{ runner.temp }}/marble-derived-data
+          MIGRATION_DERIVED_DATA_ROOT: ${{ runner.temp }}/marble-migration-builds
         run: make release-evidence
       - name: Preserve candidate evidence
         if: always()

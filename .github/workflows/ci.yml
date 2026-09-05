@@ -1,10 +1,8 @@
 name: CI
 
-# Runs the deterministic unit suite (MarbleTests) on every PR and on pushes to the
-# release lines, so broken logic can't land unnoticed the way the import feature's
-# compile errors did. Snapshot and UI suites are intentionally excluded: snapshot
-# comparisons are sub-pixel sensitive to the rendering host and belong to the local
-# `make snapshot` / `make ui` workflows, not a portable gate.
+# Runs unit tests, navigation smoke tests, and the History/recovery accessibility
+# audit on every PR and release-line push. Full snapshots, UI, accessibility, and
+# migration checks run separately in the pinned Release checks workflow.
 #
 # TestFlight / App Store uploads are NOT this workflow. See
 # .github/workflows/release-testflight.yml, release-appstore.yml, and CLOUD_RELEASE.md.
@@ -49,10 +47,27 @@ jobs:
       - name: Run navigation smoke tests
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Smoke.xcresult" make ui-smoke
 
+      - name: Audit workout history and recovery
+        run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryAccessibility.xcresult" make only TEST=MarbleUITests/AccessibilityAuditUITests/testHistoryAndRecoveryAccessibilityAudit_DefaultText
+
+      # One-time baseline refresh for the intentional build-65 contrast/wrapping
+      # correction. Remove this step after reviewing and committing the images.
+      - name: Record corrected History snapshots
+        run: |
+          SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests make snapshot-record
+
+      - name: Preserve corrected History snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corrected-history-snapshots
+          path: Tests/Snapshots/__Snapshots__/WorkoutHistorySnapshotTests/*.png
+          if-no-files-found: error
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-results
-          path: TestResults/Marble.xcresult
+          path: TestResults/*.xcresult
           if-no-files-found: ignore

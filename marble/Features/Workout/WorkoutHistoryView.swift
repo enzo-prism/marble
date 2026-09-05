@@ -46,13 +46,25 @@ struct WorkoutHistoryView: View {
                 if isLoading {
                     ProgressView("Loading workouts")
                 } else {
-                    ContentUnavailableView(
-                        search.isEmpty && !filtersByDate ? "No completed sessions" : "No matching sessions",
-                        systemImage: "clock.arrow.circlepath",
-                        description: Text(search.isEmpty && !filtersByDate
+                    VStack(spacing: 12) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.title2)
+                            .accessibilityHidden(true)
+                        Text(search.isEmpty && !filtersByDate ? "No completed sessions" : "No matching sessions")
+                            .font(.headline)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(search.isEmpty && !filtersByDate
                             ? "Finished workouts and pasted or scanned sessions appear here. Health and Strava imports and individual sets stay in Log."
                             : "Try another exercise, workout name, or date.")
-                    )
+                            .font(.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+                    .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                    .listRowSeparator(.hidden)
                 }
             }
             ForEach(sessions) { session in
@@ -153,6 +165,8 @@ struct WorkoutSessionDetailView: View {
             Section {
                 Text(session.startedAt, format: .dateTime.weekday(.wide).month(.wide).day().year())
                     .font(MarbleTypography.rowSubtitle)
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .fixedSize(horizontal: false, vertical: true)
                 Text("\(session.entries.count) sets · \(DateHelper.formattedDuration(seconds: Int(session.duration)))")
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 if let notes = session.notes, !notes.isEmpty {
@@ -165,8 +179,14 @@ struct WorkoutSessionDetailView: View {
                         showingPrecisionNotice = true
                     }
                 } label: {
-                    Label("Repeat Workout", systemImage: "arrow.clockwise")
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                    Label {
+                        Text("Repeat Workout")
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 44)
                 }
                 .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .primary))
                 .disabled(session.entries.isEmpty || detailLoadFailed || !detailsLoaded)
@@ -178,7 +198,7 @@ struct WorkoutSessionDetailView: View {
                 }
             }
             .listRowBackground(Theme.backgroundColor(for: colorScheme))
-            Section("Sets") {
+            Section {
                 ForEach(session.orderedEntries) { entry in
                     NavigationLink {
                         SetDetailView(entry: entry)
@@ -189,6 +209,9 @@ struct WorkoutSessionDetailView: View {
                     .listRowBackground(Theme.backgroundColor(for: colorScheme))
                     .marbleRowInsets()
                 }
+            } header: {
+                Text("Sets")
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
             }
         }
         .listStyle(.plain)

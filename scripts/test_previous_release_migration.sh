@@ -10,6 +10,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASE_REF="${MIGRATION_BASE_REF:-9e8346f6cad4683991a78fbaf223baaf01e9f068}"
 SIMULATOR_UDID="${SIMULATOR_UDID:-}"
 RUN_ROOT="${MIGRATION_RUN_ROOT:-$ROOT_DIR/work}"
+if [[ -n "${RELEASE_EVIDENCE_RUN_DIR:-}" && -z "${MIGRATION_RUN_ROOT:-}" ]]; then
+    RUN_ROOT="$RELEASE_EVIDENCE_RUN_DIR/migration/details"
+fi
 mkdir -p "$RUN_ROOT"
 RUN_DIR="$(mktemp -d "$RUN_ROOT/release-migration.XXXXXX")"
 BASE_DIR="$RUN_DIR/base"
