@@ -39,9 +39,9 @@ jobs:
       - name: Audit workout history and recovery
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryAccessibility.xcresult" make only TEST=MarbleUITests/AccessibilityAuditUITests/testHistoryAndRecoveryAccessibilityAudit_DefaultText
 
-      - name: Verify Repeat Workout at largest text
+      - name: Verify History interactions and largest text
         if: success() || failure()
-        run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryLargestText.xcresult" make only TEST=MarbleUITests/WorkoutHistoryUITests/testRepeatWorkoutSupportsLargestAccessibilityText
+        run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryLargestText.xcresult" make only TEST=MarbleUITests/WorkoutHistoryUITests
 
       - name: Run unit tests
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Unit.xcresult" make unit

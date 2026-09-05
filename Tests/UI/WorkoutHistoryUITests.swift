@@ -6,7 +6,8 @@ final class WorkoutHistoryUITests: MarbleUITestCase {
             launchApp(
                 appearance: appearance,
                 contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
-                fixtureMode: "screenshots"
+                fixtureMode: "screenshots",
+                extraEnvironment: ["MARBLE_DRAFT_NAMESPACE": UUID().uuidString]
             )
             navigateToTab(.addWorkout)
             forceTap(waitForIdentifier("Workout.Open", timeout: 8))
@@ -29,6 +30,22 @@ final class WorkoutHistoryUITests: MarbleUITestCase {
             XCTAssertTrue(waitForIdentifier("TextEntry.Title", timeout: 8).exists)
             XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "TextEntry.Imported").firstMatch.exists,
                            "Opening a repeat at largest text must still wait for confirmation")
+        }
+    }
+
+    func testEmptyHistorySupportsLargestAccessibilityText() {
+        for appearance in [MarbleAppearance.light, MarbleAppearance.dark] {
+            launchApp(
+                appearance: appearance,
+                contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
+                fixtureMode: "empty",
+                extraEnvironment: ["MARBLE_INITIAL_TAB": "journal"]
+            )
+            forceTap(waitForIdentifier("Journal.WorkoutHistory", timeout: 8))
+            let title = app.staticTexts["No completed sessions"]
+            waitFor(title, timeout: 8)
+            XCTAssertTrue(title.isHittable, "Empty History must show its explanation at largest text")
+            takeScreenshot("History_Empty_XXXL_\(appearance.envValue)")
         }
     }
 
