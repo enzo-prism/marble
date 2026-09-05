@@ -382,7 +382,7 @@ final class WorkoutTextEntryViewModel {
         sessions = built
 
         guard sessions.contains(where: { $0.draft.hasContent }) else {
-            errorMessage = "Couldn't find any exercises in that text. Try one exercise per line, like \"Bench Press 3x8 @ 185, rest 90s\", or import a Hevy/Strong CSV."
+            errorMessage = "Your text is still here. I couldn’t confidently identify the completed exercises yet. Add a little detail about what you did, then try again."
             phase = .input
             return
         }
@@ -428,11 +428,14 @@ final class WorkoutTextEntryViewModel {
         }
         if parsed.title == ParsedWorkoutDraft().title { parsed.title = Self.defaultTitle }
         let unparsed = diagnostics.droppedLines.filter { line in
-            let lowered = line.lowercased()
-            return !parsed.importableExercises.contains { exercise in
-                let name = exercise.trimmedName.lowercased()
-                return !name.isEmpty && (lowered.contains(name) || name.contains(lowered))
-            }
+            // Recognizing a movement's name does not prove its entire source line
+            // was understood (e.g. an omitted second effort or correction).
+            // Clear a warning only when a deterministic reading of this line can
+            // verify every movement and metric in the selected result.
+            !WorkoutDraftArbiter.isSourceLineRepresented(
+                line, by: parsed, referenceDate: AppEnvironment.now,
+                defaultWeightUnit: defaultWeightUnit
+            )
         }
         return (parsed, unparsed)
     }
@@ -514,6 +517,52 @@ final class WorkoutTextEntryViewModel {
         resolutions[id] = makeResolution(for: exercise.name)
     }
 
+    /// Review never silently discards source lines that could not be organized.
+    var canCommitWorkout: Bool { draft.hasContent && unparsedLines.isEmpty }
+
+    var reviewSourceText: String {
+        sessions.first(where: { $0.id == reviewingSessionID })?.sourceText ?? text
+    }
+
+    /// An explicit disposition for prose or details the user wants to retain.
+    /// Preserve the exact line; duplicate lines may be intentional.
+    func keepUnparsedLineAsNote(at index: Int, replacement: String? = nil) {
+        guard unparsedLines.indices.contains(index), unparsedLineIDs.indices.contains(index) else { return }
+        let line = replacement?.trimmingCharacters(in: .whitespacesAndNewlines) ?? unparsedLines[index]
+        guard !line.isEmpty else { return }
+        let existing = draft.notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        draft.notes = existing.isEmpty ? line : existing + "\n" + line
+        unparsedLines.remove(at: index)
+        unparsedLineIDs.remove(at: index)
+        errorMessage = nil
+        persistOpenReview()
+        saveDraftNow()
+    }
+
+    struct UnparsedReviewLine: Identifiable {
+        let id: UUID
+        let index: Int
+        let text: String
+    }
+
+    /// SwiftUI row identity must survive removal of a preceding row. The index
+    /// remains only for existing accessibility identifiers, never view identity.
+    var unparsedReviewLines: [UnparsedReviewLine] {
+        zip(unparsedLineIDs, unparsedLines).enumerated().map { index, pair in
+            UnparsedReviewLine(id: pair.0, index: index, text: pair.1)
+        }
+    }
+
+    func keepUnparsedLineAsNote(id: UUID, replacement: String) {
+        guard let index = unparsedLineIDs.firstIndex(of: id) else { return }
+        keepUnparsedLineAsNote(at: index, replacement: replacement)
+    }
+
+    func retryUnparsedLine(id: UUID, replacement: String) async {
+        guard let index = unparsedLineIDs.firstIndex(of: id) else { return }
+        await retryUnparsedLine(at: index, replacement: replacement)
+    }
+
     // MARK: - Unparsed lines
 
     /// Re-parse one "couldn't read" line after the user edits it. A line that
@@ -527,10 +576,7 @@ final class WorkoutTextEntryViewModel {
         defer { retryingUnparsedLineIDs.remove(lineID) }
         let trimmed = replacement.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            if let currentIndex = unparsedLineIDs.firstIndex(of: lineID) {
-                unparsedLines.remove(at: currentIndex)
-                unparsedLineIDs.remove(at: currentIndex)
-            }
+            errorMessage = "Keep this detail in workout notes, or enter the text you want to organize."
             return
         }
         let parsed = await parser.parse(ocrText: trimmed, referenceDate: AppEnvironment.now)
@@ -539,8 +585,16 @@ final class WorkoutTextEntryViewModel {
         // text, which may be identical in another row.
         guard let currentIndex = unparsedLineIDs.firstIndex(of: lineID) else { return }
         let newExercises = parsed.importableExercises
-        guard !newExercises.isEmpty else {
+        // A partial retry must not append its recognized fragment and then lose
+        // the rest, or duplicate the fragment on the next attempt. Keep the whole
+        // edited line until every part is accounted for by the same review rules.
+        guard !newExercises.isEmpty,
+              WorkoutDraftArbiter.isSourceLineRepresented(
+                trimmed, by: parsed, referenceDate: AppEnvironment.now,
+                defaultWeightUnit: defaultWeightUnit
+              ) else {
             unparsedLines[currentIndex] = trimmed
+            errorMessage = "Some details still need review. You can keep the full line in workout notes."
             return
         }
         for exercise in newExercises {
@@ -674,7 +728,7 @@ final class WorkoutTextEntryViewModel {
     /// stay visible in batch review and block saving so source text cannot be
     /// discarded without an explicit fix.
     var unresolvedSessionCount: Int {
-        sessions.filter { !$0.draft.hasContent }.count
+        sessions.filter { !$0.alreadyImported && (!$0.draft.hasContent || !$0.unparsedLines.isEmpty) }.count
     }
 
     var canCommitSelectedSessions: Bool {
@@ -802,6 +856,10 @@ final class WorkoutTextEntryViewModel {
         }
         guard draft.hasContent else {
             errorMessage = "Add at least one exercise with a set before importing."
+            return
+        }
+        guard unparsedLines.isEmpty else {
+            errorMessage = "Review the remaining lines or keep them in workout notes before adding this workout."
             return
         }
         errorMessage = nil

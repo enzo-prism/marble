@@ -3,6 +3,47 @@ import XCTest
 final class AccessibilityAuditUITests: MarbleUITestCase {
     private var allowDynamicTypeAuditSkip = false
 
+    func testWorkoutNotesReviewAccessibility_DefaultText() throws {
+        try runWorkoutNotesReviewAudits(contentSizeCategory: nil, sizeLabel: "Default")
+    }
+
+    func testWorkoutNotesReviewAccessibility_LargestText() throws {
+        allowDynamicTypeAuditSkip = true
+        defer { allowDynamicTypeAuditSkip = false }
+        try runWorkoutNotesReviewAudits(
+            contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
+            sizeLabel: "Largest"
+        )
+    }
+
+    private func runWorkoutNotesReviewAudits(contentSizeCategory: String?, sizeLabel: String) throws {
+        guard #available(iOS 17.0, *) else { throw XCTSkip("Requires accessibility audit API") }
+        for appearance in [MarbleAppearance.light, MarbleAppearance.dark] {
+            for unresolved in [false, true] {
+                launchApp(
+                    appearance: appearance, contentSizeCategory: contentSizeCategory,
+                    fixtureMode: "empty", forceReduceTransparency: true, accessibilityAudit: true,
+                    extraEnvironment: ["MARBLE_DRAFT_NAMESPACE": UUID().uuidString]
+                )
+                let editor = waitForIdentifier("TextEntry.Editor", timeout: 8)
+                editor.tap()
+                editor.typeText(unresolved
+                    ? "Bounds (2 sets)\nSprints 2 sets, 50m total"
+                    : "9/4/26\nStraight Leg Speed Bounds (2 sets)\nKnee Drive Speed Bounds (2 sets)\nResistance Rope Sprint 2 sets, 50m each\nSprints 2 sets, 50m each")
+                dismissKeyboardIfPresent()
+                let preview = app.buttons["TextEntry.Preview"]
+                scrollToElement(preview, in: app)
+                forceTap(preview)
+                waitForIdentifier("TextEntry.ReviewSummary", timeout: 10)
+                if unresolved {
+                    let detail = app.descendants(matching: .any).matching(identifier: "TextEntry.Unparsed.Line.0").firstMatch
+                    scrollToElement(detail, in: app.collectionViews.firstMatch)
+                }
+                try runAudit(name: "WorkoutNotes_\(unresolved ? "Unresolved" : "Review")_\(appearance.envValue)_\(sizeLabel)")
+            }
+        }
+    }
+
     func testHistoryAndRecoveryAccessibilityAudit_DefaultText() throws {
         try runHistoryAndRecoveryAudits(contentSizeCategory: nil, sizeLabel: "Default")
     }

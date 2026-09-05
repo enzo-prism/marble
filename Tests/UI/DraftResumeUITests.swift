@@ -16,9 +16,12 @@ final class DraftResumeUITests: MarbleUITestCase {
             let preview = app.descendants(matching: .any).matching(identifier: "TextEntry.Preview").firstMatch
             scrollToElement(preview, in: app)
             forceTap(preview)
+            _ = waitForIdentifier("TextEntry.ReviewSummary", timeout: 15)
 
-            let date = waitForIdentifier("TextEntry.Date", timeout: 10)
+            let date = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
             scrollToElement(date, in: app.collectionViews.firstMatch)
+            waitFor(date, timeout: 10)
+            revealAboveSave(date)
             let dateLabel = app.staticTexts["Date"].firstMatch
             waitFor(dateLabel)
             XCTAssertTrue(dateLabel.isHittable, "The date label must remain visible at largest text")
@@ -48,8 +51,10 @@ final class DraftResumeUITests: MarbleUITestCase {
             let resume = app.buttons["WorkoutEntry.Draft.Resume"]
             scrollToElement(resume, in: app)
             forceTap(resume)
-            let restoredDate = waitForIdentifier("TextEntry.Date", timeout: 10)
+            let restoredDate = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
             scrollToElement(restoredDate, in: app.collectionViews.firstMatch)
+            waitFor(restoredDate, timeout: 10)
+            revealAboveSave(restoredDate)
             let restoredDateButton = restoredDate.buttons.firstMatch
             waitFor(restoredDateButton)
             XCTAssertEqual(restoredDateButton.value as? String, reviewedDate)
@@ -71,6 +76,7 @@ final class DraftResumeUITests: MarbleUITestCase {
             let time = app.descendants(matching: .any).matching(identifier: "TextEntry.Time").firstMatch
             scrollToElement(time, in: app.collectionViews.firstMatch)
             waitFor(time, timeout: 8)
+            revealAboveSave(time)
             let timeLabel = app.staticTexts["Time"].firstMatch
             waitFor(timeLabel)
             XCTAssertTrue(timeLabel.isHittable, "The time label must remain visible at largest text")
@@ -82,6 +88,17 @@ final class DraftResumeUITests: MarbleUITestCase {
             time.tap()
             takeScreenshot("Composer_TimePicker_Open_XXXL_\(appearance.envValue)")
         }
+    }
+
+    private func revealAboveSave(_ element: XCUIElement) {
+        let save = app.buttons["TextEntry.Import"]
+        let list = app.collectionViews.firstMatch
+        for _ in 0..<6 where element.frame.maxY > save.frame.minY - 8 {
+            list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+                .press(forDuration: 0.05, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
+        }
+        XCTAssertLessThanOrEqual(element.frame.maxY, save.frame.minY - 8,
+                                 "The entire closed picker must fit above the save action")
     }
 
     func testLargeTextRecoveryActionsRemainReachable() {
@@ -114,7 +131,9 @@ final class DraftResumeUITests: MarbleUITestCase {
         editor.typeText("Yesterday: Push\nBench Press 1x8 @ 185 lb")
         dismissKeyboardIfPresent()
         forceTap(waitForIdentifier("TextEntry.Preview", timeout: 8))
-        let date = waitForIdentifier("TextEntry.Date", timeout: 10)
+        let date = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
+        scrollToElement(date, in: app.collectionViews.firstMatch)
+        waitFor(date, timeout: 10)
         let dateButton = date.buttons.firstMatch
         waitFor(dateButton)
         let reviewedDate = try XCTUnwrap(dateButton.value as? String)
@@ -130,7 +149,10 @@ final class DraftResumeUITests: MarbleUITestCase {
         app.terminate()
         launchApp(fixtureMode: "empty", resetDB: false, extraEnvironment: environment)
         forceTap(waitForIdentifier("WorkoutEntry.Draft.Resume", timeout: 10))
-        XCTAssertEqual(waitForIdentifier("TextEntry.Date", timeout: 8).buttons.firstMatch.value as? String, reviewedDate)
+        let restoredDate = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
+        scrollToElement(restoredDate, in: app.collectionViews.firstMatch)
+        waitFor(restoredDate, timeout: 8)
+        XCTAssertEqual(restoredDate.buttons.firstMatch.value as? String, reviewedDate)
         let restoredWeight = app.textFields[weightID]
         scrollToElement(restoredWeight, in: app.collectionViews.firstMatch)
         XCTAssertEqual(restoredWeight.value as? String, "195")

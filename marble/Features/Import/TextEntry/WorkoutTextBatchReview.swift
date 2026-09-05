@@ -76,7 +76,8 @@ struct WorkoutTextBatchReview: View {
             ))
             .disabled(!viewModel.canCommitSelectedSessions)
             .padding(.horizontal, MarbleSpacing.m)
-            .padding(.bottom, MarbleSpacing.s)
+            .padding(.vertical, MarbleSpacing.s)
+            .background(Theme.backgroundColor(for: colorScheme))
             .accessibilityIdentifier("TextEntry.Batch.Import")
         }
     }

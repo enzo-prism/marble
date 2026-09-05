@@ -57,6 +57,30 @@ final class WorkoutComposerSnapshotTests: SnapshotTestCase {
         )
     }
 
+    func testWorkoutComposerNotesNeedReview() async {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedBase(in: context)
+        let viewModel = WorkoutTextEntryViewModel(parser: HeuristicWorkoutScanParser())
+        viewModel.text = "Bench Press 3x8 @ 185 lb\nround 2 of 3 felt easy"
+        await viewModel.preview(in: context)
+        assertSnapshot(composer(viewModel: viewModel, container: container), named: "WorkoutComposer_NotesNeedReview")
+    }
+
+    func testWorkoutComposerCountOnlyAndDistanceReview() {
+        let container = SnapshotFixtures.makeContainer()
+        let viewModel = WorkoutTextEntryViewModel(parser: HeuristicWorkoutScanParser())
+        viewModel.startReview(with: ParsedWorkoutDraft(
+            performedAt: SnapshotFixtures.now,
+            title: "Workout",
+            exercises: [
+                ParsedExerciseDraft(name: "Straight Leg Speed Bounds", sets: [ParsedSetDraft(), ParsedSetDraft()]),
+                ParsedExerciseDraft(name: "Sprints", sets: [ParsedSetDraft(distance: 50), ParsedSetDraft(distance: 50)])
+            ]
+        ))
+        assertSnapshot(composer(viewModel: viewModel, container: container), named: "WorkoutComposer_CountOnlyAndDistanceReview")
+    }
+
     func testWorkoutComposerRecoveredReview() throws {
         let container = SnapshotFixtures.makeContainer()
         let context = ModelContext(container)

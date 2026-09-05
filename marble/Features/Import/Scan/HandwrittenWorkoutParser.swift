@@ -112,8 +112,8 @@ nonisolated struct WorkoutParseResult: Equatable, Sendable {
 ///     until the next header; a bare label resets the count to one.
 ///   • Numbered session labels (`Day 1`, `Session 2: Legs`) are consumed as
 ///     titles, not as bodyweight exercises named "Day" / "Session".
-///   • Spelled-out set phrases ("three sets of eight") mark the line as prose: the
-///     line is left for the on-device model / unparsed-lines review rather than
+///   • Explicit count phrases ("two sets", "2 sets of 50m each") expand without
+///     inventing missing metrics. Ambiguous count prose stays in review rather than
 ///     being mangled into a plausible-looking wrong exercise.
 ///   • En/em dashes normalize to "-"; a hyphen gluing a number to a unit word is
 ///     dropped ("20-meter" → "20meter") while digit-digit hyphens ("8-10") survive.
@@ -194,9 +194,44 @@ nonisolated enum HandwrittenWorkoutParser {
             if !trimmed.isEmpty { dropped.append(trimmed) }
         }
 
+        func expandedForRounds(_ exercises: [ParsedExerciseDraft]) -> [ParsedExerciseDraft]? {
+            guard roundMultiplier > 0, roundMultiplier <= maximumExpandedSets else { return nil }
+            let baseCount = exercises.reduce(0) { $0 + $1.sets.count }
+            guard baseCount > 0, baseCount <= maximumExpandedSets / roundMultiplier else { return nil }
+            guard roundMultiplier > 1 else { return exercises }
+            return exercises.map { exercise in
+                var repeated = exercise
+                repeated.sets = (0..<roundMultiplier).flatMap { _ in
+                    exercise.sets.map { var set = $0; set.id = UUID(); return set }
+                }
+                return repeated
+            }
+        }
+
+        func appendExercises(_ exercises: [ParsedExerciseDraft], source: String) {
+            guard let expanded = expandedForRounds(exercises) else { recordDrop(source); return }
+            resolvePendingAsTitle()
+            draft.exercises.append(contentsOf: expanded)
+        }
+
         for rawLine in text.split(whereSeparator: { $0.isNewline }).map(String.init) {
             var line = normalize(rawLine)
+            line = line.replacingOccurrences(of: #"(?<=[a-zA-Z]):(?=\d)"#, with: ": ", options: .regularExpression)
+            if line.hasSuffix(".") { line.removeLast() }
             guard !line.isEmpty else { continue }
+            guard containsSafeNumbers(rawLine), containsSafeNumbers(line) else {
+                recordDrop(rawLine)
+                if line.range(of: #"(?i)\b(rounds?|circuits?)\b"#, options: .regularExpression) != nil { roundMultiplier = 0 }
+                continue
+            }
+            guard let spokenLoads = normalizeSpokenLoads(line) else {
+                recordDrop(rawLine)
+                continue
+            }
+            line = spokenLoads
+            // A1/A2 are exercise ordering labels, not numeric prescriptions.
+            line = line.replacingOccurrences(of: #"^\s*[•\-]?\s*[A-Za-z]\d{1,2}\s*[:.)-]?\s+"#,
+                                             with: "", options: .regularExpression)
 
             // Relative date words ("yesterday", "today") act like explicit date
             // headers: set the session date and leave the line.
@@ -212,6 +247,60 @@ nonisolated enum HandwrittenWorkoutParser {
                 if draft.performedAt == nil { draft.performedAt = match.date }
                 line = normalize(line.replacingCharacters(in: match.range, with: " "))
                 guard !line.isEmpty else { continue }
+            }
+
+            // A note may mention work that was planned, skipped, or corrected.
+            // Preserve the whole line for interpretation instead of turning the
+            // mentioned prescription into completed journal entries.
+            if line.contains(where: \.isNumber), containsUnresolvedIntent(line) {
+                recordDrop(rawLine)
+                continue
+            }
+
+            if let pieces = transitionPieces(line) {
+                let parsed = pieces.map {
+                    parseDetailed($0, referenceDate: referenceDate, defaultWeightUnit: defaultWeightUnit)
+                }
+                // A transition is complete only when every movement is accounted
+                // for. Never mark the whole sentence clean after reading its first
+                // distance/duration and ignoring everything after "then".
+                if parsed.allSatisfy({ $0.droppedLines.isEmpty && $0.draft.hasContent }) {
+                    appendExercises(parsed.flatMap { $0.draft.exercises }, source: rawLine)
+                } else {
+                    recordDrop(rawLine)
+                }
+                continue
+            }
+            if let firstNumber = line.firstIndex(where: \.isNumber) {
+                let specification = String(line[firstNumber...])
+                if specification.range(of: #"(?i)\band\b|\.\s+[a-z]"#, options: .regularExpression) != nil {
+                    recordDrop(rawLine)
+                    continue
+                }
+            }
+            if let distanceEfforts = parseDistanceEfforts(line) {
+                if let exercise = distanceEfforts.exercise {
+                    appendExercises([exercise], source: rawLine)
+                } else { recordDrop(rawLine) }
+                continue
+            }
+            if let repeated = parseRepeatedEfforts(line, defaultWeightUnit: defaultWeightUnit) {
+                if let exercise = repeated.exercise {
+                    appendExercises([exercise], source: rawLine)
+                } else { recordDrop(rawLine) }
+                continue
+            }
+
+            if let ladder = parseCommaRepLadder(rawLine) {
+                appendExercises([ladder], source: rawLine)
+                continue
+            }
+            if let circuit = parseInlineCircuit(line, defaultWeightUnit: defaultWeightUnit) {
+                if circuit.isEmpty { recordDrop(rawLine) }
+                else {
+                    appendExercises(circuit, source: rawLine)
+                }
+                continue
             }
 
             // Numbered session labels (`Day 1`, `Session 2: Legs`) split a
@@ -234,9 +323,32 @@ nonisolated enum HandwrittenWorkoutParser {
             if let header = parseRoundHeader(line) {
                 resolvePendingAsTitle()
                 switch header {
-                case .counted(let count): roundMultiplier = max(1, count)
+                case .counted(let count): roundMultiplier = count
                 case .labeled: roundMultiplier = 1
+                case .invalid:
+                    roundMultiplier = 0
+                    recordDrop(rawLine)
                 }
+                continue
+            }
+
+            // An explicit count is a semantic unit: "2 sets" must never become
+            // two reps, and "2 sets, 50m each" must never become one effort.
+            // Claim invalid/ambiguous count phrases too so the permissive shorthand
+            // parser cannot silently reinterpret them as a different workout.
+            if let counted = parseCountedExercise(line, defaultWeightUnit: defaultWeightUnit) {
+                if let exercise = counted.exercise {
+                    if exercise.name.isEmpty {
+                        if let expanded = expandedForRounds([exercise]) {
+                            promotePendingToExercise()
+                            if let last = draft.exercises.indices.last {
+                                draft.exercises[last].sets.append(contentsOf: expanded[0].sets)
+                            } else { recordDrop(rawLine) }
+                        } else { recordDrop(rawLine) }
+                    } else {
+                        appendExercises([exercise], source: rawLine)
+                    }
+                } else { recordDrop(rawLine) }
                 continue
             }
 
@@ -263,44 +375,36 @@ nonisolated enum HandwrittenWorkoutParser {
             // App-export set rows ("Set 1: 60 kg x 10") attach to the current
             // exercise, promoting a pending name line if one is waiting.
             if let set = parseSetRow(line, defaultWeightUnit: defaultWeightUnit) {
-                promotePendingToExercise()
-                if let lastIndex = draft.exercises.indices.last {
-                    draft.exercises[lastIndex].sets.append(set)
-                } else {
-                    recordDrop(rawLine)
-                }
+                if let expanded = expandedForRounds([ParsedExerciseDraft(name: "", sets: [set])]) {
+                    promotePendingToExercise()
+                    if let lastIndex = draft.exercises.indices.last {
+                        draft.exercises[lastIndex].sets.append(contentsOf: expanded[0].sets)
+                    } else { recordDrop(rawLine) }
+                } else { recordDrop(rawLine) }
                 continue
             }
 
             // EMOM lines ("EMOM 10 min: 5 burpees") are a full exercise.
-            if let emom = parseEmomLine(line) {
-                resolvePendingAsTitle()
-                draft.exercises.append(emom)
+            if line.range(of: #"(?i)^emom\b"#, options: .regularExpression) != nil {
+                if let emom = parseEmomLine(line) { appendExercises([emom], source: rawLine) }
+                else { recordDrop(rawLine) }
                 continue
             }
 
-            if var exercise = parseExerciseLine(line, defaultWeightUnit: defaultWeightUnit) {
-                resolvePendingAsTitle()
-                if roundMultiplier > 1 {
-                    // "3 rounds: … pushups 10" — every movement in the round is
-                    // performed once per round, so its sets repeat that many times.
-                    exercise.sets = (0..<roundMultiplier).flatMap { _ in
-                        exercise.sets.map { var copy = $0; copy.id = UUID(); return copy }
-                    }
-                }
-                draft.exercises.append(exercise)
+            if let exercise = parseExerciseLine(line, defaultWeightUnit: defaultWeightUnit) {
+                appendExercises([exercise], source: rawLine)
                 continue
             }
 
             // Bare spec lines ("185 x 8") continue the previous exercise — the
             // natural one-exercise-per-block notes layout.
             if let sets = parseNamelessSpec(line, defaultWeightUnit: defaultWeightUnit) {
-                promotePendingToExercise()
-                if let lastIndex = draft.exercises.indices.last {
-                    draft.exercises[lastIndex].sets.append(contentsOf: sets)
-                } else {
-                    recordDrop(rawLine)
-                }
+                if let expanded = expandedForRounds([ParsedExerciseDraft(name: "", sets: sets)]) {
+                    promotePendingToExercise()
+                    if let lastIndex = draft.exercises.indices.last {
+                        draft.exercises[lastIndex].sets.append(contentsOf: expanded[0].sets)
+                    } else { recordDrop(rawLine) }
+                } else { recordDrop(rawLine) }
                 continue
             }
 
@@ -312,6 +416,323 @@ nonisolated enum HandwrittenWorkoutParser {
     }
 
     // MARK: - Line classification
+
+    private static let sourceNumberRegex = try? NSRegularExpression(pattern: #"\d+(?:\.\d+)?"#)
+    private static func containsSafeNumbers(_ line: String) -> Bool {
+        // A workout quantity over a million cannot be a reasonable set/rep/load
+        // here. Reject the source before conversion, rather than clamp or ignore
+        // an overflowing number and claim the rest of the line was understood.
+        if line.range(of: #"(?i)\d[e][+-]?\d|(?:@|\b)(?:inf(?:inity)?|nan)\b"#, options: .regularExpression) != nil { return false }
+        guard let regex = sourceNumberRegex else { return false }
+        return regex.matches(in: line, range: NSRange(line.startIndex..., in: line)).allSatisfy {
+            guard let range = Range($0.range, in: line), let value = Double(line[range]) else { return false }
+            return value.isFinite && value <= 1_000_000
+        }
+    }
+
+    private static let spokenLoadRegex = try? NSRegularExpression(
+        pattern: #"(?i)(?:\bat\s+|@\s*)(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)(?:[\s-]+(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|and))*\b"#
+    )
+
+    /// Resolve a complete spoken load as one number before individual word
+    /// normalization. Otherwise "one eighty five" could become 1 lb while the
+    /// remaining words disappear into an exercise name or ignored tokens.
+    private static func normalizeSpokenLoads(_ line: String) -> String? {
+        guard let regex = spokenLoadRegex else { return line }
+        let matches = regex.matches(in: line, range: NSRange(line.startIndex..., in: line))
+        var result = line
+        for match in matches.reversed() {
+            guard let range = Range(match.range, in: line) else { return nil }
+            var phrase = String(line[range]).lowercased()
+            phrase = phrase.replacingOccurrences(of: #"^(at\s+|@\s*)"#, with: "", options: .regularExpression)
+            let words = phrase.split(whereSeparator: { $0.isWhitespace || $0 == "-" }).map(String.init)
+            guard let value = spokenInteger(words), value > 0,
+                  let replacement = Range(match.range, in: result) else { return nil }
+            result.replaceSubrange(replacement, with: "@\(value)")
+        }
+        return result
+    }
+
+    private static func spokenInteger(_ words: [String]) -> Int? {
+        func underHundred(_ tokens: ArraySlice<String>) -> Int? {
+            if tokens.isEmpty { return 0 }
+            let parts = Array(tokens)
+            if parts.count == 1, let number = countWords[parts[0]], number < 100 { return number }
+            if parts.count == 2, let tens = countWords[parts[0]], tens >= 20, tens < 100, tens % 10 == 0,
+               let units = countWords[parts[1]], (1...9).contains(units) { return tens + units }
+            return nil
+        }
+        guard !words.isEmpty else { return nil }
+        if words.count >= 2, let hundreds = countWords[words[0]], (1...9).contains(hundreds) {
+            if words[1] == "hundred" {
+                var suffix = words.dropFirst(2)
+                if suffix.first == "and" { suffix = suffix.dropFirst() }
+                guard let remainder = underHundred(suffix) else { return nil }
+                return hundreds * 100 + remainder
+            }
+            if let tens = countWords[words[1]], tens >= 20, tens < 100, tens % 10 == 0,
+               let remainder = underHundred(words.dropFirst()) {
+                return hundreds * 100 + remainder
+            }
+        }
+        return underHundred(words[...])
+    }
+
+    private static let transitionRegex = try? NSRegularExpression(
+        pattern: #"(?i)\s+(?:and\s+then|then|followed\s+by|and(?=\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+sets?\b))\s+"#
+    )
+    private static func transitionPieces(_ line: String) -> [String]? {
+        guard let regex = transitionRegex else { return nil }
+        let range = NSRange(line.startIndex..., in: line)
+        guard regex.firstMatch(in: line, range: range) != nil else { return nil }
+        return regex.stringByReplacingMatches(in: line, range: range, withTemplate: "\n")
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { String($0).trimmingCharacters(in: .whitespaces) }
+    }
+
+    private static let distanceEffortRegex = try? NSRegularExpression(
+        pattern: #"(?i)^(?:i\s+)?(?:did\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(\d+(?:\.\d+)?|ten|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\s*-?\s*(meters?|metres?|m|kilometers?|kilometres?|km|miles?|mi|yards?|yd|feet|ft)\s+([\p{L}][\p{L} '\-]+)$"#
+    )
+    private static func parseDistanceEfforts(_ line: String) -> CountedExerciseResult? {
+        guard let regex = distanceEffortRegex, let match = firstMatch(regex, in: line),
+              let countRange = Range(match.range(at: 1), in: line),
+              let valueRange = Range(match.range(at: 2), in: line),
+              let unitRange = Range(match.range(at: 3), in: line),
+              let nameRange = Range(match.range(at: 4), in: line) else { return nil }
+        let values: [String: Double] = ["ten": 10, "twenty": 20, "thirty": 30, "forty": 40,
+            "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90, "hundred": 100]
+        let countText = String(line[countRange]).lowercased()
+        let valueText = String(line[valueRange]).lowercased()
+        let unitText = String(line[unitRange]).lowercased()
+        guard let count = Int(countText) ?? countWords[countText], (1...maximumExpandedSets).contains(count),
+              let value = Double(valueText) ?? values[valueText], value > 0, value.isFinite,
+              let distance = parseDistance("\(value)\(unitText)") else { return CountedExerciseResult(exercise: nil) }
+        let name = cleanName(String(line[nameRange]))
+        guard !containsUnresolvedIntent(name), !name.lowercased().contains(" and ") else { return CountedExerciseResult(exercise: nil) }
+        return CountedExerciseResult(exercise: ParsedExerciseDraft(name: name, sets: (0..<count).map { _ in
+            ParsedSetDraft(distance: distance.0, distanceUnit: distance.1)
+        }))
+    }
+
+    private static let repeatedEffortRegex = try? NSRegularExpression(
+        pattern: #"(?i)^(?:i\s+)?(?:did\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+([\p{L}][\p{L} '\-]+?)\s+(?:of|for)\s+(.+?)\s+each$"#
+    )
+    private static func parseRepeatedEfforts(_ line: String, defaultWeightUnit: WeightUnit) -> CountedExerciseResult? {
+        guard let regex = repeatedEffortRegex, let match = firstMatch(regex, in: line),
+              let countRange = Range(match.range(at: 1), in: line),
+              let nameRange = Range(match.range(at: 2), in: line),
+              let valueRange = Range(match.range(at: 3), in: line) else { return nil }
+        let name = String(line[nameRange])
+        guard !["set", "sets"].contains(name.lowercased()) else { return nil }
+        return parseCountedExercise("\(name) \(line[countRange]) sets \(line[valueRange]) each", defaultWeightUnit: defaultWeightUnit)
+    }
+
+    private static let commaRepLadderRegex = try? NSRegularExpression(
+        pattern: #"(?i)^\s*(.+?)\s*(\d+(?:\.\d+)?)\s*(kg|kgs|kilograms?|kilos?|lb|lbs|pounds?)\s*:\s*(\d+(?:\s*,\s*\d+)+)\s*reps?\s*$"#
+    )
+
+    /// Commas are set boundaries in this explicit load-plus-rep-list grammar.
+    /// Read the raw line before general comma whitespace normalization loses them.
+    private static func parseCommaRepLadder(_ rawLine: String) -> ParsedExerciseDraft? {
+        guard let regex = commaRepLadderRegex,
+              let match = firstMatch(regex, in: rawLine),
+              let nameRange = Range(match.range(at: 1), in: rawLine),
+              let loadRange = Range(match.range(at: 2), in: rawLine),
+              let unitRange = Range(match.range(at: 3), in: rawLine),
+              let repsRange = Range(match.range(at: 4), in: rawLine),
+              let load = Double(rawLine[loadRange]), load.isFinite else { return nil }
+        let name = cleanName(String(rawLine[nameRange]))
+        guard !name.isEmpty, !name.contains(where: \.isNumber) else { return nil }
+        let repTokens = rawLine[repsRange].split(separator: ",")
+        let reps = repTokens.compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+        guard reps.count == repTokens.count, reps.count <= maximumExpandedSets,
+              reps.allSatisfy({ $0 > 0 }) else { return nil }
+        let unit: WeightUnit = rawLine[unitRange].lowercased().hasPrefix("k") ? .kg : .lb
+        return ParsedExerciseDraft(name: name, sets: reps.map { ParsedSetDraft(weight: load, weightUnit: unit, reps: $0) })
+    }
+
+    private static let inlineCircuitRegex = try? NSRegularExpression(
+        pattern: #"(?i)^(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*rounds?\s*:\s*(.+)$"#
+    )
+    private static let leadingCircuitRepsRegex = try? NSRegularExpression(
+        pattern: #"^(\d+)\s*([\p{L}][\p{L} '\-]+)$"#
+    )
+
+    /// Explicit '+' separators bound movements; reject the entire circuit if any
+    /// movement is ambiguous so a partial parse cannot masquerade as completion.
+    private static func parseInlineCircuit(_ line: String, defaultWeightUnit: WeightUnit) -> [ParsedExerciseDraft]? {
+        guard let regex = inlineCircuitRegex, let match = firstMatch(regex, in: line),
+              let countRange = Range(match.range(at: 1), in: line),
+              let bodyRange = Range(match.range(at: 2), in: line) else { return nil }
+        let countText = String(line[countRange]).lowercased()
+        guard let count = Int(countText) ?? spelledRoundCounts[countText],
+              (1...maximumExpandedSets).contains(count) else { return [] }
+        let parts = line[bodyRange].split(separator: "+", omittingEmptySubsequences: false)
+        guard parts.count >= 2, parts.count <= maximumExpandedSets else { return [] }
+        var exercises: [ParsedExerciseDraft] = []
+        for part in parts {
+            let text = part.trimmingCharacters(in: .whitespaces)
+            var exercise: ParsedExerciseDraft?
+            if let regex = leadingCircuitRepsRegex, let movement = firstMatch(regex, in: text),
+               let repsRange = Range(movement.range(at: 1), in: text),
+               let nameRange = Range(movement.range(at: 2), in: text),
+               let reps = Int(text[repsRange]), reps > 0 {
+                let name = cleanName(String(text[nameRange]))
+                let firstWord = name.split(separator: " ").first.map(String.init) ?? ""
+                guard !isPureUnit(firstWord) else { return [] }
+                exercise = ParsedExerciseDraft(name: name, sets: [ParsedSetDraft(reps: reps)])
+            } else {
+                exercise = parseExerciseLine(text, defaultWeightUnit: defaultWeightUnit)
+            }
+            guard var parsed = exercise, parsed.sets.count == 1,
+                  !parsed.name.contains(where: \.isNumber) else { return [] }
+            parsed.sets = (0..<count).map { _ in var set = parsed.sets[0]; set.id = UUID(); return set }
+            exercises.append(parsed)
+            guard exercises.reduce(0, { $0 + $1.sets.count }) <= maximumExpandedSets else { return [] }
+        }
+        return exercises
+    }
+
+    /// Bound expansion before allocating arrays. Huge or fractional counts stay
+    /// visible as unresolved source text rather than freezing the editor.
+    private static let maximumExpandedSets = 100
+
+    private struct CountedExerciseResult {
+        var exercise: ParsedExerciseDraft?
+    }
+
+    private static let countWords: [String: Int] = [
+        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+        "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+        "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
+        "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40,
+        "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90, "hundred": 100
+    ]
+    private static let explicitCountRegex = try? NSRegularExpression(
+        pattern: #"(?i)(?<![\w.])(-?\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\s*sets?\b"#
+    )
+
+    private static func containsUnresolvedIntent(_ line: String) -> Bool {
+        line.range(of: #"(?i)\b(planned|planning|plan|skip|skipped|not|instead|actually|or|tomorrow|didn't|didn’t)\b"#, options: .regularExpression) != nil
+    }
+
+    private static func parseCountedExercise(
+        _ line: String,
+        defaultWeightUnit: WeightUnit
+    ) -> CountedExerciseResult? {
+        guard let regex = explicitCountRegex else { return nil }
+        let matches = regex.matches(in: line, range: NSRange(line.startIndex..., in: line))
+        guard let match = matches.first else { return nil }
+        let unresolved = CountedExerciseResult(exercise: nil)
+        // Plans, negation, alternatives, and corrections require interpretation;
+        // a count appearing in the sentence does not prove it was completed.
+        if containsUnresolvedIntent(line) {
+            return unresolved
+        }
+        guard matches.count == 1,
+              let countRange = Range(match.range(at: 1), in: line),
+              let phraseRange = Range(match.range, in: line) else { return unresolved }
+        let countText = String(line[countRange]).lowercased()
+        guard let count = Int(countText) ?? countWords[countText],
+              (1...maximumExpandedSets).contains(count) else { return unresolved }
+
+        let punctuation = CharacterSet(charactersIn: " ()[]:,-•–—").union(.whitespaces)
+        var name = String(line[..<phraseRange.lowerBound]).trimmingCharacters(in: punctuation)
+        var tail = String(line[phraseRange.upperBound...]).trimmingCharacters(in: punctuation)
+        let noAddedWeight = tail.range(of: #"(?i)\bno\s+(?:added\s+)?weight\b"#, options: .regularExpression) != nil
+        tail = tail.replacingOccurrences(of: #"(?i)\bno\s+(?:added\s+)?weight\b|\bbetween\s+sets\b"#, with: " ", options: .regularExpression)
+        // Restrict number-word normalization to the specification, never names
+        // ("Single Leg Bounds" remains that exercise name).
+        tail = tail.split(separator: " ").map { token in
+            countWords[String(token).lowercased()].map(String.init) ?? String(token)
+        }.joined(separator: " ")
+        tail = tail.replacingOccurrences(of: #"(?i)\bat\s+(?=\d)"#, with: "@", options: .regularExpression)
+        tail = tail.replacingOccurrences(of: #"(?i)\b(of|each|per set|reps?|repetitions?)\b"#, with: " ", options: .regularExpression)
+        tail = normalize(tail)
+        // Total distance/time is not per-set distance/time. Do not divide or
+        // duplicate it without a separately represented total-duration field.
+        if tail.range(of: #"(?i)\b(total|altogether|combined|overall)\b"#, options: .regularExpression) != nil {
+            return unresolved
+        }
+
+        var prefixTokens = name.split(separator: " ").map(String.init)
+        while let first = prefixTokens.first, nameFillerPrefixes.contains(first.lowercased()) {
+            prefixTokens.removeFirst()
+        }
+        name = cleanName(prefixTokens.joined(separator: " "))
+
+        // Count-first prose: "two sets of eight pushups" and "2 sets of bounds".
+        if name.isEmpty, !tail.isEmpty {
+            let tokens = mergeSpecTokens(tail.split(separator: " ").map(String.init))
+            var names: [String] = []
+            var values: [String] = []
+            for token in tokens {
+                let lower = token.lowercased()
+                if isSpecishToken(token) || repWordValues[lower] != nil {
+                    values.append(token)
+                } else if !["of", "for", "at", "with", "using", "on", "each", "a", "an", "the"].contains(lower) {
+                    names.append(token)
+                }
+            }
+            name = cleanName(names.joined(separator: " "))
+            tail = values.joined(separator: " ")
+        }
+        var nameTokens = name.split(separator: " ").map(String.init)
+        while let first = nameTokens.first, nameFillerPrefixes.contains(first.lowercased()) {
+            nameTokens.removeFirst()
+        }
+        name = cleanName(nameTokens.joined(separator: " "))
+        // A number before the count may be a load or an earlier prescription,
+        // never silently hide it inside the exercise name. Narrative prefixes
+        // similarly need interpretation rather than becoming library entries.
+        guard !name.contains(where: \.isNumber),
+              name.range(of: #"(?i)\b(was|were|workout|session)\b"#, options: .regularExpression) == nil else {
+            return unresolved
+        }
+
+        let template: ParsedSetDraft
+        if tail.isEmpty {
+            // Set count is useful journal data even when reps/distance were not
+            // recorded. Keep those values nil; never invent a rep to enable save.
+            template = ParsedSetDraft()
+        } else {
+            var tokens = mergeSpecTokens(tail.split(separator: " ").map(String.init))
+            guard tokens.allSatisfy({ isSpecishToken($0) || specFillerWords.contains($0.lowercased()) || repWordValues[$0.lowercased()] != nil }) else {
+                return unresolved
+            }
+            // A bare target after an explicit set count always means reps, even
+            // above the shorthand load threshold: "2 sets of 30" = 30 reps.
+            if let first = tokens.first, let reps = Int(first), reps > 0 {
+                tokens[0] = "1x\(reps)"
+            }
+            guard tokens.allSatisfy({ token in
+                let lower = token.lowercased()
+                guard lower.contains(where: \.isNumber) else { return true }
+                let weightToken = lower.hasPrefix("@") ? String(lower.dropFirst()) : lower
+                return parseAxB(lower, defaultWeightUnit: defaultWeightUnit) != nil
+                    || parseDistance(lower) != nil || parseDuration(lower) != nil
+                    || parseWeight(weightToken) != nil || parseRepRange(lower) != nil
+                    || Double(weightToken) != nil
+            }) else { return unresolved }
+            // More than one value for the same dimension is a varied/ambiguous
+            // prescription, not permission to discard every value after the first.
+            guard tokens.filter({ parseDistance($0.lowercased()) != nil }).count <= 1,
+                  tokens.filter({ parseDuration($0.lowercased()) != nil }).count <= 1,
+                  tokens.filter({ parseWeight($0.lowercased()) != nil }).count <= 1 else { return unresolved }
+            let sets = parseSpec(tokens, defaultWeightUnit: defaultWeightUnit)
+            guard sets.count == 1, let only = sets.first else { return unresolved }
+            template = only
+        }
+        guard !noAddedWeight || template.weight == nil else { return unresolved }
+        let sets = (0..<count).map { _ in
+            var set = template
+            set.id = UUID()
+            if noAddedWeight { set.notes = [set.notes, "No added weight"].compactMap { $0 }.joined(separator: "\n") }
+            return set
+        }
+        return CountedExerciseResult(exercise: ParsedExerciseDraft(name: name, sets: sets))
+    }
 
     private static func parseExerciseLine(
         _ line: String,
@@ -485,7 +906,7 @@ nonisolated enum HandwrittenWorkoutParser {
         guard let regex = emomRegex,
               let match = firstMatch(regex, in: line),
               let minutesRange = Range(match.range(at: 1), in: line),
-              let minutes = Int(line[minutesRange]), minutes > 0,
+              let minutes = Int(line[minutesRange]), (1...maximumExpandedSets).contains(minutes),
               let repsRange = Range(match.range(at: 2), in: line),
               let reps = Int(line[repsRange]), reps > 0,
               let nameRange = Range(match.range(at: 3), in: line) else { return nil }
@@ -516,10 +937,11 @@ nonisolated enum HandwrittenWorkoutParser {
     private enum RoundHeader {
         case counted(Int)
         case labeled
+        case invalid
     }
 
     private static let countedRoundHeaderRegex = try? NSRegularExpression(
-        pattern: #"(?i)^(\d+)\s+(?:rounds?|circuits?)(?:\s+of)?\s*:?$"#
+        pattern: #"(?i)^(-?\d+(?:\.\d+)?)\s+(?:rounds?|circuits?)(?:\s+of)?\s*:?$"#
     )
     private static let spelledRoundHeaderRegex = try? NSRegularExpression(
         pattern: #"(?i)^(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:rounds?|circuits?)(?:\s+of)?\s*:?$"#
@@ -538,8 +960,8 @@ nonisolated enum HandwrittenWorkoutParser {
     private static func parseRoundHeader(_ line: String) -> RoundHeader? {
         if let regex = countedRoundHeaderRegex,
            let match = firstMatch(regex, in: line),
-           let range = Range(match.range(at: 1), in: line),
-           let count = Int(line[range]) {
+           let range = Range(match.range(at: 1), in: line) {
+            guard let count = Int(line[range]), (1...maximumExpandedSets).contains(count) else { return .invalid }
             return .counted(count)
         }
         if let regex = spelledRoundHeaderRegex,
@@ -570,6 +992,10 @@ nonisolated enum HandwrittenWorkoutParser {
         var embeddedWeight: (Double, WeightUnit)?
     }
 
+    private static let explicitLoadPairRegex = try? NSRegularExpression(
+        pattern: #"(?i)(\d+(?:\.\d+)?)\s*(kg|kgs|kilograms?|kilos?|lb|lbs|pounds?)\s*x\s*(\d+)\b"#
+    )
+
     private static func parseSpec(
         _ rawTokens: [String],
         defaultWeightUnit: WeightUnit
@@ -589,6 +1015,31 @@ nonisolated enum HandwrittenWorkoutParser {
         let (restStripped, restSeconds) = extractRest(mergeSpecTokens(rawTokens))
         let (rpeStripped, difficulty) = extractRPE(restStripped)
         let tokens = stripTempo(rpeStripped)
+
+        // Explicit units disambiguate light loads below the shorthand threshold.
+        // Preserve each load/rep pairing instead of keeping only the first load:
+        // "20kg x 10, 18kg x 12" means two sets, never twenty sets or one set.
+        let joined = tokens.joined(separator: " ")
+        if let regex = explicitLoadPairRegex {
+            let range = NSRange(joined.startIndex..., in: joined)
+            let matches = regex.matches(in: joined, range: range)
+            if !matches.isEmpty {
+                let remainder = regex.stringByReplacingMatches(in: joined, range: range, withTemplate: "")
+                    .trimmingCharacters(in: .whitespaces)
+                guard remainder.isEmpty, matches.count <= maximumExpandedSets else { return [] }
+                let pairs = matches.compactMap { match -> ParsedSetDraft? in
+                    guard let valueRange = Range(match.range(at: 1), in: joined),
+                          let unitRange = Range(match.range(at: 2), in: joined),
+                          let repsRange = Range(match.range(at: 3), in: joined),
+                          let value = Double(joined[valueRange]), value.isFinite,
+                          let reps = Int(joined[repsRange]), reps > 0 else { return nil }
+                    let unit: WeightUnit = joined[unitRange].lowercased().hasPrefix("k") ? .kg : .lb
+                    return ParsedSetDraft(weight: value, weightUnit: unit, reps: reps)
+                }
+                guard pairs.count == matches.count else { return [] }
+                return annotate(pairs, restSeconds: restSeconds, difficulty: difficulty)
+            }
+        }
 
         for token in tokens {
             let lower = token.lowercased()
@@ -672,7 +1123,19 @@ nonisolated enum HandwrittenWorkoutParser {
             bareNumbers: bareNumbers,
             defaultWeightUnit: defaultWeightUnit
         )
-        return annotate(sets, restSeconds: restSeconds, difficulty: difficulty)
+        var annotated = annotate(sets, restSeconds: restSeconds, difficulty: difficulty)
+        // Keep the written range alongside the established lower-bound target.
+        // A user who wrote 8–12 did not claim exactly eight; review and the saved
+        // journal must retain that distinction without changing legacy metrics.
+        if let writtenRange = tokens.compactMap({ token -> String? in
+            let candidate = token.lowercased().split(separator: "x").last.map(String.init) ?? token
+            return parseRepRange(candidate) != nil ? candidate : nil
+        }).first {
+            for index in annotated.indices {
+                annotated[index].notes = "Rep range written: \(writtenRange)"
+            }
+        }
+        return annotated
     }
 
     private static func annotate(
@@ -709,7 +1172,7 @@ nonisolated enum HandwrittenWorkoutParser {
                 remaining.removeSubrange(markerIndex...(markerIndex + 1))
                 return (remaining, duration)
             }
-            if let value = Double(next), value > 0 {
+            if let value = Double(next), value.isFinite, value > 0, value <= 1_000_000 {
                 remaining.removeSubrange(markerIndex...(markerIndex + 1))
                 // Bare numbers are seconds when ≥ 15 ("rest 90"), minutes below
                 // ("rest 2") — nobody rests 2 seconds or 90 minutes between sets.
@@ -863,7 +1326,9 @@ nonisolated enum HandwrittenWorkoutParser {
             }
 
             // Sets × reps (or sets × per-set duration).
-            let count = max(1, Int(axb.a))
+            guard axb.a.isFinite, axb.a >= 1, axb.a <= Double(maximumExpandedSets),
+                  axb.a == axb.a.rounded() else { return [] }
+            let count = Int(axb.a)
             let resolvedWeight = axb.embeddedWeight ?? weight.map { ($0.value, $0.unit) }
                 ?? trailingWeight(from: bareNumbers, hasDuration: { if case .duration = axb.b { return true } else { return false } }(), defaultWeightUnit: defaultWeightUnit)
             let template: ParsedSetDraft
@@ -1036,7 +1501,7 @@ nonisolated enum HandwrittenWorkoutParser {
     private static let pureUnits: Set<String> = [
         "lb", "lbs", "kg", "kgs", "#",
         "pound", "pounds", "kilogram", "kilograms", "kilo", "kilos",
-        "km", "k", "mi", "mile", "miles", "m", "meter", "meters", "yd", "yard", "yards", "ft", "feet",
+        "km", "k", "kilometer", "kilometers", "kilometre", "kilometres", "mi", "mile", "miles", "m", "meter", "meters", "yd", "yard", "yards", "ft", "feet",
         "h", "hr", "hrs", "hour", "hours", "min", "mins", "minute", "minutes",
         "s", "sec", "secs", "second", "seconds"
     ]
@@ -1101,6 +1566,8 @@ nonisolated enum HandwrittenWorkoutParser {
 
     private static func parseDistance(_ token: String) -> (Double, DistanceUnit)? {
         let units: [(String, DistanceUnit)] = [
+            ("kilometers", .kilometers), ("kilometer", .kilometers),
+            ("kilometres", .kilometers), ("kilometre", .kilometers),
             ("km", .kilometers), ("k", .kilometers),
             ("miles", .miles), ("mile", .miles), ("mi", .miles),
             ("meters", .meters), ("meter", .meters), ("m", .meters),
@@ -1120,7 +1587,8 @@ nonisolated enum HandwrittenWorkoutParser {
         if token.contains(":") {
             let parts = token.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
             let numbers = parts.compactMap { Int($0) }
-            guard numbers.count == parts.count else { return nil }
+            guard numbers.count == parts.count,
+                  numbers.allSatisfy({ $0 >= 0 && $0 <= Int.max / 10800 }) else { return nil }
             switch numbers.count {
             case 2: return numbers[0] * 60 + numbers[1]            // mm:ss
             case 3: return numbers[0] * 3600 + numbers[1] * 60 + numbers[2] // h:mm:ss
@@ -1136,7 +1604,9 @@ nonisolated enum HandwrittenWorkoutParser {
             guard token.hasSuffix(suffix) else { continue }
             let numberPart = String(token.dropLast(suffix.count))
             guard let value = Double(numberPart), value >= 0 else { continue }
-            return Int((value * Double(multiplier)).rounded())
+            let seconds = (value * Double(multiplier)).rounded()
+            guard seconds.isFinite, seconds < Double(Int.max) else { return nil }
+            return Int(seconds)
         }
         return nil
     }
@@ -1208,7 +1678,15 @@ nonisolated enum HandwrittenWorkoutParser {
     }
 
     private static func cleanName(_ name: String) -> String {
-        HandwrittenWorkoutText.cleanName(name)
+        let cleaned = HandwrittenWorkoutText.cleanName(name)
+        switch cleaned.lowercased() {
+        case "ran": return "Run"
+        case "walked": return "Walk"
+        case "jogged": return "Jog"
+        case "cycled": return "Cycle"
+        case "rowed": return "Row"
+        default: return cleaned
+        }
     }
 
     private static func promotedExerciseName(_ line: String) -> String {
@@ -1224,7 +1702,8 @@ nonisolated enum HandwrittenWorkoutParser {
     }
 
     private static func intIfWhole(_ value: Double?) -> Int? {
-        guard let value, value >= 0, value == value.rounded() else { return nil }
+        guard let value, value.isFinite, value >= 0, value < Double(Int.max),
+              value == value.rounded() else { return nil }
         return Int(value)
     }
 }

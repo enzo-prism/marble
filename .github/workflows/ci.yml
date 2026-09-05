@@ -38,8 +38,15 @@ jobs:
       - name: Install xcbeautify (prettier logs)
         run: brew install xcbeautify || true
 
-      - name: Audit workout history and recovery
-        run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryAccessibility.xcresult" make only TEST=MarbleUITests/AccessibilityAuditUITests/testHistoryAndRecoveryAccessibilityAudit_DefaultText
+      - name: Run unit tests
+        run: RESULT_BUNDLE_PATH="$PWD/TestResults/Unit.xcresult" make unit
+
+      - name: Audit workout review, history and recovery
+        if: success() || failure()
+        run: |
+          RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryAccessibility.xcresult" scripts/xcodebuild_test.sh \
+            -only-testing:MarbleUITests/AccessibilityAuditUITests/testHistoryAndRecoveryAccessibilityAudit_DefaultText \
+            -only-testing:MarbleUITests/AccessibilityAuditUITests/testWorkoutNotesReviewAccessibility_DefaultText
 
       - name: Verify History and import interactions
         if: success() || failure()
@@ -47,15 +54,13 @@ jobs:
           RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryLargestText.xcresult" scripts/xcodebuild_test.sh \
             -only-testing:MarbleUITests/WorkoutHistoryUITests \
             -only-testing:MarbleUITests/DraftResumeUITests/testLargestTextDateAndTimeControlsRemainReachable \
-            -only-testing:MarbleUITests/ImportFlowUITests/testAddTabReviewsBeforeSavingStructuredSets
+            -only-testing:MarbleUITests/ImportFlowUITests/testAddTabReviewsBeforeSavingStructuredSets \
+            -only-testing:MarbleUITests/ImportFlowUITests/testAppleNotesBoundsAndSprintsSaveAllEightSets \
+            -only-testing:MarbleUITests/ImportFlowUITests/testRemovingEarlierUnorganizedLinePreservesAnotherPendingEdit
 
       - name: Verify History and Composer snapshots
         if: success() || failure()
         run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests,MarbleSnapshotTests/WorkoutComposerSnapshotTests make snapshot
-
-      - name: Run unit tests
-        if: success() || failure()
-        run: RESULT_BUNDLE_PATH="$PWD/TestResults/Unit.xcresult" make unit
 
       - name: Verify release tooling
         if: success() || failure()

@@ -246,16 +246,20 @@ final class HandwrittenWorkoutParserPasteTests: MarbleTestCase {
 
     // MARK: - Prose guard
 
-    func testSpelledOutSetsLineIsNotMangledIntoExercise() {
+    func testSpelledOutSetsLinePreservesCountRepsAndLoad() {
         let result = parseDetailed("Bench press three sets of eight at 185")
-        XCTAssertTrue(result.draft.exercises.isEmpty)
-        XCTAssertEqual(result.droppedLines.count, 1)
+        XCTAssertEqual(result.draft.exercises.first?.name, "Bench press")
+        XCTAssertEqual(result.draft.totalSetCount, 3)
+        XCTAssertTrue(result.draft.exercises[0].sets.allSatisfy { $0.reps == 8 && $0.weight == 185 })
+        XCTAssertTrue(result.droppedLines.isEmpty)
     }
 
-    func testSetsOfWordPhraseIsProse() {
+    func testCountFirstPhraseKeepsNamedLoadAndReps() {
         let result = parseDetailed("did 4 sets of squats at 225 for 5 reps")
-        XCTAssertTrue(result.draft.exercises.isEmpty)
-        XCTAssertEqual(result.droppedLines.count, 1)
+        XCTAssertTrue(result.droppedLines.isEmpty)
+        XCTAssertEqual(result.draft.totalSetCount, 4)
+        XCTAssertEqual(result.draft.exercises.first?.name, "squats")
+        XCTAssertTrue(result.draft.exercises.flatMap(\.sets).allSatisfy { $0.weight == 225 && $0.reps == 5 })
     }
 
     // MARK: - Circuit / round headers

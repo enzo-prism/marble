@@ -566,7 +566,7 @@ struct WorkoutTextEntryView: View {
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     }
                     if !preview.unrecognized.isEmpty {
-                        Text("\(preview.unrecognized.count) line\(preview.unrecognized.count == 1 ? "" : "s") not recognized yet — try \"Name 3x8 @ 185\".")
+                        Text("\(preview.unrecognized.count) line\(preview.unrecognized.count == 1 ? "" : "s") not organized yet. Review to check every detail.")
                             .font(MarbleTypography.caption)
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.8))
                     }
@@ -577,6 +577,38 @@ struct WorkoutTextEntryView: View {
 
     private var reviewView: some View {
         List {
+            Section {
+                Text(reviewSummary)
+                    .font(MarbleTypography.rowTitle)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("TextEntry.ReviewSummary")
+                ForEach(viewModel.draft.importableExercises) { exercise in
+                    Text(exerciseReviewSummary(exercise))
+                        .font(MarbleTypography.rowMeta)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } header: {
+                SectionHeaderView(title: "Your workout")
+            }
+
+            if !viewModel.unparsedLines.isEmpty {
+                Section {
+                    ForEach(viewModel.unparsedReviewLines) { line in
+                        UnparsedLineRow(text: line.text, index: line.index, onSubmit: { edited in
+                            Task { await viewModel.retryUnparsedLine(id: line.id, replacement: edited) }
+                        }, onKeepNote: { edited in
+                            viewModel.keepUnparsedLineAsNote(id: line.id, replacement: edited)
+                        })
+                    }
+                } header: {
+                    SectionHeaderView(title: "Keep every detail")
+                } footer: {
+                    Text("These lines need a closer look. Edit and retry, or keep them in workout notes before saving.")
+                        .font(MarbleTypography.caption)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            }
+
             Section {
                 TextField("Workout title", text: $viewModel.draft.title)
                     .font(MarbleTypography.rowTitle)
@@ -598,22 +630,6 @@ struct WorkoutTextEntryView: View {
                         .font(MarbleTypography.rowMeta)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .accessibilityIdentifier("TextEntry.AlreadyImported")
-                }
-            }
-
-            if !viewModel.unparsedLines.isEmpty {
-                Section {
-                    ForEach(Array(viewModel.unparsedLines.enumerated()), id: \.offset) { index, line in
-                        UnparsedLineRow(text: line, index: index) { edited in
-                            Task { await viewModel.retryUnparsedLine(at: index, replacement: edited) }
-                        }
-                    }
-                } header: {
-                    SectionHeaderView(title: "Couldn't read \(viewModel.unparsedLines.count) line\(viewModel.unparsedLines.count == 1 ? "" : "s")")
-                } footer: {
-                    Text("Edit a line into standard notation (like \"Bench 3x8 @ 185\") and it joins the workout above.")
-                        .font(MarbleTypography.caption)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 }
             }
 
@@ -651,6 +667,21 @@ struct WorkoutTextEntryView: View {
                 }
             }
 
+            if !viewModel.reviewSourceText.isEmpty {
+                Section {
+                    DisclosureGroup {
+                        Text(viewModel.reviewSourceText)
+                            .font(MarbleTypography.rowMeta)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("TextEntry.SourceText")
+                    } label: {
+                        Text("Original text")
+                            .accessibilityIdentifier("TextEntry.SourceDisclosure")
+                    }
+                }
+            }
+
             if let message = viewModel.errorMessage {
                 Section {
                     Text(message)
@@ -677,17 +708,41 @@ struct WorkoutTextEntryView: View {
             Text(importButtonTitle)
         }
         .buttonStyle(MarbleActionButtonStyle(
-            isEnabledOverride: viewModel.draft.hasContent,
+            isEnabledOverride: viewModel.canCommitWorkout,
             expandsHorizontally: true,
             prominence: .primary
         ))
-        .disabled(!viewModel.draft.hasContent)
+        .disabled(!viewModel.canCommitWorkout)
         .padding(.horizontal, MarbleSpacing.m)
-        .padding(.bottom, MarbleSpacing.s)
+        .padding(.vertical, MarbleSpacing.s)
+        .frame(maxWidth: MarbleLayout.formMaxWidth)
+        .frame(maxWidth: .infinity)
+        .background(Theme.backgroundColor(for: colorScheme))
         .accessibilityIdentifier("TextEntry.Import")
     }
 
+    private func exerciseReviewSummary(_ exercise: ParsedExerciseDraft) -> String {
+        let count = exercise.sets.count
+        let summary = "\(exercise.trimmedName) · \(count) set\(count == 1 ? "" : "s")"
+        if exercise.sets.allSatisfy({ !$0.hasAnyValue }) {
+            return summary + " · reps not specified"
+        }
+        if let first = exercise.sets.first, let distance = first.distance,
+           exercise.sets.allSatisfy({ $0.distance == distance && $0.distanceUnit == first.distanceUnit }),
+           let value = Formatters.distance.string(from: NSNumber(value: distance)) {
+            return summary + " · \(value) \(first.distanceUnit.symbol) each"
+        }
+        return summary
+    }
+
+    private var reviewSummary: String {
+        let exercises = viewModel.draft.importableExercises.count
+        let sets = viewModel.draft.totalSetCount
+        return "\(exercises) exercise\(exercises == 1 ? "" : "s") · \(sets) set\(sets == 1 ? "" : "s")"
+    }
+
     private var importButtonTitle: String {
+        if !viewModel.unparsedLines.isEmpty { return "Review details" }
         let count = viewModel.draft.totalSetCount
         let destination = presentation == .primaryTab ? "Log" : "Journal"
         guard count > 0 else { return "Add to \(destination)" }
@@ -976,28 +1031,36 @@ private struct UnparsedLineRow: View {
     let text: String
     let index: Int
     var onSubmit: (String) -> Void
+    var onKeepNote: (String) -> Void
 
     @State private var editedText: String
     @Environment(\.colorScheme) private var colorScheme
 
-    init(text: String, index: Int, onSubmit: @escaping (String) -> Void) {
+    init(text: String, index: Int, onSubmit: @escaping (String) -> Void, onKeepNote: @escaping (String) -> Void) {
         self.text = text
         self.index = index
         self.onSubmit = onSubmit
+        self.onKeepNote = onKeepNote
         _editedText = State(initialValue: text)
     }
 
     var body: some View {
-        HStack(spacing: MarbleSpacing.s) {
-            Image(systemName: "exclamationmark.circle")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-            TextField("Line notation", text: $editedText)
+        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            TextField("Workout detail", text: $editedText, axis: .vertical)
                 .font(MarbleTypography.rowSubtitle)
                 .onSubmit { onSubmit(editedText) }
                 .submitLabel(.done)
                 .accessibilityIdentifier("TextEntry.Unparsed.Line.\(index)")
+            Button("Try again") { onSubmit(editedText) }
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("TextEntry.Unparsed.Retry.\(index)")
+            Button("Keep in workout notes") { onKeepNote(editedText) }
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("TextEntry.Unparsed.KeepNote.\(index)")
         }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+        .onChange(of: text) { _, newValue in editedText = newValue }
     }
 }
 
@@ -1037,6 +1100,13 @@ private struct TextEntryExerciseSection: View {
                 resolution: resolution,
                 onChoose: onChoose
             )
+
+            if !exercise.sets.isEmpty && exercise.sets.allSatisfy({ !$0.hasAnyValue }) {
+                Text("\(exercise.sets.count) sets recorded. Reps were not specified; you can leave them blank.")
+                    .font(MarbleTypography.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("TextEntry.Exercise.CountOnly.\(exercise.id.uuidString)")
+            }
 
             // No `.onDelete`: `ImportSetTimingRows` attaches `.swipeActions`,
             // which suppresses the synthesized Delete, so it re-adds an

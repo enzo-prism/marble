@@ -91,10 +91,11 @@ nonisolated struct ParsedExerciseDraft: Equatable, Sendable, Identifiable, Codab
         let usesReps = sets.contains { $0.reps != nil }
         let usesDistance = sets.contains { $0.distance != nil }
         let usesDuration = sets.contains { $0.durationSeconds != nil }
-        // Guarantee at least one metric so the created exercise is never "empty";
-        // default to reps, the most common bodyweight fallback.
+        // A count-only drill ("Bounds, 2 sets") records completed efforts without
+        // asserting any repetitions. Keep reps available for later editing, but
+        // do not turn missing information into a required or fabricated value.
         if !usesWeight && !usesReps && !usesDistance && !usesDuration {
-            return .repsOnlyRequired
+            return ExerciseMetricsProfile(weight: .none, reps: .optional, durationSeconds: .none)
         }
         return ExerciseMetricsProfile(
             weight: usesWeight ? .required : .none,
