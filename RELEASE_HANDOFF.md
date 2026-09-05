@@ -39,6 +39,14 @@ External state can change outside git, so always re-run the **Live state checks*
   `AppStore/PHYSICAL_DEVICE_CHECKLIST_2.5.md` before acceptance testing.
 - Production gates require clean-source five-suite evidence, a source-bound upload
   receipt, and verified physical-device signoff. Final build-65 gates are incomplete.
+- Build-65 app checks passed in CI `33945284132`: standard History/recovery
+  accessibility, all four History UI tests (including largest text), 853 unit tests
+  with five skips, release-tool checks, and navigation smoke. That historical run
+  failed its snapshot harness. The corrected mounted harness recorded all 32
+  History variants in `33947468260`; reviewed baselines intentionally replace
+  stale/partial captures and reflect the contrast and wrapping changes. It waits
+  for stable native frames and rejects blank captures. Normal CI compares these
+  baselines; recording is no longer part of CI. Final candidate checks remain pending.
 - CI toolchain is pinned to Xcode 26.6 (17F113), iOS 26.5, ASC 4.11.0.
   App Store mutations use workflow dispatch with `evidence_run_id`, `upload_run_id`,
   and `device_signoff`. Unsupported submit/release tags were removed.

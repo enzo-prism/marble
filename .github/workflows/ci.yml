@@ -36,20 +36,8 @@ jobs:
       - name: Install xcbeautify (prettier logs)
         run: brew install xcbeautify || true
 
-      # One-time baseline refresh for the intentional build-65 contrast/wrapping
-      # correction. Remove this step after reviewing and committing the images.
-      - name: Record corrected History snapshots
-        if: success() || failure()
-        run: |
-          SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests make snapshot-record
-
-      - name: Preserve corrected History snapshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: corrected-history-snapshots
-          path: Tests/Snapshots/__Snapshots__/WorkoutHistorySnapshotTests/*.png
-          if-no-files-found: error
+      - name: Verify History snapshots
+        run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests make snapshot
 
       - name: Audit workout history and recovery
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryAccessibility.xcresult" make only TEST=MarbleUITests/AccessibilityAuditUITests/testHistoryAndRecoveryAccessibilityAudit_DefaultText
