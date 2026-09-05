@@ -179,16 +179,15 @@ struct WorkoutSessionDetailView: View {
                         showingPrecisionNotice = true
                     }
                 } label: {
-                    Label {
-                        Text("Repeat Workout")
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                    } icon: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    Text("Repeat Workout")
+                        .font(.headline)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .primary))
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.backgroundColor(for: colorScheme))
                 .disabled(session.entries.isEmpty || detailLoadFailed || !detailsLoaded)
                 .accessibilityHint("Review and edit a copy for today before saving")
                 .accessibilityIdentifier("History.Repeat")

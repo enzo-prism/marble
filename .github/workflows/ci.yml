@@ -36,6 +36,12 @@ jobs:
       - name: Install xcbeautify (prettier logs)
         run: brew install xcbeautify || true
 
+      - name: Audit workout history and recovery
+        run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryAccessibility.xcresult" make only TEST=MarbleUITests/AccessibilityAuditUITests/testHistoryAndRecoveryAccessibilityAudit_DefaultText
+
+      - name: Verify Repeat Workout at largest text
+        run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryLargestText.xcresult" make only TEST=MarbleUITests/WorkoutHistoryUITests/testRepeatWorkoutSupportsLargestAccessibilityText
+
       - name: Run unit tests
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Unit.xcresult" make unit
 
@@ -46,9 +52,6 @@ jobs:
 
       - name: Run navigation smoke tests
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Smoke.xcresult" make ui-smoke
-
-      - name: Audit workout history and recovery
-        run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryAccessibility.xcresult" make only TEST=MarbleUITests/AccessibilityAuditUITests/testHistoryAndRecoveryAccessibilityAudit_DefaultText
 
       # One-time baseline refresh for the intentional build-65 contrast/wrapping
       # correction. Remove this step after reviewing and committing the images.

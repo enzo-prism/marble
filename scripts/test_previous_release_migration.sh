@@ -15,8 +15,13 @@ if [[ -n "${RELEASE_EVIDENCE_RUN_DIR:-}" && -z "${MIGRATION_RUN_ROOT:-}" ]]; the
 fi
 mkdir -p "$RUN_ROOT"
 RUN_DIR="$(mktemp -d "$RUN_ROOT/release-migration.XXXXXX")"
-BASE_DIR="$RUN_DIR/base"
-BUILD_ROOT="${MIGRATION_DERIVED_DATA_ROOT:-$RUN_DIR}"
+SCRATCH_DIR=""
+if [[ -n "${RELEASE_EVIDENCE_RUN_DIR:-}" ]]; then
+    # Evidence must contain diagnostics, not a source checkout or DerivedData.
+    SCRATCH_DIR="$(mktemp -d "${TMPDIR:-/tmp}/marble-migration-scratch.XXXXXX")"
+fi
+BASE_DIR="${SCRATCH_DIR:-$RUN_DIR}/base"
+BUILD_ROOT="${MIGRATION_DERIVED_DATA_ROOT:-${SCRATCH_DIR:-$RUN_DIR}}"
 mkdir -p "$BUILD_ROOT"
 BUILD_DIR="$(mktemp -d "$BUILD_ROOT/marble-migration-build.XXXXXX")"
 BASE_DERIVED_DATA="$BUILD_DIR/base-derived-data"
@@ -28,10 +33,17 @@ EXPECTED_PROBE="$RUN_DIR/expected-probe.json"
 cleanup() {
     xcrun simctl terminate "$SIMULATOR_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
     xcrun simctl uninstall "$SIMULATOR_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
-    git -C "$ROOT_DIR" worktree remove --force "$BASE_DIR" >/dev/null 2>&1 || true
-    # Preserve logs and build evidence for diagnosis; callers may review and
-    # remove these exact generated paths after release verification.
-    printf 'Migration evidence: %s\nMigration builds: %s\n' "$RUN_DIR" "$BUILD_DIR"
+    if [[ -e "$BASE_DIR" ]] && ! git -C "$ROOT_DIR" worktree remove --force "$BASE_DIR" >/dev/null 2>&1; then
+        printf 'Warning: could not unregister migration source worktree: %s\n' "$BASE_DIR" >&2
+    fi
+    if [[ -n "$SCRATCH_DIR" ]]; then
+        rm -rf -- "$SCRATCH_DIR"
+    fi
+    printf 'Migration evidence: %s\n' "$RUN_DIR"
+    # Standalone runs and explicitly selected build roots retain build output.
+    if [[ -d "$BUILD_DIR" ]]; then
+        printf 'Migration builds: %s\n' "$BUILD_DIR"
+    fi
 }
 trap cleanup EXIT
 

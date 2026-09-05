@@ -1,6 +1,37 @@
 import XCTest
 
 final class WorkoutHistoryUITests: MarbleUITestCase {
+    func testRepeatWorkoutSupportsLargestAccessibilityText() {
+        for appearance in [MarbleAppearance.light, MarbleAppearance.dark] {
+            launchApp(
+                appearance: appearance,
+                contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
+                fixtureMode: "screenshots"
+            )
+            navigateToTab(.addWorkout)
+            forceTap(waitForIdentifier("Workout.Open", timeout: 8))
+            let finish = app.descendants(matching: .any).matching(identifier: "Workout.Finish").firstMatch
+            scrollToElement(finish, in: app)
+            forceTap(finish)
+            forceTap(waitForIdentifier("Workout.Finish.Confirm"))
+            let recent = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier BEGINSWITH 'Workout.Recent.'")).firstMatch
+            scrollToElement(recent, in: app)
+            forceTap(recent)
+            let repeatButton = waitForIdentifier("History.Repeat", timeout: 8)
+            scrollToElement(repeatButton, in: app)
+            XCTAssertTrue(repeatButton.isEnabled)
+            XCTAssertTrue(repeatButton.isHittable)
+            XCTAssertGreaterThanOrEqual(repeatButton.frame.height, 44)
+            XCTAssertGreaterThan(repeatButton.frame.width, 100)
+            takeScreenshot("History_Repeat_XXXL_\(appearance.envValue)")
+            repeatButton.tap()
+            XCTAssertTrue(waitForIdentifier("TextEntry.Title", timeout: 8).exists)
+            XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "TextEntry.Imported").firstMatch.exists,
+                           "Opening a repeat at largest text must still wait for confirmation")
+        }
+    }
+
     func testCompletedSessionOpensEditableRepeatWithoutSaving() {
         launchApp(fixtureMode: "screenshots", extraEnvironment: ["MARBLE_ENABLE_REST_PILL": "1"])
         navigateToTab(.addWorkout)
