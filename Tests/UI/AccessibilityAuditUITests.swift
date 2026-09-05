@@ -43,18 +43,35 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 try runAudit(name: "WorkoutNotes_\(unresolved ? "Unresolved" : "Review")_\(appearance.envValue)_\(sizeLabel)")
                 let includeTime = app.switches["TextEntry.IncludeTime"]
                 let list = app.collectionViews.firstMatch
+                // CI iPhone Air: centering only Include Time left Try again
+                // partly under navigation (y100.7...144.7; nav ends y122).
+                // At default size this entire control group fits. Position and
+                // audit it together; never suppress a partially visible action.
+                let auditControls = unresolved && contentSizeCategory == nil
+                    ? [includeTime, app.buttons["TextEntry.Unparsed.Retry.0"], app.buttons["TextEntry.Unparsed.KeepNote.0"]]
+                    : [includeTime]
                 for _ in 0..<12 {
-                    guard includeTime.exists else { list.swipeUp(); continue }
+                    guard auditControls.allSatisfy(\.exists) else {
+                        if includeTime.exists { list.swipeDown() } else { list.swipeUp() }
+                        continue
+                    }
                     let viewport = workoutNotesAuditViewport(list)
-                    if includeTime.isHittable && viewport.contains(includeTime.frame) { break }
-                    let distance = min(max(viewport.midY - includeTime.frame.midY, -viewport.height * 0.4), viewport.height * 0.4)
+                    let bounds = auditControls.reduce(CGRect.null) { $0.union($1.frame) }
+                    guard bounds.height <= viewport.height else {
+                        XCTFail("Timing and unresolved actions must fit together in the audit viewport")
+                        break
+                    }
+                    if auditControls.allSatisfy({ $0.isHittable }) && viewport.contains(bounds) { break }
+                    let distance = min(max(viewport.midY - bounds.midY, -viewport.height * 0.4), viewport.height * 0.4)
                     let start = list.coordinate(withNormalizedOffset: .zero)
                         .withOffset(CGVector(dx: viewport.maxX - list.frame.minX - 5, dy: viewport.midY - list.frame.minY))
                     start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
                                 withVelocity: .slow, thenHoldForDuration: 0.3)
                 }
-                XCTAssertTrue(includeTime.isHittable)
-                XCTAssertTrue(workoutNotesAuditViewport(list).contains(includeTime.frame), "Audit timing controls fully inside the unobscured List viewport")
+                for control in auditControls {
+                    XCTAssertTrue(control.isHittable)
+                    XCTAssertTrue(workoutNotesAuditViewport(list).contains(control.frame), "Audit each control fully inside the unobscured List viewport: \(control.identifier)")
+                }
                 try runAudit(name: "WorkoutNotes_Timing_\(unresolved ? "Unresolved" : "Review")_\(appearance.envValue)_\(sizeLabel)")
             }
         }

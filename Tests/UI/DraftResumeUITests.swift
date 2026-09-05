@@ -62,6 +62,9 @@ final class DraftResumeUITests: MarbleUITestCase {
             let includeTime = app.switches["TextEntry.IncludeTime"]
             scrollToElement(includeTime, in: app.collectionViews.firstMatch)
             waitFor(includeTime)
+            // A multiline switch wrapper can be hittable while its native
+            // control is behind the navigation bar after an automatic scroll.
+            revealAboveSave(includeTime, label: includeTime)
             XCTAssertTrue(includeTime.isHittable)
             XCTAssertEqual(includeTime.value as? String, "0")
             // SwiftUI exposes the whole multiline label as a Switch wrapper.
