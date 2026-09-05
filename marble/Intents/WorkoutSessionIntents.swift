@@ -65,7 +65,7 @@ struct StartWorkoutIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let context = AppIntentsSupport.resolvedContainer().mainContext
+        let context = try AppIntentsSupport.resolvedContainer().mainContext
 
         // Returning the existing session — rather than inserting a second one — is
         // the whole point of this guard. A duplicate would strand the older session.
@@ -109,7 +109,7 @@ struct FinishWorkoutIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let context = AppIntentsSupport.resolvedContainer().mainContext
+        let context = try AppIntentsSupport.resolvedContainer().mainContext
 
         guard let session = WorkoutSessionIntentSupport.activeSession(in: context) else {
             return .result(dialog: "No workout is running right now.")

@@ -44,6 +44,15 @@ fi
 
 marketing="$(marble_marketing_version "$ROOT")"
 project_build="$(marble_project_build "$ROOT")"
+source_sha="$(git rev-parse HEAD)"
+assert_clean_source() {
+  [[ "$(git rev-parse HEAD)" == "$source_sha" ]] && git diff --quiet HEAD -- &&
+    [[ -z "$(git ls-files --others --exclude-standard)" ]] || {
+      echo "error: upload requires an unchanged, committed source checkout" >&2
+      exit 1
+    }
+}
+assert_clean_source
 echo "Local version: ${marketing} (${project_build})"
 
 echo "=== ASC auth ==="
@@ -82,6 +91,8 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
 fi
 
 echo "=== upload ==="
+assert_clean_source
+ipa_digest="$(shasum -a 256 "$IPA_PATH" | awk '{print $1}')"
 upload_args=(
   builds upload
   --app "$MARBLE_ASC_APP_ID"
@@ -97,6 +108,19 @@ if [[ "$WAIT" -eq 1 ]]; then
 fi
 
 asc "${upload_args[@]}"
+
+if [[ "$WAIT" -eq 1 ]]; then
+  assert_clean_source
+  [[ "$(shasum -a 256 "$IPA_PATH" | awk '{print $1}')" == "$ipa_digest" ]] || {
+    echo "error: IPA changed during upload; receipt cannot be generated" >&2
+    exit 1
+  }
+  build_json="$(asc builds list --app "$MARBLE_ASC_APP_ID" --version "$marketing" --build-number "$project_build" --output json)"
+  uploaded_id="$(printf '%s' "$build_json" | jq -er --arg number "$project_build" '[.data[] | select(.attributes.version == $number and .attributes.processingState == "VALID")] | if length == 1 then .[0].id else error("Expected exactly one VALID uploaded build") end')"
+  ruby scripts/write_upload_receipt.rb "$ROOT/.asc/artifacts/upload-receipts" "$source_sha" "$MARBLE_ASC_APP_ID" "$marketing" "$project_build" "$uploaded_id" "$IPA_PATH"
+else
+  echo "Upload processing not verified; no production upload receipt was generated."
+fi
 
 echo "=== recent builds ==="
 asc builds list --app "$MARBLE_ASC_APP_ID" --sort -uploadedDate --limit 5 --output table || true

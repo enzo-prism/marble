@@ -94,7 +94,7 @@ struct LogSetIntent: AppIntent, PredictableIntent, UndoableIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let context = AppIntentsSupport.resolvedContainer().mainContext
+        let context = try AppIntentsSupport.resolvedContainer().mainContext
         let exerciseID = exercise.id
         let descriptor = FetchDescriptor<Exercise>(predicate: #Predicate { $0.id == exerciseID })
         guard let model = (try? context.fetch(descriptor))?.first else {
@@ -220,7 +220,7 @@ struct LogSetIntent: AppIntent, PredictableIntent, UndoableIntent {
         IntentUndo.registerLoggedSet(
             entryID: entry.id,
             goalSnapshotID: sprintSnapshot?.id,
-            container: AppIntentsSupport.resolvedContainer(),
+            container: try AppIntentsSupport.resolvedContainer(),
             undoManager: undoManager,
             actionName: "Log Set"
         )

@@ -1,6 +1,11 @@
 # Marble Testing
 
-**Release snapshot (verified 2026-08-30):** internal TestFlight build 63 was
+**Current work (2026-09-04):** 2.5 build 64 is the local reliability/history candidate,
+not yet a verified release. ASC now reports 2.4 build 61 as READY_FOR_DISTRIBUTION.
+The older dated snapshot below is retained as historical evidence, not current status.
+See RELEASE_HANDOFF.md for the latest release readback.
+
+**Historical release snapshot (verified 2026-08-30):** internal TestFlight build 63 was
 uploaded from exact merged `main` source
 `cbeb6d2f7131c14ab1327ff07e703f812a6fc754`; App Store Connect build
 `15fc9492-9fa6-487c-aa8c-271f5aefc867` is `VALID`, internal `IN_BETA_TESTING`,
@@ -34,6 +39,19 @@ production remains 2.3 build 56.
 - Accessibility audits: `MarbleUITests/AccessibilityAuditUITests` (contrast/labels/targets/clipping).
 
 ## Durable release-gate evidence
+
+PR CI includes navigation smoke tests. The nightly/manual Release checks workflow runs
+all five gates with Xcode 26.6 (17F113) and iOS 26.5. Production requires matching clean-source
+evidence, an upload receipt binding the ASC build to that source, and explicit physical-iPhone
+signoff; simulator success and an internal TestFlight upload are not device signoff.
+
+Opt-in SQLite benchmarks use `MARBLE_RUN_STORE_PERFORMANCE=1` in the test runner for
+`TrainingConsistencyQueryTests` and `WorkoutHistoryStorePerformanceTests`. These use
+synthetic fixtures, separate contexts and a warm on-disk store. They do not measure cold
+launch, real-device scrolling, or peak memory. Do not report those outcomes from these tests.
+Progress and history have [Apple signpost intervals](https://developer.apple.com/documentation/os/ossignposter)
+for follow-up Instruments measurements. Date-only projection was tested and rejected because
+it was slower than the existing Progress fetch on this host.
 
 Use the opt-in evidence runner when a candidate needs proof that survives focused reruns:
 

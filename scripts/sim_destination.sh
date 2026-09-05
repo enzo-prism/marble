@@ -7,14 +7,16 @@ if [[ -n "${MARBLE_SIMULATOR_ID:-}" ]]; then
 fi
 
 preferred_name="${MARBLE_SIMULATOR_NAME:-iPhone 15 Pro}"
+preferred_runtime="${MARBLE_SIMULATOR_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-26-5}"
 
-destination_id=$(python3 - "$preferred_name" <<'PY'
+destination_id=$(python3 - "$preferred_name" "$preferred_runtime" <<'PY'
 import json
 import re
 import subprocess
 import sys
 
 preferred = sys.argv[1].strip().lower()
+required_runtime = sys.argv[2]
 
 raw = subprocess.check_output(["xcrun", "simctl", "list", "devices", "-j"])
 data = json.loads(raw)
@@ -38,6 +40,8 @@ runtimes = sorted(data.get("devices", {}).keys(), key=runtime_version, reverse=T
 
 candidates = []
 for runtime in runtimes:
+    if runtime != required_runtime:
+        continue
     for device in data["devices"].get(runtime, []):
         if not is_available(device):
             continue

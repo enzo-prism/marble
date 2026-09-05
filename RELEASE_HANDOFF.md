@@ -1,7 +1,27 @@
 # Marble Release Handoff
 
-**Live GitHub, TestFlight, and App Review state verified: 2026-08-30.**
+**App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
+
+## September 4 — 2.5 build 64 in verification
+
+- Approved scope: complete the reliability, draft recovery, history/repeat, performance,
+  and release-quality work; merge main; publish TestFlight and production when gates pass.
+- Local source branch: `feature/reliability-history-release`, based on main `ac25a24`.
+  Candidate is 2.5 (64), schema V6 unchanged. It is not yet uploaded or publicly released.
+- ASC readback: 2.4 version `a368547f-2331-4856-a064-8357f21ea9e2` is now
+  `READY_FOR_DISTRIBUTION`, attached build 61 `bbea8736-b964-4175-8c9c-b140ebcea4c1`;
+  review submission `ce4a0d8a-f5ea-4d1e-9463-03937e467343` is `COMPLETE`.
+  Latest processed build remains 2.4 (63) `15fc9492-9fa6-487c-aa8c-271f5aefc867`.
+- New production gate requires clean-source five-suite evidence, a source-bound upload
+  receipt, and verified physical-device signoff. No iPhone was connected at the latest
+  check; never infer device acceptance from simulator tests.
+- CI toolchain is pinned to Xcode 26.6 (17F113), iOS 26.5, ASC 4.11.0.
+  App Store mutations use workflow dispatch with `evidence_run_id`, `upload_run_id`,
+  and `device_signoff`. Unsupported submit/release tags were removed.
+
+The following dated build sections are historical. In particular, their old
+WAITING_FOR_REVIEW and public-2.3 statements are not current ASC status.
 
 ---
 

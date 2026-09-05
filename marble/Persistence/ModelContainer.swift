@@ -2,122 +2,98 @@ import Foundation
 import SwiftData
 
 enum PersistenceController {
-    static func makeContainer(useInMemory: Bool = false) -> ModelContainer {
-        if useInMemory {
-            return makeInMemoryContainer()
-        }
-
-        if TestHooks.resetDatabase {
-            removeStoreFiles()
-        }
-
-        return makeRecoveringContainer(at: storeURL)
-    }
-
-    /// Opens the on-disk store at `url`, recovering instead of crash-looping when it can't
-    /// be read (most often an incompatible/failed migration): the unreadable store is moved
-    /// aside to `*.corrupt` (so a future build could recover the user's data), a fresh store
-    /// is created, and if even that fails it falls back to an in-memory store so the app
-    /// still launches. Internal so tests can drive the recovery path against a throwaway
-    /// store URL rather than the real Application Support store.
-    static func makeRecoveringContainer(at url: URL) -> ModelContainer {
-        do {
-            return try makePersistentContainer(at: url)
-        } catch {
-            #if DEBUG
-            print("ModelContainer open failed, attempting recovery: \(error)")
-            #endif
-            if let backupURL = backupCorruptStore(at: url) {
-                PersistenceRecoveryNotice.record(backupName: backupURL.lastPathComponent)
-            }
-            do {
-                return try makePersistentContainer(at: url)
-            } catch {
-                #if DEBUG
-                print("ModelContainer recovery failed, falling back to in-memory store: \(error)")
-                #endif
-                return makeInMemoryContainer()
-            }
-        }
-    }
-
-    // MARK: - Container construction
-
-    private static var schema: Schema {
-        Schema(versionedSchema: MarbleSchemaV6.self)
-    }
-
-    private static func makePersistentContainer(at url: URL) throws -> ModelContainer {
-        let configuration = ModelConfiguration(schema: schema, url: url)
-        return try ModelContainer(
-            for: schema,
-            migrationPlan: MarbleMigrationPlan.self,
-            configurations: [configuration]
-        )
-    }
-
-    private static func makeInMemoryContainer() -> ModelContainer {
+    /// Explicitly ephemeral containers are for previews and deterministic tests only.
+    /// Production callers must use `openContainer`, which never hides a disk failure.
+    static func makeContainer(useInMemory: Bool) -> ModelContainer {
+        precondition(useInMemory, "Use openContainer() for persistent storage")
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         do {
-            return try ModelContainer(
-                for: schema,
-                migrationPlan: MarbleMigrationPlan.self,
-                configurations: [configuration]
-            )
+            return try ModelContainer(for: schema, migrationPlan: MarbleMigrationPlan.self, configurations: [configuration])
         } catch {
-            // An in-memory store has no on-disk state to be incompatible with, so a
-            // failure here means the schema itself is invalid — genuinely unrecoverable.
-            fatalError("Failed to create in-memory ModelContainer: \(error)")
+            fatalError("Failed to create test ModelContainer: \(error)")
         }
     }
 
-    // MARK: - Store files
-
-    private static var storeDirectory: URL {
-        let directory = URL.applicationSupportDirectory.appendingPathComponent("Marble", isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory
+    static func openContainer(useInMemory: Bool = false) throws -> ModelContainer {
+        if useInMemory { return makeContainer(useInMemory: true) }
+        if TestHooks.resetDatabase { removeStoreFiles() }
+        return try makeRecoveringContainer(at: storeURL)
     }
 
-    private static var storeURL: URL {
-        storeDirectory.appendingPathComponent("Marble.store")
+    /// A failed open never renames a live SQLite file, separates its WAL, creates a
+    /// replacement database, or permits volatile logging. Keep all source files in
+    /// place for a later retry, OS unlock, migration fix, or supported recovery.
+    static func makeRecoveringContainer(
+        at url: URL,
+        opener: ((URL) throws -> ModelContainer)? = nil
+    ) throws -> ModelContainer {
+        do {
+            return try (opener ?? makePersistentContainer)(url)
+        } catch {
+            throw PersistenceOpenFailure.classify(error)
+        }
     }
 
-    /// SwiftData keeps the store as a SQLite file plus `-wal`/`-shm` sidecars.
-    private static func sidecarURLs(for base: URL) -> [URL] {
-        let directory = base.deletingLastPathComponent()
-        let name = base.lastPathComponent
-        return [
-            base,
-            directory.appendingPathComponent("\(name)-wal"),
-            directory.appendingPathComponent("\(name)-shm")
-        ]
+    private static var schema: Schema { Schema(versionedSchema: MarbleSchemaV6.self) }
+
+    private static func makePersistentContainer(at url: URL) throws -> ModelContainer {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let configuration = ModelConfiguration(schema: schema, url: url)
+        return try ModelContainer(for: schema, migrationPlan: MarbleMigrationPlan.self, configurations: [configuration])
+    }
+
+    static var storeURL: URL {
+        URL.applicationSupportDirectory.appendingPathComponent("Marble", isDirectory: true)
+            .appendingPathComponent("Marble.store")
+    }
+
+    static func sidecarURLs(for base: URL) -> [URL] {
+        [base, URL(fileURLWithPath: base.path + "-wal"), URL(fileURLWithPath: base.path + "-shm")]
     }
 
     private static func removeStoreFiles() {
-        for url in sidecarURLs(for: storeURL) {
-            try? FileManager.default.removeItem(at: url)
+        for url in sidecarURLs(for: storeURL) { try? FileManager.default.removeItem(at: url) }
+    }
+}
+
+/// Classify structured error codes, never localized descriptions. Unknown/migration
+/// failures are not proof of corruption and must not trigger destructive recovery.
+nonisolated enum PersistenceOpenFailure: String, Error, LocalizedError, Sendable {
+    case temporarilyUnavailable, damagedStore, incompatibleStore, unknown
+
+    var errorDescription: String? { "Marble couldn't open your saved workouts. Open Marble to retry." }
+
+    var guidance: String {
+        switch self {
+        case .temporarilyUnavailable:
+            "Your workout storage is temporarily unavailable. Unlock your iPhone, check that storage is available, then try again."
+        case .damagedStore:
+            "Your workout database needs recovery. Keep Marble installed to preserve your files. A recovery copy can help with support."
+        case .incompatibleStore:
+            "Your workout database couldn't be opened by this version of Marble. Check for an app update, then try again."
+        case .unknown:
+            "Marble couldn't open your workout database. Try again, or keep a recovery copy for support."
         }
     }
 
-    /// Moves the store at `base` (and its sidecars) aside so a failed migration
-    /// doesn't destroy data outright. Older recovery copies are never overwritten.
-    @discardableResult
-    private static func backupCorruptStore(at base: URL) -> URL? {
-        let manager = FileManager.default
-        let storeFiles = sidecarURLs(for: base)
-        let hasOlderBackup = storeFiles.contains { manager.fileExists(atPath: $0.appendingPathExtension("corrupt").path) }
-        let suffix = hasOlderBackup ? "corrupt-\(UUID().uuidString)" : "corrupt"
-        var preservedURL: URL?
-
-        for url in storeFiles where manager.fileExists(atPath: url.path) {
-            let backup = url.appendingPathExtension(suffix)
-            if (try? manager.moveItem(at: url, to: backup)) != nil {
-                if url == base || preservedURL == nil {
-                    preservedURL = backup
-                }
+    static func classify(_ error: Error) -> Self {
+        if let failure = error as? Self { return failure }
+        var pending = [error as NSError]
+        var visited = Set<ObjectIdentifier>()
+        var result: Self = .unknown
+        while let current = pending.popLast(), visited.count < 32 {
+            guard visited.insert(ObjectIdentifier(current)).inserted else { continue }
+            if let underlying = current.userInfo[NSUnderlyingErrorKey] as? NSError { pending.append(underlying) }
+            if let detailed = current.userInfo["NSDetailedErrors"] as? [NSError] { pending.append(contentsOf: detailed) }
+            if current.domain == NSPOSIXErrorDomain && [1, 5, 11, 13, 16, 28, 30].contains(current.code) { return .temporarilyUnavailable }
+            if current.domain == NSCocoaErrorDomain && [257, 513, 640, 642].contains(current.code) { return .temporarilyUnavailable }
+            if current.domain == "NSSQLiteErrorDomain" {
+                let primaryCode = current.code & 0xff
+                if [3, 5, 6, 8, 10, 13, 14, 23].contains(primaryCode) { return .temporarilyUnavailable }
+                if [11, 26].contains(primaryCode) { result = .damagedStore }
             }
+            if current.domain == NSCocoaErrorDomain && (134100...134199).contains(current.code), result == .unknown { result = .incompatibleStore }
         }
-        return preservedURL
+        return result
     }
 }

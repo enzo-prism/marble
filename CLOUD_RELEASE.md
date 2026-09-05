@@ -81,10 +81,8 @@ make cloud-status             # ASC status if secrets exist, else Actions runs
 make cloud-testflight
 make cloud-testflight DRY_RUN=1
 
-# App Store API (runs here if ASC_* are in Cursor secrets)
+# App Store read-only API (runs here if ASC_* are in Cursor secrets)
 make cloud-appstore-validate VERSION=2.4
-make cloud-appstore-submit CONFIRM=submit VERSION=2.4
-make cloud-appstore-release CONFIRM=release VERSION=2.3
 ```
 
 Equivalent:
@@ -92,14 +90,21 @@ Equivalent:
 ```bash
 scripts/cloud_release.sh preflight
 scripts/cloud_release.sh testflight
-scripts/cloud_release.sh appstore-submit --version 2.4 --confirm
-scripts/cloud_release.sh appstore-release --version 2.3 --confirm
+# Production dispatch: use the exact candidate branch already pushed to GitHub.
+scripts/cloud_release.sh appstore-submit --version 2.5 --confirm --github \
+  --evidence-run 123456 --upload-run 123457 \
+  --device-signoff /absolute/path/device-signoff.json
+# Replace appstore-submit with appstore-release after Apple approves the same build.
 ```
 
 Dispatch order:
 
 1. `workflow_dispatch` via the git credential (often 403 for Cloud Agent tokens).
-2. Fallback: annotated tag `publish/testflight/<utc>-<sha>` (or `publish/appstore-submit|<release>/<version>/…`) and `git push origin refs/tags/…`.
+2. TestFlight and read-only validation can fall back to annotated publish tags. App Store submit/release require workflow dispatch: there is no mutation tag fallback. A dry run never falls back to a publishing tag.
+
+For production dispatch, provide `--evidence-run`, `--upload-run`, and a real `--device-signoff` JSON file. Equivalent environment variables are `RELEASE_EVIDENCE_RUN_ID`, `RELEASE_UPLOAD_RUN_ID`, and `RELEASE_DEVICE_SIGNOFF`. Both referenced GitHub runs must have succeeded at the current commit using the expected Release checks/TestFlight workflows. The helper passes the file contents as the workflow's signoff input. `--github` selects dispatch even when local ASC credentials exist. Missing evidence fails before dispatch.
+
+Watching returns a failure when a job fails, cannot be observed, or does not appear. `--no-watch` / `--no-wait` means dispatch accepted only; verify the run separately before claiming a release.
 
 Do not force-push those tags. Do not upload `.ipa` artifacts from Actions — this repository is public.
 
@@ -112,35 +117,39 @@ Do not force-push those tags. Do not upload `.ipa` artifacts from Actions — th
 3. `make asc-archive`
 4. `ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export`
 5. `asc builds upload --ipa .asc/artifacts/marble.ipa --wait`
+6. Read back the exact VALID build and write a source/build/IPA-hash upload receipt. Actions preserves it in the immutable `upload-receipt` artifact. Receipts contain no signing credentials or binary data.
 
 Internal group **test group A** has `hasAccessToAllBuilds: true`; do not assign the build to it (the API rejects that).
 
 **App Store submit** (`scripts/ci_appstore.sh submit`):
 
-1. `asc validate` / review doctor
-2. `asc release stage --build <VALID build> --confirm`
-3. Create/submit the review submission
+1. Verify clean-source full checks (unit, snapshots, UI, accessibility, migration), physical-device signoff, and upload receipt for the same SHA/version/build.
+2. Verify the exact ASC build ID belongs to the upload receipt and the app/version.
+3. Run ASC status/validation, stage the build, and submit review.
 
 **App Store release** (`scripts/ci_appstore.sh release`):
 
 - `asc versions release --version-id <id> --confirm` for an approved manual-release version (`PENDING_DEVELOPER_RELEASE` / `READY_FOR_DISTRIBUTION`).
 
-## Local Mac path (unchanged)
+## Local Mac path
 
 If the agent is actually on a Mac with Xcode 26, signing identities, and ASC auth:
 
 ```bash
-make asc-auth && make asc-next-build
-make asc-archive
-ASC_EXPORT_OPTIONS=$PWD/.asc/ExportOptions.plist make asc-export
-asc builds upload --ipa "$PWD/.asc/artifacts/marble.ipa" --app 6757725234 --wait
+make asc-auth
+make asc-next-build
+scripts/cloud_release.sh testflight
 ```
 
 `make cloud-testflight` on that Mac skips Actions and runs the staged local path.
 
+This path generates the required readonly upload receipt under `.asc/artifacts/upload-receipts/` after processing succeeds. Direct ad-hoc uploads do not produce a release receipt automatically. A `--no-wait` upload cannot produce a verified receipt while processing remains unverified.
+
+For local API submission/release, set `RELEASE_EVIDENCE_MANIFEST`, `RELEASE_DEVICE_SIGNOFF`, and `RELEASE_UPLOAD_RECEIPT` to the actual files before running `scripts/cloud_release.sh appstore-submit --version 2.5 --confirm`. The gate verifies the same source/build and all checks as the GitHub path. Evidence must come from a clean committed checkout; `RELEASE_EVIDENCE_ALLOW_DIRTY=1` produces development-only evidence that production rejects.
+
 ## Safety
 
-- No workflow runs on ordinary `main` pushes.
-- Submit and release require `--confirm` / `CONFIRM=submit|release` / a `publish/appstore-*` tag.
+- Publishing workflows do not run on ordinary `main` pushes. CI runs on pushes; Release checks also runs on its configured schedule.
+- Submit and release require `--confirm` / `CONFIRM=submit|release`, full candidate evidence, upload receipt, and physical-device signoff. Mutation publish tags are unsupported.
 - Do not cancel an in-flight review, replace a review build, or ship to customers unless the user asked.
 - After a VALID TestFlight build, update `RELEASE_HANDOFF.md` with the build id.

@@ -18,7 +18,7 @@ import FoundationModels
 @Observable
 @MainActor
 final class WorkoutTextEntryViewModel {
-    enum Phase: Equatable {
+    nonisolated enum Phase: String, Equatable, Codable, Sendable {
         case input
         case processing
         case batchReview
@@ -28,8 +28,8 @@ final class WorkoutTextEntryViewModel {
 
     /// How one parsed exercise maps onto the library, shown and adjustable in
     /// the review step — the piece the silent importers don't have.
-    struct Resolution: Equatable {
-        enum Choice: Equatable {
+    nonisolated struct Resolution: Equatable, Codable, Sendable {
+        enum Choice: Equatable, Codable, Sendable {
             /// Import into this existing library exercise (canonical name).
             case library(id: UUID, name: String)
             /// Create a new exercise named after the parsed text.
@@ -66,13 +66,13 @@ final class WorkoutTextEntryViewModel {
 
     typealias ImportHandler = (ParsedWorkoutDraft, String, ModelContext) throws -> WorkoutImporter.Summary
 
-    private(set) var phase: Phase = .input
-    var text = ""
-    var draft = ParsedWorkoutDraft()
-    private(set) var sessions: [WorkoutImportSession] = []
+    private(set) var phase: Phase = .input { didSet { scheduleDraftSave() } }
+    var text = "" { didSet { scheduleDraftSave() } }
+    var draft = ParsedWorkoutDraft() { didSet { scheduleDraftSave() } }
+    private(set) var sessions: [WorkoutImportSession] = [] { didSet { scheduleDraftSave() } }
     /// Set when the review screen is a drill-in from `batchReview`.
     private(set) var reviewingSessionID: UUID?
-    private(set) var resolutions: [UUID: Resolution] = [:]
+    private(set) var resolutions: [UUID: Resolution] = [:] { didSet { scheduleDraftSave() } }
     private(set) var lastSummary: WorkoutImporter.Summary?
     var errorMessage: String?
     /// Set when identical text was already imported — a heads-up, not a block.
@@ -81,7 +81,7 @@ final class WorkoutTextEntryViewModel {
     /// Source lines the parse produced nothing for, shown in review so a paste
     /// never loses work silently. Editable inline; a fixed line re-parses into
     /// the draft.
-    private(set) var unparsedLines: [String] = []
+    private(set) var unparsedLines: [String] = [] { didSet { scheduleDraftSave() } }
     /// Stable identity for each displayed row. The same dropped line can occur
     /// more than once, so its text is not a safe concurrency key while retries
     /// yield to the parser.
@@ -134,6 +134,12 @@ final class WorkoutTextEntryViewModel {
     private var matcher = ExerciseMatcher(candidates: [])
     /// Bumped on every `preview` so a second tap cancels the in-flight parse.
     private var previewGeneration = 0
+    @ObservationIgnored private let draftStore: (any WorkoutEntryDraftStoring)?
+    @ObservationIgnored private var draftSaveTask: Task<Void, Never>?
+    @ObservationIgnored private var draftPersistenceEnabled = false
+    private(set) var hasUnreadableSavedDraft = false
+    private(set) var hasRestoredDraft = false
+    private(set) var draftStorageMessage: String?
 
     /// The weight unit the user picked in onboarding / settings.
     static var preferredWeightUnit: WeightUnit {
@@ -144,12 +150,105 @@ final class WorkoutTextEntryViewModel {
         parser: WorkoutScanParsing? = nil,
         importHandler: ImportHandler? = nil,
         defaultWeightUnit: WeightUnit = WorkoutTextEntryViewModel.preferredWeightUnit,
-        initialText: String = ""
+        initialText: String = "",
+        draftStore: (any WorkoutEntryDraftStoring)? = nil
     ) {
         self.defaultWeightUnit = defaultWeightUnit
         self.parser = parser ?? FoundationModelsWorkoutScanParser(defaultWeightUnit: defaultWeightUnit)
         self.importHandler = importHandler
         self.text = initialText
+        self.draftStore = draftStore
+        restoreSavedDraft()
+        draftPersistenceEnabled = true
+    }
+
+    private func restoreSavedDraft() {
+        guard let draftStore else { return }
+        do {
+            guard let saved = try draftStore.load() else { return }
+            text = saved.text
+            phase = saved.phase == .processing ? .input : saved.phase
+            draft = saved.draft
+            sessions = saved.sessions
+            reviewingSessionID = saved.reviewingSessionID
+            resolutions = saved.resolutions
+            externalID = saved.externalID
+            unparsedLines = saved.unparsedLines
+            unparsedLineIDs = saved.unparsedLineIDs
+            hasRestoredDraft = true
+        } catch {
+            draftStorageMessage = "Your saved draft couldn't be opened. It has been kept on this device."
+            // Preserve unreadable/newer data until the user explicitly discards it.
+            hasUnreadableSavedDraft = true
+        }
+    }
+
+    func resumeDraft(in context: ModelContext) {
+        reloadMatcher(in: context)
+        hasRestoredDraft = false
+    }
+
+    func retryOpeningDraft() {
+        guard hasUnreadableSavedDraft else { return }
+        draftPersistenceEnabled = false
+        hasUnreadableSavedDraft = false
+        draftStorageMessage = nil
+        restoreSavedDraft()
+        draftPersistenceEnabled = true
+    }
+
+    private func scheduleDraftSave() {
+        guard draftPersistenceEnabled, draftStorageMessage == nil, draftStore != nil else { return }
+        draftSaveTask?.cancel()
+        draftSaveTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+            self?.saveDraftNow()
+        }
+    }
+
+    /// Also flushed on backgrounding and immediately before committing. The
+    /// persisted import identity makes retry safe if termination follows save.
+    @discardableResult
+    func saveDraftNow() -> Bool {
+        draftSaveTask?.cancel()
+        guard !hasUnreadableSavedDraft else { return false }
+        guard draftPersistenceEnabled, let draftStore else { return true }
+        defer { draftSaveTask?.cancel() }
+        do {
+            if phase == .imported || (text.isEmpty && !draft.hasContent && sessions.isEmpty) {
+                try draftStore.clear()
+            } else {
+                persistOpenReview()
+                try draftStore.save(WorkoutEntryDraft(
+                    text: text, phase: phase, draft: draft, sessions: sessions,
+                    reviewingSessionID: reviewingSessionID, resolutions: resolutions,
+                    externalID: externalID, unparsedLines: unparsedLines,
+                    unparsedLineIDs: unparsedLineIDs
+                ))
+            }
+            draftStorageMessage = nil
+            return true
+        } catch {
+            draftStorageMessage = "Your latest draft changes couldn't be saved. Keep Marble open and try again."
+            return false
+        }
+    }
+
+    /// A repeat uses a fresh ledger identity, while edits keep the supplied
+    /// exercise/library/set identity throughout this draft's lifetime.
+    func startReview(with reviewDraft: ParsedWorkoutDraft) {
+        reset()
+        draft = reviewDraft
+        preserveReviewMetrics()
+        externalID = "repeat-\(UUID().uuidString)"
+        for exercise in reviewDraft.exercises {
+            let choice: Resolution.Choice = exercise.libraryExerciseID.map {
+                .library(id: $0, name: exercise.name)
+            } ?? .createNew
+            resolutions[exercise.id] = Resolution(choice: choice, suggestions: [], autoConfidence: nil)
+        }
+        phase = .review
+        saveDraftNow()
     }
 
     /// True only when the smarter on-device model is ready; the deterministic
@@ -328,10 +427,17 @@ final class WorkoutTextEntryViewModel {
         guard let session = sessions.first(where: { $0.id == id }) else { return }
         reviewingSessionID = id
         draft = session.draft
+        preserveReviewMetrics()
         unparsedLines = session.unparsedLines
         unparsedLineIDs = unparsedLines.map { _ in UUID() }
         alreadyImported = session.alreadyImported
         externalID = session.externalID
+    }
+
+    private func preserveReviewMetrics() {
+        for index in draft.exercises.indices where draft.exercises[index].reviewMetricsProfile == nil {
+            draft.exercises[index].reviewMetricsProfile = draft.exercises[index].metricsProfile
+        }
     }
 
     /// Persist review edits back onto the session they came from.
@@ -672,6 +778,10 @@ final class WorkoutTextEntryViewModel {
 
     func commit(into context: ModelContext) {
         persistOpenReview()
+        guard saveDraftNow() else {
+            errorMessage = "Save your draft successfully before adding this workout. Try saving again."
+            return
+        }
         if sessions.count > 1 {
             commitSelected(into: context)
             return
@@ -703,6 +813,10 @@ final class WorkoutTextEntryViewModel {
 
     func commitSelected(into context: ModelContext) {
         persistOpenReview()
+        guard saveDraftNow() else {
+            errorMessage = "Save your draft successfully before adding these workouts. Try saving again."
+            return
+        }
         guard unresolvedSessionCount == 0 else {
             errorMessage = "Review each workout that Marble couldn't read before adding this batch."
             return
@@ -801,6 +915,7 @@ final class WorkoutTextEntryViewModel {
         // and importing the same sets again under a new content hash.
         text = ""
         phase = .imported
+        saveDraftNow()
     }
 
     /// Text entry is now Marble's primary logging path, so its successful saves
@@ -899,6 +1014,10 @@ final class WorkoutTextEntryViewModel {
     }()
 
     func reset() {
+        previewGeneration += 1
+        hasRestoredDraft = false
+        draftStorageMessage = nil
+        hasUnreadableSavedDraft = false
         phase = .input
         text = ""
         draft = ParsedWorkoutDraft()
@@ -916,6 +1035,7 @@ final class WorkoutTextEntryViewModel {
         livePreview = nil
         parseStage = .readingNotation
         celebration = ImportCelebration(volumeText: nil, prExercises: [])
+        saveDraftNow()
     }
 
     /// Starts a fresh root-tab draft from a Shortcut or deep-link handoff.

@@ -8,6 +8,7 @@ import SwiftUI
 @MainActor
 enum AppIntentsSupport {
     static var container: ModelContainer?
+    static var storageFailure: PersistenceOpenFailure?
 
     /// Publishes the app's container to this type's own accessor **and** to
     /// `AppDependencyManager`, Apple's documented dependency mechanism for
@@ -27,15 +28,17 @@ enum AppIntentsSupport {
     ///
     /// Registration is idempotent, so tests can call it per case.
     static func register(container: ModelContainer) {
+        storageFailure = nil
         self.container = container
         AppDependencyManager.shared.add(dependency: container)
     }
 
-    static func resolvedContainer() -> ModelContainer {
+    static func resolvedContainer() throws -> ModelContainer {
+        if let storageFailure { throw storageFailure }
         if let container {
             return container
         }
-        let created = PersistenceController.makeContainer(useInMemory: TestHooks.useInMemoryStore)
+        let created = try PersistenceController.openContainer(useInMemory: TestHooks.useInMemoryStore)
         register(container: created)
         return created
     }
@@ -89,7 +92,7 @@ struct LogLastSetAgainIntent: AppIntent, UndoableIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let context = AppIntentsSupport.resolvedContainer().mainContext
+        let context = try AppIntentsSupport.resolvedContainer().mainContext
         var descriptor = FetchDescriptor<SetEntry>(sortBy: [SortDescriptor(\.performedAt, order: .reverse)])
         descriptor.fetchLimit = 1
         guard let latest = (try? context.fetch(descriptor))?.first else {
@@ -133,7 +136,7 @@ struct LogLastSetAgainIntent: AppIntent, UndoableIntent {
         IntentUndo.registerLoggedSet(
             entryID: duplicate.id,
             goalSnapshotID: duplicatedGoalID,
-            container: AppIntentsSupport.resolvedContainer(),
+            container: try AppIntentsSupport.resolvedContainer(),
             undoManager: undoManager,
             actionName: "Log Last Set Again"
         )

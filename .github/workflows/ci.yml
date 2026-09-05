@@ -29,10 +29,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select newest installed Xcode
-        run: |
-          sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
-          xcodebuild -version
+      - name: Select pinned Xcode
+        run: bash scripts/select_ci_xcode.sh
 
       - name: List available simulator runtimes
         run: xcrun simctl list runtimes
@@ -41,7 +39,13 @@ jobs:
         run: brew install xcbeautify || true
 
       - name: Run unit tests
-        run: make unit
+        run: RESULT_BUNDLE_PATH="$PWD/TestResults/Unit.xcresult" make unit
+
+      - name: Verify release tooling
+        run: ruby scripts/tests/release_candidate_test.rb
+
+      - name: Run navigation smoke tests
+        run: RESULT_BUNDLE_PATH="$PWD/TestResults/Smoke.xcresult" make ui-smoke
 
       - name: Upload test results
         if: always()

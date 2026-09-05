@@ -6,7 +6,7 @@ instead of re-discovering the release setup.
 
 ## Current Baseline
 
-- Installed CLI checked on 2026-08-23: `asc 4.9.0`
+- Installed CLI checked on 2026-09-04: `asc 4.11.0` (also pinned in release workflows)
 - Install source: standalone binary at `/Users/enzo/.local/bin/asc` (not Homebrew-managed)
 - Public CLI docs: https://docs.asccli.sh/
 - CLI project: https://github.com/rorkai/App-Store-Connect-CLI
@@ -29,28 +29,20 @@ project-local notes.
 - Archive path: `.asc/artifacts/marble.xcarchive`
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
-- Live App Store version: `2.3` (build 56), verified on the US storefront 2026-08-24
-- Working project version: `2.4` (fixed replacement build 60). Exact uploaded
-  `main` source is `b287d7238494799818db5947524a5cc05b9c8a9c`;
-  TestFlight build 60 (`ef651ca3-451f-468b-903a-1239bcf6dc39`) is `VALID`,
-  internal `IN_BETA_TESTING`, and external `READY_FOR_BETA_SUBMISSION`. App Store
-  version `a368547f-2331-4856-a064-8357f21ea9e2` has build 60 attached and is
-  `WAITING_FOR_REVIEW` under submission
-  `5bd874ad-3619-4521-9231-fa45ee18a4b0`. The old build 59 submission
-  `2233970e-2288-4bf4-a52f-8bc5c47f639a` was canceled and is `COMPLETE`.
-  The 2.3 train is closed (`ITMS-90186`) and already released.
-- Version review and validation of a **new** binary should use `2.4`. Do not
-  target 2.2 or 2.3 for a new upload.
+- ASC public version state: `2.4` (build 61), `READY_FOR_DISTRIBUTION` on 2026-09-04.
+- Working candidate: `2.5` (64). Use the project version for new uploads, not older
+  version strings in historical examples below. See RELEASE_HANDOFF.md for actual
+  source/CI/upload/production readbacks.
 
 ## Release Safety
 
 - Read `RELEASE_HANDOFF.md` before changing review state, build numbers, or
   release branches. It is the dated source of truth; this file is the command reference.
-- **State as of 2026-08-24:** `2.3` (build 56) is live on the App Store.
-  TestFlight 2.4 build 60 is `VALID` and `IN_BETA_TESTING` in internal
-  **test group A**. App Store 2.4 is `WAITING_FOR_REVIEW` with build 60. Release type is
-  manual, so approval will still require `asc versions release` after a fresh
-  state check.
+- Production mutations require exact clean-source five-gate evidence, an immutable
+  upload receipt, and physical-device signoff. Use `scripts/ci_appstore.sh` with
+  `RELEASE_EVIDENCE_MANIFEST`, `RELEASE_DEVICE_SIGNOFF`, and `RELEASE_UPLOAD_RECEIPT`,
+  or the App Store workflow with matching evidence/upload run IDs and signoff JSON.
+  Direct historical commands below are reference, not a way around acceptance gates.
 - Always run `make asc-version` before acting — the CLI can report a blank generated
   marketing version, so the Makefile prints a reliable fallback.
 - Do not cancel an in-flight review, upload a replacement build, or submit to

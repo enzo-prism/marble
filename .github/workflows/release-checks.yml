@@ -1,0 +1,39 @@
+name: Release checks
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 8 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-checks-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    runs-on: macos-26
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Select pinned Xcode
+        run: bash scripts/select_ci_xcode.sh
+      - name: Install test log formatter
+        run: brew install xcbeautify || true
+      - name: Run candidate checks
+        env:
+          RELEASE_EVIDENCE_ROOT: ${{ runner.temp }}/marble-release-evidence
+        run: make release-evidence
+      - name: Preserve candidate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence
+          path: ${{ runner.temp }}/marble-release-evidence
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

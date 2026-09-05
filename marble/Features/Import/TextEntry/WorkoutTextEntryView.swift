@@ -20,6 +20,7 @@ struct WorkoutTextEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.scenePhase) private var scenePhase
     @FocusState private var textFocused: Bool
     @State private var showingDiscardDialog = false
     /// Whether the clipboard holds text worth offering a Paste button for.
@@ -31,9 +32,10 @@ struct WorkoutTextEntryView: View {
     @State private var showingSettings = false
     @State private var showingIncomingTextChoice = false
     @State private var pendingIncomingText: String?
-    /// Restores the raw composer text after termination. Structured review
-    /// edits remain intentionally ephemeral until the user adds the workout.
-    @AppStorage("WorkoutEntry.Draft") private var restoredDraft = ""
+    @State private var pendingReviewDraft: ParsedWorkoutDraft?
+    @State private var showingIncomingReviewChoice = false
+    @State private var showingSavedSheetDraft = false
+    @State private var hasSavedSheetDraft = false
     private let autoPreviewOnAppear: Bool
     private let presentation: WorkoutTextEntryPresentation
     private let onShowJournal: (() -> Void)?
@@ -48,15 +50,28 @@ struct WorkoutTextEntryView: View {
         presentation: WorkoutTextEntryPresentation = .sheet,
         onShowJournal: (() -> Void)? = nil,
         onShowWorkout: (() -> Void)? = nil,
-        prewarmsModel: Bool = true
+        prewarmsModel: Bool = true,
+        draftStore: (any WorkoutEntryDraftStoring)? = nil
     ) {
         let trimmed = initialText.trimmingCharacters(in: .whitespacesAndNewlines)
-        _viewModel = State(wrappedValue: WorkoutTextEntryViewModel(initialText: initialText))
+        let store = draftStore ?? WorkoutEntryDraftStore.applicationStore(
+            slot: presentation == .primaryTab ? "primary" : "sheet"
+        )
+        let model = WorkoutTextEntryViewModel(initialText: initialText, draftStore: store)
+        _viewModel = State(wrappedValue: model)
+        _pendingIncomingText = State(initialValue: (model.hasRestoredDraft || model.hasUnreadableSavedDraft) && !trimmed.isEmpty ? initialText : nil)
         self.autoPreviewOnAppear = autoPreview ?? !trimmed.isEmpty
         self.presentation = presentation
         self.onShowJournal = onShowJournal
         self.onShowWorkout = onShowWorkout
         self.prewarmsModel = prewarmsModel
+    }
+
+    init(initialReviewDraft: ParsedWorkoutDraft) {
+        let model = WorkoutTextEntryViewModel(draftStore: WorkoutEntryDraftStore.applicationStore(slot: "sheet"))
+        if !model.hasRestoredDraft && !model.hasUnreadableSavedDraft { model.startReview(with: initialReviewDraft) }
+        self.init(viewModel: model)
+        _pendingReviewDraft = State(initialValue: (model.hasRestoredDraft || model.hasUnreadableSavedDraft) ? initialReviewDraft : nil)
     }
 
     /// Test seam so unit-driven previews aren't required to go through `init(initialText:)`.
@@ -83,6 +98,31 @@ struct WorkoutTextEntryView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationBarGlassBackground()
                 .toolbar { toolbarContent }
+                .safeAreaInset(edge: .top) {
+                    if presentation == .primaryTab && hasSavedSheetDraft {
+                        Button("Resume Saved Import", systemImage: "square.and.pencil") {
+                            showingSavedSheetDraft = true
+                        }
+                        .buttonStyle(MarbleActionButtonStyle())
+                        .accessibilityIdentifier("WorkoutEntry.Draft.ResumeSheet")
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Theme.backgroundColor(for: colorScheme))
+                    }
+                    if let message = viewModel.draftStorageMessage {
+                        VStack(alignment: .leading) {
+                            Text(message).font(.callout)
+                            Button(viewModel.hasUnreadableSavedDraft ? "Try Opening Again" : "Try Saving Again") {
+                                if viewModel.hasUnreadableSavedDraft { viewModel.retryOpeningDraft() }
+                                else { viewModel.saveDraftNow() }
+                            }
+                                .buttonStyle(MarbleActionButtonStyle())
+                                .accessibilityIdentifier("WorkoutEntry.Draft.Retry")
+                        }
+                        .padding()
+                        .background(Theme.backgroundColor(for: colorScheme))
+                    }
+                }
         }
         // HIG sheet-dismissal protection: a swipe-down must not silently throw
         // away typed text or a reviewed draft; the imported phase stays freely
@@ -93,16 +133,39 @@ struct WorkoutTextEntryView: View {
             isPresented: $showingDiscardDialog,
             titleVisibility: .visible
         ) {
-            Button("Discard", role: .destructive) { dismiss() }
+            Button("Discard", role: .destructive) { discardCurrentDraft() }
+                .accessibilityIdentifier("WorkoutEntry.Draft.ConfirmDiscard")
+            if presentation == .sheet && !viewModel.hasUnreadableSavedDraft {
+                Button("Save Draft & Close") {
+                    if viewModel.saveDraftNow() { dismiss() }
+                }
+                .accessibilityIdentifier("WorkoutEntry.Draft.SaveAndClose")
+            }
             Button("Keep Editing", role: .cancel) {}
+        }
+        .confirmationDialog(
+            "Use the workout you selected?",
+            isPresented: $showingIncomingReviewChoice,
+            titleVisibility: .visible
+        ) {
+            Button("Replace with Selected Workout", role: .destructive) {
+                guard let incoming = pendingReviewDraft else { return }
+                pendingReviewDraft = nil
+                viewModel.startReview(with: incoming)
+            }
+            .accessibilityIdentifier("WorkoutEntry.Incoming.Repeat")
+            Button("Keep Saved Draft", role: .cancel) { pendingReviewDraft = nil }
+                .accessibilityIdentifier("WorkoutEntry.Incoming.KeepSaved")
         }
         .confirmationDialog(
             "You already have a workout draft",
             isPresented: $showingIncomingTextChoice,
             titleVisibility: .visible
         ) {
-            Button("Add to Current Draft") { applyIncomingText(replacing: false) }
-                .accessibilityIdentifier("WorkoutEntry.Incoming.Append")
+            if viewModel.phase == .input {
+                Button("Add to Current Draft") { applyIncomingText(replacing: false) }
+                    .accessibilityIdentifier("WorkoutEntry.Incoming.Append")
+            }
             Button("Replace Current Draft", role: .destructive) { applyIncomingText(replacing: true) }
                 .accessibilityIdentifier("WorkoutEntry.Incoming.Replace")
             Button("Keep Current Draft", role: .cancel) { pendingIncomingText = nil }
@@ -123,29 +186,36 @@ struct WorkoutTextEntryView: View {
         }
         .task { clipboardHasText = UIPasteboard.general.hasStrings }
         .task {
-            guard autoPreviewOnAppear, !didAutoPreview else { return }
+            guard autoPreviewOnAppear, !didAutoPreview, !viewModel.hasRestoredDraft, !viewModel.hasUnreadableSavedDraft else { return }
             didAutoPreview = true
             await viewModel.preview(in: modelContext)
         }
         .task {
-            restoreDraftIfNeeded()
+            refreshSavedSheetDraft()
             consumePendingTextImportIfNeeded()
+        }
+        .onChange(of: viewModel.hasRestoredDraft) { wasRestored, isRestored in
+            if wasRestored && !isRestored && pendingIncomingText != nil {
+                showingIncomingTextChoice = true
+            } else if wasRestored && !isRestored && pendingReviewDraft != nil {
+                showingIncomingReviewChoice = true
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .marbleOpenTextImport)) { _ in
             consumePendingTextImportIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             clipboardHasText = UIPasteboard.general.hasStrings
+            refreshSavedSheetDraft()
         }
-        .onChange(of: viewModel.text) { _, newValue in
-            guard presentation == .primaryTab,
-                  !TestHooks.isUITesting,
-                  !TestHooks.isXCTestProcess else { return }
-            restoredDraft = newValue
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { viewModel.saveDraftNow() }
         }
-        .onChange(of: viewModel.phase) { _, newValue in
-            guard presentation == .primaryTab, newValue == .imported else { return }
-            restoredDraft = ""
+        .onDisappear { viewModel.saveDraftNow() }
+        .sheet(isPresented: $showingSavedSheetDraft, onDismiss: refreshSavedSheetDraft) {
+            WorkoutTextEntryView(presentation: .sheet)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .fileImporter(
             isPresented: $showingFileImporter,
@@ -172,6 +242,27 @@ struct WorkoutTextEntryView: View {
 
     @ViewBuilder
     private var content: some View {
+        if viewModel.hasRestoredDraft || viewModel.hasUnreadableSavedDraft {
+            ScrollView {
+                VStack(spacing: MarbleSpacing.l) {
+                    Image(systemName: "square.and.pencil").font(.largeTitle).accessibilityHidden(true)
+                    Text(viewModel.hasUnreadableSavedDraft ? "Your draft needs attention" : "Your workout draft is ready").font(.title2)
+                    Text(viewModel.hasUnreadableSavedDraft ? "Try opening your saved draft again, or discard it to start a new workout." : "Your edits and exercise matches are saved. Pick up where you left off.")
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    Button("Resume Workout") { viewModel.resumeDraft(in: modelContext) }
+                        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true, prominence: .primary))
+                        .disabled(viewModel.hasUnreadableSavedDraft)
+                        .accessibilityIdentifier("WorkoutEntry.Draft.Resume")
+                    Button("Discard Draft", role: .destructive) { showingDiscardDialog = true }
+                        .buttonStyle(MarbleActionButtonStyle(expandsHorizontally: true))
+                        .accessibilityIdentifier("WorkoutEntry.Draft.Discard")
+                }
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 560)
+                .padding(MarbleSpacing.l)
+                .frame(maxWidth: .infinity)
+            }
+        } else {
         switch viewModel.phase {
         case .input: inputView
         case .processing: processingView
@@ -183,6 +274,7 @@ struct WorkoutTextEntryView: View {
             )
         case .review: reviewView
         case .imported: importedView
+        }
         }
     }
 
@@ -368,7 +460,7 @@ struct WorkoutTextEntryView: View {
 
     private var clearWorkoutButton: some View {
         Button {
-            viewModel.text = ""
+            viewModel.reset()
         } label: {
             Label("Clear", systemImage: "xmark.circle.fill")
         }
@@ -686,6 +778,8 @@ struct WorkoutTextEntryView: View {
         }
 
         if presentation == .primaryTab,
+           !viewModel.hasRestoredDraft,
+           !viewModel.hasUnreadableSavedDraft,
            viewModel.isDrillingInFromBatch {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Workouts") { viewModel.returnToBatch() }
@@ -730,13 +824,13 @@ struct WorkoutTextEntryView: View {
             LogSetToolbarItems()
         }
 
-        if viewModel.phase == .review {
+        if viewModel.phase == .review && !viewModel.hasRestoredDraft && !viewModel.hasUnreadableSavedDraft {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Edit Text") { viewModel.editText() }
                     .accessibilityIdentifier("TextEntry.EditText")
             }
         }
-        if viewModel.phase == .batchReview {
+        if viewModel.phase == .batchReview && !viewModel.hasRestoredDraft && !viewModel.hasUnreadableSavedDraft {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(viewModel.allImportableSelected ? "Deselect All" : "Select All") {
                     viewModel.toggleSelectAllImportable()
@@ -815,15 +909,6 @@ struct WorkoutTextEntryView: View {
         Task { await viewModel.preview(in: modelContext) }
     }
 
-    private func restoreDraftIfNeeded() {
-        guard presentation == .primaryTab,
-              !TestHooks.isUITesting,
-              !TestHooks.isXCTestProcess,
-              viewModel.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !restoredDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        viewModel.startNewWorkout(with: restoredDraft)
-    }
-
     private func ingestFiles(_ result: Result<[URL], Error>) {
         switch result {
         case .failure:
@@ -847,6 +932,30 @@ struct WorkoutTextEntryView: View {
                 return
             }
             viewModel.ingestSources(parts)
+        }
+    }
+
+    private func refreshSavedSheetDraft() {
+        guard presentation == .primaryTab else { return }
+        let url = WorkoutEntryDraftStore.applicationStore(slot: "sheet").url
+        hasSavedSheetDraft = FileManager.default.fileExists(atPath: url.path)
+    }
+
+    private func discardCurrentDraft() {
+        // Capture and clear pending requests before reset changes recovery state.
+        // Discarding an older draft should open the selected repeat/handoff.
+        let incomingReview = pendingReviewDraft
+        let incomingText = pendingIncomingText
+        pendingReviewDraft = nil
+        pendingIncomingText = nil
+        if let incomingReview {
+            viewModel.startReview(with: incomingReview)
+        } else if let incomingText {
+            viewModel.startNewWorkout(with: incomingText)
+            Task { await viewModel.preview(in: modelContext) }
+        } else {
+            viewModel.reset()
+            if presentation == .sheet { dismiss() }
         }
     }
 }

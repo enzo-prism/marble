@@ -35,51 +35,62 @@ final class PersistenceRecoveryTests: XCTestCase {
     /// basic guarantee a real migration/round-trip depends on.
     func testOnDiskRoundTripPersistsData() throws {
         try autoreleasepool {
-            let container = PersistenceController.makeRecoveringContainer(at: storeURL)
+            let container = try PersistenceController.makeRecoveringContainer(at: storeURL)
             let context = ModelContext(container)
             context.insert(Exercise(name: "Squat", category: .other, metrics: .weightAndRepsRequired, defaultRestSeconds: 120))
             try context.save()
         }
 
-        let reopened = PersistenceController.makeRecoveringContainer(at: storeURL)
+        let reopened = try PersistenceController.makeRecoveringContainer(at: storeURL)
         let context = ModelContext(reopened)
         let names = try context.fetch(FetchDescriptor<Exercise>()).map(\.name)
         XCTAssertEqual(names, ["Squat"])
     }
 
-    /// An unreadable store is moved aside to `*.corrupt` and replaced with a fresh, usable
-    /// store instead of crashing — the launch-survival guarantee.
-    func testRecoversFromCorruptStoreAndPreservesBackup() throws {
-        // Seed a valid store, then release the container so its files are flushed/closed.
-        try autoreleasepool {
-            let container = PersistenceController.makeRecoveringContainer(at: storeURL)
-            let context = ModelContext(container)
-            context.insert(Exercise(name: "Bench", category: .other, metrics: .weightAndRepsRequired, defaultRestSeconds: 90))
-            try context.save()
+    func testUnreadableStoreFailsWithoutReplacingUserData() throws {
+        let bytes = Data(repeating: 0xFF, count: 8192)
+        try bytes.write(to: storeURL)
+        XCTAssertThrowsError(try PersistenceController.makeRecoveringContainer(at: storeURL))
+        XCTAssertEqual(try Data(contentsOf: storeURL), bytes)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.appendingPathExtension("corrupt").path))
+    }
+
+    func testTemporaryOpenFailuresPreserveEntireStoreSetAndNeverRetryOrFallback() throws {
+        for code in [13, 28, 16] {
+            let files = PersistenceController.sidecarURLs(for: storeURL)
+            let bytes = Data("preserve all store files".utf8)
+            for file in files { try bytes.write(to: file) }
+            var attempts = 0
+            XCTAssertThrowsError(try PersistenceController.makeRecoveringContainer(at: storeURL) { _ in
+                attempts += 1
+                throw NSError(domain: NSPOSIXErrorDomain, code: code)
+            }) { error in
+                XCTAssertEqual(error as? PersistenceOpenFailure, .temporarilyUnavailable)
+            }
+            XCTAssertEqual(attempts, 1)
+            for file in files { XCTAssertEqual(try Data(contentsOf: file), bytes) }
         }
-        XCTAssertTrue(FileManager.default.fileExists(atPath: storeURL.path))
+    }
 
-        // Make the store unreadable: overwrite the main file with non-SQLite bytes and drop
-        // the sidecars so there's no valid WAL to recover from.
-        try Data(repeating: 0xFF, count: 8192).write(to: storeURL)
-        for sidecar in ["Marble.store-wal", "Marble.store-shm"] {
-            try? FileManager.default.removeItem(at: tempDirectory.appendingPathComponent(sidecar))
-        }
+    func testNestedTransientErrorWinsOverMigrationWrapper() {
+        let error = NSError(domain: NSCocoaErrorDomain, code: 134110, userInfo: [
+            NSUnderlyingErrorKey: NSError(domain: NSPOSIXErrorDomain, code: 28)
+        ])
+        XCTAssertEqual(PersistenceOpenFailure.classify(error), .temporarilyUnavailable)
+        XCTAssertEqual(PersistenceOpenFailure.classify(NSError(domain: "NSSQLiteErrorDomain", code: 26)), .damagedStore)
+        XCTAssertEqual(PersistenceOpenFailure.classify(NSError(domain: NSCocoaErrorDomain, code: 134110)), .incompatibleStore)
+        XCTAssertEqual(PersistenceOpenFailure.classify(NSError(domain: "unknown", code: 1)), .unknown)
+    }
 
-        // Reopen: recovery should back up the corrupt store and create a fresh one.
-        let recovered = PersistenceController.makeRecoveringContainer(at: storeURL)
-        let context = ModelContext(recovered)
-
-        let backupURL = storeURL.appendingPathExtension("corrupt")
-        XCTAssertTrue(
-            FileManager.default.fileExists(atPath: backupURL.path),
-            "corrupt store should be preserved as \(backupURL.lastPathComponent)"
-        )
-        XCTAssertTrue(try context.fetch(FetchDescriptor<Exercise>()).isEmpty, "recovered store should be fresh")
-
-        // The fresh store is fully usable.
-        context.insert(Exercise(name: "Fresh", category: .other, metrics: .repsOnlyRequired, defaultRestSeconds: 60))
-        XCTAssertNoThrow(try context.save())
+    func testRetryCanOpenSameStoreAfterTemporaryFailure() throws {
+        XCTAssertThrowsError(try PersistenceController.makeRecoveringContainer(at: storeURL) { _ in
+            throw NSError(domain: NSPOSIXErrorDomain, code: 13)
+        })
+        let container = try PersistenceController.makeRecoveringContainer(at: storeURL)
+        let context = ModelContext(container)
+        context.insert(Exercise(name: "Recovered", category: .other, metrics: .repsOnlyRequired, defaultRestSeconds: 60))
+        try context.save()
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Exercise>()), 1)
     }
 
     func testMigratesV1StoreToV2WithoutRecoveryOrDataLoss() throws {
@@ -92,7 +103,7 @@ final class PersistenceRecoveryTests: XCTestCase {
             try context.save()
         }
 
-        let migrated = PersistenceController.makeRecoveringContainer(at: storeURL)
+        let migrated = try PersistenceController.makeRecoveringContainer(at: storeURL)
         let context = ModelContext(migrated)
         XCTAssertEqual(try context.fetch(FetchDescriptor<Exercise>()).map(\.name), ["Legacy Squat"])
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<WorkoutSession>()), 0)
@@ -116,7 +127,7 @@ final class PersistenceRecoveryTests: XCTestCase {
             try context.save()
         }
 
-        let migrated = PersistenceController.makeRecoveringContainer(at: storeURL)
+        let migrated = try PersistenceController.makeRecoveringContainer(at: storeURL)
         let context = ModelContext(migrated)
         XCTAssertEqual(try context.fetch(FetchDescriptor<Exercise>()).map(\.name), ["Legacy Sprint"])
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<SprintPrescription>()), 0)
@@ -168,7 +179,7 @@ final class PersistenceRecoveryTests: XCTestCase {
             try context.save()
         }
 
-        let migrated = PersistenceController.makeRecoveringContainer(at: storeURL)
+        let migrated = try PersistenceController.makeRecoveringContainer(at: storeURL)
         let context = ModelContext(migrated)
 
         XCTAssertEqual(try context.fetch(FetchDescriptor<Exercise>()).map(\.id), [exerciseID])
@@ -210,7 +221,7 @@ final class PersistenceRecoveryTests: XCTestCase {
             expectedImports = try context.fetchCount(FetchDescriptor<ImportedWorkout>())
         }
 
-        let migrated = PersistenceController.makeRecoveringContainer(at: storeURL)
+        let migrated = try PersistenceController.makeRecoveringContainer(at: storeURL)
         let context = ModelContext(migrated)
 
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<Exercise>()), expectedExercises)
@@ -222,28 +233,74 @@ final class PersistenceRecoveryTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.appendingPathExtension("corrupt").path))
     }
 
-    func testRepeatedRecoveryNeverOverwritesOlderBackup() throws {
-        let olderBytes = Data(repeating: 0xA1, count: 8192)
-        try olderBytes.write(to: storeURL)
-        try autoreleasepool {
-            _ = PersistenceController.makeRecoveringContainer(at: storeURL)
+    func testRepeatedFailedOpensNeverMoveOriginalOrOverwriteOlderRecovery() throws {
+        let bytes = Data(repeating: 0xA1, count: 8192)
+        let older = storeURL.appendingPathExtension("corrupt")
+        try Data("older backup".utf8).write(to: older)
+        try bytes.write(to: storeURL)
+        for _ in 0..<2 {
+            XCTAssertThrowsError(try PersistenceController.makeRecoveringContainer(at: storeURL))
+            XCTAssertEqual(try Data(contentsOf: storeURL), bytes)
+            XCTAssertEqual(try Data(contentsOf: older), Data("older backup".utf8))
         }
+    }
 
-        let originalBackupURL = storeURL.appendingPathExtension("corrupt")
-        XCTAssertEqual(try Data(contentsOf: originalBackupURL), olderBytes)
-
-        try Data(repeating: 0xB2, count: 8192).write(to: storeURL)
-        for sidecar in ["Marble.store-wal", "Marble.store-shm"] {
-            try? FileManager.default.removeItem(at: tempDirectory.appendingPathComponent(sidecar))
+    func testRecoveryCopyPreservesStoreAndAllSidecarsWithoutOverwritingOlderCopy() throws {
+        let files = PersistenceController.sidecarURLs(for: storeURL)
+        for (index, file) in files.enumerated() {
+            try Data(repeating: UInt8(index + 1), count: 256).write(to: file)
         }
-        try autoreleasepool {
-            _ = PersistenceController.makeRecoveringContainer(at: storeURL)
+        let destination = tempDirectory.appendingPathComponent("copies")
+        let first = try PersistenceRecoveryCopy.prepareCopy(at: storeURL, destinationDirectory: destination)
+        let second = try PersistenceRecoveryCopy.prepareCopy(at: storeURL, destinationDirectory: destination)
+        XCTAssertNotEqual(first, second)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: first.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: second.path))
+        let package = first.deletingPathExtension()
+        for (index, file) in files.enumerated() {
+            let expected = Data(repeating: UInt8(index + 1), count: 256)
+            XCTAssertEqual(try Data(contentsOf: file), expected)
+            XCTAssertEqual(try Data(contentsOf: package.appendingPathComponent(file.lastPathComponent)), expected)
         }
+    }
 
-        XCTAssertEqual(try Data(contentsOf: originalBackupURL), olderBytes)
-        let recoveryNames = try FileManager.default.contentsOfDirectory(atPath: tempDirectory.path)
-            .filter { $0.hasPrefix("Marble.store.corrupt-") }
-        XCTAssertEqual(recoveryNames.count, 1)
+    func testRecoveryCopyFailureLeavesSourcesUntouched() throws {
+        let bytes = Data("original".utf8)
+        try bytes.write(to: storeURL)
+        let blockedDestination = tempDirectory.appendingPathComponent("not-a-directory")
+        try Data("occupied".utf8).write(to: blockedDestination)
+        XCTAssertThrowsError(try PersistenceRecoveryCopy.prepareCopy(at: storeURL, destinationDirectory: blockedDestination))
+        XCTAssertEqual(try Data(contentsOf: storeURL), bytes)
+    }
+
+    func testInterruptedSidecarCopyKeepsOriginalSetAndPublishesNoArchive() throws {
+        let files = PersistenceController.sidecarURLs(for: storeURL)
+        let bytes = Data("intact source".utf8)
+        for file in files { try bytes.write(to: file) }
+        let destination = tempDirectory.appendingPathComponent("copies")
+        var copies = 0
+        XCTAssertThrowsError(try PersistenceRecoveryCopy.prepareCopy(at: storeURL, destinationDirectory: destination) { source, target in
+            copies += 1
+            if copies == 2 { throw NSError(domain: NSPOSIXErrorDomain, code: 28) }
+            try FileManager.default.copyItem(at: source, to: target)
+        })
+        for file in files { XCTAssertEqual(try Data(contentsOf: file), bytes) }
+        let names = try FileManager.default.contentsOfDirectory(atPath: destination.path)
+        XCTAssertTrue(names.allSatisfy { $0.hasSuffix(".partial") })
+    }
+
+    func testChangedSourceDuringCopyIsRejected() throws {
+        try Data("before".utf8).write(to: storeURL)
+        let destination = tempDirectory.appendingPathComponent("copies")
+        XCTAssertThrowsError(try PersistenceRecoveryCopy.prepareCopy(at: storeURL, destinationDirectory: destination) { source, target in
+            try FileManager.default.copyItem(at: source, to: target)
+            try Data("after".utf8).write(to: source)
+        }) { error in
+            guard case PersistenceRecoveryCopy.CopyError.sourceChanged = error else {
+                return XCTFail("Expected changed-source rejection, got \(error)")
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: storeURL), Data("after".utf8))
     }
 
     /// `nonisolated`: called from the nonisolated setUp/tearDown overrides. It

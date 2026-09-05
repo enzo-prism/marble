@@ -3,25 +3,30 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# The newest source a real user can already be running. c0cef9e is the source
-# shipped as App Store 2.3 build 56, so the default gate is exactly the upgrade
+# The newest source a real user can already be running: App Store 2.4 build 61.
+# Refreshed against ASC September 4, 2026. The default gate is the upgrade
 # every current install performs. Point MIGRATION_BASE_REF at an older release
 # to widen the check.
-BASE_REF="${MIGRATION_BASE_REF:-c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb}"
+BASE_REF="${MIGRATION_BASE_REF:-9e8346f6cad4683991a78fbaf223baaf01e9f068}"
 SIMULATOR_UDID="${SIMULATOR_UDID:-}"
 RUN_ROOT="${MIGRATION_RUN_ROOT:-$ROOT_DIR/work}"
 mkdir -p "$RUN_ROOT"
 RUN_DIR="$(mktemp -d "$RUN_ROOT/release-migration.XXXXXX")"
 BASE_DIR="$RUN_DIR/base"
-BASE_DERIVED_DATA="$RUN_DIR/base-derived-data"
-CANDIDATE_DERIVED_DATA="$RUN_DIR/candidate-derived-data"
+BUILD_ROOT="${MIGRATION_DERIVED_DATA_ROOT:-$RUN_DIR}"
+mkdir -p "$BUILD_ROOT"
+BUILD_DIR="$(mktemp -d "$BUILD_ROOT/marble-migration-build.XXXXXX")"
+BASE_DERIVED_DATA="$BUILD_DIR/base-derived-data"
+CANDIDATE_DERIVED_DATA="$BUILD_DIR/candidate-derived-data"
 BUNDLE_ID="Prism.marble"
 
 cleanup() {
     xcrun simctl terminate "$SIMULATOR_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
     xcrun simctl uninstall "$SIMULATOR_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
     git -C "$ROOT_DIR" worktree remove --force "$BASE_DIR" >/dev/null 2>&1 || true
-    rm -rf "$RUN_DIR"
+    # Preserve logs and build evidence for diagnosis; callers may review and
+    # remove these exact generated paths after release verification.
+    printf 'Migration evidence: %s\nMigration builds: %s\n' "$RUN_DIR" "$BUILD_DIR"
 }
 trap cleanup EXIT
 

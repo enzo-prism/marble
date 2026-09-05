@@ -123,6 +123,7 @@ def generate(run_dir)
     "generated_at" => Time.now.utc.iso8601,
     "candidate" => {
       "git_sha" => metadata.fetch("git_sha"),
+      "clean_run" => metadata.fetch("clean_run", false),
       "marketing_version" => metadata.fetch("marketing_version"),
       "build_number" => metadata.fetch("build_number")
     },

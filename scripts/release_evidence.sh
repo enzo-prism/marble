@@ -245,10 +245,11 @@ run_release_evidence() {
     --arg buildNumber "${build_number}" \
     --arg marketingVersion "${marketing_version}" \
     --arg runId "$(basename "${RELEASE_EVIDENCE_RUN_DIR}")" \
+    --argjson cleanRun "$([[ "${RELEASE_EVIDENCE_ALLOW_DIRTY}" == "1" ]] && printf false || printf true)" \
     --argjson requestedGates "${requested_gates_json}" \
     '{schema_version: ($schemaVersion | tonumber), started_at: $startedAt,
       repository: $repository, git_sha: $gitSha, build_number: $buildNumber,
-      marketing_version: $marketingVersion, run_id: $runId,
+      marketing_version: $marketingVersion, run_id: $runId, clean_run: $cleanRun,
       requested_gates: $requestedGates}' \
     >"${RELEASE_EVIDENCE_RUN_DIR}/.evidence/run.json"
 

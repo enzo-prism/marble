@@ -9,6 +9,41 @@ final class MarbleBackupTests: MarbleTestCase {
         super.tearDown()
     }
 
+    func testFailureAfterRestoreMutationRollsBackOnlyRestoreAndPreservesPendingUserEdits() throws {
+        let source = makeInMemoryContext()
+        let fromBackup = Exercise(name: "Backup exercise", category: .other, metrics: .repsOnlyRequired, defaultRestSeconds: 60)
+        source.insert(fromBackup)
+        try source.save()
+        let document = try MarbleBackupService.makeDocument(in: source, now: now)
+
+        let destination = makeInMemoryContext()
+        let existing = Exercise(name: "Existing", category: .other, metrics: .repsOnlyRequired, defaultRestSeconds: 60)
+        destination.insert(existing)
+        try destination.save()
+        existing.name = "Existing edited"
+        let pending = Exercise(name: "Pending workout edit", category: .other, metrics: .repsOnlyRequired, defaultRestSeconds: 60)
+        destination.insert(pending)
+        let previousAutosave = destination.autosaveEnabled
+        let restoreDateBefore = UserDefaults.standard.object(forKey: PersistenceRecoveryNotice.lastSuccessfulRestoreKey) as? Date
+
+        var injected = false
+        XCTAssertThrowsError(try MarbleBackupService.restore(data: document.data, into: destination) {
+            injected = true
+            XCTAssertFalse(destination.autosaveEnabled)
+            throw NSError(domain: NSPOSIXErrorDomain, code: 5)
+        })
+        XCTAssertTrue(injected)
+        XCTAssertFalse(destination.hasChanges)
+        XCTAssertEqual(destination.autosaveEnabled, previousAutosave)
+        // Inspect a fresh context to prove only the pre-restore edits committed.
+        let reopened = ModelContext(destination.container)
+        let exercises = try reopened.fetch(FetchDescriptor<Exercise>())
+        XCTAssertEqual(Set(exercises.map(\.id)), Set([existing.id, pending.id]))
+        XCTAssertEqual(Set(exercises.map(\.name)), Set(["Existing edited", "Pending workout edit"]))
+        XCTAssertFalse(exercises.contains { $0.id == fromBackup.id })
+        XCTAssertEqual(UserDefaults.standard.object(forKey: PersistenceRecoveryNotice.lastSuccessfulRestoreKey) as? Date, restoreDateBefore)
+    }
+
     func testBackupRoundTripRestoresCoreTrainingDataAndRelationships() throws {
         let source = makeInMemoryContext()
         let exercise = Exercise(name: "150m Sprints", category: .run, preferredDistanceUnit: .meters, metrics: .distanceAndDurationRequired, defaultRestSeconds: 180)

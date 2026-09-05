@@ -9,7 +9,7 @@ ASC_ARCHIVE_PATH ?= $(ASC_ARTIFACTS_DIR)/marble.xcarchive
 ASC_IPA_PATH ?= $(ASC_ARTIFACTS_DIR)/marble.ipa
 ASC_EXPORT_OPTIONS ?=
 ASC_MARKETING_VERSION ?= $(shell ruby -e 'project = File.read("$(PROJECT)/project.pbxproj"); versions = project.scan(/MARKETING_VERSION = ([^;]+);/).flatten.map(&:strip).uniq; abort("not found") if versions.empty?; print versions.first')
-ASC_APPSTORE_VERSION ?= 2.4
+ASC_APPSTORE_VERSION ?= $(ASC_MARKETING_VERSION)
 ASC_TESTFLIGHT_VERSION ?= $(ASC_MARKETING_VERSION)
 ASC_APPSTORE_PUBLISH_VERSION ?=
 ASC_PLATFORM ?= IOS
@@ -18,8 +18,8 @@ ASC_POLL_INTERVAL ?= 30s
 ASC_UPLOAD_TIMEOUT ?= 45m
 ASC_APPSTORE_SUBMIT_FLAGS ?=
 ASC_TESTFLIGHT_FLAGS ?=
-# Keep test build products on the checkout's FileVault-protected internal disk.
-# Override with another absolute internal path when parallel checkouts need isolation.
+# Source and signing stay internal. Callers can explicitly route rebuildable
+# products to their verified external build volume using this absolute path.
 DERIVED_DATA_PATH ?= $(CURDIR)/DerivedData
 
 .PHONY: test unit ui ui-smoke audit snapshot snapshot-quick snapshot-record quick only migration-release verify-widget-plist
@@ -42,10 +42,10 @@ unit: verify-widget-plist
 # or running a case. Use it while fixing compile errors (the Swift 6 migration
 # needed ten full `make unit` cycles to surface what this finds in one).
 typecheck-tests:
-	xcodebuild build-for-testing -project $(PROJECT) -scheme $(SCHEME) \
+	set -o pipefail; xcodebuild build-for-testing -project $(PROJECT) -scheme $(SCHEME) \
 		-destination "$$(scripts/sim_destination.sh)" -configuration Debug \
 		-derivedDataPath "$(DERIVED_DATA_PATH)" \
-		2>&1 | grep -E "error:|warning: .*deprecat|BUILD (SUCCEEDED|FAILED)" || true
+		2>&1 | sed -nE '/error:|warning: .*deprecat|BUILD (SUCCEEDED|FAILED)/p'
 
 ui:
 	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleUITests -skip-testing:MarbleUITests/AccessibilityAuditUITests
@@ -75,7 +75,7 @@ only:
 	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:$(TEST)
 
 migration-release:
-	MIGRATION_BASE_REF="$${MIGRATION_BASE_REF:-c0cef9e2d19ee8589585bdfe082ab4af8cdec7bb}" SIMULATOR_UDID="$${SIMULATOR_UDID:-}" scripts/test_previous_release_migration.sh
+	MIGRATION_BASE_REF="$${MIGRATION_BASE_REF:-9e8346f6cad4683991a78fbaf223baaf01e9f068}" SIMULATOR_UDID="$${SIMULATOR_UDID:-}" scripts/test_previous_release_migration.sh
 
 # Immutable, candidate-labeled release proof. Set RELEASE_EVIDENCE_ROOT to an
 # absolute path when evidence should live outside this checkout's TestResults.

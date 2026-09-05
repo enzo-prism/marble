@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Charts
+import os
 
 /// Thin shell that owns the selected range so the content view below can
 /// rebuild its `@Query` predicates whenever the range changes. SwiftData
@@ -616,6 +617,8 @@ struct TrendsContentView: View {
     /// when the range is already unbounded. The live freshness probe catches
     /// inserts/edits and `dataRevision` catches deletes outside the range.
     private func fetchHistoryEntries() -> [SetEntry] {
+        let interval = HistoryPerformance.signposter.beginInterval("Progress full history")
+        defer { HistoryPerformance.signposter.endInterval("Progress full history", interval) }
         if range == .all { return Array(entries) }
         let descriptor = FetchDescriptor<SetEntry>()
         return (try? modelContext.fetch(descriptor)) ?? Array(entries)

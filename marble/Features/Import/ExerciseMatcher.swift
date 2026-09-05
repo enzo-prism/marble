@@ -12,13 +12,13 @@ import Foundation
 ///   3. Token overlap with per-token edit-distance tolerance for typos.
 nonisolated struct ExerciseMatcher: Sendable {
 
-    struct Candidate: Equatable, Sendable, Identifiable {
+    struct Candidate: Equatable, Sendable, Identifiable, Codable {
         let id: UUID
         let name: String
     }
 
     /// Ordered weakest to strongest so callers can compare with `>=`.
-    enum Confidence: Int, Equatable, Sendable, Comparable {
+    enum Confidence: Int, Equatable, Sendable, Comparable, Codable {
         /// Plausible, but different enough that the user should confirm
         /// (e.g. "Bench" against "Bench Press").
         case likely
@@ -32,7 +32,7 @@ nonisolated struct ExerciseMatcher: Sendable {
         }
     }
 
-    struct Match: Equatable, Sendable {
+    struct Match: Equatable, Sendable, Codable {
         let candidate: Candidate
         let confidence: Confidence
         /// Token-overlap score in 0...1; 1 is a perfect normalized match.

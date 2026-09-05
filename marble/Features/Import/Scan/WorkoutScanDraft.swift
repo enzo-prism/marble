@@ -7,7 +7,7 @@ import Foundation
 /// SwiftData, or SwiftUI, so the parsing and mapping logic is fully unit-testable.
 /// The flow is: image → OCR text → `ParsedWorkoutDraft` (this) → user review/edit →
 /// `WorkoutScanImporter` → `SetEntry`s in the journal.
-nonisolated struct ParsedWorkoutDraft: Equatable, Sendable {
+nonisolated struct ParsedWorkoutDraft: Equatable, Sendable, Codable {
     /// The session date written on the note, if one was recognized. `nil` means
     /// "use now" at import time.
     var performedAt: Date?
@@ -51,7 +51,7 @@ nonisolated struct ParsedWorkoutDraft: Equatable, Sendable {
     var totalSetCount: Int { importableExercises.reduce(0) { $0 + $1.sets.count } }
 }
 
-nonisolated struct ParsedExerciseDraft: Equatable, Sendable, Identifiable {
+nonisolated struct ParsedExerciseDraft: Equatable, Sendable, Identifiable, Codable {
     var id: UUID
     var name: String
     var sets: [ParsedSetDraft]
@@ -59,6 +59,9 @@ nonisolated struct ParsedExerciseDraft: Equatable, Sendable, Identifiable {
     /// the review model fills them only after the user approves a library match.
     var libraryExerciseID: UUID?
     var createsNewLibraryExercise: Bool
+    /// Keep an editable metric visible while its last value is temporarily
+    /// blank. Review establishes this once; parsers still infer from values.
+    var reviewMetricsProfile: ExerciseMetricsProfile? = nil
 
     init(
         id: UUID = UUID(),
@@ -83,6 +86,7 @@ nonisolated struct ParsedExerciseDraft: Equatable, Sendable, Identifiable {
     /// newly created `Exercise`, so a bodyweight movement (reps only) doesn't get
     /// mislabeled as requiring a weight, and a timed hold tracks only duration.
     var metricsProfile: ExerciseMetricsProfile {
+        if let reviewMetricsProfile { return reviewMetricsProfile }
         let usesWeight = sets.contains { $0.weight != nil }
         let usesReps = sets.contains { $0.reps != nil }
         let usesDistance = sets.contains { $0.distance != nil }
@@ -101,7 +105,7 @@ nonisolated struct ParsedExerciseDraft: Equatable, Sendable, Identifiable {
     }
 }
 
-nonisolated struct ParsedSetDraft: Equatable, Sendable, Identifiable {
+nonisolated struct ParsedSetDraft: Equatable, Sendable, Identifiable, Codable {
     var id: UUID
     var weight: Double?
     var weightUnit: WeightUnit

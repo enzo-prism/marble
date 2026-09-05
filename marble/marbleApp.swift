@@ -3,7 +3,8 @@ import SwiftData
 
 @main
 struct MarbleApp: App {
-    private let modelContainer: ModelContainer
+    @State private var modelContainer: ModelContainer?
+    @State private var storageFailure: PersistenceOpenFailure?
 
     init() {
         TestHooks.applyGlobalSettings()
@@ -21,26 +22,57 @@ struct MarbleApp: App {
         SharedDefaults.migrateIfNeeded()
         // No-op under UI testing; tips floating over the UI break flows + audits.
         MarbleTips.configure()
-        modelContainer = PersistenceController.makeContainer(useInMemory: TestHooks.useInMemoryStore)
+        let opened: ModelContainer?
+        do {
+            #if DEBUG
+            if TestHooks.isUITesting, ProcessInfo.processInfo.environment["MARBLE_TEST_STORAGE_FAILURE"] == "1" {
+                throw NSError(domain: NSPOSIXErrorDomain, code: 13)
+            }
+            #endif
+            opened = try PersistenceController.openContainer(useInMemory: TestHooks.useInMemoryStore)
+        } catch {
+            opened = nil
+            AppIntentsSupport.storageFailure = PersistenceOpenFailure.classify(error)
+            _storageFailure = State(initialValue: PersistenceOpenFailure.classify(error))
+        }
+        _modelContainer = State(initialValue: opened)
         // Registers the container with `AppDependencyManager` (what the intents
         // inject through `@Dependency`) as well as with `AppIntentsSupport`'s own
         // accessor, which the Spotlight index and entity queries use.
-        AppIntentsSupport.register(container: modelContainer)
-        if TestHooks.isUITesting || TestHooks.seedDemoFixtures {
+        if let opened { AppIntentsSupport.register(container: opened) }
+        if let opened, TestHooks.isUITesting || TestHooks.seedDemoFixtures {
             // UI tests and demo recordings rely on fixtures existing before the first frame.
-            Self.seed(container: modelContainer)
+            Self.seed(container: opened)
         }
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if let modelContainer {
+                ContentView()
                 .modelContainer(modelContainer)
                 .task {
                     // First-launch seeding stays off the launch critical path.
                     guard !TestHooks.isUITesting, !TestHooks.seedDemoFixtures else { return }
                     Self.seed(container: modelContainer)
                 }
+            } else {
+                PersistenceUnavailableView(failure: storageFailure ?? .unknown, retry: retryStorage)
+                    .preferredColorScheme(TestHooks.forcedColorScheme)
+            }
+        }
+    }
+
+    private func retryStorage() {
+        do {
+            let opened = try PersistenceController.openContainer(useInMemory: TestHooks.useInMemoryStore)
+            AppIntentsSupport.register(container: opened)
+            if TestHooks.isUITesting || TestHooks.seedDemoFixtures { Self.seed(container: opened) }
+            storageFailure = nil
+            modelContainer = opened
+        } catch {
+            storageFailure = PersistenceOpenFailure.classify(error)
+            AppIntentsSupport.storageFailure = storageFailure
         }
     }
 

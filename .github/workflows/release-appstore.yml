@@ -5,7 +5,7 @@ name: App Store
 # scripts/ci_appstore.sh locally; this workflow is the fallback when those
 # secrets live only in GitHub Actions.
 #
-# Mutations require confirm=submit|release, or a publish/appstore-* tag.
+# Mutations require workflow_dispatch with confirm and matching release evidence.
 
 on:
   workflow_dispatch:
@@ -36,11 +36,21 @@ on:
         required: false
         type: boolean
         default: false
+      evidence_run_id:
+        description: "Successful Release checks run for this exact source"
+        required: false
+        type: string
+      device_signoff:
+        description: "Verified physical-device signoff JSON for this source/build"
+        required: false
+        type: string
+      upload_run_id:
+        description: "Successful TestFlight run that uploaded this exact candidate"
+        required: false
+        type: string
   push:
     tags:
       - "publish/appstore-validate/**"
-      - "publish/appstore-submit/**"
-      - "publish/appstore-release/**"
 
 concurrency:
   group: marble-release
@@ -48,6 +58,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 env:
   ASC_APP: "6757725234"
@@ -71,7 +82,7 @@ jobs:
       - name: Setup App Store Connect CLI
         uses: rudrankriyam/setup-asc@v1
         with:
-          version: latest
+          version: "4.11.0"
 
       - name: Resolve action
         id: plan
@@ -130,6 +141,51 @@ jobs:
             exit 1
           fi
 
+      - name: Download candidate evidence
+        if: steps.plan.outputs.action != 'validate' && steps.plan.outputs.dry_run != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-evidence
+          run-id: ${{ inputs.evidence_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/release-evidence
+
+      - name: Verify upload provenance
+        if: steps.plan.outputs.action != 'validate' && steps.plan.outputs.dry_run != 'true'
+        uses: actions/github-script@v7
+        env:
+          UPLOAD_RUN_ID: ${{ inputs.upload_run_id }}
+          EVIDENCE_RUN_ID: ${{ inputs.evidence_run_id }}
+        with:
+          script: |
+            for (const [id, path] of [
+              [process.env.UPLOAD_RUN_ID, '.github/workflows/release-testflight.yml'],
+              [process.env.EVIDENCE_RUN_ID, '.github/workflows/release-checks.yml']
+            ]) {
+              if (!/^\d+$/.test(id || '')) throw new Error('A valid source run ID is required');
+              const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: Number(id)});
+              if (run.conclusion !== 'success' || run.head_sha !== context.sha || run.path !== path) {
+                throw new Error('Source run must be successful, from the expected workflow, and match this exact commit');
+              }
+            }
+
+      - name: Download upload receipt
+        if: steps.plan.outputs.action != 'validate' && steps.plan.outputs.dry_run != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: upload-receipt
+          run-id: ${{ inputs.upload_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/upload-receipt
+
+      - name: Resolve evidence and device signoff
+        if: steps.plan.outputs.action != 'validate' && steps.plan.outputs.dry_run != 'true'
+        env:
+          EVIDENCE_ROOT: ${{ runner.temp }}/release-evidence
+          DEVICE_SIGNOFF: ${{ inputs.device_signoff }}
+          UPLOAD_RECEIPT_ROOT: ${{ runner.temp }}/upload-receipt
+        run: ruby scripts/prepare_release_evidence.rb
+
       - name: Run App Store action
         env:
           PLAN_ACTION: ${{ steps.plan.outputs.action }}
@@ -137,6 +193,7 @@ jobs:
           PLAN_CONFIRM: ${{ steps.plan.outputs.confirm }}
           PLAN_DRY_RUN: ${{ steps.plan.outputs.dry_run }}
           PLAN_BUILD: ${{ steps.plan.outputs.build_id }}
+          RELEASE_UPLOAD_RUN_ID: ${{ inputs.upload_run_id }}
         run: |
           set -euo pipefail
           extra=(--version "$PLAN_VERSION")

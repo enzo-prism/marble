@@ -57,6 +57,9 @@ require_confirm() {
     echo "error: ${ACTION} is a production mutation; pass --confirm" >&2
     exit 1
   fi
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    ruby "${ROOT}/scripts/verify_release_candidate.rb" "${RELEASE_EVIDENCE_MANIFEST:-}" "$ROOT" "$VERSION"
+  fi
 }
 
 version_record() {
@@ -80,6 +83,25 @@ latest_valid_build_id() {
       ))
     | .[0].id // empty
   '
+}
+
+verify_build_identity() {
+  local build_json build_number expected train_builds
+  local receipt_build_id
+  receipt_build_id="$(jq -er '.build_id' "${RELEASE_UPLOAD_RECEIPT}")"
+  [[ "$1" == "$receipt_build_id" ]] || { echo "error: ASC build differs from the source-verified upload receipt" >&2; exit 1; }
+  expected="$(marble_project_build "$ROOT")"
+  build_json="$(asc builds info --build-id "$1" --output json)"
+  build_number="$(printf '%s' "$build_json" | jq -r '.data.attributes.version // .attributes.version // .buildNumber // empty')"
+  if [[ "$build_number" != "$expected" ]]; then
+    echo "error: App Store build does not match verified candidate ${expected}" >&2
+    exit 1
+  fi
+  train_builds="$(asc builds list --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --build-number "$expected" --output json)"
+  printf '%s' "$train_builds" | jq -e --arg id "$1" '.data | any(.id == $id)' >/dev/null || {
+    echo "error: build does not belong to this app and version" >&2
+    exit 1
+  }
 }
 
 print_status() {
@@ -116,6 +138,7 @@ case "$ACTION" in
       asc release stage --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --build "$BUILD_ID" --platform "$MARBLE_PLATFORM" --dry-run
       exit 0
     fi
+    verify_build_identity "$BUILD_ID"
     asc release stage --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --build "$BUILD_ID" --platform "$MARBLE_PLATFORM" --confirm
     ;;
   submit)
@@ -134,6 +157,7 @@ case "$ACTION" in
       echo "dry-run: skipping review submission"
       exit 0
     fi
+    verify_build_identity "$BUILD_ID"
     asc release stage --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --build "$BUILD_ID" --platform "$MARBLE_PLATFORM" --confirm
 
     local_version_json="$(version_record || true)"
@@ -178,6 +202,10 @@ case "$ACTION" in
       echo "dry-run: would run asc versions release --version-id ${version_id} --confirm"
       exit 0
     fi
+    attached_json="$(asc versions view --version-id "$version_id" --include-build --output json)"
+    attached_id="$(printf '%s' "$attached_json" | jq -r '.buildId // .build.id // .data.relationships.build.data.id // empty')"
+    [[ -n "$attached_id" ]] || { echo "error: version has no attached build" >&2; exit 1; }
+    verify_build_identity "$attached_id"
     asc versions release --version-id "$version_id" --confirm
     echo "Release requested for ${VERSION} (${version_id})"
     asc versions view --version-id "$version_id" --output table || true

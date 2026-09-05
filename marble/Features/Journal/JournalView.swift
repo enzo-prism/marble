@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import os
 
 struct JournalView: View {
     @Environment(\.modelContext) private var modelContext
@@ -47,6 +48,17 @@ struct JournalView: View {
                         .listRowSeparator(.hidden)
                         .listRowBackground(Theme.backgroundColor(for: colorScheme))
                         .marbleRowInsets()
+                    NavigationLink {
+                        WorkoutHistoryView()
+                    } label: {
+                        Label("Workout History", systemImage: "clock.arrow.circlepath")
+                            .font(MarbleTypography.rowSubtitle)
+                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                            .padding(.vertical, MarbleSpacing.xxs)
+                    }
+                    .accessibilityIdentifier("Journal.WorkoutHistory")
+                    .listRowBackground(Theme.backgroundColor(for: colorScheme))
+                    .marbleRowInsets()
                 }
 
                 Section {
@@ -187,6 +199,8 @@ struct JournalView: View {
             latestResistanceTrackingStyle: latestEntry?.exercise.resistanceTrackingStyle
         )
         return derivedMemo.value(for: signature) {
+            let interval = HistoryPerformance.signposter.beginInterval("Journal derivation")
+            defer { HistoryPerformance.signposter.endInterval("Journal derivation", interval) }
             // entries arrive sorted newest-first from the query, so grouping
             // preserves the in-day order without a per-day re-sort.
             let grouped = Dictionary(grouping: entries) { entry in

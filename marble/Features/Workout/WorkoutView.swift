@@ -63,8 +63,15 @@ struct WorkoutView: View {
                 if !recentSessions.isEmpty {
                     Section {
                         ForEach(recentSessions) { session in
-                            WorkoutSessionRow(session: session)
+                            NavigationLink {
+                                WorkoutSessionDetailView(session: session)
+                            } label: {
+                                WorkoutSessionRow(session: session)
+                            }
+                            .accessibilityIdentifier("Workout.Recent.\(session.id.uuidString)")
                         }
+                        NavigationLink("All workouts") { WorkoutHistoryView() }
+                            .accessibilityIdentifier("Workout.History")
                     } header: {
                         SectionHeaderView(title: "Recent Workouts")
                     }
@@ -489,7 +496,7 @@ private struct StartWorkoutSection: View {
     }
 }
 
-private struct WorkoutSessionRow: View {
+struct WorkoutSessionRow: View {
     let session: WorkoutSession
 
     @Environment(\.colorScheme) private var colorScheme
@@ -513,6 +520,5 @@ private struct WorkoutSessionRow: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("Workout.Recent.\(session.id.uuidString)")
     }
 }

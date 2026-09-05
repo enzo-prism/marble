@@ -3,6 +3,64 @@ import XCTest
 final class AccessibilityAuditUITests: MarbleUITestCase {
     private var allowDynamicTypeAuditSkip = false
 
+    func testHistoryAndRecoveryAccessibilityAudit_DefaultText() throws {
+        try runHistoryAndRecoveryAudits(contentSizeCategory: nil, sizeLabel: "Default")
+    }
+
+    func testHistoryAndRecoveryAccessibilityAudit_AccessibilityText() throws {
+        allowDynamicTypeAuditSkip = true
+        defer { allowDynamicTypeAuditSkip = false }
+        try runHistoryAndRecoveryAudits(
+            contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
+            sizeLabel: "A11y"
+        )
+    }
+
+    private func runHistoryAndRecoveryAudits(contentSizeCategory: String?, sizeLabel: String) throws {
+        guard #available(iOS 17.0, *) else {
+            throw XCTSkip("performAccessibilityAudit requires iOS 17+ runtimes")
+        }
+        for appearance in [MarbleAppearance.light, MarbleAppearance.dark] {
+            launchApp(
+                appearance: appearance, contentSizeCategory: contentSizeCategory,
+                fixtureMode: "empty", forceReduceTransparency: true, accessibilityAudit: true
+            )
+            navigateToTab(.journal)
+            forceTap(waitForIdentifier("Journal.WorkoutHistory", timeout: 8))
+            waitFor(app.staticTexts["No completed sessions"], timeout: 8)
+            try runAudit(name: "History_Empty_\(appearance.envValue)_\(sizeLabel)")
+            forceTap(waitForIdentifier("History.FilterDate"))
+            waitForIdentifier("History.Date", timeout: 8)
+            try runAudit(name: "History_DateFilter_\(appearance.envValue)_\(sizeLabel)")
+
+            launchApp(
+                appearance: appearance, contentSizeCategory: contentSizeCategory,
+                fixtureMode: "screenshots", forceReduceTransparency: true, accessibilityAudit: true
+            )
+            navigateToTab(.addWorkout)
+            forceTap(waitForIdentifier("Workout.Open", timeout: 8))
+            let finish = app.descendants(matching: .any).matching(identifier: "Workout.Finish").firstMatch
+            scrollToElement(finish, in: app)
+            forceTap(waitForIdentifier("Workout.Finish", timeout: 8))
+            forceTap(waitForIdentifier("Workout.Finish.Confirm"))
+            let recent = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier BEGINSWITH 'Workout.Recent.'")).firstMatch
+            scrollToElement(recent, in: app)
+            waitFor(recent, timeout: 8)
+            forceTap(recent)
+            waitForIdentifier("History.Repeat", timeout: 8)
+            try runAudit(name: "History_Detail_\(appearance.envValue)_\(sizeLabel)")
+
+            launchApp(
+                appearance: appearance, contentSizeCategory: contentSizeCategory,
+                fixtureMode: "empty", forceReduceTransparency: true, accessibilityAudit: true,
+                extraEnvironment: ["MARBLE_TEST_STORAGE_FAILURE": "1"]
+            )
+            waitForIdentifier("Storage.Unavailable.Title", timeout: 8)
+            try runAudit(name: "Storage_Unavailable_\(appearance.envValue)_\(sizeLabel)")
+        }
+    }
+
     func testAccessibilityAudit_DefaultText() throws {
         try runAuditSuite(contentSizeCategory: nil, sizeLabel: "Default")
     }

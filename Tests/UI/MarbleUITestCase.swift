@@ -41,6 +41,7 @@ enum MarbleTab: String, CaseIterable {
 
 class MarbleUITestCase: XCTestCase {
     var app: XCUIApplication!
+    private let draftNamespace = UUID().uuidString
 
     override func setUp() {
         super.setUp()
@@ -76,6 +77,7 @@ class MarbleUITestCase: XCTestCase {
         }
         app = XCUIApplication()
         app.launchEnvironment["MARBLE_UI_TESTING"] = "1"
+        app.launchEnvironment["MARBLE_DRAFT_NAMESPACE"] = draftNamespace
         app.launchEnvironment["MARBLE_DISABLE_ANIMATIONS"] = "1"
         if resetDB {
             app.launchEnvironment["MARBLE_RESET_DB"] = "1"

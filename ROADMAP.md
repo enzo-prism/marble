@@ -1,5 +1,17 @@
 # Marble — H2 2026 Implementation Plan (written 2026-07-20)
 
+## September 4 update — 2.5 candidate
+
+Implemented locally: non-destructive storage-unavailable recovery, complete resumable
+review drafts, searchable/date-filtered completed workout history and repeat-as-draft,
+bounded history queries with on-disk benchmarks, and stricter automated release evidence.
+The whitespace-first Progress overview remains unchanged. A proposed date-projection
+optimization measured slower and was rejected. Schema remains V6.
+
+Verification and publishing are in progress; this entry does not claim main, TestFlight,
+physical-device acceptance, or production completion. ASC now reports 2.4 build 61 as
+READY_FOR_DISTRIBUTION. All older snapshots below are historical.
+
 > **CURRENT RELEASE SNAPSHOT 2026-08-24:** App Store 2.3 build 56 is live.
 > The AI-first Add base shipped internally as build 59 from merge `eead033`. Fixed
 > build 61 was uploaded from exact `main` source `9e8346f`, is `VALID` /

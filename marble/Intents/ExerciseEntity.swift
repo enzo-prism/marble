@@ -61,7 +61,7 @@ nonisolated struct ExerciseQuery: EntityStringQuery {
     @MainActor
     func entities(for identifiers: [UUID]) async throws -> [ExerciseEntity] {
         let byID = Dictionary(
-            Self.allExercises().map { ($0.id, $0) },
+            try Self.allExercises().map { ($0.id, $0) },
             uniquingKeysWith: { first, _ in first }
         )
         // Preserve the caller's order — Shortcuts renders these in the order it asked.
@@ -79,7 +79,7 @@ nonisolated struct ExerciseQuery: EntityStringQuery {
         let needle = string.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !needle.isEmpty else { return [] }
 
-        let matches = Self.allExercises().filter {
+        let matches = try Self.allExercises().filter {
             $0.name.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) != nil
         }
 
@@ -101,8 +101,8 @@ nonisolated struct ExerciseQuery: EntityStringQuery {
     /// their group, then alphabetically so the order is stable).
     @MainActor
     func suggestedEntities() async throws -> [ExerciseEntity] {
-        let context = AppIntentsSupport.resolvedContainer().mainContext
-        let exercises = Self.allExercises()
+        let context = try AppIntentsSupport.resolvedContainer().mainContext
+        let exercises = try Self.allExercises()
         let lastPerformed = Self.lastPerformedDates(in: context)
 
         let ranked = exercises.sorted { lhs, rhs in
@@ -133,8 +133,8 @@ nonisolated struct ExerciseQuery: EntityStringQuery {
     // MARK: - Fetch helpers
 
     @MainActor
-    private static func allExercises() -> [Exercise] {
-        let context = AppIntentsSupport.resolvedContainer().mainContext
+    private static func allExercises() throws -> [Exercise] {
+        let context = try AppIntentsSupport.resolvedContainer().mainContext
         let descriptor = FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)])
         return (try? context.fetch(descriptor)) ?? []
     }
@@ -208,7 +208,7 @@ enum ExerciseSpotlightIndex {
         // — keep it out of the UI-test harness like every other ambient surface.
         guard !TestHooks.isUITesting else { return }
 
-        let context = AppIntentsSupport.resolvedContainer().mainContext
+        guard let context = try? AppIntentsSupport.resolvedContainer().mainContext else { return }
         let descriptor = FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)])
         guard let exercises = try? context.fetch(descriptor), !exercises.isEmpty else { return }
         let entities = exercises.map(ExerciseEntity.init)

@@ -53,6 +53,9 @@ SNAPSHOT_GROUPS_FULL=(
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsVolumeTooltip"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsSupplementsTooltip"
   "MarbleSnapshotTests/WorkoutComposerSnapshotTests"
+  "MarbleSnapshotTests/PersistenceRecoverySnapshotTests/testTemporarilyUnavailable"
+  "MarbleSnapshotTests/PersistenceRecoverySnapshotTests/testDamagedStore"
+  "MarbleSnapshotTests/WorkoutHistorySnapshotTests"
   # Widget families — the app's only surface outside itself. One group: these
   # render fixed-size cards, not full screens, so they are fast.
   "MarbleSnapshotTests/WeeklyGoalWidgetSnapshotTests"

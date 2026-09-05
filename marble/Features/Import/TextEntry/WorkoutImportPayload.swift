@@ -3,7 +3,7 @@ import Foundation
 /// How a typed/pasted/file import identified itself before parsing.
 /// Structured exports skip the on-device model; free text uses the existing
 /// notation + Foundation Models pipeline per session.
-nonisolated enum WorkoutImportPayloadKind: String, Sendable, Equatable {
+nonisolated enum WorkoutImportPayloadKind: String, Sendable, Equatable, Codable {
     case typedText
     case hevyCSV
     case strongCSV
@@ -32,7 +32,7 @@ nonisolated struct WorkoutImportSegment: Equatable, Sendable {
 }
 
 /// One reviewed workout inside a bulk import, including selection and ledger state.
-nonisolated struct WorkoutImportSession: Equatable, Identifiable, Sendable {
+nonisolated struct WorkoutImportSession: Equatable, Identifiable, Sendable, Codable {
     var id: UUID
     var sourceText: String
     var externalID: String

@@ -139,9 +139,25 @@ enum MarbleBackupService {
     }
 
     @discardableResult
-    static func restore(data: Data, into context: ModelContext) throws -> MarbleBackupSummary {
+    static func restore(
+        data: Data,
+        into context: ModelContext,
+        afterFirstExerciseInsertion: (() throws -> Void)? = nil
+    ) throws -> MarbleBackupSummary {
         let payload = try decode(data)
         try validate(payload)
+        // Checkpoint existing user edits before restore owns the rollback scope.
+        // If this save fails, leave those pending edits intact and do not start.
+        if context.hasChanges { try context.save() }
+        let previousAutosave = context.autosaveEnabled
+        context.autosaveEnabled = false
+        var restoreCompleted = false
+        defer {
+            // Covers every throwing fetch and validation branch after mutation,
+            // not only the final save. A failed restore cannot later autosave.
+            if !restoreCompleted { context.rollback() }
+            context.autosaveEnabled = previousAutosave
+        }
         let now = AppEnvironment.now
         var insertedExercises = 0
         var insertedSets = 0
@@ -170,6 +186,8 @@ enum MarbleBackupService {
             context.insert(exercise)
             exercises[record.id] = exercise
             insertedExercises += 1
+            // Fault-injection seam for a failure after the first mutation.
+            if insertedExercises == 1 { try afterFirstExerciseInsertion?() }
         }
 
         let existingSprintExerciseIDs = Set(try context.fetch(FetchDescriptor<SprintPrescription>()).map(\.exerciseID))
@@ -525,12 +543,8 @@ enum MarbleBackupService {
         // now (idempotent) so the sprint logger works before the next launch.
         SprintVariant.adoptLegacyPrescriptions(in: context)
 
-        do {
-            try context.save()
-        } catch {
-            context.rollback()
-            throw error
-        }
+        try context.save()
+        restoreCompleted = true
         UserDefaults.standard.set(now, forKey: PersistenceRecoveryNotice.lastSuccessfulRestoreKey)
         return MarbleBackupSummary(
             exercises: insertedExercises,

@@ -12,9 +12,9 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 - **Add** — Marble's default AI-first composer. Paste or type a workout in plain language,
   common gym notation, or a Hevy/Strong CSV; Apple Intelligence structures prose on device
   when available, while the deterministic parser handles notation and provides the fallback.
-  Nothing is logged until the user reviews and confirms the structured sets. Raw composer
-  text persists across tab switches and app relaunches; reviewed edits remain unsaved until
-  confirmation. Plan, Settings, and manual quick log remain toolbar
+  Nothing is logged until the user reviews and confirms the structured sets. Raw text,
+  reviewed corrections, dates, exercise matches, and batch selections persist as a private
+  draft across relaunches, with explicit Resume and Discard actions. Plan, Settings, and manual quick log remain toolbar
   actions. Existing active sessions open from the tab-bar accessory as a secondary sheet
   (rest timer wins over the session pill).
 - **Log** — fast logging of sets (weight, reps, distance, duration, RPE, rest) with
@@ -25,6 +25,9 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 - **Progress** — a quiet weekly status and one Details action by default, with generous
   whitespace; goals, highlights, training analytics, reports, body metrics, habits,
   supplements, milestones, and records remain organized one tap away.
+- **Workout history** — search completed sessions by workout or exercise and filter by
+  date from Log. Open a session to review its sets or repeat it as a fresh, editable draft;
+  repetition never logs anything without confirmation.
 - **Exercise library** — a searchable, category-filterable home for creating, favoriting,
   and safely editing reusable exercises. Explicit tracking types keep standard setup short,
   while Custom exposes every metric requirement. See
@@ -49,6 +52,8 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   relative-strength score. The monthly report reads the month's first and last weigh-in.
 - **Data safety** — export and restore exercises, sets, supplements, sessions, and plans as
   JSON. Progress photos and videos remain on-device and are intentionally excluded.
+  If the store cannot open, Marble preserves its original files and presents Retry and
+  explicit recovery-copy export instead of silently opening an empty journal.
 - **Import** — bring workouts in from Apple Health (Apple Watch, Garmin, …) and Strava, scan
   every page of a handwritten notebook, or **Paste or Type** a workout / week of Notes / a
   Hevy or Strong CSV. Scan and typed paths read on-device (Apple Intelligence when
