@@ -25,13 +25,17 @@ struct ImportDateSection: View {
     /// move already-adjusted sets to midnight.
     @State private var includeTime = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Section {
-            HStack {
+            dateTimeLayout {
                 Text("Date")
-                Spacer()
+                    .fixedSize(horizontal: false, vertical: true)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer()
+                }
                 // Upper bound at "now": workouts are imported, never scheduled.
                 DatePicker(
                     "Date",
@@ -48,9 +52,12 @@ struct ImportDateSection: View {
                 .accessibilityIdentifier("\(idPrefix).IncludeTime")
 
             if includeTime {
-                HStack {
+                dateTimeLayout {
                     Text("Time")
-                    Spacer()
+                        .fixedSize(horizontal: false, vertical: true)
+                    if !dynamicTypeSize.isAccessibilitySize {
+                        Spacer()
+                    }
                     DatePicker(
                         "Time",
                         selection: dateBinding,
@@ -77,6 +84,14 @@ struct ImportDateSection: View {
             .font(MarbleTypography.caption)
             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
+    }
+
+    // At accessibility sizes the native compact picker needs the row's width.
+    // Keeping its label beside it compresses "Date" into clipped single letters.
+    private var dateTimeLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: MarbleSpacing.xs))
+            : AnyLayout(HStackLayout())
     }
 
     /// nil → "now" adapter. A compact picker only mutates its displayed

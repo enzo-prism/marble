@@ -46,8 +46,21 @@ jobs:
             -only-testing:MarbleUITests/WorkoutHistoryUITests \
             -only-testing:MarbleUITests/ImportFlowUITests/testAddTabReviewsBeforeSavingStructuredSets
 
-      - name: Verify History snapshots
-        run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests make snapshot
+      # Temporary baseline capture for the intentional accessible date/time layout.
+      # Remove after visual review; final CI must compare committed references.
+      - name: Record accessible Composer timing layout
+        run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutComposerSnapshotTests/testWorkoutComposerReview,MarbleSnapshotTests/WorkoutComposerSnapshotTests/testWorkoutComposerCorrectedWeightAfterRecovery make snapshot-record
+
+      - name: Preserve Composer baseline candidates
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: composer-baseline-candidates
+          path: Tests/Snapshots/__Snapshots__/WorkoutComposerSnapshotTests
+          if-no-files-found: error
+
+      - name: Verify History and Composer snapshots
+        run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests,MarbleSnapshotTests/WorkoutComposerSnapshotTests make snapshot
 
       - name: Run unit tests
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Unit.xcresult" make unit
@@ -56,6 +69,9 @@ jobs:
         run: |
           ruby scripts/tests/release_candidate_test.rb
           ruby scripts/tests/migration_probe_test.rb
+
+      - name: Verify shipped-store migration
+        run: make migration-release
 
       - name: Run navigation smoke tests
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Smoke.xcresult" make ui-smoke

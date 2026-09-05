@@ -119,5 +119,7 @@ final class WorkoutComposerSnapshotTests: SnapshotTestCase {
         )
         .modelContainer(container)
         .environment(QuickLogCoordinator())
+        // Native date pickers otherwise inherit the runner's regional settings.
+        .environment(\.locale, Locale(identifier: "en_US"))
     }
 }

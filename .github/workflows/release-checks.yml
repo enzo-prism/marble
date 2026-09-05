@@ -15,7 +15,7 @@ concurrency:
 jobs:
   candidate:
     runs-on: macos-26
-    timeout-minutes: 180
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,6 +25,8 @@ jobs:
       - name: Install test log formatter
         run: brew install xcbeautify || true
       - name: Run candidate checks
+        # Reserve time for evidence upload if the suite exceeds its own limit.
+        timeout-minutes: 230
         env:
           RELEASE_EVIDENCE_ROOT: ${{ runner.temp }}/marble-release-evidence
           DERIVED_DATA_PATH: ${{ runner.temp }}/marble-derived-data

@@ -3,6 +3,24 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## Build 67 validation follow-up — September 5, 2026
+
+Build 66 source `fb1baca9e0d954025b4806446d75c9eaa8c7ecc9` merged through PR #32.
+PR CI `33949349236` and main CI `33950718543` passed. Upload `33950444971`
+completed; ASC build `00767c60-05df-4d83-a62d-c89ad935b18e` is VALID and internal
+IN_BETA_TESTING, with verified notes and strict readiness clear.
+
+Full release run `33950718385` completed with failures; its 53-artifact manifest
+passed integrity verification. Unit, 68 UI tests, and accessibility (two skips)
+passed. Eight Composer largest-text snapshot comparisons failed. Migration reached
+and read the retained candidate store, then failed because the runner lacked `rg`.
+Build 67 addresses the Composer date layout and uses portable grep for migration
+checks. Composer snapshots now run in PR CI; full checks reserve upload time.
+
+Build 67 validation and upload are pending. Production remains 2.4 build 61.
+Owner hardware acceptance has not been performed; no simulator result substitutes
+for it. Earlier records below are historical and do not establish release readiness.
+
 ## Build 66 follow-up — September 5, 2026
 
 Build 65 (`61e67bda1dc29b8aa2ecf690b8df8d7bbc405bcf`) uploaded successfully in

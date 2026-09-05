@@ -249,25 +249,25 @@ xcrun simctl spawn "$SIMULATOR_UDID" log show \
     --predicate 'process == "marble"' \
     >"$LAUNCH_LOG"
 
-if rg -q 'Duplicate version checksums|Terminating app|uncaught exception' "$LAUNCH_LOG"; then
+if grep -Eq 'Duplicate version checksums|Terminating app|uncaught exception' "$LAUNCH_LOG"; then
     echo "Candidate logged a launch crash during migration:" >&2
-    rg 'Duplicate version checksums|Terminating app|uncaught exception' "$LAUNCH_LOG" >&2
+    grep -E 'Duplicate version checksums|Terminating app|uncaught exception' "$LAUNCH_LOG" >&2
     exit 1
 fi
 
 # Simulator may move the retained data container to a new UUID when overlaying the app;
 # the readiness loop above refreshes these paths on every attempt.
-if ! sqlite3 "$STORE_PATH" ".tables" | tr ' ' '\n' | rg -qx 'ZWORKOUTSESSION'; then
+if ! sqlite3 "$STORE_PATH" ".tables" | tr ' ' '\n' | grep -Fxq 'ZWORKOUTSESSION'; then
     echo "Candidate did not create the WorkoutSession table." >&2
     exit 1
 fi
-if ! sqlite3 "$STORE_PATH" ".tables" | tr ' ' '\n' | rg -qx 'ZSPRINTPRESCRIPTION'; then
+if ! sqlite3 "$STORE_PATH" ".tables" | tr ' ' '\n' | grep -Fxq 'ZSPRINTPRESCRIPTION'; then
     echo "Candidate did not create the SprintPrescription table." >&2
     exit 1
 fi
 # V5's additive table. A shipping schema whose newest entity never appears has
 # not actually migrated — it has silently opened as the older schema.
-if ! sqlite3 "$STORE_PATH" ".tables" | tr ' ' '\n' | rg -qx 'ZBODYMETRICENTRY'; then
+if ! sqlite3 "$STORE_PATH" ".tables" | tr ' ' '\n' | grep -Fxq 'ZBODYMETRICENTRY'; then
     echo "Candidate did not create the BodyMetricEntry table (V5 did not migrate)." >&2
     exit 1
 fi
