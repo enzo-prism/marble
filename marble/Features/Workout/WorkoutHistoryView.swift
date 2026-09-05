@@ -163,15 +163,22 @@ struct WorkoutSessionDetailView: View {
     var body: some View {
         List {
             Section {
-                Text(session.startedAt, format: .dateTime.weekday(.wide).month(.wide).day().year())
-                    .font(MarbleTypography.rowSubtitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("\(session.entries.count) sets · \(DateHelper.formattedDuration(seconds: Int(session.duration)))")
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                if let notes = session.notes, !notes.isEmpty {
-                    Text(notes).fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(session.startedAt, format: .dateTime.weekday(.wide).month(.wide).day().year())
+                        .font(.headline)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("\(session.entries.count) sets · \(DateHelper.formattedDuration(seconds: Int(session.duration)))")
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let notes = session.notes, !notes.isEmpty {
+                        Text(notes)
+                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
+                .accessibilityElement(children: .combine)
+                .listRowSeparator(.hidden)
                 Button {
                     if sprintDetails.isEmpty {
                         repeatDraft = RepeatPresentation(draft: WorkoutRepeatDraft.make(from: session))

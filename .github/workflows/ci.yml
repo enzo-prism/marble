@@ -40,6 +40,7 @@ jobs:
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryAccessibility.xcresult" make only TEST=MarbleUITests/AccessibilityAuditUITests/testHistoryAndRecoveryAccessibilityAudit_DefaultText
 
       - name: Verify Repeat Workout at largest text
+        if: success() || failure()
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryLargestText.xcresult" make only TEST=MarbleUITests/WorkoutHistoryUITests/testRepeatWorkoutSupportsLargestAccessibilityText
 
       - name: Run unit tests
@@ -56,6 +57,7 @@ jobs:
       # One-time baseline refresh for the intentional build-65 contrast/wrapping
       # correction. Remove this step after reviewing and committing the images.
       - name: Record corrected History snapshots
+        if: success() || failure()
         run: |
           SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests make snapshot-record
 

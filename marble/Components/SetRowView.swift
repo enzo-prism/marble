@@ -72,6 +72,7 @@ struct SetRowView: View {
         let row = HStack(alignment: .top, spacing: MarbleLayout.rowSpacing) {
             ExerciseIconView(exercise: entry.exercise, fontSize: 20, frameSize: MarbleLayout.rowIconSize)
                 .environment(\.colorScheme, resolvedScheme)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: MarbleLayout.rowInnerSpacing) {
                 Text(entry.exercise.name)
