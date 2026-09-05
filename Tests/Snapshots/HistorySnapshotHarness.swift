@@ -27,15 +27,28 @@ func assertHistorySnapshot<V: View>(
                     return
                 }
                 let previousKeyWindow = scene.windows.first(where: \.isKeyWindow)
+                // The SwiftUI transaction does not disable UIKit's navigation
+                // and search-bar transitions. Restore this process setting after
+                // each capture, including early failures.
+                let animationsWereEnabled = UIView.areAnimationsEnabled
+                UIView.setAnimationsEnabled(false)
+                defer { UIView.setAnimationsEnabled(animationsWereEnabled) }
+                let style: UIUserInterfaceStyle = variant.colorScheme == .dark ? .dark : .light
+                let category: UIContentSizeCategory = variant.sizeCategory.isAccessibilityCategory
+                    ? .accessibilityExtraExtraExtraLarge : .large
                 let root = UIViewController()
+                root.overrideUserInterfaceStyle = style
+                root.traitOverrides.preferredContentSizeCategory = category
                 let host = UIHostingController(rootView: content()
                     .environment(\.colorScheme, variant.colorScheme)
                     .environment(\.sizeCategory, variant.sizeCategory)
                     .environment(\.marbleActiveDay, DateHelper.startOfDay(for: SnapshotFixtures.now))
                     .transaction { $0.disablesAnimations = true })
                 let window = HistorySnapshotWindow(scene: scene, size: variant.device.size, insets: variant.device.safeArea)
-                let style: UIUserInterfaceStyle = variant.colorScheme == .dark ? .dark : .light
                 window.overrideUserInterfaceStyle = style
+                window.traitOverrides.preferredContentSizeCategory = category
+                host.overrideUserInterfaceStyle = style
+                host.traitOverrides.preferredContentSizeCategory = category
                 root.addChild(host)
                 root.view.addSubview(host.view)
                 host.view.frame = CGRect(origin: .zero, size: variant.device.size)
@@ -43,8 +56,7 @@ func assertHistorySnapshot<V: View>(
                 let traits = UITraitCollection { traits in
                     traits.userInterfaceIdiom = variant.device.idiom
                     traits.userInterfaceStyle = style
-                    traits.preferredContentSizeCategory = variant.sizeCategory.isAccessibilityCategory
-                        ? .accessibilityExtraExtraExtraLarge : .large
+                    traits.preferredContentSizeCategory = category
                 }
                 root.setOverrideTraitCollection(traits, forChild: host)
                 host.didMove(toParent: root)
@@ -53,35 +65,47 @@ func assertHistorySnapshot<V: View>(
                 window.frame = CGRect(origin: .zero, size: variant.device.size)
                 root.view.frame = window.bounds
                 host.view.frame = root.view.bounds
-                root.beginAppearanceTransition(true, animated: false)
-                root.endAppearanceTransition()
                 defer {
-                    root.beginAppearanceTransition(false, animated: false)
-                    root.endAppearanceTransition()
                     window.isHidden = true
                     window.rootViewController = nil
                     previousKeyWindow?.makeKey()
                 }
 
-                // Unlike the shared pre-host delay, these turns happen after
-                // List and NavigationStack have joined a visible window.
-                let settleUntil = Date().addingTimeInterval(0.75)
+                // Capture only after the mounted hierarchy has produced three
+                // identical frames. A fixed delay alone can freeze native glass
+                // controls during their initial search/navigation transition.
+                let earliestCapture = Date().addingTimeInterval(0.5)
+                let deadline = Date().addingTimeInterval(4)
+                let format = UIGraphicsImageRendererFormat()
+                format.scale = 3
+                let renderer = UIGraphicsImageRenderer(size: variant.device.size, format: format)
+                var previousPixels: Data?
+                var identicalFrames = 0
+                var stableImage: UIImage?
                 repeat {
                     root.view.setNeedsLayout()
                     root.view.layoutIfNeeded()
                     host.view.layoutIfNeeded()
                     RunLoop.main.run(until: Date().addingTimeInterval(0.1))
-                } while Date() < settleUntil
-                root.view.layoutIfNeeded()
-                let format = UIGraphicsImageRendererFormat()
-                format.scale = 3
-                let renderer = UIGraphicsImageRenderer(size: variant.device.size, format: format)
-                var rendered = false
-                let image = renderer.image { _ in
-                    rendered = window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
-                }
-                guard rendered else {
-                    XCTFail("History window failed to render", file: file, line: line)
+                    CATransaction.flush()
+                    var rendered = false
+                    let candidate = renderer.image { _ in
+                        rendered = window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+                    }
+                    guard rendered, let pixels = candidate.pngData() else {
+                        identicalFrames = 0
+                        previousPixels = nil
+                        continue
+                    }
+                    identicalFrames = pixels == previousPixels ? identicalFrames + 1 : 1
+                    previousPixels = pixels
+                    if Date() >= earliestCapture && identicalFrames >= 3 {
+                        stableImage = candidate
+                        break
+                    }
+                } while Date() < deadline
+                guard let image = stableImage else {
+                    XCTFail("History window did not reach three stable rendered frames", file: file, line: line)
                     return
                 }
                 do {
