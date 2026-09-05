@@ -4,6 +4,52 @@ import XCTest
 
 @MainActor
 final class WorkoutHistoryTests: MarbleTestCase {
+    func testImportedOwnerNotesKeepJournalOrderInHistoryAndRepeatAfterReload() throws {
+        let context = makeInMemoryContext()
+        let draft = HandwrittenWorkoutParser.parseDetailed("""
+            9/4/26
+            Straight Leg Speed Bounds (2 sets)
+            Knee Drive Speed Bounds (2 sets)
+            Resistance Rope Sprint 2 sets , 50m each
+            Sprints , 2 sets , 50m each
+            """, referenceDate: now).draft
+        try WorkoutScanImporter.import(draft, externalID: "owner-notes-order", source: .textEntry, in: context)
+
+        // Reload relationships so this contract cannot accidentally depend on
+        // SwiftData returning the importer's original insertion array.
+        let reloaded = ModelContext(context.container)
+        let session = try XCTUnwrap(reloaded.fetch(FetchDescriptor<WorkoutSession>()).first)
+        let names = ["Straight Leg Speed Bounds", "Knee Drive Speed Bounds", "Resistance Rope Sprint", "Sprints"]
+        let expectedSets = names.flatMap { [$0, $0] }
+        let journal = try reloaded.fetch(FetchDescriptor<SetEntry>(
+            sortBy: [SortDescriptor(\.performedAt, order: .reverse)]
+        ))
+        XCTAssertEqual(journal.map { $0.exercise.name }, expectedSets)
+        XCTAssertEqual(WorkoutHistoryQuery.orderedEntries(for: session).map(\.id), journal.map(\.id))
+        let repeated = WorkoutRepeatDraft.make(from: session, now: now)
+        XCTAssertEqual(repeated.exercises.map(\.name), names)
+        XCTAssertEqual(repeated.exercises.map { $0.sets.count }, [2, 2, 2, 2])
+        XCTAssertEqual(repeated.exercises.suffix(2).flatMap(\.sets).map(\.distance), [50, 50, 50, 50])
+        XCTAssertTrue(repeated.exercises.flatMap(\.sets).allSatisfy { $0.performedAt == nil })
+    }
+
+    func testImportedHistoryKeepsExplicitTimestampPrecedenceAndMixedSessionsChronological() throws {
+        let context = makeInMemoryContext()
+        let draft = ParsedWorkoutDraft(performedAt: now, title: "Timed import", exercises: [
+            ParsedExerciseDraft(name: "Squat", sets: [ParsedSetDraft(reps: 5)]),
+            ParsedExerciseDraft(name: "Row", sets: [ParsedSetDraft(reps: 8, performedAt: now.addingTimeInterval(60))])
+        ])
+        try WorkoutScanImporter.import(draft, externalID: "explicit-time-order", source: .photoScan, in: context)
+        let session = try XCTUnwrap(context.fetch(FetchDescriptor<WorkoutSession>()).first)
+        XCTAssertEqual(WorkoutHistoryQuery.orderedEntries(for: session).map { $0.exercise.name }, ["Row", "Squat"])
+        XCTAssertEqual(WorkoutRepeatDraft.make(from: session, now: now).exercises.map(\.name), ["Row", "Squat"])
+
+        let manual = SetEntry(exercise: session.entries[0].exercise, performedAt: now.addingTimeInterval(30), reps: 3, restAfterSeconds: 60)
+        context.insert(manual)
+        session.append(manual)
+        XCTAssertEqual(WorkoutHistoryQuery.orderedEntries(for: session).map(\.id), session.orderedEntries.map(\.id))
+    }
+
     func testSprintRepeatKeepsPrecisePreviousTimingInNotes() {
         let exercise = Exercise(name: "Sprint", category: .legs, metrics: .weightAndRepsRequired, defaultRestSeconds: 90)
         let entry = SetEntry(exercise: exercise, performedAt: now, durationSeconds: 12, restAfterSeconds: 90, notes: "Flying start")
@@ -34,6 +80,8 @@ final class WorkoutHistoryTests: MarbleTestCase {
         let session = WorkoutSession(title: "Circuit", startedAt: now, endedAt: now.addingTimeInterval(600), notes: "Keep form controlled", entries: entries)
         context.insert(session)
         try context.save()
+        XCTAssertEqual(WorkoutHistoryQuery.orderedEntries(for: session).map(\.id), entries.map(\.id),
+                       "Manual circuits keep ascending performance time in History")
         let today = now.addingTimeInterval(86_400)
         var draft = WorkoutRepeatDraft.make(from: session, now: today)
         XCTAssertEqual(draft.performedAt, today)

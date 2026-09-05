@@ -16,9 +16,12 @@ final class DraftResumeUITests: MarbleUITestCase {
             let preview = app.descendants(matching: .any).matching(identifier: "TextEntry.Preview").firstMatch
             scrollToElement(preview, in: app)
             forceTap(preview)
+            _ = waitForIdentifier("TextEntry.ReviewSummary", timeout: 15)
 
-            let date = waitForIdentifier("TextEntry.Date", timeout: 10)
+            let date = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
             scrollToElement(date, in: app.collectionViews.firstMatch)
+            waitFor(date, timeout: 10)
+            revealAboveSave(date, label: app.staticTexts["Date"].firstMatch)
             let dateLabel = app.staticTexts["Date"].firstMatch
             waitFor(dateLabel)
             XCTAssertTrue(dateLabel.isHittable, "The date label must remain visible at largest text")
@@ -48,8 +51,10 @@ final class DraftResumeUITests: MarbleUITestCase {
             let resume = app.buttons["WorkoutEntry.Draft.Resume"]
             scrollToElement(resume, in: app)
             forceTap(resume)
-            let restoredDate = waitForIdentifier("TextEntry.Date", timeout: 10)
+            let restoredDate = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
             scrollToElement(restoredDate, in: app.collectionViews.firstMatch)
+            waitFor(restoredDate, timeout: 10)
+            revealAboveSave(restoredDate, label: app.staticTexts["Date"].firstMatch)
             let restoredDateButton = restoredDate.buttons.firstMatch
             waitFor(restoredDateButton)
             XCTAssertEqual(restoredDateButton.value as? String, reviewedDate)
@@ -57,6 +62,9 @@ final class DraftResumeUITests: MarbleUITestCase {
             let includeTime = app.switches["TextEntry.IncludeTime"]
             scrollToElement(includeTime, in: app.collectionViews.firstMatch)
             waitFor(includeTime)
+            // A multiline switch wrapper can be hittable while its native
+            // control is behind the navigation bar after an automatic scroll.
+            revealAboveSave(includeTime, label: includeTime)
             XCTAssertTrue(includeTime.isHittable)
             XCTAssertEqual(includeTime.value as? String, "0")
             // SwiftUI exposes the whole multiline label as a Switch wrapper.
@@ -68,20 +76,56 @@ final class DraftResumeUITests: MarbleUITestCase {
                 predicate: NSPredicate(format: "value == '1'"), object: includeTime
             )
             XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 5), .completed)
+            XCTAssertEqual(includeTime.value as? String, "1")
+            // Inspect the switch while its lazy row is visible. Revealing the
+            // full picker can legitimately scroll that row out of the tree.
             let time = app.descendants(matching: .any).matching(identifier: "TextEntry.Time").firstMatch
             scrollToElement(time, in: app.collectionViews.firstMatch)
             waitFor(time, timeout: 8)
+            revealAboveSave(time, label: app.staticTexts["Time"].firstMatch)
             let timeLabel = app.staticTexts["Time"].firstMatch
             waitFor(timeLabel)
             XCTAssertTrue(timeLabel.isHittable, "The time label must remain visible at largest text")
             XCTAssertTrue(time.isEnabled)
             XCTAssertTrue(time.isHittable)
             XCTAssertFalse(timeLabel.frame.intersects(time.frame), "The time control must not cover its label")
-            XCTAssertEqual(includeTime.value as? String, "1")
             takeScreenshot("Composer_Time_XXXL_\(appearance.envValue)")
             time.tap()
             takeScreenshot("Composer_TimePicker_Open_XXXL_\(appearance.envValue)")
         }
+    }
+
+    private func revealAboveSave(_ element: XCUIElement, label: XCUIElement) {
+        let save = app.buttons["TextEntry.Import"]
+        let list = app.collectionViews.firstMatch
+        let navigation = app.navigationBars.firstMatch
+        func bounds() -> CGRect {
+            label.exists ? element.frame.union(label.frame) : element.frame
+        }
+        for _ in 0..<10 {
+            let top = max(list.frame.minY, navigation.frame.maxY) + 12
+            let bottom = min(list.frame.maxY, save.frame.minY) - 12
+            let frame = bounds()
+            if frame.minY >= top && frame.maxY <= bottom { break }
+            // A full swipe can overshoot a compact Date/Time row at XXXL.
+            // Correct in either direction, using short, measured drags so both
+            // the label and complete native value fit inside the viewport.
+            let delta = frame.minY < top ? frame.minY - top : frame.maxY - bottom
+            let requested = delta / list.frame.height
+            // Keep the drag larger than touch slop; a few-pixel movement can
+            // be interpreted as a tap on the content instead of a scroll.
+            let fraction = requested < 0
+                ? max(-0.22, min(-0.06, requested))
+                : min(0.22, max(0.06, requested))
+            list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+                .press(forDuration: 0.05,
+                       thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55 - fraction)),
+                       withVelocity: .slow, thenHoldForDuration: 0.3)
+        }
+        XCTAssertGreaterThanOrEqual(bounds().minY, max(list.frame.minY, navigation.frame.maxY) + 8,
+                                    "The label and picker must remain below navigation")
+        XCTAssertLessThanOrEqual(bounds().maxY, min(list.frame.maxY, save.frame.minY) - 8,
+                                 "The entire closed picker must fit above the save action")
     }
 
     func testLargeTextRecoveryActionsRemainReachable() {
@@ -114,7 +158,9 @@ final class DraftResumeUITests: MarbleUITestCase {
         editor.typeText("Yesterday: Push\nBench Press 1x8 @ 185 lb")
         dismissKeyboardIfPresent()
         forceTap(waitForIdentifier("TextEntry.Preview", timeout: 8))
-        let date = waitForIdentifier("TextEntry.Date", timeout: 10)
+        let date = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
+        scrollToElement(date, in: app.collectionViews.firstMatch)
+        waitFor(date, timeout: 10)
         let dateButton = date.buttons.firstMatch
         waitFor(dateButton)
         let reviewedDate = try XCTUnwrap(dateButton.value as? String)
@@ -130,7 +176,10 @@ final class DraftResumeUITests: MarbleUITestCase {
         app.terminate()
         launchApp(fixtureMode: "empty", resetDB: false, extraEnvironment: environment)
         forceTap(waitForIdentifier("WorkoutEntry.Draft.Resume", timeout: 10))
-        XCTAssertEqual(waitForIdentifier("TextEntry.Date", timeout: 8).buttons.firstMatch.value as? String, reviewedDate)
+        let restoredDate = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
+        scrollToElement(restoredDate, in: app.collectionViews.firstMatch)
+        waitFor(restoredDate, timeout: 8)
+        XCTAssertEqual(restoredDate.buttons.firstMatch.value as? String, reviewedDate)
         let restoredWeight = app.textFields[weightID]
         scrollToElement(restoredWeight, in: app.collectionViews.firstMatch)
         XCTAssertEqual(restoredWeight.value as? String, "195")

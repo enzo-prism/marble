@@ -16,6 +16,15 @@ func assertHistorySnapshot<V: View>(
     line: UInt = #line,
     @ViewBuilder content: () -> V
 ) {
+    // Match the reference fixture's UTC clock independent of the Mac's zone.
+    let previousTimeZone = Formatters.time.timeZone
+    let previousLocale = Formatters.time.locale
+    Formatters.time.timeZone = TimeZone(secondsFromGMT: 0)
+    Formatters.time.locale = Locale(identifier: "en_US_POSIX")
+    defer {
+        Formatters.time.timeZone = previousTimeZone
+        Formatters.time.locale = previousLocale
+    }
     for variant in SnapshotMatrix.variants {
         let activityName = "\(name)_\(variant.suffix)"
         XCTContext.runActivity(named: activityName) { _ in
@@ -40,6 +49,8 @@ func assertHistorySnapshot<V: View>(
                 root.overrideUserInterfaceStyle = style
                 root.traitOverrides.preferredContentSizeCategory = category
                 let host = UIHostingController(rootView: content()
+                    .environment(\.locale, Locale(identifier: "en_US_POSIX"))
+                    .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
                     .environment(\.colorScheme, variant.colorScheme)
                     .environment(\.sizeCategory, variant.sizeCategory)
                     .environment(\.marbleActiveDay, DateHelper.startOfDay(for: SnapshotFixtures.now))

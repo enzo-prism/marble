@@ -234,6 +234,83 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
 
     // MARK: - Unparsed lines
 
+    func testUnparsedRowsKeepStableIdentityWhenEarlierRowIsRemoved() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 3x8 @ 185\nround 2 of 3 felt easy\nround 2 of 3 felt easy"
+        await viewModel.preview(in: context)
+        let rows = viewModel.unparsedReviewLines
+        XCTAssertEqual(rows.count, 2)
+        guard rows.count == 2 else { return }
+        viewModel.keepUnparsedLineAsNote(id: rows[0].id, replacement: rows[0].text)
+        XCTAssertEqual(viewModel.unparsedReviewLines.first?.id, rows[1].id)
+        XCTAssertEqual(viewModel.unparsedReviewLines.first?.index, 0)
+        viewModel.keepUnparsedLineAsNote(id: rows[1].id, replacement: "Second detail edited")
+        XCTAssertTrue(viewModel.unparsedLines.isEmpty)
+        XCTAssertEqual(viewModel.draft.notes, "round 2 of 3 felt easy\nSecond detail edited")
+    }
+
+    func testPartialWorkoutCannotCommitUntilUnknownLinesArePreserved() async throws {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 3x8 @ 185\nround 2 of 3 felt easy"
+        await viewModel.preview(in: context)
+        XCTAssertFalse(viewModel.canCommitWorkout)
+        viewModel.commit(into: context)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<SetEntry>()), 0)
+        XCTAssertEqual(viewModel.phase, .review)
+
+        viewModel.draft.notes = "Original session note"
+        viewModel.keepUnparsedLineAsNote(at: 0)
+        XCTAssertTrue(viewModel.canCommitWorkout)
+        XCTAssertEqual(viewModel.draft.notes, "Original session note\nround 2 of 3 felt easy")
+        viewModel.commit(into: context)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<SetEntry>()), 3)
+        let session = try XCTUnwrap(context.fetch(FetchDescriptor<WorkoutSession>()).first)
+        XCTAssertTrue(session.notes?.contains("round 2 of 3 felt easy") == true)
+    }
+
+    func testPartialRetryKeepsFullTextWithoutAppendingDuplicateExercises() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 3x8 @ 185\nround 2 of 3 felt easy"
+        await viewModel.preview(in: context)
+        let replacement = "Squat 3x5 @ 225\nround 2 of 3 felt easy"
+        await viewModel.retryUnparsedLine(at: 0, replacement: replacement)
+        await viewModel.retryUnparsedLine(at: 0, replacement: replacement)
+        XCTAssertEqual(viewModel.unparsedLines, [replacement])
+        XCTAssertEqual(viewModel.draft.exercises.count, 1)
+        XCTAssertEqual(viewModel.draft.totalSetCount, 3)
+    }
+
+    func testBlankRetryDoesNotDiscardUnrecognizedSource() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = "Bench 3x8 @ 185\nround 2 of 3 felt easy"
+        await viewModel.preview(in: context)
+        await viewModel.retryUnparsedLine(at: 0, replacement: "  ")
+        XCTAssertEqual(viewModel.unparsedLines, ["round 2 of 3 felt easy"])
+        XCTAssertFalse(viewModel.canCommitWorkout)
+    }
+
+    func testPartiallyParsedBatchIsBlockedUntilDetailsAreKept() async {
+        let context = makeInMemoryContext()
+        let viewModel = makeViewModel()
+        viewModel.text = "2025-01-14\nBench 3x8 @ 185\nround 2 of 3 felt easy\n2025-01-15\nSquat 3x5 @ 225"
+        await viewModel.preview(in: context)
+        XCTAssertEqual(viewModel.sessions.count, 2)
+        XCTAssertEqual(viewModel.unresolvedSessionCount, 1)
+        XCTAssertFalse(viewModel.canCommitSelectedSessions)
+        guard let unresolved = viewModel.sessions.first(where: { !$0.unparsedLines.isEmpty }) else {
+            return XCTFail("Expected unresolved workout")
+        }
+        viewModel.openSession(unresolved.id)
+        viewModel.keepUnparsedLineAsNote(at: 0)
+        viewModel.returnToBatch()
+        XCTAssertEqual(viewModel.unresolvedSessionCount, 0)
+        XCTAssertTrue(viewModel.canCommitSelectedSessions)
+    }
+
     func testPreviewSurfacesUnparsedLines() async {
         let context = makeInMemoryContext()
         let viewModel = makeViewModel()

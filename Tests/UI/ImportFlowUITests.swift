@@ -71,6 +71,102 @@ final class ImportFlowUITests: MarbleUITestCase {
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'Bench Press'")).firstMatch.exists)
     }
 
+    func testAppleNotesBoundsAndSprintsSaveAllEightSets() {
+        launchApp(fixtureMode: "empty", nowISO8601: "2026-09-05T12:00:00Z")
+        let editor = app.textViews["TextEntry.Editor"]
+        waitFor(editor, timeout: 8)
+        editor.tap()
+        editor.typeText("9/4/26\n\nStraight Leg Speed Bounds (2 sets)\n\nKnee Drive Speed Bounds (2 sets)\n\nResistance Rope Sprint 2 sets , 50m each\n\nSprints , 2 sets , 50m each")
+        dismissKeyboardIfPresent()
+        forceTap(waitForIdentifier("TextEntry.Preview", timeout: 8))
+        let summary = waitForIdentifier("TextEntry.ReviewSummary", timeout: 15)
+        XCTAssertEqual(summary.label, "4 exercises · 8 sets")
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "TextEntry.Unparsed.Line.0").firstMatch.exists)
+        takeScreenshot("Composer_OwnerNotes_Review")
+        let save = waitForIdentifier("TextEntry.Import", timeout: 8)
+        XCTAssertTrue(save.isEnabled)
+        XCTAssertEqual(save.label, "Add 8 sets to Log")
+        forceTap(save)
+        XCTAssertEqual(waitForIdentifier("TextEntry.Imported", timeout: 8).label, "Added 8 sets")
+        forceTap(waitForIdentifier("TextEntry.Imported.ViewLog", timeout: 8))
+        forceTap(waitForIdentifier("Journal.WorkoutHistory", timeout: 8))
+        let session = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'History.Session.'")).firstMatch
+        waitFor(session, timeout: 8)
+        forceTap(session)
+        _ = waitForIdentifier("History.Repeat", timeout: 8)
+        var saved: [String: String] = [:]
+        var orderedLabels: [String] = []
+        for _ in 0..<8 {
+            let rows = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'History.SetLabel.'"))
+            for row in rows.allElementsBoundByIndex {
+                if saved[row.identifier] == nil { orderedLabels.append(row.label) }
+                saved[row.identifier] = row.label
+            }
+            if saved.count == 8 { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertEqual(saved.count, 8)
+        let expectedOrder = ["Straight Leg Speed Bounds", "Knee Drive Speed Bounds", "Resistance Rope Sprint", "Sprint"]
+            .flatMap { [$0, $0] }
+        XCTAssertEqual(orderedLabels.count, expectedOrder.count)
+        for (label, name) in zip(orderedLabels, expectedOrder) {
+            XCTAssertTrue(label.contains(". " + name + ","), "Saved History must preserve source order: expected \(name), received \(label)")
+        }
+        // The seeded library's exact alias maps "Sprints" to "Sprint".
+        // Row accessibility includes an import-provenance prefix.
+        for name in ["Straight Leg Speed Bounds", "Knee Drive Speed Bounds", "Resistance Rope Sprint", "Sprint"] {
+            let labels = saved.values.filter { $0.contains(". " + name + ",") }
+            XCTAssertEqual(labels.count, 2, "Each source exercise must save two distinct sets")
+            if name.contains("Bounds") {
+                XCTAssertTrue(labels.allSatisfy { !$0.contains(" reps") }, "Unspecified reps must remain unspecified")
+            } else {
+                XCTAssertTrue(labels.allSatisfy { $0.contains("50 m") }, "Each sprint must retain its 50 meter distance")
+            }
+        }
+        takeScreenshot("Composer_OwnerNotes_SavedHistory")
+    }
+
+    func testRemovingEarlierUnorganizedLinePreservesAnotherPendingEdit() {
+        launchApp(fixtureMode: "empty")
+        let editor = app.textViews["TextEntry.Editor"]
+        waitFor(editor, timeout: 8)
+        editor.tap()
+        editor.typeText("Bench Press 3x8 @ 185 lb\nround 2 of 3 felt easy\nround 2 of 3 felt easy")
+        dismissKeyboardIfPresent()
+        forceTap(waitForIdentifier("TextEntry.Preview", timeout: 8))
+        _ = waitForIdentifier("TextEntry.ReviewSummary", timeout: 15)
+        let second = app.descendants(matching: .any).matching(identifier: "TextEntry.Unparsed.Line.1").firstMatch
+        scrollToElement(second, in: app.collectionViews.firstMatch)
+        waitFor(second, timeout: 8)
+        clearAndType(second, text: "Second detail edited")
+        dismissKeyboardIfPresent()
+        let firstKeep = app.buttons["TextEntry.Unparsed.KeepNote.0"]
+        scrollToElement(firstKeep, in: app.collectionViews.firstMatch)
+        forceTap(firstKeep)
+        let surviving = app.descendants(matching: .any).matching(identifier: "TextEntry.Unparsed.Line.0").firstMatch
+        scrollToElement(surviving, in: app.collectionViews.firstMatch)
+        waitFor(surviving, timeout: 8)
+        XCTAssertEqual((surviving.value as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), "Second detail edited")
+    }
+
+    func testUnorganizedLineMustBeKeptBeforeSaving() {
+        launchApp(fixtureMode: "empty")
+        let editor = app.textViews["TextEntry.Editor"]
+        waitFor(editor, timeout: 8)
+        editor.tap()
+        editor.typeText("Bench Press 3x8 @ 185 lb\nround 2 of 3 felt easy")
+        dismissKeyboardIfPresent()
+        forceTap(waitForIdentifier("TextEntry.Preview", timeout: 8))
+        let save = waitForIdentifier("TextEntry.Import", timeout: 10)
+        XCTAssertFalse(save.isEnabled)
+        let keep = app.buttons["TextEntry.Unparsed.KeepNote.0"]
+        scrollToElement(keep, in: app.collectionViews.firstMatch)
+        forceTap(keep)
+        XCTAssertTrue(save.isEnabled)
+        forceTap(save)
+        XCTAssertTrue(waitForIdentifier("TextEntry.Imported", timeout: 8).exists)
+    }
+
     /// The hub's history section lists previously imported workouts and opens
     /// the read-only detail sheet with the full stats grid.
     func testImportHistoryOpensWorkoutDetail() {

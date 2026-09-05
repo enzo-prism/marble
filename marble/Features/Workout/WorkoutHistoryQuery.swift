@@ -5,6 +5,23 @@ import SwiftData
 enum WorkoutHistoryQuery {
     static let pageSize = 40
 
+    /// Reviewed text/scan imports encode their order newest-first for Journal.
+    /// Use that same ordering for completed import detail and Repeat. Explicit
+    /// per-set timestamps still win; manual/mixed sessions remain chronological.
+    static func orderedEntries(for session: WorkoutSession) -> [SetEntry] {
+        guard session.endedAt != nil,
+              let ledger = session.entries.first?.importedWorkout,
+              ledger.source == .textEntry || ledger.source == .photoScan,
+              session.entries.allSatisfy({ $0.importedWorkout?.id == ledger.id }) else {
+            return session.orderedEntries
+        }
+        return session.entries.sorted { lhs, rhs in
+            if lhs.performedAt != rhs.performedAt { return lhs.performedAt > rhs.performedAt }
+            if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
+    }
+
     static func descriptor(search: String, day: Date?, offset: Int = 0) -> FetchDescriptor<WorkoutSession> {
         let term = search.trimmingCharacters(in: .whitespacesAndNewlines)
         let start = day.map { Calendar.current.startOfDay(for: $0) } ?? .distantPast
@@ -36,7 +53,7 @@ enum WorkoutHistoryQuery {
 enum WorkoutRepeatDraft {
     static func make(from session: WorkoutSession, now: Date = AppEnvironment.now, sprintDetails: [UUID: SprintRepDetail] = [:]) -> ParsedWorkoutDraft {
         var exercises: [ParsedExerciseDraft] = []
-        for entry in session.orderedEntries {
+        for entry in WorkoutHistoryQuery.orderedEntries(for: session) {
             var notes = entry.notes
             if let detail = sprintDetails[entry.id] {
                 let precisionNote = "Previous sprint: \(SprintTiming.text(tenths: detail.durationTenths)). Previous target: \(SprintTiming.text(tenths: detail.targetLowerTenths))–\(SprintTiming.text(tenths: detail.targetUpperTenths))."

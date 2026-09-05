@@ -203,6 +203,22 @@ extension WorkoutParseEvalCase {
     /// parse exactly on every build — no model involved.
     static let notationCases: [WorkoutParseEvalCase] = [
         WorkoutParseEvalCase(
+            name: "cardio sentence with explicit distance and time",
+            input: "ran 5 kilometers in 25 minutes",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Run", setCount: 1, durationSeconds: 25 * 60, distance: 5)
+            ])
+        ),
+        WorkoutParseEvalCase(
+            name: "explicit counted bodyweight pull ups",
+            input: "did pull ups, 4 sets of 10",
+            tier: .notation,
+            expected: ExpectedWorkout(exercises: [
+                ExpectedExercise(name: "Pull Ups", setCount: 4, reps: 10)
+            ])
+        ),
+        WorkoutParseEvalCase(
             name: "sets x reps",
             input: "Squat 5x5",
             tier: .notation,
@@ -585,14 +601,6 @@ extension WorkoutParseEvalCase {
             ])
         ),
         WorkoutParseEvalCase(
-            name: "prose cardio sentence",
-            input: "ran 5 kilometers in 25 minutes",
-            tier: .prose,
-            expected: ExpectedWorkout(exercises: [
-                ExpectedExercise(name: "Run", setCount: 1, durationSeconds: 25 * 60, distance: 5)
-            ])
-        ),
-        WorkoutParseEvalCase(
             name: "prose leg day with spelled numbers",
             input: "leg day: squats five sets of five at 225, leg press three sets of fifteen",
             tier: .prose,
@@ -618,14 +626,6 @@ extension WorkoutParseEvalCase {
             tier: .prose,
             expected: ExpectedWorkout(exercises: [
                 ExpectedExercise(name: "Bench Press", setCount: 3, reps: 8, weight: 185, restSeconds: 90)
-            ])
-        ),
-        WorkoutParseEvalCase(
-            name: "prose bodyweight pull ups",
-            input: "did pull ups, 4 sets of 10",
-            tier: .prose,
-            expected: ExpectedWorkout(exercises: [
-                ExpectedExercise(name: "Pull Ups", setCount: 4, reps: 10)
             ])
         ),
         WorkoutParseEvalCase(

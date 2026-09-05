@@ -5,6 +5,10 @@ a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
 ## What it is
 
+September 5 Add Workout improvements and their fidelity contract are documented in
+[WORKOUT_TEXT_ENTRY.md](WORKOUT_TEXT_ENTRY.md). Release validation is in progress;
+this documentation does not establish a public release.
+
 The tab bar is three destinations: **Add**, **Log**, and **Progress**. Calendar and
 Supplements are modes inside Log (not separate tabs). Deep links `marble://calendar` and
 `marble://supplements` still open those modes.

@@ -1,9 +1,64 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-09-04.**
+**App Store Connect state refreshed: 2026-09-05 (pre-upload checkpoint).**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## Build 67 validation follow-up — September 5, 2026
+## Build 68 Add Workout follow-up — September 5, 2026
+
+Production was freshly verified as 2.4 build 61; next ASC build number is 68.
+Build 67 (`f863e45`) is merged and VALID / internal IN_BETA_TESTING, and its
+focused/main CI passed. Owner testing nevertheless exposed a genuine Notes parser
+failure. Do not publish build 67 as a resolution of that issue.
+
+Build 68 implements counted efforts (including metricless drills), per-set distance
+counts, light kilogram load pairs, bounded source-grounded model reconciliation,
+and review that preserves unresolved source before saving. Schema remains V6.
+See WORKOUT_TEXT_ENTRY.md for the exact owner fixture and validation contract.
+
+Final local unit run `work/workout-all-unit-v4.log` passed **920 tests with five
+skips**. It includes the owner eight-effort persistence/recovery/dedup regression.
+The real Mac model harness passed **11/11 final strict pipeline cases**, checking
+every set, movement order/identity, explicit metrics/units, nil metrics and named
+dates. Earlier direct structured-model checks failed; this result is for the
+production route: complete deterministic parsing → validated notation rewrite →
+structured extraction only if the rewrite has no usable grounded content. Partial
+results retain unresolved source for review. History details and Repeat now preserve
+source exercise/set order. See `WORKOUT_TEXT_ENTRY.md` and the coordinating
+workspace's `outputs/marble-workout-ai-evaluation.md` for evidence and limits.
+
+Local Notes accessibility checks passed both methods across 16 review/timing
+screens in light/dark and default/largest text. The simulator does not support the
+Dynamic Type audit category at the largest size; other categories still run there.
+Exact footer contrast reports caused by native scrolling require a separate fully
+visible contrast pass, with original visibility captured before any re-audit.
+The full UI baseline completed 72 tests and exposed a test cursor tap on a rounded
+field border; the corrected interior tap preserves keyboard and saved-value
+assertions. Focused owner-note, source-order, unresolved-review and PR checks pass.
+
+The final spacing follow-up adds 8 pt above the review content after an independent
+contrast probe reproduced a navigation-edge heading failure. Both Notes audit
+methods then passed (2 tests, zero failures) with no new issue exclusions. The
+exact PR interaction selection passed all 8 local tests, and all 7 Composer methods
+passed normal comparison after 32 deliberately reviewed reference updates. The
+prior remote candidate also passed existing History and Composer references;
+local History scene-inset differences remain a capture-host limitation. Its UTC
+fixture formatter is now pinned and restored after capture.
+
+The prior remote run `33983138346` reported accessibility and interaction failures;
+its failure evidence must be read before treating a later rerun as resolved. Build
+68 upload run `33983356510` was cancelled during archive, before upload. A live ASC
+build-68 query at 18:18 UTC returned no build. No production change is claimed.
+
+This is the pre-release verification checkpoint for PR #34. Final normal snapshot,
+UI, migration and exact-source GitHub evidence remain release gates; inspect
+Actions and the immutable candidate/upload receipts for their final results.
+Physical-device acceptance remains unverified; Mac model results are separate from
+iPhone behavior.
+The iPhone last reported Developer Mode disabled. Production authorization is
+already provided, conditional on actual release gates; no new permission request
+is needed. Do not fabricate hardware results or treat source/CI as an uploaded binary.
+
+## Historical build 67 validation follow-up — September 5, 2026
 
 Build 66 source `fb1baca9e0d954025b4806446d75c9eaa8c7ecc9` merged through PR #32.
 PR CI `33949349236` and main CI `33950718543` passed. Upload `33950444971`
@@ -27,7 +82,8 @@ and a missing booted simulator before migration. The follow-up corrects test
 interaction/setup and scopes the verified decorative report to History set rows.
 Physical VoiceOver testing remains required; automation hierarchy is not signoff.
 
-Build 67 validation and upload are pending. Production remains 2.4 build 61.
+At that checkpoint, build 67 validation and upload were pending; the build-68
+section above supersedes that state. Production remains 2.4 build 61.
 Owner hardware acceptance has not been performed; no simulator result substitutes
 for it. Earlier records below are historical and do not establish release readiness.
 
@@ -45,7 +101,7 @@ Build 66 tightens set-row accessibility semantics. Final validation, upload, mer
 and owner hardware acceptance remain pending. Keep builds 64 and 65 internal.
 The following build-65 preparation record is retained as historical context.
 
-## Current release snapshot — verified September 4–5, 2026
+## Historical build-64/65 snapshot — September 4–5, 2026
 
 - Approved scope: complete the reliability, draft recovery, history/repeat, performance,
   and release-quality work; merge main; publish TestFlight and production when gates pass.
