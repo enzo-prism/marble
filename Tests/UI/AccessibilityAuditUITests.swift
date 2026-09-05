@@ -49,6 +49,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             waitFor(recent, timeout: 8)
             forceTap(recent)
             waitForIdentifier("History.Repeat", timeout: 8)
+            assertHistoryFixtureAccessibilitySummaries(requireAllRows: contentSizeCategory == nil)
             try runAudit(name: "History_Detail_\(appearance.envValue)_\(sizeLabel)")
 
             launchApp(
@@ -314,6 +315,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 // A dedicated XXXL test verifies this standard SwiftUI field is
                 // visible and usable; iOS 26.5 still reports theoretical clipping.
                 if element.identifier == "ExerciseEditor.Name" { return false }
+                if shouldIgnoreDecorativeHistoryEmojiContrast(issue, auditName: name) {
+                    return false
+                }
                 if issue.auditType == .contrast && shouldIgnoreListContrast(issue) {
                     return false
                 }
@@ -355,6 +359,62 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             if !details.isEmpty {
                 XCTFail(details)
             }
+        }
+    }
+
+    // CI 33969909543 reports four contrast issues on the decorative leg glyph
+    // despite accessibilityHidden and the row's explicit complete summary.
+    // Investigated exclusions must be specific to the issue and element:
+    // https://developer.apple.com/videos/play/wwdc2023/10035/
+    // This does not establish the emoji's contrast or replace VoiceOver testing.
+    private var historyFixtureSummaries: [String] {
+        [
+            "Squat, 245 lb × 5, RPE 8, Rest 150 seconds",
+            "Squat, 245 lb × 5, RPE 8, Rest 150 seconds",
+            "Squat, 255 lb × 3, RPE 9, Rest 150 seconds",
+            "Calf Raises, 90 lb × 12, RPE 6, Rest 60 seconds"
+        ]
+    }
+
+    private func assertHistoryFixtureAccessibilitySummaries(requireAllRows: Bool) {
+        let rows = app.staticTexts.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'History.SetLabel.'")
+        ).allElementsBoundByIndex
+        XCTAssertFalse(rows.isEmpty)
+        // At default size all four fixture rows fit. XXXL's lazy List only
+        // materializes the visible rows; each must still carry its full summary.
+        if requireAllRows {
+            XCTAssertEqual(rows.map(\.label).sorted(), historyFixtureSummaries.sorted(),
+                           "History must expose every exercise and its full set metrics")
+        }
+        for row in rows {
+            XCTAssertTrue(historyFixtureSummaries.contains(row.label))
+            let setID = String(row.identifier.dropFirst("History.SetLabel.".count))
+            let button = app.buttons["History.Set.\(setID)"]
+            XCTAssertTrue(button.exists)
+            XCTAssertEqual(button.label, row.label,
+                           "The editable set control must retain the complete summary")
+        }
+    }
+
+    @available(iOS 17.0, *)
+    private func shouldIgnoreDecorativeHistoryEmojiContrast(
+        _ issue: XCUIAccessibilityAuditIssue, auditName: String
+    ) -> Bool {
+        guard auditName.hasPrefix("History_Detail_"),
+              issue.auditType == .contrast,
+              let element = issue.element,
+              element.elementType == .staticText,
+              element.label == "🦵", element.identifier.isEmpty else { return false }
+        let rows = app.staticTexts.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'History.SetLabel.'")
+        ).allElementsBoundByIndex
+        return rows.contains { row in
+            guard historyFixtureSummaries.contains(row.label),
+                  row.frame.contains(element.frame) else { return false }
+            let setID = String(row.identifier.dropFirst("History.SetLabel.".count))
+            let button = app.buttons["History.Set.\(setID)"]
+            return button.exists && button.label == row.label
         }
     }
 

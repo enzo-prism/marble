@@ -26,6 +26,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Select pinned Xcode
         run: bash scripts/select_ci_xcode.sh
@@ -63,7 +65,12 @@ jobs:
 
       - name: Verify shipped-store migration
         if: success() || failure()
-        run: make migration-release
+        run: |
+          destination=$(scripts/sim_destination.sh)
+          simulator_id=${destination#id=}
+          xcrun simctl boot "$simulator_id" >/dev/null 2>&1 || true
+          xcrun simctl bootstatus "$simulator_id" -b
+          SIMULATOR_UDID="$simulator_id" make migration-release
 
       - name: Run navigation smoke tests
         if: success() || failure()

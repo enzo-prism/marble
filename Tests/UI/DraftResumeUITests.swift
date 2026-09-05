@@ -59,9 +59,18 @@ final class DraftResumeUITests: MarbleUITestCase {
             waitFor(includeTime)
             XCTAssertTrue(includeTime.isHittable)
             XCTAssertEqual(includeTime.value as? String, "0")
-            includeTime.tap()
-            let time = waitForIdentifier("TextEntry.Time", timeout: 8)
+            // SwiftUI exposes the whole multiline label as a Switch wrapper.
+            // Its center is outside the native switch, so tap that child directly.
+            let nativeSwitch = includeTime.switches.firstMatch
+            waitFor(nativeSwitch)
+            forceTap(nativeSwitch)
+            let enabled = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value == '1'"), object: includeTime
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 5), .completed)
+            let time = app.descendants(matching: .any).matching(identifier: "TextEntry.Time").firstMatch
             scrollToElement(time, in: app.collectionViews.firstMatch)
+            waitFor(time, timeout: 8)
             let timeLabel = app.staticTexts["Time"].firstMatch
             waitFor(timeLabel)
             XCTAssertTrue(timeLabel.isHittable, "The time label must remain visible at largest text")

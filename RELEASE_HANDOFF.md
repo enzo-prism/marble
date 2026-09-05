@@ -17,6 +17,16 @@ and read the retained candidate store, then failed because the runner lacked `rg
 Build 67 addresses the Composer date layout and uses portable grep for migration
 checks. Composer snapshots now run in PR CI; full checks reserve upload time.
 
+Follow-up validation run `33969909543` passed 853 unit tests (five skips),
+History and Composer snapshot comparisons, release tooling, and navigation smoke.
+It also produced the reviewed timing references: eight accessibility-size layout
+updates and four default Review images with the explicitly pinned fixture locale.
+Temporary snapshot recording has been removed; final comparisons remain required.
+The run failed on a native-switch wrapper tap, a decorative emoji contrast report,
+and a missing booted simulator before migration. The follow-up corrects test
+interaction/setup and scopes the verified decorative report to History set rows.
+Physical VoiceOver testing remains required; automation hierarchy is not signoff.
+
 Build 67 validation and upload are pending. Production remains 2.4 build 61.
 Owner hardware acceptance has not been performed; no simulator result substitutes
 for it. Earlier records below are historical and do not establish release readiness.
