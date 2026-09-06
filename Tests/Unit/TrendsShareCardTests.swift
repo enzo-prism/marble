@@ -1,7 +1,7 @@
 import XCTest
 @testable import marble
 
-/// Locks the Trends shareable card ranking: top 5 by SetEntry count,
+/// Locks the Progress Top Exercises card ranking: top 5 by SetEntry count,
 /// alphabetical tie-break, max-weight PB (weight + Trends-style date only).
 @MainActor
 final class TrendsShareCardTests: MarbleTestCase {
@@ -44,10 +44,9 @@ final class TrendsShareCardTests: MarbleTestCase {
         XCTAssertEqual(rows.count, 1)
     }
 
-    func testEmptyEntriesYieldsEmptyRowsAndEmptyShareText() {
+    func testEmptyEntriesYieldsEmptyRows() {
         let rows = TrendsShareCard.topExercises(from: [], now: now)
         XCTAssertTrue(rows.isEmpty)
-        XCTAssertEqual(TrendsShareCard.shareText(rows: rows), "No exercises logged yet.")
     }
 
     func testPersonalBestIsMaxWeightWithTrendsDateLabelOnly() {
@@ -73,10 +72,9 @@ final class TrendsShareCardTests: MarbleTestCase {
 
         let rows = TrendsShareCard.topExercises(from: [entry], now: now)
 
-        // No logged weight: no usable best, but the row exists and shares "—".
+        // No logged weight: no usable best, but the row still exists.
         XCTAssertEqual(rows.count, 1)
         XCTAssertNil(rows.first?.bestSummary)
-        XCTAssertTrue(rows.first?.shareLine.contains("PB —") == true)
     }
 
     func testWeightlessRepsExerciseHasNoBest() {
@@ -88,23 +86,6 @@ final class TrendsShareCardTests: MarbleTestCase {
         // Reps without weight still yield no best: the card shows weight + date only.
         XCTAssertEqual(rows.count, 1)
         XCTAssertNil(rows.first?.bestSummary)
-        XCTAssertEqual(rows.first?.shareLine, "1. Push-Up — PB —")
-    }
-
-    func testShareTextListsRankedLines() {
-        let bench = exercise(named: "Bench Press")
-        let squat = exercise(named: "Squat")
-        let entries = [set(bench, daysFromNow: -1), set(bench, daysFromNow: 0), set(squat, daysFromNow: 0)]
-
-        let text = TrendsShareCard.shareText(rows: TrendsShareCard.topExercises(from: entries, now: now))
-        let lines = text.components(separatedBy: "\n")
-
-        XCTAssertEqual(lines.first, "My Top Exercises")
-        XCTAssertEqual(lines.count, 3)
-        XCTAssertTrue(lines[1].hasPrefix("1. Bench Press — PB "), "got: \(lines[1])")
-        XCTAssertTrue(lines[2].hasPrefix("2. Squat — PB "), "got: \(lines[2])")
-        XCTAssertFalse(text.localizedCaseInsensitiveContains("set"), "share text shows PB only, got:\n\(text)")
-        XCTAssertFalse(text.localizedCaseInsensitiveContains("rep"), "share text shows PB only, got:\n\(text)")
     }
 
     // MARK: - Helpers

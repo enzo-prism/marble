@@ -1,8 +1,8 @@
 import Foundation
 import SwiftUI
 
-/// One row of the Trends shareable card: an exercise ranked by SetEntry count
-/// plus its personal best.
+/// One row of the Progress Top Exercises card: an exercise ranked by SetEntry
+/// count plus its personal best.
 ///
 /// PB definition (documented per contract): `PersonalRecords.records(for:entries:)`
 /// `.heaviestEntry` — the max-weight set, unit-normalized. Weight and
@@ -15,11 +15,9 @@ struct TrendsShareCardRow: Equatable {
     let exerciseName: String
     /// e.g. "102 kg · Today", or nil when the exercise has no logged weight.
     let bestSummary: String?
-    /// One line of the shared text export, e.g. "1. Bench Press — PB 102 kg · Today".
-    let shareLine: String
 }
 
-/// Pure, unit-testable engine behind the Trends first-screen shareable card.
+/// Pure, unit-testable engine behind the Progress first-screen Top Exercises card.
 enum TrendsShareCard {
     static let maxRows = 5
 
@@ -37,27 +35,16 @@ enum TrendsShareCard {
             let rhsName = rhs.first?.exercise.name ?? ""
             return lhsName.localizedCaseInsensitiveCompare(rhsName) == .orderedAscending
         }.prefix(max(0, limit))
-        var rank = 0
         return ranked.compactMap { group in
             guard let exercise = group.first?.exercise else { return nil }
-            rank += 1
             let records = PersonalRecords.records(for: exercise, entries: Array(group))
             let bestSummary = makeBestSummary(exercise: exercise, records: records, now: now)
-            let shareLine = "\(rank). \(exercise.name) — PB \(bestSummary ?? "—")"
             return TrendsShareCardRow(
                 exerciseID: exercise.id,
                 exerciseName: exercise.name,
-                bestSummary: bestSummary,
-                shareLine: shareLine
+                bestSummary: bestSummary
             )
         }
-    }
-
-    /// Plain-text export for `ShareLink`. Text only: the card is already a
-    /// minimal text ranking, so an image render adds no information.
-    static func shareText(rows: [TrendsShareCardRow]) -> String {
-        guard !rows.isEmpty else { return "No exercises logged yet." }
-        return (["My Top Exercises"] + rows.map(\.shareLine)).joined(separator: "\n")
     }
 
     private static func makeBestSummary(
@@ -71,7 +58,7 @@ enum TrendsShareCard {
 }
 
 /// Clean minimal card with generous whitespace, designed to be
-/// screenshotted/shared. Rendered first on the Trends tab.
+/// screenshotted. Rendered first on the Progress overview.
 struct TrendsShareCardView: View {
     let rows: [TrendsShareCardRow]
 
@@ -79,20 +66,9 @@ struct TrendsShareCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.m) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Top Exercises")
-                    .font(MarbleTypography.sectionTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                Spacer()
-                if !rows.isEmpty {
-                    ShareLink(item: TrendsShareCard.shareText(rows: rows)) {
-                        Label("Share", systemImage: "square.and.arrow.up")
-                            .font(MarbleTypography.button)
-                    }
-                    .tint(Theme.primaryTextColor(for: colorScheme))
-                    .accessibilityIdentifier("Trends.ShareButton")
-                }
-            }
+            Text("Top Exercises")
+                .font(MarbleTypography.sectionTitle)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
             if rows.isEmpty {
                 Text("Log sets to see your most-repeated exercises here.")
@@ -127,6 +103,6 @@ struct TrendsShareCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.surfaceColor(for: colorScheme))
         .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.large))
-        .accessibilityIdentifier("Trends.ShareCard")
+        .accessibilityIdentifier("Trends.TopExercises")
     }
 }
