@@ -382,6 +382,7 @@ struct TrendsContentView: View {
                                     rows: TrendsShareCard.topExercises(from: entries)
                                 )
                                 .padding(.horizontal, MarbleSpacing.xs)
+                                ProgressQuoteFooter(day: activeDay)
                             }
                             .frame(
                                 minHeight: max(proxy.size.height - MarbleSpacing.xxl, 0),

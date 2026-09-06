@@ -24,9 +24,10 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   beat it — with a live "New PR!" cue the moment your entry passes your best.
 - **Progress** — a quiet weekly status plus a shareable **Top Exercises** card (top 5
   most-logged exercises with PR weight + date, `ShareLink` text export,
-  screenshottable minimal design) and one Details action by default, with generous
-  whitespace; goals, highlights, training analytics, reports, body metrics, habits,
-  supplements, milestones, and records remain organized one tap away.
+  screenshottable minimal design) and a subtle rotating training-quote footer, with
+  one Details action by default and generous whitespace; goals, highlights, training
+  analytics, reports, body metrics, habits, supplements, milestones, and records
+  remain organized one tap away.
 - **Workout history** — search completed sessions by workout or exercise and filter by
   date from Log. Open a session to review its sets or repeat it as a fresh, editable draft;
   repetition never logs anything without confirmation.
