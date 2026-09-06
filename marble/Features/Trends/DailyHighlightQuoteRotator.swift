@@ -129,7 +129,6 @@ struct ProgressQuoteFooter: View {
             accessibilityIdentifier: "Trends.Overview.Quote",
             accessibilityLabel: "Training quote"
         )
-        .padding(.top, MarbleSpacing.xxl)
         .frame(maxWidth: .infinity)
     }
 }

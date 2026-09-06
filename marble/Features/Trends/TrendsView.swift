@@ -377,12 +377,12 @@ struct TrendsContentView: View {
                                 makeOverviewSnapshot()
                             }
                             VStack(alignment: .leading, spacing: MarbleSpacing.xl) {
-                                ProgressOverviewView(snapshot: snapshot)
+                                ProgressQuoteFooter(day: activeDay)
                                 TrendsShareCardView(
                                     rows: TrendsShareCard.topExercises(from: entries)
                                 )
                                 .padding(.horizontal, MarbleSpacing.xs)
-                                ProgressQuoteFooter(day: activeDay)
+                                ProgressOverviewView(snapshot: snapshot)
                             }
                             .frame(
                                 minHeight: max(proxy.size.height - MarbleSpacing.xxl, 0),
