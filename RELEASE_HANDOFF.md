@@ -3,6 +3,15 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## 2.5 (build 72) VALID on TestFlight (2026-09-05)
+
+**2.5 build 72** (buildId `66423604-10ad-4c19-ab01-df7368a39e5c`, `VALID`) reorders the
+Progress overview: rotating training-quote footer first, then the Top Exercises
+card, then the This Week status (footer separator padding removed now that it
+opens the screen). Staged foreground publish (asc-archive → asc-export → builds
+upload); "test group A" auto-receives. No schema change (still V6). Gates observed
+before push: `TrendsShareCardTests` 7/7, `typecheck-tests` BUILD SUCCEEDED.
+
 ## 2.5 (build 71) VALID on TestFlight (2026-09-05)
 
 **2.5 build 71** (buildId `31bb6714-8be7-4e9a-9c9d-8aa592436596`, `VALID`) removes Share
