@@ -135,10 +135,6 @@ struct TrendsContentView: View {
     // state and re-runs `body`) doesn't re-filter/-group/-sort the full history
     // every frame. Rebuilt only when the signature below changes.
     @State private var derivedMemo = RenderMemo<TrendsInputSignature, TrendsDerivedData>()
-    // The quiet overview needs only the weekly consistency state. Keeping a
-    // separate memo means opening Progress does not also build charts, records,
-    // coaching, reports, and bodyweight analytics hidden behind Details.
-    @State private var overviewMemo = RenderMemo<TrendsOverviewSignature, TrainingConsistency.Snapshot>()
 
     init(
         range: Binding<TrendRange>,
@@ -372,17 +368,12 @@ struct TrendsContentView: View {
                                 }
                             }
                         } else {
-                            let signature = currentOverviewSignature
-                            let snapshot = overviewMemo.value(for: signature) {
-                                makeOverviewSnapshot()
-                            }
                             VStack(alignment: .leading, spacing: MarbleSpacing.xl) {
-                                ProgressQuoteFooter(day: activeDay)
                                 TrendsShareCardView(
                                     rows: TrendsShareCard.topExercises(from: entries)
                                 )
                                 .padding(.horizontal, MarbleSpacing.xs)
-                                ProgressOverviewView(snapshot: snapshot)
+                                ProgressQuoteFooter(day: activeDay)
                             }
                             .frame(
                                 minHeight: max(proxy.size.height - MarbleSpacing.xxl, 0),
@@ -578,24 +569,6 @@ struct TrendsContentView: View {
             dailyHighlightOccurrence: highlightOccurrence,
             displayWeightUnit: WeightUnit(rawValue: preferredWeightUnitRaw) ?? .lb,
             bodyweights: fetchBodyMetrics().map { LifterAnalytics.BodyweightSample($0) }
-        )
-    }
-
-    private func makeOverviewSnapshot() -> TrainingConsistency.Snapshot {
-        TrainingConsistency.snapshot(
-            history: fetchHistoryEntries(),
-            target: weeklyTarget,
-            now: AppEnvironment.now
-        )
-    }
-
-    private var currentOverviewSignature: TrendsOverviewSignature {
-        TrendsOverviewSignature(
-            visibleEntryCount: entries.count,
-            latestEntryUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast,
-            activeDay: activeDay,
-            weeklyTarget: weeklyTarget,
-            dataRevision: dataRevision
         )
     }
 
@@ -2145,17 +2118,6 @@ struct TrendsInputSignature: Equatable {
     let latestBodyweightUpdate: Date
     /// Context-save fallback catches deletions that leave one-row latest-update
     /// probes unchanged, including history outside the selected range.
-    let dataRevision: Int
-}
-
-/// Compact invalidation key for the intentionally minimal Progress overview.
-/// The context revision closes the deletion gap in one-row query probes; even
-/// when another saved model invalidates it, only consistency is rebuilt.
-struct TrendsOverviewSignature: Equatable {
-    let visibleEntryCount: Int
-    let latestEntryUpdate: Date
-    let activeDay: Date
-    let weeklyTarget: Int
     let dataRevision: Int
 }
 

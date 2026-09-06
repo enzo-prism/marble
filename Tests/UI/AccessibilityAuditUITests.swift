@@ -164,7 +164,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         try runAudit(name: "Supplements_Populated_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.trends)
-        waitForIdentifier("Trends.Overview.Status", timeout: 8)
+        waitForIdentifier("Trends.TopExercises", timeout: 8)
         try runAudit(name: "Trends_Overview_\(appearance.envValue)_\(sizeLabel)")
         revealDetailedTrends()
         waitForIdentifier("Trends.DailyHighlights", timeout: 8)
@@ -261,7 +261,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         try runAudit(name: "Supplements_Empty_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.trends)
-        waitForIdentifier("Trends.EmptyState")
+        waitForIdentifier("Trends.TopExercises")
         try runAudit(name: "Trends_Empty_\(appearance.envValue)_\(sizeLabel)")
 
         launchApp(

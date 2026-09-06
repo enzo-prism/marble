@@ -74,7 +74,7 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         launchApp(fixtureMode: "populated")
         navigateToTab(.trends)
 
-        waitForIdentifier("Trends.Overview.Status", timeout: 8)
+        waitForIdentifier("Trends.TopExercises", timeout: 8)
         let details = waitForIdentifier("Trends.Details.Toggle", timeout: 8)
         XCTAssertTrue(details.isHittable)
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "Trends.Range").firstMatch.exists)
