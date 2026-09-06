@@ -376,12 +376,17 @@ struct TrendsContentView: View {
                             let snapshot = overviewMemo.value(for: signature) {
                                 makeOverviewSnapshot()
                             }
-                            ProgressOverviewView(snapshot: snapshot)
-                                .padding(.horizontal, MarbleSpacing.xs)
-                                .frame(
-                                    minHeight: max(proxy.size.height - MarbleSpacing.xxl, 0),
-                                    alignment: .topLeading
+                            VStack(alignment: .leading, spacing: MarbleSpacing.xl) {
+                                ProgressOverviewView(snapshot: snapshot)
+                                TrendsShareCardView(
+                                    rows: TrendsShareCard.topExercises(from: entries)
                                 )
+                                .padding(.horizontal, MarbleSpacing.xs)
+                            }
+                            .frame(
+                                minHeight: max(proxy.size.height - MarbleSpacing.xxl, 0),
+                                alignment: .topLeading
+                            )
                         }
                     }
                     .padding(MarbleLayout.pagePadding)
