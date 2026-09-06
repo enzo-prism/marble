@@ -44,6 +44,10 @@ text scaling. Visually, motivation is deliberately a quiet footer: secondary ita
 with a compact author and position line. It has no heading, quote icon, or pagination
 ornament, keeping the day's achievements and results at the top of the hierarchy.
 
+The Progress overview reuses the same quote schedule and rotation engine as a centered
+footer (`ProgressQuoteFooter`, `DailyHighlightQuoteRotator` with `centered: true`): same
+12-second rotation and tap-to-advance, no counter, same VoiceOver/Reduce Motion behavior.
+
 Every catalog entry is auditable in `DailyHighlightQuotes.swift`. Primary archives include
 [Project Gutenberg](https://www.gutenberg.org/), the
 [Library of Congress Frederick Douglass papers](https://www.loc.gov/resource/mss11879.21039/?sp=45),
