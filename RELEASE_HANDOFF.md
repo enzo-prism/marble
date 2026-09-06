@@ -3,6 +3,16 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## 2.5 (build 71) VALID on TestFlight (2026-09-05)
+
+**2.5 build 71** (buildId `31bb6714-8be7-4e9a-9c9d-8aa592436596`, `VALID`) removes Share
+from the Progress Top Exercises card (no `ShareLink` button, text export, or share
+IDs; card ID is now `Trends.TopExercises`) following the Daily Highlights precedent
+(build 43 also removed its Share/export control). Staged foreground publish
+(asc-archive → asc-export → builds upload); "test group A" auto-receives. No schema
+change (still V6). Gates observed before push: `TrendsShareCardTests` 7/7,
+`typecheck-tests` BUILD SUCCEEDED.
+
 ## 2.5 (build 70) VALID on TestFlight (2026-09-05)
 
 **2.5 build 70** (buildId `cabc1bb6-bc79-40ff-b06e-df69d98e1841`, `VALID`) carries the
