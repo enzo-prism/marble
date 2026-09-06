@@ -1,11 +1,13 @@
 import SwiftUI
 
 /// Auto-rotating training quote, shared by the Daily Highlights card and the
-/// Progress overview footer. Quotes come from `DailyHighlightQuoteLibrary` (one
-/// stable 3-quote cohort per day); the schedule and tap-to-hold semantics live
-/// in `DailyHighlightQuoteRotation`. Pass `centered` for the quiet overview
-/// footer treatment (centered text, no counter); the default leading layout
-/// with counter is the Daily Highlights card style.
+/// Progress overview footer. Quotes come from `DailyHighlightQuoteLibrary`'s
+/// per-launch session order (the full pool, shuffled once per launch and
+/// stable under tests); the schedule and tap-to-hold semantics live in
+/// `DailyHighlightQuoteRotation`. Tap advances to the next quote and a
+/// horizontal drag swipes back or forward. Pass `centered` for the quiet
+/// overview footer treatment (centered text, no counter); the default leading
+/// layout with counter is the Daily Highlights card style.
 struct DailyHighlightQuoteRotator: View {
     let day: Date
     var centered: Bool = false
@@ -20,10 +22,12 @@ struct DailyHighlightQuoteRotator: View {
     private let rotationInterval: TimeInterval = 12
 
     var body: some View {
-        let quotes = DailyHighlightQuoteLibrary.quotes(for: day)
+        let quotes = DailyHighlightQuoteLibrary.sessionQuotes
 
         Group {
-            if shouldAnimate {
+            if quotes.isEmpty {
+                EmptyView()
+            } else if shouldAnimate {
                 TimelineView(.periodic(from: .now, by: rotationInterval)) { _ in
                     quoteButton(quotes: quotes, index: displayedIndex(for: quotes.count))
                 }
@@ -76,12 +80,24 @@ struct DailyHighlightQuoteRotator: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 24, coordinateSpace: .local)
+                .onEnded { value in
+                    guard quotes.count > 1 else { return }
+                    select(index: DailyHighlightQuoteRotation.indexAfterSwipe(
+                        from: index,
+                        quoteCount: quotes.count,
+                        dragWidth: Double(value.translation.width)
+                    ))
+                    MarbleHaptics.selection()
+                }
+        )
         .animation(shouldAnimate ? .easeInOut(duration: 0.35) : nil, value: index)
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue("\(quote.text), \(quote.author). Quote \(index + 1) of \(quotes.count)")
-        .accessibilityHint("Shows the next quote.")
+        .accessibilityHint("Shows the next quote. Swipe left or right to move between quotes.")
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment:

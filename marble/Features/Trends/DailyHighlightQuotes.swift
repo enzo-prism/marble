@@ -8,43 +8,30 @@ struct DailyHighlightQuote: Equatable, Identifiable {
     let sourceURL: String
 }
 
-/// A bundled, public-domain quote schedule for Daily Highlights.
+/// The bundled, public-domain quote pool for Daily Highlights: the original
+/// 45 quotes plus the validated extension catalog. Every entry has a unique
+/// id and a unique text.
 ///
-/// The catalog is intentionally arranged into 15 balanced cohorts. Each local
-/// celebration day gets exactly one cohort, all 45 quotes appear before the
-/// schedule repeats, adjacent days never share a quote, and the result is stable
-/// across processes because it never relies on Swift's randomized `Hasher`.
+/// There is no per-day limit. Each app launch shuffles the full pool into one
+/// random session order and the rotator walks that order via
+/// `DailyHighlightQuoteRotation`. Under tests, UI tests, snapshots, and App
+/// Store screenshots the stable bundled order is used instead, so recorded
+/// output never depends on the shuffle.
 enum DailyHighlightQuoteLibrary {
-    static let quotesPerDay = 3
-    static let scheduleVersion = 1
+    static let all: [DailyHighlightQuote] = cohorts.flatMap { $0 } + DailyHighlightQuoteExtension.quotes
 
-    static let all: [DailyHighlightQuote] = cohorts.flatMap { $0 }
-
-    static func quotes(
-        for day: Date,
-        calendar: Calendar = .autoupdatingCurrent
-    ) -> [DailyHighlightQuote] {
-        guard !cohorts.isEmpty else { return [] }
-        let dayOrdinal = calendar.ordinality(of: .day, in: .era, for: calendar.startOfDay(for: day))
-            ?? fallbackDayOrdinal(for: day, calendar: calendar)
-
-        // Seven is coprime with 15, so every cohort appears once per cycle while
-        // the order feels varied instead of simply walking the source catalog.
-        let index = positiveModulo(dayOrdinal * 7 + scheduleVersion * 11, cohorts.count)
-        return cohorts[index]
-    }
-
-    private static func fallbackDayOrdinal(for day: Date, calendar: Calendar) -> Int {
-        let components = calendar.dateComponents([.year, .month, .day], from: day)
-        return (components.year ?? 0) * 372
-            + (components.month ?? 0) * 31
-            + (components.day ?? 0)
-    }
-
-    private static func positiveModulo(_ value: Int, _ divisor: Int) -> Int {
-        let remainder = value % divisor
-        return remainder >= 0 ? remainder : remainder + divisor
-    }
+    /// The order the rotator walks this launch: shuffled once per process,
+    /// stable (unshuffled) whenever `TestHooks` indicates testing.
+    static let sessionQuotes: [DailyHighlightQuote] = {
+        if TestHooks.isUITesting
+            || TestHooks.isXCTestProcess
+            || TestHooks.isAppStoreScreenshotting
+            || TestHooks.fixtureMode == .screenshots
+        {
+            return all
+        }
+        return all.shuffled()
+    }()
 
     private static let cohorts: [[DailyHighlightQuote]] = [
         [

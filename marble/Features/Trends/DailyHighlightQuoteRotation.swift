@@ -34,6 +34,22 @@ enum DailyHighlightQuoteRotation {
         return currentTick <= selection.tick + 1
     }
 
+    /// The quote index after a horizontal swipe: swiping left (negative drag
+    /// width) advances to the next quote, swiping right goes back to the
+    /// previous one, wrapping around the pool. Pure so the gesture mapping is
+    /// unit-testable; the view enforces the minimum-drag threshold via
+    /// `DragGesture(minimumDistance:)`, so any nonzero width here is a commit.
+    static func indexAfterSwipe(from index: Int, quoteCount: Int, dragWidth: Double) -> Int {
+        guard quoteCount > 0 else { return 0 }
+        if dragWidth < 0 {
+            return positiveModulo(index + 1, quoteCount)
+        }
+        if dragWidth > 0 {
+            return positiveModulo(index - 1, quoteCount)
+        }
+        return positiveModulo(index, quoteCount)
+    }
+
     /// The quote index to show.
     static func displayedIndex(
         quoteCount: Int,

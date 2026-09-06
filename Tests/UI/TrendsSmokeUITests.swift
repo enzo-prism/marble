@@ -16,7 +16,7 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         let quote = app.buttons["Trends.DailyHighlights.Quote"]
         waitFor(quote, timeout: 8)
         XCTAssertTrue(quote.label.contains("Daily motivation"))
-        XCTAssertTrue((quote.value as? String)?.contains("Quote 1 of 3") == true)
+        XCTAssertTrue((quote.value as? String)?.contains("Quote 1 of ") == true)
 
         let firstQuote = quote.value as? String
         forceTap(quote)

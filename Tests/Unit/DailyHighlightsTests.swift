@@ -152,52 +152,33 @@ final class DailyHighlightsTests: MarbleTestCase {
     func testQuoteLibraryIsLargeUniqueAndSourceAuditable() {
         let quotes = DailyHighlightQuoteLibrary.all
 
-        XCTAssertEqual(quotes.count, 45)
+        // Original 45 plus the 61 extension entries that don't duplicate a
+        // bundled text (6 batch entries were dropped as text duplicates;
+        // audit follow-up dropped q123/q147/q148 as semantic duplicates or
+        // truncations, with q121/q126/q127 replaced in place).
+        XCTAssertEqual(quotes.count, 106)
         XCTAssertEqual(Set(quotes.map { $0.id }).count, quotes.count)
+        XCTAssertEqual(Set(quotes.map { $0.text }).count, quotes.count)
         XCTAssertTrue(quotes.allSatisfy { !$0.text.isEmpty && !$0.author.isEmpty && !$0.source.isEmpty })
+        XCTAssertTrue(quotes.allSatisfy { $0.text.count <= 140 })
         XCTAssertTrue(quotes.allSatisfy { URL(string: $0.sourceURL)?.scheme == "https" })
     }
 
-    func testQuoteScheduleIsStableAndReturnsThreeUniqueQuotes() {
-        let day = date(dayOffset: 0, hour: 8, minute: 0)
-        let morning = DailyHighlightQuoteLibrary.quotes(for: day, calendar: calendar)
-        let evening = DailyHighlightQuoteLibrary.quotes(
-            for: date(dayOffset: 0, hour: 22, minute: 0),
-            calendar: calendar
+    func testQuoteSessionOrderIsDeterministicUnderTestHooks() {
+        // Unit tests run as an XCTest process, so the session order must be
+        // the stable bundled order — never a shuffle.
+        XCTAssertEqual(DailyHighlightQuoteLibrary.sessionQuotes, DailyHighlightQuoteLibrary.all)
+        XCTAssertEqual(
+            Set(DailyHighlightQuoteLibrary.sessionQuotes.map { $0.id }),
+            Set(DailyHighlightQuoteLibrary.all.map { $0.id })
         )
-
-        XCTAssertEqual(morning, evening)
-        XCTAssertEqual(morning.count, DailyHighlightQuoteLibrary.quotesPerDay)
-        XCTAssertEqual(Set(morning.map { $0.id }).count, DailyHighlightQuoteLibrary.quotesPerDay)
-        XCTAssertEqual(Set(morning.map { $0.author }).count, DailyHighlightQuoteLibrary.quotesPerDay)
     }
 
-    func testQuoteScheduleUsesEntireCatalogBeforeRepeatingWithoutAdjacentOverlap() {
-        let days = (0..<15).map {
-            DailyHighlightQuoteLibrary.quotes(
-                for: date(dayOffset: $0, hour: 21, minute: 0),
-                calendar: calendar
-            )
-        }
-        let presentedIDs = days.flatMap { $0.map { $0.id } }
-
-        XCTAssertEqual(Set(presentedIDs), Set(DailyHighlightQuoteLibrary.all.map { $0.id }))
-        for index in 1..<days.count {
-            XCTAssertTrue(
-                Set(days[index - 1].map { $0.id })
-                    .isDisjoint(with: Set(days[index].map { $0.id }))
-            )
-        }
-
-        let firstDay = DailyHighlightQuoteLibrary.quotes(
-            for: date(dayOffset: 0, hour: 21, minute: 0),
-            calendar: calendar
+    func testQuoteSessionOrderIsStableWithinALaunch() {
+        XCTAssertEqual(
+            DailyHighlightQuoteLibrary.sessionQuotes.map { $0.id },
+            DailyHighlightQuoteLibrary.sessionQuotes.map { $0.id }
         )
-        let nextCycle = DailyHighlightQuoteLibrary.quotes(
-            for: date(dayOffset: 15, hour: 21, minute: 0),
-            calendar: calendar
-        )
-        XCTAssertEqual(firstDay, nextCycle)
     }
 
     // MARK: - Quote rotation resume
@@ -280,6 +261,84 @@ final class DailyHighlightsTests: MarbleTestCase {
             DailyHighlightQuoteRotation.tick(at: start.addingTimeInterval(interval), interval: interval),
             1
         )
+    }
+
+    func testAutoRotationWalksTheFullPool() {
+        let count = DailyHighlightQuoteLibrary.all.count
+        XCTAssertGreaterThan(count, 3)
+
+        XCTAssertEqual(
+            DailyHighlightQuoteRotation.displayedIndex(
+                quoteCount: count,
+                autoRotates: true,
+                manualSelection: nil,
+                currentTick: 7
+            ),
+            7 % count
+        )
+        // The schedule wraps cleanly around the larger pool.
+        XCTAssertEqual(
+            DailyHighlightQuoteRotation.displayedIndex(
+                quoteCount: count,
+                autoRotates: true,
+                manualSelection: nil,
+                currentTick: count
+            ),
+            0
+        )
+        XCTAssertEqual(
+            DailyHighlightQuoteRotation.displayedIndex(
+                quoteCount: count,
+                autoRotates: true,
+                manualSelection: nil,
+                currentTick: count + 1
+            ),
+            1
+        )
+    }
+
+    func testManualQuoteSelectionHoldsWithTheFullPool() {
+        let count = DailyHighlightQuoteLibrary.all.count
+        let selection = DailyHighlightQuoteRotation.ManualSelection(index: count - 1, tick: 50)
+
+        for tick in [50, 51] {
+            XCTAssertEqual(
+                DailyHighlightQuoteRotation.displayedIndex(
+                    quoteCount: count,
+                    autoRotates: true,
+                    manualSelection: selection,
+                    currentTick: tick
+                ),
+                count - 1
+            )
+        }
+        XCTAssertEqual(
+            DailyHighlightQuoteRotation.displayedIndex(
+                quoteCount: count,
+                autoRotates: true,
+                manualSelection: selection,
+                currentTick: 52
+            ),
+            52 % count
+        )
+    }
+
+    func testSwipeLeftAdvancesAndSwipeRightGoesBack() {
+        let count = DailyHighlightQuoteLibrary.all.count
+        XCTAssertEqual(DailyHighlightQuoteRotation.indexAfterSwipe(from: 0, quoteCount: count, dragWidth: -60), 1)
+        XCTAssertEqual(DailyHighlightQuoteRotation.indexAfterSwipe(from: 5, quoteCount: count, dragWidth: 60), 4)
+    }
+
+    func testSwipeWrapsAroundThePool() {
+        let count = DailyHighlightQuoteLibrary.all.count
+        XCTAssertEqual(DailyHighlightQuoteRotation.indexAfterSwipe(from: count - 1, quoteCount: count, dragWidth: -40), 0)
+        XCTAssertEqual(DailyHighlightQuoteRotation.indexAfterSwipe(from: 0, quoteCount: count, dragWidth: 40), count - 1)
+    }
+
+    func testSwipeWithNoDragKeepsTheCurrentQuote() {
+        let count = DailyHighlightQuoteLibrary.all.count
+        XCTAssertEqual(DailyHighlightQuoteRotation.indexAfterSwipe(from: 7, quoteCount: count, dragWidth: 0), 7)
+        XCTAssertEqual(DailyHighlightQuoteRotation.indexAfterSwipe(from: 0, quoteCount: 0, dragWidth: -50), 0)
     }
 
     private func defaultOccurrence() throws -> DailyHighlightOccurrence {
