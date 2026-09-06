@@ -3,6 +3,18 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## 2.5 (build 70) VALID on TestFlight (2026-09-05)
+
+**2.5 build 70** (buildId `cabc1bb6-bc79-40ff-b06e-df69d98e1841`, `VALID`) carries the
+Progress overview wave: shareable Top Exercises card first (top 5 most-logged
+exercises, PR weight + date only, `ShareLink` text export), simplified from the
+earlier reps-and-sets layout, plus a quiet centered rotating training-quote footer
+reusing the Daily Highlights quote schedule/engine (`ProgressQuoteFooter`). Staged
+foreground publish (asc-archive → asc-export → builds upload); "test group A"
+auto-receives. No schema change (still V6). Gates observed before push:
+`TrendsShareCardTests` 8/8, `DailyHighlightsTests` 15/15, `typecheck-tests`
+BUILD SUCCEEDED.
+
 ## Build 67 validation follow-up — September 5, 2026
 
 Build 66 source `fb1baca9e0d954025b4806446d75c9eaa8c7ecc9` merged through PR #32.
