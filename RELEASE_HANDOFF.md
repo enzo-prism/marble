@@ -3,6 +3,18 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## 2.5 (build 73) VALID on TestFlight (2026-09-05)
+
+**2.5 build 73** (buildId `da51a176-88e3-4c73-ba88-e654e55ae9da`, `VALID`) trims the
+Progress overview to the Top Exercises card + centered quote footer: the This Week
+status section (`ProgressOverviewView` + overview memo/signature) is fully removed
+(`ProgressDetailHeading` survives in its own file for Details), UI tests now wait
+on `Trends.TopExercises`, and Trends empty/populated snapshots are re-recorded.
+Staged foreground publish (asc-archive → asc-export → builds upload); "test group
+A" auto-receives. No schema change (still V6). Gates observed before push:
+`TrendsShareCardTests` 7/7, Trends empty/populated snapshots green,
+`typecheck-tests` BUILD SUCCEEDED.
+
 ## 2.5 (build 72) VALID on TestFlight (2026-09-05)
 
 **2.5 build 72** (buildId `66423604-10ad-4c19-ab01-df7368a39e5c`, `VALID`) reorders the
