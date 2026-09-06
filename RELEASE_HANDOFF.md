@@ -3,6 +3,24 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## 2.5 (build 74) VALID on TestFlight (2026-09-05)
+
+**2.5 build 74** (buildId `0d9bfbf8-351d-4160-ab46-cdec4036098f`, `VALID`) ships the
+Daily Highlights quote upgrade: the pool grows 45 → 106 (61 validated extension
+entries, every text ≤140 chars, https sources, max 3/author; q123/q147/q148 dropped
+as duplicates/truncations, q121/q126/q127 replaced in place with verbatim PD texts).
+The full-pool per-launch session shuffle replaces the 3-per-day cohorts, with the
+stable bundled order kept under tests/snapshots. Tap advances, a horizontal swipe
+moves back/forward through the pool, and the counter reads N of 106; the Progress
+overview footer reuses the same session order and engine. Docs updated
+(`DAILY_HIGHLIGHTS.md` schedule section, README Progress/Daily Highlights bullets).
+Direct foreground publish via `make asc-publish-testflight` ("test group A" already
+receives all builds, so group assignment was skipped). No schema change (still V6).
+Gates observed: `make asc-next-build` 73 → 74, Release archive/export/upload
+succeeded, ASC processing `VALID`; audit pass on the same code tree beforehand:
+`typecheck-tests` BUILD SUCCEEDED, unit 865 tests with 0 failures, Trends snapshots
+re-recorded and green.
+
 ## 2.5 (build 73) VALID on TestFlight (2026-09-05)
 
 **2.5 build 73** (buildId `da51a176-88e3-4c73-ba88-e654e55ae9da`, `VALID`) trims the
