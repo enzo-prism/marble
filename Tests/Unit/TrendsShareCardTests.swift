@@ -2,7 +2,7 @@ import XCTest
 @testable import marble
 
 /// Locks the Trends shareable card ranking: top 5 by SetEntry count,
-/// alphabetical tie-break, max-weight PB with reps + Trends-style date.
+/// alphabetical tie-break, max-weight PB (weight + Trends-style date only).
 @MainActor
 final class TrendsShareCardTests: MarbleTestCase {
     private let calendar = MarbleTestCase.stableCalendar
@@ -20,7 +20,7 @@ final class TrendsShareCardTests: MarbleTestCase {
         let rows = TrendsShareCard.topExercises(from: entries, now: now)
 
         XCTAssertEqual(rows.map(\.exerciseName), ["Bench Press", "Squat", "Curl"])
-        XCTAssertEqual(rows.map(\.setCount), [3, 3, 1])
+        XCTAssertEqual(rows.count, 3)
     }
 
     func testCapsAtFiveRows() {
@@ -36,7 +36,6 @@ final class TrendsShareCardTests: MarbleTestCase {
 
         XCTAssertEqual(rows.count, 5)
         XCTAssertEqual(rows.first?.exerciseName, "Exercise 0")
-        XCTAssertEqual(rows.first?.setCount, 7)
     }
 
     func testShowsFewerThanFiveWhenLessExists() {
@@ -51,7 +50,7 @@ final class TrendsShareCardTests: MarbleTestCase {
         XCTAssertEqual(TrendsShareCard.shareText(rows: rows), "No exercises logged yet.")
     }
 
-    func testPersonalBestIsMaxWeightWithRepsAndTrendsDateLabel() {
+    func testPersonalBestIsMaxWeightWithTrendsDateLabelOnly() {
         let bench = exercise(named: "Bench Press")
         let light = set(bench, daysFromNow: -2, weight: 135, reps: 8)
         // Heavier in kilos than 225 lb (~102 kg): PB must be unit-normalized.
@@ -63,20 +62,33 @@ final class TrendsShareCardTests: MarbleTestCase {
         XCTAssertEqual(rows.count, 1)
         let best = try? XCTUnwrap(rows.first?.bestSummary)
         XCTAssertTrue(best?.contains("105") == true, "PB is the 105 kg set, got: \(best ?? "nil")")
-        XCTAssertTrue(best?.contains("5 reps") == true, "PB includes reps, got: \(best ?? "nil")")
         XCTAssertTrue(best?.contains("Today") == true, "PB date uses DateHelper.dayLabel, got: \(best ?? "nil")")
+        XCTAssertFalse(best?.localizedCaseInsensitiveContains("rep") == true, "PB shows weight + date only, got: \(best ?? "nil")")
+        XCTAssertFalse(best?.contains("×") == true, "PB shows weight + date only, got: \(best ?? "nil")")
     }
 
-    func testWeightlessExerciseFallsBackToMostRepsBest() {
+    func testWeightlessExerciseHasNoBest() {
         let run = Exercise(name: "Run", category: .run, metrics: .distanceAndDurationRequired, defaultRestSeconds: 0)
         let entry = SetEntry(exercise: run, performedAt: date(daysFromNow: -1), distance: 1000, durationSeconds: 300, restAfterSeconds: 0)
 
         let rows = TrendsShareCard.topExercises(from: [entry], now: now)
 
-        // No weight or reps on a distance entry: no usable best, but the row exists.
+        // No logged weight: no usable best, but the row exists and shares "—".
         XCTAssertEqual(rows.count, 1)
         XCTAssertNil(rows.first?.bestSummary)
         XCTAssertTrue(rows.first?.shareLine.contains("PB —") == true)
+    }
+
+    func testWeightlessRepsExerciseHasNoBest() {
+        let pushUp = Exercise(name: "Push-Up", category: .chest, metrics: .repsOnlyRequired, defaultRestSeconds: 60)
+        let entry = SetEntry(exercise: pushUp, performedAt: date(daysFromNow: -1), reps: 20, restAfterSeconds: 60)
+
+        let rows = TrendsShareCard.topExercises(from: [entry], now: now)
+
+        // Reps without weight still yield no best: the card shows weight + date only.
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertNil(rows.first?.bestSummary)
+        XCTAssertEqual(rows.first?.shareLine, "1. Push-Up — PB —")
     }
 
     func testShareTextListsRankedLines() {
@@ -89,8 +101,10 @@ final class TrendsShareCardTests: MarbleTestCase {
 
         XCTAssertEqual(lines.first, "My Top Exercises")
         XCTAssertEqual(lines.count, 3)
-        XCTAssertTrue(lines[1].hasPrefix("1. Bench Press — 2 sets · PB "))
-        XCTAssertTrue(lines[2].hasPrefix("2. Squat — 1 set · PB "))
+        XCTAssertTrue(lines[1].hasPrefix("1. Bench Press — PB "), "got: \(lines[1])")
+        XCTAssertTrue(lines[2].hasPrefix("2. Squat — PB "), "got: \(lines[2])")
+        XCTAssertFalse(text.localizedCaseInsensitiveContains("set"), "share text shows PB only, got:\n\(text)")
+        XCTAssertFalse(text.localizedCaseInsensitiveContains("rep"), "share text shows PB only, got:\n\(text)")
     }
 
     // MARK: - Helpers

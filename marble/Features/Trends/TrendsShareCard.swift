@@ -5,19 +5,17 @@ import SwiftUI
 /// plus its personal best.
 ///
 /// PB definition (documented per contract): `PersonalRecords.records(for:entries:)`
-/// `.heaviestEntry` — the max-weight set, unit-normalized, tie-break more reps
-/// then later date. Reps and performed-date come from that same set; the date
-/// uses `DateHelper.dayLabel`, matching the rest of Trends ("Today",
-/// "Yesterday", …). Exercises without logged weight fall back to
-/// `.mostRepsEntry` so bodyweight/cardio work still shows a best.
+/// `.heaviestEntry` — the max-weight set, unit-normalized. Weight and
+/// performed-date come from that same set; the date uses
+/// `DateHelper.dayLabel`, matching the rest of Trends ("Today",
+/// "Yesterday", …). Exercises without logged weight have no best (nil,
+/// displayed as "—").
 struct TrendsShareCardRow: Equatable {
     let exerciseID: UUID
     let exerciseName: String
-    let setCount: Int
-    /// e.g. "102 kg · 5 reps · Today", or "12 reps · Yesterday" for weightless
-    /// work, or nil when the exercise has no usable best.
+    /// e.g. "102 kg · Today", or nil when the exercise has no logged weight.
     let bestSummary: String?
-    /// One line of the shared text export, e.g. "1. Bench Press — 8 sets · PB 102 kg × 5 (Today)".
+    /// One line of the shared text export, e.g. "1. Bench Press — PB 102 kg · Today".
     let shareLine: String
 }
 
@@ -45,11 +43,10 @@ enum TrendsShareCard {
             rank += 1
             let records = PersonalRecords.records(for: exercise, entries: Array(group))
             let bestSummary = makeBestSummary(exercise: exercise, records: records, now: now)
-            let shareLine = "\(rank). \(exercise.name) — \(group.count) \(group.count == 1 ? "set" : "sets") · PB \(bestSummary ?? "—")"
+            let shareLine = "\(rank). \(exercise.name) — PB \(bestSummary ?? "—")"
             return TrendsShareCardRow(
                 exerciseID: exercise.id,
                 exerciseName: exercise.name,
-                setCount: group.count,
                 bestSummary: bestSummary,
                 shareLine: shareLine
             )
@@ -68,18 +65,8 @@ enum TrendsShareCard {
         records: ExercisePersonalRecords,
         now: Date
     ) -> String? {
-        if let entry = records.heaviestEntry, let weight = entry.weight {
-            var parts = [exercise.formattedWeightSummary(weight, unit: entry.weightUnit)]
-            if let reps = entry.reps, reps > 0 {
-                parts.append(reps == 1 ? "1 rep" : "\(reps) reps")
-            }
-            parts.append(DateHelper.dayLabel(for: entry.performedAt, now: now))
-            return parts.joined(separator: " · ")
-        }
-        if let entry = records.mostRepsEntry, let reps = entry.reps, reps > 0 {
-            return "\(reps == 1 ? "1 rep" : "\(reps) reps") · \(DateHelper.dayLabel(for: entry.performedAt, now: now))"
-        }
-        return nil
+        guard let entry = records.heaviestEntry, let weight = entry.weight else { return nil }
+        return "\(exercise.formattedWeightSummary(weight, unit: entry.weightUnit)) · \(DateHelper.dayLabel(for: entry.performedAt, now: now))"
     }
 }
 
@@ -125,7 +112,7 @@ struct TrendsShareCardView: View {
                                 Text(row.exerciseName)
                                     .font(MarbleTypography.rowTitle)
                                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                                Text("\(row.setCount) \(row.setCount == 1 ? "set" : "sets")\(row.bestSummary.map { " · PB \($0)" } ?? "")")
+                                Text(row.bestSummary.map { "PB \($0)" } ?? "—")
                                     .font(MarbleTypography.rowMeta)
                                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                             }
