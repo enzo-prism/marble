@@ -23,7 +23,8 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   screen shows your current PR (heaviest + most reps) and usual range so you can shoot to
   beat it — with a live "New PR!" cue the moment your entry passes your best.
 - **Progress** — a minimal **Top Exercises** card first (top 5 most-logged exercises
-  with PR weight + date, no clutter), then a subtle rotating training-quote footer,
+  with PR weight + date, no clutter), then a subtle rotating training-quote footer
+  (106 bundled quotes, tap or swipe to move through them),
   with one Details action by default and generous whitespace; weekly goal, highlights,
   training analytics, reports, body metrics, habits, supplements, milestones, and
   records remain organized one tap away.
@@ -45,8 +46,9 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   goal hit rate, and plans that keep getting beaten earn a progression nudge.
   See [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md).
 - **Daily Highlights** — from 8:00 PM through 11:59 PM by default, Progress celebrates
-  that day's genuine PRs in a clean monochrome card with three daily quotes as a quiet
-  rotating footer. The window is customizable and the feature remains entirely on-device.
+  that day's genuine PRs in a clean monochrome card with a quiet rotating footer drawn
+  from 106 bundled quotes (tap or swipe to move through them). The window is
+  customizable and the feature remains entirely on-device.
   See [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md).
 - **Body** — log bodyweight (and body fat) in whichever unit you think in, stored as
   canonical kilograms. Weigh-ins are **editable and deletable** from Progress, Settings, and
