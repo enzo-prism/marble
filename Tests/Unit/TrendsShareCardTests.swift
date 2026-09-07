@@ -72,9 +72,8 @@ final class TrendsShareCardTests: MarbleTestCase {
 
         let rows = TrendsShareCard.topExercises(from: [entry], now: now)
 
-        // No logged weight: no usable best, but the row still exists.
-        XCTAssertEqual(rows.count, 1)
-        XCTAssertNil(rows.first?.bestSummary)
+        // No weight PR means this exercise cannot be an overview candidate.
+        XCTAssertTrue(rows.isEmpty)
     }
 
     func testWeightlessRepsExerciseHasNoBest() {
@@ -84,8 +83,45 @@ final class TrendsShareCardTests: MarbleTestCase {
         let rows = TrendsShareCard.topExercises(from: [entry], now: now)
 
         // Reps without weight still yield no best: the card shows weight + date only.
-        XCTAssertEqual(rows.count, 1)
-        XCTAssertNil(rows.first?.bestSummary)
+        XCTAssertTrue(rows.isEmpty)
+    }
+
+    func testIneligibleExercisesDoNotConsumeTopFiveSlots() {
+        let missing = exercise(named: "Most Logged Without PR")
+        var entries = (0..<10).map { set(missing, daysFromNow: -$0, weight: nil) }
+        for i in 0..<6 {
+            let eligible = exercise(named: "Eligible \(i)")
+            entries += (0..<(6 - i)).map { set(eligible, daysFromNow: -$0) }
+        }
+
+        let rows = TrendsShareCard.topExercises(from: entries, now: now)
+
+        XCTAssertEqual(rows.map(\.exerciseName), (0..<5).map { "Eligible \($0)" })
+        XCTAssertTrue(rows.allSatisfy { !$0.bestSummary.isEmpty })
+        XCTAssertEqual(TrendsShareCard.topExercises(from: entries, limit: 1, now: now).first?.exerciseName, "Eligible 0")
+        XCTAssertTrue(TrendsShareCard.topExercises(from: entries, limit: 0, now: now).isEmpty)
+        XCTAssertTrue(TrendsShareCard.topExercises(from: entries, limit: -1, now: now).isEmpty)
+    }
+
+    func testInvalidPRMetricOrDateIsExcluded() {
+        let entries = [
+            set(exercise(named: "Zero"), daysFromNow: 0, weight: 0),
+            set(exercise(named: "Negative"), daysFromNow: 0, weight: -1),
+            set(exercise(named: "Infinite"), daysFromNow: 0, weight: .infinity),
+            set(exercise(named: "NaN"), daysFromNow: 0, weight: .nan)
+        ]
+        let invalidDate = set(exercise(named: "Invalid date"), daysFromNow: 0)
+        invalidDate.performedAt = Date(timeIntervalSinceReferenceDate: .infinity)
+        XCTAssertTrue(TrendsShareCard.topExercises(from: entries + [invalidDate], now: now).isEmpty)
+    }
+
+    func testPRDateComesFromBestSetInsteadOfMostRecentSet() {
+        let bench = exercise(named: "Bench")
+        let rows = TrendsShareCard.topExercises(from: [
+            set(bench, daysFromNow: -1, weight: 200),
+            set(bench, daysFromNow: 0, weight: 100)
+        ], now: now)
+        XCTAssertEqual(rows.first?.bestSummary, "200 lb · Yesterday")
     }
 
     // MARK: - Helpers

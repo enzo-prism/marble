@@ -3,6 +3,20 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## 2.5 (build 75) Progress PR eligibility (2026-09-06)
+
+Progress overview Top Exercises now excludes exercises without a usable weight PR
+and its performed date before applying the five-row limit. Every row requires a
+PR summary; no dash-only rows. Frequency and alphabetical ranking remain unchanged.
+Empty-state copy explains the weighted-set requirement. No schema changes.
+
+Validation: unit suite 868 tests, 5 skipped, 0 failures; all Progress snapshots
+passed after intentionally recording empty/populated overview baselines; widget
+snapshots passed. `make audit`: 10 tests, 2 runtime Dynamic Type skips, 0 failures.
+The full snapshot run passed every group except WorkoutHistory's 8 large-text
+comparisons; all 8 reproduced on clean unchanged `origin/main` (2af6112).
+Release archive/export succeeded for 2.5 (75). TestFlight upload pending.
+
 ## 2.5 (build 74) VALID on TestFlight (2026-09-05)
 
 **2.5 build 74** (buildId `0d9bfbf8-351d-4160-ab46-cdec4036098f`, `VALID`) ships the

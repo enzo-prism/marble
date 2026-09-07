@@ -23,7 +23,7 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   screen shows your current PR (heaviest + most reps) and usual range so you can shoot to
   beat it — with a live "New PR!" cue the moment your entry passes your best.
 - **Progress** — a minimal **Top Exercises** card first (top 5 most-logged exercises
-  with PR weight + date, no clutter), then a subtle rotating training-quote footer
+  with a valid PR weight + set date; exercises without both are excluded before the limit), then a subtle rotating training-quote footer
   (106 bundled quotes, tap or swipe to move through them),
   with one Details action by default and generous whitespace; weekly goal, highlights,
   training analytics, reports, body metrics, habits, supplements, milestones, and

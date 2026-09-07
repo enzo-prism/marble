@@ -8,20 +8,19 @@ import SwiftUI
 /// `.heaviestEntry` — the max-weight set, unit-normalized. Weight and
 /// performed-date come from that same set; the date uses
 /// `DateHelper.dayLabel`, matching the rest of Trends ("Today",
-/// "Yesterday", …). Exercises without logged weight have no best (nil,
-/// displayed as "—").
+/// "Yesterday", …). Only exercises with a usable weight PR and date qualify.
 struct TrendsShareCardRow: Equatable {
     let exerciseID: UUID
     let exerciseName: String
-    /// e.g. "102 kg · Today", or nil when the exercise has no logged weight.
-    let bestSummary: String?
+    /// e.g. "102 kg · Today". Every row has both a PR metric and its date.
+    let bestSummary: String
 }
 
 /// Pure, unit-testable engine behind the Progress first-screen Top Exercises card.
 enum TrendsShareCard {
     static let maxRows = 5
 
-    /// Top `limit` exercises by SetEntry count. Ties break alphabetically
+    /// Top `limit` exercises with a dated weight PR, ranked by SetEntry count. Ties break alphabetically
     /// (case-insensitive) so the ranking is deterministic.
     static func topExercises(
         from entries: [SetEntry],
@@ -34,17 +33,17 @@ enum TrendsShareCard {
             let lhsName = lhs.first?.exercise.name ?? ""
             let rhsName = rhs.first?.exercise.name ?? ""
             return lhsName.localizedCaseInsensitiveCompare(rhsName) == .orderedAscending
-        }.prefix(max(0, limit))
-        return ranked.compactMap { group in
+        }
+        return Array(ranked.lazy.compactMap { group -> TrendsShareCardRow? in
             guard let exercise = group.first?.exercise else { return nil }
             let records = PersonalRecords.records(for: exercise, entries: Array(group))
-            let bestSummary = makeBestSummary(exercise: exercise, records: records, now: now)
+            guard let bestSummary = makeBestSummary(exercise: exercise, records: records, now: now) else { return nil }
             return TrendsShareCardRow(
                 exerciseID: exercise.id,
                 exerciseName: exercise.name,
                 bestSummary: bestSummary
             )
-        }
+        }.prefix(max(0, limit)))
     }
 
     private static func makeBestSummary(
@@ -52,7 +51,9 @@ enum TrendsShareCard {
         records: ExercisePersonalRecords,
         now: Date
     ) -> String? {
-        guard let entry = records.heaviestEntry, let weight = entry.weight else { return nil }
+        guard let entry = records.heaviestEntry,
+              let weight = entry.weight, weight.isFinite, weight > 0,
+              entry.performedAt.timeIntervalSinceReferenceDate.isFinite else { return nil }
         return "\(exercise.formattedWeightSummary(weight, unit: entry.weightUnit)) · \(DateHelper.dayLabel(for: entry.performedAt, now: now))"
     }
 }
@@ -71,7 +72,7 @@ struct TrendsShareCardView: View {
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
             if rows.isEmpty {
-                Text("Log sets to see your most-repeated exercises here.")
+                Text("Log a weighted set to see your personal records here.")
                     .font(MarbleTypography.rowSubtitle)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .padding(.vertical, MarbleSpacing.s)
@@ -88,7 +89,7 @@ struct TrendsShareCardView: View {
                                 Text(row.exerciseName)
                                     .font(MarbleTypography.rowTitle)
                                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                                Text(row.bestSummary.map { "PB \($0)" } ?? "—")
+                                Text("PB \(row.bestSummary)")
                                     .font(MarbleTypography.rowMeta)
                                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                             }
