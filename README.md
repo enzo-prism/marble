@@ -24,7 +24,7 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   beat it — with a live "New PR!" cue the moment your entry passes your best.
 - **Progress** — a minimal **Top Exercises** card first (top 5 most-logged exercises
   with a valid PR weight + set date; exercises without both are excluded before the limit), then a subtle rotating training-quote footer
-  (106 bundled quotes, tap or swipe to move through them),
+  (short quotes that fit one line, tap or swipe to move through them),
   with one Details action by default and generous whitespace; weekly goal, highlights,
   training analytics, reports, body metrics, habits, supplements, milestones, and
   records remain organized one tap away.

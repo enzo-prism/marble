@@ -3,6 +3,22 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## 2.5 (build 76) Progress single-line quotes (2026-09-06)
+
+The Progress overview only rotates through complete quotes that fit one line at
+its actual content width and scaled caption font, including Bold Text. Quotes
+never shrink or truncate; if none fit, the decorative footer is empty. Authors
+remain centered below. The Daily Highlights card keeps its full wrapping pool.
+Quote swipes now take priority over button taps, so right swipe goes backward
+instead of also triggering the next-quote action. No schema changes.
+
+Validation: 871 unit tests, 5 skipped, zero failures; empty/populated Progress
+snapshots intentionally refreshed and verified; Daily Highlights snapshots passed.
+All 5 Progress UI tests passed, including tap/left swipe/right swipe and the
+largest-text Details control. Signed 2.5 (76) archive/export succeeded.
+Full accessibility audit passed: 10 tests, 2 runtime Dynamic Type skips, zero
+failures. TestFlight upload pending.
+
 ## 2.5 (build 75) VALID on TestFlight (2026-09-06)
 
 Progress overview Top Exercises now excludes exercises without a usable weight PR

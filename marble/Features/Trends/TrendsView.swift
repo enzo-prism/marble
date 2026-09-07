@@ -373,7 +373,10 @@ struct TrendsContentView: View {
                                     rows: TrendsShareCard.topExercises(from: entries)
                                 )
                                 .padding(.horizontal, MarbleSpacing.xs)
-                                ProgressQuoteFooter(day: activeDay)
+                                ProgressQuoteFooter(
+                                    day: activeDay,
+                                    availableWidth: max(0, min(proxy.size.width, MarbleLayout.dashboardMaxWidth) - 2 * MarbleLayout.pagePadding)
+                                )
                             }
                             .frame(
                                 minHeight: max(proxy.size.height - MarbleSpacing.xxl, 0),

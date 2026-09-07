@@ -70,6 +70,26 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         )
     }
 
+    func testOverviewShortQuotesStillSupportTapAndSwipe() {
+        launchApp(fixtureMode: "populated")
+        navigateToTab(.trends)
+        let quote = app.buttons["Trends.Overview.Quote"]
+        scrollToElement(quote, in: app)
+        waitFor(quote, timeout: 8)
+        let first = quote.value as? String
+        XCTAssertNotNil(first)
+        forceTap(quote)
+        let changed = expectation(for: NSPredicate(format: "value != %@", first ?? ""), evaluatedWith: quote)
+        wait(for: [changed], timeout: 3)
+        let second = quote.value as? String
+        quote.swipeLeft()
+        let swiped = expectation(for: NSPredicate(format: "value != %@", second ?? ""), evaluatedWith: quote)
+        wait(for: [swiped], timeout: 3)
+        quote.swipeRight()
+        let returned = expectation(for: NSPredicate(format: "value == %@", second ?? ""), evaluatedWith: quote)
+        wait(for: [returned], timeout: 3)
+    }
+
     func testProgressOverviewKeepsDetailedDataOutOfTheDefaultState() {
         launchApp(fixtureMode: "populated")
         navigateToTab(.trends)

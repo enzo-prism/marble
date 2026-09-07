@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Auto-rotating training quote, shared by the Daily Highlights card and the
 /// Progress overview footer. Quotes come from `DailyHighlightQuoteLibrary`'s
@@ -11,6 +12,8 @@ import SwiftUI
 struct DailyHighlightQuoteRotator: View {
     let day: Date
     var centered: Bool = false
+    var quotePool: [DailyHighlightQuote]? = nil
+    var singleLineFont: UIFont? = nil
     var accessibilityIdentifier: String = "Trends.DailyHighlights.Quote"
     var accessibilityLabel: String = "Daily motivation"
 
@@ -22,7 +25,7 @@ struct DailyHighlightQuoteRotator: View {
     private let rotationInterval: TimeInterval = 12
 
     var body: some View {
-        let quotes = DailyHighlightQuoteLibrary.sessionQuotes
+        let quotes = quotePool ?? DailyHighlightQuoteLibrary.sessionQuotes
 
         Group {
             if quotes.isEmpty {
@@ -51,11 +54,11 @@ struct DailyHighlightQuoteRotator: View {
         } label: {
             VStack(alignment: centered ? .center : .leading, spacing: MarbleSpacing.xxs) {
                 Text("\(quote.text)")
-                    .font(MarbleTypography.rowMeta)
-                    .italic()
+                    .font(singleLineFont.map { Font($0) } ?? MarbleTypography.rowMeta.italic())
+                    .lineLimit(singleLineFont == nil ? nil : 1)
                     .multilineTextAlignment(centered ? .center : .leading)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .fixedSize(horizontal: false, vertical: true)
+                    .fixedSize(horizontal: singleLineFont != nil, vertical: true)
 
                 if centered {
                     Text(quote.author)
@@ -80,7 +83,7 @@ struct DailyHighlightQuoteRotator: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .simultaneousGesture(
+        .highPriorityGesture(
             DragGesture(minimumDistance: 24, coordinateSpace: .local)
                 .onEnded { value in
                     guard quotes.count > 1 else { return }
@@ -133,18 +136,61 @@ struct DailyHighlightQuoteRotator: View {
 }
 
 /// Quiet centered quote footer for the Progress overview first screen: same
-/// quotes and 12-second rotation as Daily Highlights, but a still, minimal
+/// single-line quotes and 12-second rotation, with a still, minimal
 /// treatment — no counter, no card chrome — so it reads as decoration.
 struct ProgressQuoteFooter: View {
     let day: Date
+    let availableWidth: CGFloat
+
+    @ScaledMetric(relativeTo: .caption) private var quotePointSize: CGFloat = 12
+    @Environment(\.legibilityWeight) private var legibilityWeight
 
     var body: some View {
+        let font = ProgressOverviewQuotes.font(
+            pointSize: quotePointSize,
+            bold: legibilityWeight == .bold
+        )
+        let quotes = ProgressOverviewQuotes.fitting(
+            DailyHighlightQuoteLibrary.sessionQuotes,
+            width: availableWidth,
+            font: font
+        )
+
         DailyHighlightQuoteRotator(
             day: day,
             centered: true,
+            quotePool: quotes,
+            singleLineFont: font,
             accessibilityIdentifier: "Trends.Overview.Quote",
             accessibilityLabel: "Training quote"
         )
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// Measure with the same scaled font the overview renders. Filtering preserves
+/// session order, so taps, swipes and automatic rotation only visit fitting quotes.
+/// If none fit at the current width/text size, the decorative footer stays empty.
+enum ProgressOverviewQuotes {
+    static func font(pointSize: CGFloat, bold: Bool = false) -> UIFont {
+        let base = UIFont.systemFont(ofSize: pointSize)
+        let traits: UIFontDescriptor.SymbolicTraits = bold ? [.traitItalic, .traitBold] : [.traitItalic]
+        let descriptor = base.fontDescriptor.withSymbolicTraits(traits) ?? base.fontDescriptor
+        return UIFont(descriptor: descriptor, size: pointSize)
+    }
+
+    static func fitting(
+        _ quotes: [DailyHighlightQuote],
+        width: CGFloat,
+        font: UIFont
+    ) -> [DailyHighlightQuote] {
+        guard width.isFinite, width > 2 else { return [] }
+        return quotes.filter { quote in
+            guard !quote.text.isEmpty,
+                  quote.text.rangeOfCharacter(from: .newlines) == nil else { return false }
+            let measuredWidth = (quote.text as NSString).size(withAttributes: [.font: font]).width
+            // Leave a small rounding allowance for glyph edges and pixel alignment.
+            return ceil(measuredWidth) + 2 <= width
+        }
     }
 }

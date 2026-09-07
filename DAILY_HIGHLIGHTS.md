@@ -46,6 +46,11 @@ ornament, keeping the day's achievements and results at the top of the hierarchy
 The Progress overview reuses the same session order and rotation engine as a centered
 footer (`ProgressQuoteFooter`, `DailyHighlightQuoteRotator` with `centered: true`): same
 12-second rotation, tap-to-advance, and swipe, no counter, same VoiceOver/Reduce Motion behavior.
+The overview filters that order to complete quotes that fit one line at the current
+available width, caption size, and Bold Text setting. It measures with the same font
+it renders; quotes never shrink or truncate. Resizing or changing Dynamic Type
+recomputes eligibility. If no quote fits, this decorative footer is empty. The author
+remains underneath. The Daily Highlights card continues to use the full wrapping pool.
 
 Every catalog entry is auditable in `DailyHighlightQuotes.swift` and
 `DailyHighlightQuoteExtension.swift`. Primary archives include
