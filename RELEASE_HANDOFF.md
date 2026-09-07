@@ -3,7 +3,7 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## 2.5 (build 75) Progress PR eligibility (2026-09-06)
+## 2.5 (build 75) VALID on TestFlight (2026-09-06)
 
 Progress overview Top Exercises now excludes exercises without a usable weight PR
 and its performed date before applying the five-row limit. Every row requires a
@@ -15,7 +15,10 @@ passed after intentionally recording empty/populated overview baselines; widget
 snapshots passed. `make audit`: 10 tests, 2 runtime Dynamic Type skips, 0 failures.
 The full snapshot run passed every group except WorkoutHistory's 8 large-text
 comparisons; all 8 reproduced on clean unchanged `origin/main` (2af6112).
-Release archive/export succeeded for 2.5 (75). TestFlight upload pending.
+Release archive/export/upload succeeded for 2.5 (75), code commit `eba364c`.
+ASC build `c36adcd6-a121-45f2-bd95-98b07e752682` is `VALID`,
+`internalBuildState: IN_BETA_TESTING`, `autoNotifyEnabled: true`. Existing internal
+"test group A" has access to all builds. What to Test notes verified by readback.
 
 ## 2.5 (build 74) VALID on TestFlight (2026-09-05)
 
