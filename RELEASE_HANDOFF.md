@@ -3,7 +3,7 @@
 **App Store Connect state refreshed: 2026-09-04.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## 2.5 (build 76) Progress single-line quotes (2026-09-06)
+## 2.5 (build 76) VALID on TestFlight (2026-09-06)
 
 The Progress overview only rotates through complete quotes that fit one line at
 its actual content width and scaled caption font, including Bold Text. Quotes
@@ -17,7 +17,10 @@ snapshots intentionally refreshed and verified; Daily Highlights snapshots passe
 All 5 Progress UI tests passed, including tap/left swipe/right swipe and the
 largest-text Details control. Signed 2.5 (76) archive/export succeeded.
 Full accessibility audit passed: 10 tests, 2 runtime Dynamic Type skips, zero
-failures. TestFlight upload pending.
+failures. Code commit `9153598` is on main. ASC build
+`4d4a9aa5-eff3-48fe-afbc-b932dc79be6a` is `VALID`, `IN_BETA_TESTING`, with
+automatic notifications enabled; internal "test group A" has access to all builds.
+What to Test notes verified by readback.
 
 ## 2.5 (build 75) VALID on TestFlight (2026-09-06)
 
