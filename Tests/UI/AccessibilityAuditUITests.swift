@@ -287,9 +287,26 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         takeScreenshot(name)
         var issues: [XCUIAccessibilityAuditIssue] = []
         do {
-            try app.performAccessibilityAudit(for: .all) { issue in
-                issues.append(issue)
-                return true
+            for attempt in 1...2 {
+                print("Accessibility audit \(name), attempt \(attempt)")
+                do {
+                    try app.performAccessibilityAudit(for: .all) { issue in
+                        issues.append(issue)
+                        return true
+                    }
+                    break
+                } catch {
+                    let nsError = error as NSError
+                    print("Accessibility audit \(name), attempt \(attempt) failed: \(nsError)")
+                    // Retry only an empty runtime timeout. Never discard issues
+                    // reported before a timeout or turn a repeated failure into a skip.
+                    guard attempt == 1,
+                          issues.isEmpty,
+                          nsError.domain == "com.apple.xcode.xctest.accessibilityAudit",
+                          nsError.code == -56 else {
+                        throw error
+                    }
+                }
             }
         } catch {
             let nsError = error as NSError
