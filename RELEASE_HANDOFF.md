@@ -1,7 +1,23 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-09-04.**
+**App Store Connect state refreshed: 2026-09-19.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
+
+## 2.5 (build 78) prepared for TestFlight (2026-09-19)
+
+Adds 25 sourced athlete quotes (131 total); see `ATHLETE_QUOTES.md` for exact
+wording and sources. Progress and Daily Highlights both skip quotes that cannot
+fit their actual width at the current scaled italic font, including Bold Text.
+No wrapping, shrinking, or truncation; the counter reflects the eligible pool.
+
+Validation: 874 unit tests, 5 skipped, zero failures; all 8 Trends snapshots and
+5 quote/Progress interaction tests pass. Accessibility audit: 10 tests, 2 runtime
+Dynamic Type skips, zero failures. All 25 new quotes fit 250 points at standard
+caption size, including Bold Text; larger text filters the pool. No schema change.
+
+ASC readback before upload: build 77 is VALID; next build number is 78. App Store
+2.5 is PENDING_DEVELOPER_RELEASE; this TestFlight upload does not release it.
+Internal test group A has access to all builds. Upload verification is pending.
 
 ## 2.5 (build 76) VALID on TestFlight (2026-09-06)
 

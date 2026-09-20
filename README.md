@@ -72,18 +72,17 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-08-30)
+## Current state (2026-09-19)
 
-App Store **2.3 build 56 remains live**. The current internal TestFlight build is
-**2.4 build 63**, uploaded from exact merged `main` source
-`cbeb6d2f7131c14ab1327ff07e703f812a6fc754`. Build 63 is `VALID`,
-`IN_BETA_TESTING` in internal **test group A**, and strict TestFlight validation
-is clean. App Store 2.4 separately remains
-`WAITING_FOR_REVIEW` with build 61 attached under submission
-`ce4a0d8a-f5ea-4d1e-9463-03937e467343`; it uses manual release, so submission
-is not public production. Build 63 did not replace or modify that submission.
-Exact IDs and workflow evidence are tracked in
-[`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
+**2.5 build 78 is prepared for TestFlight**, adding 25 sourced athlete quotes
+(131 total) and enforcing complete single-line quotes in Progress and Daily
+Highlights. Quotes that do not fit the current width, Dynamic Type size, and
+Bold Text setting are skipped. See [`ATHLETE_QUOTES.md`](ATHLETE_QUOTES.md).
+
+The latest verified uploaded build before this release is **2.5 (77), VALID**.
+App Store 2.5 is separately `PENDING_DEVELOPER_RELEASE`; this internal beta does
+not publish that App Store version. Current upload evidence and validation are
+tracked in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
 
 - **Build 63 Add responsiveness + Progress performance** (exact uploaded `main`
   source `cbeb6d2f7131c14ab1327ff07e703f812a6fc754`; App Store Connect build
