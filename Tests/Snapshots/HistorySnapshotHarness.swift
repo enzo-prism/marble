@@ -16,7 +16,23 @@ func assertHistorySnapshot<V: View>(
     line: UInt = #line,
     @ViewBuilder content: () -> V
 ) {
-    for variant in SnapshotMatrix.variants {
+    let partition = ProcessInfo.processInfo.environment["MARBLE_HISTORY_SNAPSHOT_CATEGORY"] ?? ""
+    let variants: [SnapshotVariant]
+    switch partition {
+    case "default": variants = SnapshotMatrix.variants.filter { !$0.sizeCategory.isAccessibilityCategory }
+    case "a11y": variants = SnapshotMatrix.variants.filter { $0.sizeCategory.isAccessibilityCategory }
+    case "", "$(MARBLE_HISTORY_SNAPSHOT_CATEGORY)": variants = SnapshotMatrix.variants
+    default:
+        XCTFail("Unknown History snapshot category: \(partition)", file: file, line: line)
+        return
+    }
+    for variant in variants {
+        let expectedCategory: UIContentSizeCategory = variant.sizeCategory.isAccessibilityCategory
+            ? .accessibilityExtraExtraExtraLarge : .large
+        guard UIApplication.shared.preferredContentSizeCategory == expectedCategory else {
+            XCTFail("History native search requires a matching system text size. Run make snapshot; the runner launches each category separately.", file: file, line: line)
+            return
+        }
         let activityName = "\(name)_\(variant.suffix)"
         XCTContext.runActivity(named: activityName) { _ in
             autoreleasepool {

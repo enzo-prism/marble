@@ -1,13 +1,14 @@
 {
   "version": "2.5",
-  "build": "78",
+  "build": "80",
   "locale": "en-US",
   "sourceCommit": "af817a1",
   "binarySourceCommit": "4ea0d05621e511906b2e7ccbc125ef35d8d4f7dc",
   "fixture": {
     "mode": "screenshots",
     "now": "2026-07-16T04:30:00.000Z",
-    "data": "Fictional deterministic workout fixtures"
+    "data": "Fictional deterministic workout fixtures",
+    "historyAndRepeatNow": "2026-07-15T16:30:00.000Z"
   },
   "screenshots": [
     {
@@ -18,41 +19,54 @@
     },
     {
       "order": 2,
+      "rawName": "12-workout-history",
+      "headline": "Find the work you put in.",
+      "supportingText": "Find completed sessions by workout, exercise, or date."
+    },
+    {
+      "order": 3,
+      "rawName": "13-repeat-workout",
+      "headline": "Your next session starts here.",
+      "supportingText": "Repeat a past workout. Review and edit the copy before saving."
+    },
+    {
+      "order": 4,
       "rawName": "02-paste-or-type-review",
       "headline": "Review. Refine. Save.",
       "supportingText": "Turn pasted workout data into organized sets and sessions."
     },
     {
-      "order": 3,
+      "order": 5,
       "rawName": "01-journal",
       "headline": "Every set, remembered.",
       "supportingText": "Keep workouts, weights, reps, and rest together in Log."
     },
     {
-      "order": 4,
+      "order": 6,
       "rawName": "05-strength-trends",
       "headline": "See your strength grow.",
       "supportingText": "Your top exercises and personal records, at a glance."
     },
     {
-      "order": 5,
+      "order": 7,
       "rawName": "11-daily-highlights",
       "headline": "Celebrate today\u2019s progress.",
       "supportingText": "Daily Highlights pairs your training wins with motivation."
     },
     {
-      "order": 6,
+      "order": 8,
       "rawName": "07-training-calendar",
       "headline": "Build your training rhythm.",
       "supportingText": "See your sessions and consistency on the calendar."
     },
     {
-      "order": 7,
+      "order": 9,
       "rawName": "09-private-backup",
       "headline": "Your training. Your data.",
       "supportingText": "Export a portable backup and restore it when you need it."
     }
   ],
-  "submissionBuild": "79",
-  "captureApplicability": "Captured from build78 app source. Build79 only changes test references, capture tooling, release metadata, and build number; production Swift source and assets are unchanged."
+  "submissionBuild": "80",
+  "sourceNote": "Captured from build78 application source. Build80 production app source and assets are unchanged; only build identity, tests, capture tooling, and release materials differ. Exact submitted source identity is recorded in the upload receipt.",
+  "capturedBuild": "78"
 }

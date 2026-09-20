@@ -9,7 +9,17 @@
     }
   ],
   "defaultOptions" : {
-
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:marble.xcodeproj",
+      "identifier" : "977B49B601BE1C7BC99F3064",
+      "name" : "MarbleSnapshotTests"
+    },
+    "environmentVariableEntries" : [
+      {
+        "key" : "MARBLE_HISTORY_SNAPSHOT_CATEGORY",
+        "value" : "$(MARBLE_HISTORY_SNAPSHOT_CATEGORY)"
+      }
+    ]
   },
   "testTargets" : [
     {

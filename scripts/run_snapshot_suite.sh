@@ -127,18 +127,52 @@ cleanup_simulator() {
   sleep 2
 }
 
+# Native UIKit search caches its initial font from the process-wide category.
+# A child hosting-controller override cannot faithfully simulate changing that
+# initial category. Launch History separately for each real simulator text size.
+history_original_content_size=""
+restore_history_content_size() {
+  if [[ -n "${history_original_content_size}" ]]; then
+    xcrun simctl ui "${sim_id}" content_size "${history_original_content_size}"
+    history_original_content_size=""
+  fi
+}
+trap 'snapshot_exit_status=$?; restore_history_content_size || snapshot_exit_status=1; exit "${snapshot_exit_status}"' EXIT
+
 index=0
 for group in "${SNAPSHOT_GROUPS[@]}"; do
-  if [[ -n "${RELEASE_EVIDENCE_RUN_DIR:-}" ]]; then
-    group_slug=$(printf '%s' "${group}" | tr '/:' '--' | tr -cd 'A-Za-z0-9._-')
-    printf -v result_name '%02d-%s.xcresult' "${index}" "${group_slug}"
-    result_path="${RELEASE_EVIDENCE_RUN_DIR}/${RELEASE_EVIDENCE_SUITE:-snapshot}/${result_name}"
-  else
-    result_path="${ROOT_DIR}/TestResults/MarbleSnapshots_${index}.xcresult"
+  categories=("")
+  if [[ "${group}" == "MarbleSnapshotTests/WorkoutHistorySnapshotTests"* ]]; then
+    if [[ -z "${sim_id}" ]]; then
+      echo "History snapshot isolation requires a concrete simulator ID." >&2
+      exit 1
+    fi
+    categories=(default a11y)
   fi
-  echo "Running snapshot group: ${group}"
-  prepare_simulator
-  RESULT_BUNDLE_PATH="${result_path}" "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "$@"
-  cleanup_simulator
-  index=$((index + 1))
+  for category in "${categories[@]}"; do
+    group_suffix="${category:+-${category}}"
+    if [[ -n "${RELEASE_EVIDENCE_RUN_DIR:-}" ]]; then
+      group_slug=$(printf '%s' "${group}" | tr '/:' '--' | tr -cd 'A-Za-z0-9._-')
+      printf -v result_name '%02d-%s%s.xcresult' "${index}" "${group_slug}" "${group_suffix}"
+      result_path="${RELEASE_EVIDENCE_RUN_DIR}/${RELEASE_EVIDENCE_SUITE:-snapshot}/${result_name}"
+    else
+      result_path="${ROOT_DIR}/TestResults/MarbleSnapshots_${index}${group_suffix}.xcresult"
+    fi
+    echo "Running snapshot group: ${group}${group_suffix}"
+    prepare_simulator
+    if [[ -n "${category}" ]]; then
+      history_original_content_size=$(xcrun simctl ui "${sim_id}" content_size)
+      system_category=large
+      [[ "${category}" != a11y ]] || system_category=accessibility-extra-extra-extra-large
+      xcrun simctl ui "${sim_id}" content_size "${system_category}"
+    fi
+    if [[ -n "${category}" ]]; then
+      RESULT_BUNDLE_PATH="${result_path}" "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "MARBLE_HISTORY_SNAPSHOT_CATEGORY=${category}" "$@"
+    else
+      RESULT_BUNDLE_PATH="${result_path}" "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "$@"
+    fi
+    restore_history_content_size
+    cleanup_simulator
+    index=$((index + 1))
+  done
 done

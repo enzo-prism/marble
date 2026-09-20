@@ -3,26 +3,33 @@
 **App Store Connect state refreshed: 2026-09-19.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## 2.5 (build 79) App Review preparation (2026-09-19)
+## 2.5 (build 80) App Review preparation (2026-09-19)
 
-Build 79 retains build 78's app behavior, including 25 new athlete quotes and
-single-line filtering. It binds the submission to the complete new release
-package: detailed metadata, fresh iPhone/iPad screenshots, reproducible capture
-steps, and corrected native-control snapshot references.
+Build 80 retains build 78's production app behavior and assets, including 25 new
+athlete quotes and single-line filtering. The submission package has detailed
+metadata, reviewer instructions, and nine genuine iPhone/iPad screenshots per
+family: Add, History, Repeat, Review, Log, Progress, Highlights, Calendar, Backups.
+Both ASC size/format checks passed with zero errors or warnings.
 
-Preflight on build 78 found eight Composer and eight History accessibility-size
-snapshot mismatches. Read-only comparison confirmed no production-code drift in
-those screens: native DatePicker changed from numeric to spelled-out dates, and
-native search controls now honor the accessibility category. Only the four
-affected test cases are intentionally re-recorded via `make snapshot-record`;
-the 98% comparison threshold, full test coverage, and UI checks remain unchanged.
-The prior build77 release branch already contained the DatePicker reference
-refresh, but it had not reached main. No app data/schema changes are introduced.
+Build 79 is VALID and available in TestFlight, but its full release preflight
+failed History accessibility snapshots. The earlier reference-only refresh was
+insufficient: native search fields could use a cached font derived from the
+system category despite the snapshot hierarchy's accessibility-size override.
+The correction runs History's default and accessibility variants in separate
+launches with matching actual simulator text sizes, restores the prior setting,
+and preserves every variant and the 98% precision threshold. Refreshed references
+show real native rendering rather than a hierarchy-only trait simulation.
+Composer date-picker reference corrections are retained. The audit harness also
+restores the prior release branch's one-time retry for an empty XCTest framework
+timeout (exact accessibility-audit domain/code -56); reported issues and repeated
+errors still fail normally. Build79 CI passed units, interactions, migration,
+release tooling, and navigation, but failed the History snapshots and timed out
+on the History detail accessibility audit. No production code,
+data/schema, or privacy changes are introduced by this release preparation.
 
-Seven fresh real-UI screenshots per device family cover Add, Review, Log,
-Progress, Daily Highlights, Calendar, and Backups; both ASC size/format checks
-pass without warnings. Metadata describes all improvements since public 2.4.
-Full exact-source evidence, upload readback, and resubmission state pending.
+Exact-source full release evidence, final hardware acceptance, upload receipt,
+and App Review submission readback are pending. The existing approved build77
+remains held for manual release; it has not been released publicly.
 
 ## 2.5 (build 78) VALID on TestFlight (2026-09-19)
 

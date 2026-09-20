@@ -6,6 +6,7 @@ import XCTest
 final class AppStoreScreenshotUITests: MarbleUITestCase {
     private func launchScreenshotApp(
         initialTab: String? = nil,
+        nowISO8601: String = "2026-07-16T04:30:00.000Z",
         extraEnvironment: [String: String] = [:]
     ) {
         var environment = ["MARBLE_APP_STORE_SCREENSHOTS": "1"]
@@ -17,10 +18,33 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
             fixtureMode: "screenshots",
             // 9:30 PM PDT: the deterministic fixture includes a real same-day
             // workout, so Trends shows the shipping Daily Highlights surface.
-            nowISO8601: "2026-07-16T04:30:00.000Z",
+            nowISO8601: nowISO8601,
             forceReduceTransparency: true,
             extraEnvironment: environment
         )
+    }
+
+    func test12HistoryAndRepeat() {
+        launchScreenshotApp(initialTab: "add", nowISO8601: "2026-07-15T16:30:00.000Z")
+        forceTap(waitForIdentifier("Workout.Open", timeout: 8))
+        forceTap(waitForIdentifier("Workout.Finish", timeout: 8))
+        forceTap(waitForIdentifier("Workout.Finish.Confirm", timeout: 8))
+        app.navigationBars["Workout"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)))
+        navigateToTab(.journal)
+        forceTap(waitForIdentifier("Journal.WorkoutHistory", timeout: 8))
+        let session = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'History.Session.'")).firstMatch
+        waitFor(session, timeout: 10)
+        takeScreenshot("12-workout-history")
+        forceTap(session)
+        let repeatButton = waitForIdentifier("History.Repeat", timeout: 8)
+        XCTAssertTrue(repeatButton.isEnabled)
+        forceTap(repeatButton)
+        _ = waitForIdentifier("TextEntry.Title", timeout: 8)
+        _ = waitForIdentifier("TextEntry.Import", timeout: 8)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "TextEntry.Imported").firstMatch.exists)
+        takeScreenshot("13-repeat-workout")
     }
 
     func test00AddComposer() {
