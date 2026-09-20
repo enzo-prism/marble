@@ -1,0 +1,100 @@
+[
+  {
+    "path": "upload/iphone-69/01-add-composer.png",
+    "width": 1320,
+    "height": 2868,
+    "bytes": 304490,
+    "sha256": "3a92b1d2bdfd6c7c59567d10e792b8b6d69fb857cbbc1a0f4bb5fbfdb4b95380"
+  },
+  {
+    "path": "upload/iphone-69/02-paste-or-type-review.png",
+    "width": 1320,
+    "height": 2868,
+    "bytes": 220175,
+    "sha256": "f399535ddc494474391e1ed2eec1fb3d6ec5ad03255d988920617963086b18ec"
+  },
+  {
+    "path": "upload/iphone-69/03-journal.png",
+    "width": 1320,
+    "height": 2868,
+    "bytes": 348716,
+    "sha256": "9386181976105020b4108f34766690c1b768f97cb45c212ca84e331ded0c9b66"
+  },
+  {
+    "path": "upload/iphone-69/04-strength-trends.png",
+    "width": 1320,
+    "height": 2868,
+    "bytes": 237443,
+    "sha256": "37d8127c2771884e23732aa20834dde6328fd75a04fda4fa807615650bce2b77"
+  },
+  {
+    "path": "upload/iphone-69/05-daily-highlights.png",
+    "width": 1320,
+    "height": 2868,
+    "bytes": 366663,
+    "sha256": "31d3b8da0234fbf6b23477bbdab2a08e9210a16f8d8f4bca5c3d9d3e57118854"
+  },
+  {
+    "path": "upload/iphone-69/06-training-calendar.png",
+    "width": 1320,
+    "height": 2868,
+    "bytes": 276723,
+    "sha256": "b583284b41caf9f0afb1d70ad606754689163d92820b63630507a630757b216a"
+  },
+  {
+    "path": "upload/iphone-69/07-private-backup.png",
+    "width": 1320,
+    "height": 2868,
+    "bytes": 305378,
+    "sha256": "d9b2acd7fcb1ffc93ed3df6233cea0e1579d30700f6bc3b24da2346c019a8aa7"
+  },
+  {
+    "path": "upload/ipad-13/01-add-composer.png",
+    "width": 2064,
+    "height": 2752,
+    "bytes": 243759,
+    "sha256": "5931694e33401c63cdaac426df48ec1e8679b5ea9ab50dc81f12cd5e6bc6a2c5"
+  },
+  {
+    "path": "upload/ipad-13/02-paste-or-type-review.png",
+    "width": 2064,
+    "height": 2752,
+    "bytes": 195065,
+    "sha256": "a566a625ccf288f2579fac9cf68cd99d71579656ccbccd6a405372590410ec82"
+  },
+  {
+    "path": "upload/ipad-13/03-journal.png",
+    "width": 2064,
+    "height": 2752,
+    "bytes": 352246,
+    "sha256": "067e7533c28e257fa6967f9125c3f1e2587e2186db1fd1b77bcf44bf301de9ac"
+  },
+  {
+    "path": "upload/ipad-13/04-strength-trends.png",
+    "width": 2064,
+    "height": 2752,
+    "bytes": 208715,
+    "sha256": "119d4766e21c2e0d818f357658cfef1ec05c4c3a2ddf1f1438ba70166ab2e055"
+  },
+  {
+    "path": "upload/ipad-13/05-daily-highlights.png",
+    "width": 2064,
+    "height": 2752,
+    "bytes": 401417,
+    "sha256": "f01ffec688cc4172525e5215c06a514002e1f432d0c9d06ca953c2fd9ec7e4fe"
+  },
+  {
+    "path": "upload/ipad-13/06-training-calendar.png",
+    "width": 2064,
+    "height": 2752,
+    "bytes": 217287,
+    "sha256": "0f5cdd86ea6593bc88c0beccdc489ae9d27b4bd0f3e47b9cec83bbddb158d5cf"
+  },
+  {
+    "path": "upload/ipad-13/07-private-backup.png",
+    "width": 2064,
+    "height": 2752,
+    "bytes": 319177,
+    "sha256": "e019955394b73b6d016a3c1612dde9d3c3b2fa4506761ae8dad983d4ee2cb74e"
+  }
+]

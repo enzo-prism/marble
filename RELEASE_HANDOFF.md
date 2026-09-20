@@ -3,6 +3,27 @@
 **App Store Connect state refreshed: 2026-09-19.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## 2.5 (build 79) App Review preparation (2026-09-19)
+
+Build 79 retains build 78's app behavior, including 25 new athlete quotes and
+single-line filtering. It binds the submission to the complete new release
+package: detailed metadata, fresh iPhone/iPad screenshots, reproducible capture
+steps, and corrected native-control snapshot references.
+
+Preflight on build 78 found eight Composer and eight History accessibility-size
+snapshot mismatches. Read-only comparison confirmed no production-code drift in
+those screens: native DatePicker changed from numeric to spelled-out dates, and
+native search controls now honor the accessibility category. Only the four
+affected test cases are intentionally re-recorded via `make snapshot-record`;
+the 98% comparison threshold, full test coverage, and UI checks remain unchanged.
+The prior build77 release branch already contained the DatePicker reference
+refresh, but it had not reached main. No app data/schema changes are introduced.
+
+Seven fresh real-UI screenshots per device family cover Add, Review, Log,
+Progress, Daily Highlights, Calendar, and Backups; both ASC size/format checks
+pass without warnings. Metadata describes all improvements since public 2.4.
+Full exact-source evidence, upload readback, and resubmission state pending.
+
 ## 2.5 (build 78) VALID on TestFlight (2026-09-19)
 
 Adds 25 sourced athlete quotes (131 total); see `ATHLETE_QUOTES.md` for exact

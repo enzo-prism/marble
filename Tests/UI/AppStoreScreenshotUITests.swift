@@ -23,6 +23,25 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         )
     }
 
+    func test00AddComposer() {
+        launchScreenshotApp(initialTab: "add")
+        let editor = app.textViews["TextEntry.Editor"]
+        waitFor(editor, timeout: 10)
+        clearAndType(editor, text: "Bench Press 3x8 @ 185 lb\nShoulder Press 3x10 @ 95 lb\nSquat 3x5 @ 225 lb")
+        forceTap(waitForIdentifier("TextEntry.Keyboard.Done", timeout: 5))
+        takeScreenshot("00-add-composer")
+    }
+
+    func test11DailyHighlights() {
+        launchScreenshotApp(initialTab: "trends")
+        revealDetailedTrends()
+        _ = waitForIdentifier("Trends.DailyHighlights", timeout: 10)
+        let quote = app.buttons["Trends.DailyHighlights.Quote"]
+        waitFor(quote, timeout: 8)
+        quote.swipeRight()
+        takeScreenshot("11-daily-highlights")
+    }
+
     func test01Journal() {
         launchScreenshotApp()
         navigateToTab(.journal)
@@ -89,6 +108,9 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         launchScreenshotApp(initialTab: "trends")
         _ = waitForIdentifier("Trends.TopExercises", timeout: 15)
         _ = waitForIdentifier("Trends.Details.Toggle", timeout: 15)
+        let quote = app.buttons["Trends.Overview.Quote"]
+        waitFor(quote, timeout: 8)
+        quote.swipeRight()
         takeScreenshot("05-strength-trends")
     }
 
@@ -125,10 +147,12 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
     func test09PrivateBackup() {
         launchScreenshotApp(initialTab: "add")
         openAddToolbarAction("Workout.Settings")
-        // 2.2 moved Data & Backups behind the new Settings screen, below the
-        // fold of a lazy List — it isn't in the tree until we scroll to it.
-        scrollToElement(app.descendants(matching: .any).matching(identifier: "Settings.Data").firstMatch, in: app)
-        forceTap(waitForIdentifier("Settings.Data", timeout: 10))
+        let data = app.buttons["Settings.Data"]
+        let list = app.collectionViews.firstMatch
+        if list.exists { scrollToElement(data, in: list) }
+        else { scrollToElement(data, in: app) }
+        waitFor(data, timeout: 10)
+        data.tap()
         _ = waitForIdentifier("Data.Summary", timeout: 12)
         _ = waitForIdentifier("Data.Export", timeout: 10)
         _ = waitForIdentifier("Data.Restore", timeout: 10)
