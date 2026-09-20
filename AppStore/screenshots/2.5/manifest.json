@@ -68,5 +68,6 @@
   ],
   "submissionBuild": "80",
   "sourceNote": "Captured from build78 application source. Build80 production app source and assets are unchanged; only build identity, tests, capture tooling, and release materials differ. Exact submitted source identity is recorded in the upload receipt.",
-  "capturedBuild": "78"
+  "capturedBuild": "78",
+  "submissionSourceCommit": "ebea8e8a8fc8ff675c05a225f0514b169c35970c"
 }

@@ -3,7 +3,7 @@
 **App Store Connect state refreshed: 2026-09-19.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## 2.5 (build 80) App Review preparation (2026-09-19)
+## 2.5 (build 80) VALID on TestFlight; App Review pending device signoff (2026-09-19)
 
 Build 80 retains build 78's production app behavior and assets, including 25 new
 athlete quotes and single-line filtering. The submission package has detailed
@@ -27,9 +27,40 @@ release tooling, and navigation, but failed the History snapshots and timed out
 on the History detail accessibility audit. No production code,
 data/schema, or privacy changes are introduced by this release preparation.
 
-Exact-source full release evidence, final hardware acceptance, upload receipt,
-and App Review submission readback are pending. The existing approved build77
-remains held for manual release; it has not been released publicly.
+Exact uploaded/tested source: `ebea8e8a8fc8ff675c05a225f0514b169c35970c`.
+ASC build: `ccbce04d-5fe7-491c-96c7-c415fbb5f3e3`, `VALID` and
+`IN_BETA_TESTING`, with verified testing notes. App and widget both report 2.5 (80),
+and deep/strict signature verification passed. The immutable upload receipt
+records the IPA hash and source identity.
+
+All five local release gates passed in one clean exact-source run:
+- Unit: 874 tests, 5 skips, zero failures.
+- Full snapshot suite: 43 groups, including separate real system text sizes for History.
+- UI: 73 tests, zero failures.
+- Accessibility: 10 tests, 2 unsupported-runtime skips, zero failures.
+- Shipped-store migration: passed from `9e8346f6cad4683991a78fbaf223baaf01e9f068`,
+  preserving 40 exercises.
+The generated manifest verified all 58 artifacts. A separate full accessibility
+run also passed. History/Composer comparisons passed two consecutive runs and
+passed hosted CI on Xcode 26.6 as well as local Xcode 27.
+
+GitHub run 35483870839 attempt 1 passed every stage except the History/recovery
+audit entry: automation's Log-tab tap was interrupted, leaving Add selected,
+and the expected History button was therefore absent. No accessibility audit
+had started. Attempt 2 is running against the same commit; do not claim CI is
+fully green until its fresh result is checked.
+
+The production verifier currently stops at `Physical-device signoff required`.
+The owner's affirmative build 78 feedback is preserved for 78 only; exact-build 80
+hardware confirmation is pending. Do not manufacture or carry forward passing
+checks to another build. The clean release worktree remains pinned at the
+uploaded source for the final verifier and `ci_appstore.sh submit` call.
+
+Existing App Store 2.5 build 77 remains `PENDING_DEVELOPER_RELEASE`, held for manual
+release. Public version remains 2.4. No new review submission or public release
+has occurred. Once the build 80 device checks are confirmed, verify the candidate,
+withdraw the approved old candidate, apply the reviewed metadata and 18 screenshots,
+attach build 80, validate, and submit. Re-read ASC state before mutation.
 
 ## 2.5 (build 78) VALID on TestFlight (2026-09-19)
 
