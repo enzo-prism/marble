@@ -3,6 +3,7 @@ import SwiftUI
 struct DailyHighlightsSection: View {
     let summary: DailyHighlightSummary
     let occurrence: DailyHighlightOccurrence
+    let availableWidth: CGFloat
     let onCustomize: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -11,7 +12,7 @@ struct DailyHighlightsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             sectionHeader
-            DailyHighlightsCard(summary: summary)
+            DailyHighlightsCard(summary: summary, availableWidth: availableWidth)
         }
     }
 
@@ -59,6 +60,7 @@ struct DailyHighlightsSection: View {
 
 private struct DailyHighlightsCard: View {
     let summary: DailyHighlightSummary
+    let availableWidth: CGFloat
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -99,7 +101,10 @@ private struct DailyHighlightsCard: View {
                 }
             }
 
-            DailyHighlightQuoteRotator(day: summary.day)
+            DailyHighlightQuoteRotator(
+                day: summary.day,
+                availableWidth: max(0, availableWidth - 2 * MarbleSpacing.m)
+            )
         }
         .padding(MarbleSpacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)

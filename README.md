@@ -47,7 +47,9 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   See [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md).
 - **Daily Highlights** — from 8:00 PM through 11:59 PM by default, Progress celebrates
   that day's genuine PRs in a clean monochrome card with a quiet rotating footer drawn
-  from 106 bundled quotes (tap or swipe to move through them). The window is
+  from 131 bundled quotes, including 25 short athlete quotes (tap or swipe to move through them).
+  Only complete quotes fitting a single line at the current width and text size are eligible.
+  The window is
   customizable and the feature remains entirely on-device.
   See [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md).
 - **Body** — log bodyweight (and body fat) in whichever unit you think in, stored as

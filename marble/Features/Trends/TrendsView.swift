@@ -196,6 +196,7 @@ struct TrendsContentView: View {
                             TimedDailyHighlightsSection(
                                 enabled: dailyHighlightsEnabled,
                                 window: dailyHighlightWindow,
+                                availableWidth: max(0, min(proxy.size.width, MarbleLayout.dashboardMaxWidth) - 2 * MarbleLayout.pagePadding),
                                 displayWeightUnit: WeightUnit(rawValue: preferredWeightUnitRaw)
                                     ?? .lb,
                                 latestEntryUpdate: latestUpdatedEntries.first?.updatedAt
@@ -1977,6 +1978,7 @@ private struct TimedDailyHighlightsSection: View {
 
     let enabled: Bool
     let window: DailyHighlightWindow
+    let availableWidth: CGFloat
     let displayWeightUnit: WeightUnit
     let latestEntryUpdate: Date
     let onCustomize: () -> Void
@@ -2024,6 +2026,7 @@ private struct TimedDailyHighlightsSection: View {
                     DailyHighlightsSection(
                         summary: summary,
                         occurrence: occurrence,
+                        availableWidth: availableWidth,
                         onCustomize: onCustomize
                     )
                 }
