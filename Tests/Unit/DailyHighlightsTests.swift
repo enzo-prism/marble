@@ -152,11 +152,11 @@ final class DailyHighlightsTests: MarbleTestCase {
     func testQuoteLibraryIsLargeUniqueAndSourceAuditable() {
         let quotes = DailyHighlightQuoteLibrary.all
 
-        // Original 45 plus the 61 extension entries that don't duplicate a
+        // Original 45 plus 25 athlete quotes and the 61 extension entries that don't duplicate a
         // bundled text (6 batch entries were dropped as text duplicates;
         // audit follow-up dropped q123/q147/q148 as semantic duplicates or
         // truncations, with q121/q126/q127 replaced in place).
-        XCTAssertEqual(quotes.count, 106)
+        XCTAssertEqual(quotes.count, 131)
         XCTAssertEqual(Set(quotes.map { $0.id }).count, quotes.count)
         XCTAssertEqual(Set(quotes.map { $0.text }).count, quotes.count)
         XCTAssertTrue(quotes.allSatisfy { !$0.text.isEmpty && !$0.author.isEmpty && !$0.source.isEmpty })

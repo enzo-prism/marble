@@ -13,31 +13,44 @@ struct DailyHighlightQuoteRotator: View {
     let day: Date
     var centered: Bool = false
     var quotePool: [DailyHighlightQuote]? = nil
-    var singleLineFont: UIFont? = nil
+    let availableWidth: CGFloat
     var accessibilityIdentifier: String = "Trends.DailyHighlights.Quote"
     var accessibilityLabel: String = "Daily motivation"
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.legibilityWeight) private var legibilityWeight
+    @ScaledMetric(relativeTo: .caption) private var quotePointSize: CGFloat = 12
     @State private var manualSelection: DailyHighlightQuoteRotation.ManualSelection?
 
     private let rotationInterval: TimeInterval = 12
 
     var body: some View {
-        let quotes = quotePool ?? DailyHighlightQuoteLibrary.sessionQuotes
+        let font = ProgressOverviewQuotes.font(
+            pointSize: quotePointSize,
+            bold: legibilityWeight == .bold
+        )
+        let quotes = ProgressOverviewQuotes.fitting(
+            quotePool ?? DailyHighlightQuoteLibrary.sessionQuotes,
+            width: availableWidth,
+            font: font
+        )
 
         Group {
             if quotes.isEmpty {
                 EmptyView()
             } else if shouldAnimate {
                 TimelineView(.periodic(from: .now, by: rotationInterval)) { _ in
-                    quoteButton(quotes: quotes, index: displayedIndex(for: quotes.count))
+                    quoteButton(quotes: quotes, index: displayedIndex(for: quotes.count), font: font)
                 }
             } else {
-                quoteButton(quotes: quotes, index: displayedIndex(for: quotes.count))
+                quoteButton(quotes: quotes, index: displayedIndex(for: quotes.count), font: font)
             }
         }
+        // Accept the parent's width even while the previously selected quote
+        // has a wider fixed intrinsic size during a resize.
+        .frame(minWidth: 0, maxWidth: .infinity)
         .id(day)
     }
 
@@ -45,7 +58,7 @@ struct DailyHighlightQuoteRotator: View {
         !reduceMotion && !voiceOverEnabled && !TestHooks.reduceDecorativeMotion && !TestHooks.disableAnimations
     }
 
-    private func quoteButton(quotes: [DailyHighlightQuote], index: Int) -> some View {
+    private func quoteButton(quotes: [DailyHighlightQuote], index: Int, font: UIFont) -> some View {
         let quote = quotes[index]
 
         return Button {
@@ -54,11 +67,11 @@ struct DailyHighlightQuoteRotator: View {
         } label: {
             VStack(alignment: centered ? .center : .leading, spacing: MarbleSpacing.xxs) {
                 Text("\(quote.text)")
-                    .font(singleLineFont.map { Font($0) } ?? MarbleTypography.rowMeta.italic())
-                    .lineLimit(singleLineFont == nil ? nil : 1)
+                    .font(Font(font))
+                    .lineLimit(1)
                     .multilineTextAlignment(centered ? .center : .leading)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .fixedSize(horizontal: singleLineFont != nil, vertical: true)
+                    .fixedSize(horizontal: true, vertical: true)
 
                 if centered {
                     Text(quote.author)
@@ -142,25 +155,11 @@ struct ProgressQuoteFooter: View {
     let day: Date
     let availableWidth: CGFloat
 
-    @ScaledMetric(relativeTo: .caption) private var quotePointSize: CGFloat = 12
-    @Environment(\.legibilityWeight) private var legibilityWeight
-
     var body: some View {
-        let font = ProgressOverviewQuotes.font(
-            pointSize: quotePointSize,
-            bold: legibilityWeight == .bold
-        )
-        let quotes = ProgressOverviewQuotes.fitting(
-            DailyHighlightQuoteLibrary.sessionQuotes,
-            width: availableWidth,
-            font: font
-        )
-
         DailyHighlightQuoteRotator(
             day: day,
             centered: true,
-            quotePool: quotes,
-            singleLineFont: font,
+            availableWidth: availableWidth,
             accessibilityIdentifier: "Trends.Overview.Quote",
             accessibilityLabel: "Training quote"
         )
@@ -168,7 +167,7 @@ struct ProgressQuoteFooter: View {
     }
 }
 
-/// Measure with the same scaled font the overview renders. Filtering preserves
+/// Measure with the same scaled font both quote surfaces render. Filtering preserves
 /// session order, so taps, swipes and automatic rotation only visit fitting quotes.
 /// If none fit at the current width/text size, the decorative footer stays empty.
 enum ProgressOverviewQuotes {

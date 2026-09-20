@@ -467,7 +467,9 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         }
     }
 
-    private actor RecordingParser: WorkoutScanParsing {
+    // Match WorkoutScanParsing's MainActor isolation under the current SDK.
+    // A separate actor cannot conform to a globally isolated protocol.
+    @MainActor private final class RecordingParser: WorkoutScanParsing {
         private(set) var parseCallCount = 0
 
         func parse(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft {
@@ -502,7 +504,7 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertEqual(viewModel.phase, .review)
         XCTAssertEqual(viewModel.draft.exercises.first?.name, "Bench Press")
         XCTAssertEqual(viewModel.draft.exercises.first?.sets.count, 3)
-        let parseCallCount = await parser.parseCallCount
+        let parseCallCount = parser.parseCallCount
         XCTAssertEqual(parseCallCount, 0,
                        "A complete notation parse should not invoke the model parser")
     }

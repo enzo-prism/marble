@@ -8,8 +8,8 @@ struct DailyHighlightQuote: Equatable, Identifiable {
     let sourceURL: String
 }
 
-/// The bundled, public-domain quote pool for Daily Highlights: the original
-/// 45 quotes plus the validated extension catalog. Every entry has a unique
+/// The bundled quote pool for Daily Highlights: the original 45 historical
+/// quotes, the extension catalog, and 25 sourced athlete quotes. Every entry has a unique
 /// id and a unique text.
 ///
 /// There is no per-day limit. Each app launch shuffles the full pool into one
@@ -18,7 +18,9 @@ struct DailyHighlightQuote: Equatable, Identifiable {
 /// Store screenshots the stable bundled order is used instead, so recorded
 /// output never depends on the shuffle.
 enum DailyHighlightQuoteLibrary {
-    static let all: [DailyHighlightQuote] = cohorts.flatMap { $0 } + DailyHighlightQuoteExtension.quotes
+    static let all: [DailyHighlightQuote] = cohorts.flatMap { $0 }
+        + DailyHighlightQuoteExtension.quotes
+        + AthleteQuotes.quotes
 
     /// The order the rotator walks this launch: shuffled once per process,
     /// stable (unshuffled) whenever `TestHooks` indicates testing.
