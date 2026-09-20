@@ -3,7 +3,7 @@
 **App Store Connect state refreshed: 2026-09-19.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## 2.5 (build 78) prepared for TestFlight (2026-09-19)
+## 2.5 (build 78) VALID on TestFlight (2026-09-19)
 
 Adds 25 sourced athlete quotes (131 total); see `ATHLETE_QUOTES.md` for exact
 wording and sources. Progress and Daily Highlights both skip quotes that cannot
@@ -17,7 +17,14 @@ caption size, including Bold Text; larger text filters the pool. No schema chang
 
 ASC readback before upload: build 77 is VALID; next build number is 78. App Store
 2.5 is PENDING_DEVELOPER_RELEASE; this TestFlight upload does not release it.
-Internal test group A has access to all builds. Upload verification is pending.
+Signed archive/export/upload succeeded from exact main source
+`4ea0d05621e511906b2e7ccbc125ef35d8d4f7dc`. App and widget both report 2.5 (78).
+ASC build `7c3be94a-d36c-4a7a-89e0-a324c7678247` is `VALID` and
+`IN_BETA_TESTING`, with `autoNotifyEnabled: true`. Internal test group A has
+access to all builds. What to Test notes were verified by API readback. An
+immutable local upload receipt records the source SHA and IPA SHA-256 under
+`.asc/artifacts/upload-receipts/`. GitHub CI remains running at release readback;
+the completed local checks above are the validation evidence for this upload.
 
 ## 2.5 (build 76) VALID on TestFlight (2026-09-06)
 

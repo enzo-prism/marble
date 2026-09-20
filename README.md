@@ -74,12 +74,12 @@ Everything is stored on-device. Nothing is tracked or sent to a server (there is
 
 ## Current state (2026-09-19)
 
-**2.5 build 78 is prepared for TestFlight**, adding 25 sourced athlete quotes
+**2.5 build 78 is available on internal TestFlight**, adding 25 sourced athlete quotes
 (131 total) and enforcing complete single-line quotes in Progress and Daily
 Highlights. Quotes that do not fit the current width, Dynamic Type size, and
 Bold Text setting are skipped. See [`ATHLETE_QUOTES.md`](ATHLETE_QUOTES.md).
 
-The latest verified uploaded build before this release is **2.5 (77), VALID**.
+Build 78 is verified `VALID` / `IN_BETA_TESTING` in internal **test group A**.
 App Store 2.5 is separately `PENDING_DEVELOPER_RELEASE`; this internal beta does
 not publish that App Store version. Current upload evidence and validation are
 tracked in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).

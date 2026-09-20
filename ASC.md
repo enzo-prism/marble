@@ -30,7 +30,8 @@ project-local notes.
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
 - ASC public version state: `2.4` (build 61), `READY_FOR_DISTRIBUTION` on 2026-09-04.
-- Working candidate: `2.5` (64). Use the project version for new uploads, not older
+- Latest internal TestFlight: `2.5` (78), verified VALID / IN_BETA_TESTING on 2026-09-19.
+  Use the project version for new uploads, not older
   version strings in historical examples below. See RELEASE_HANDOFF.md for actual
   source/CI/upload/production readbacks.
 
