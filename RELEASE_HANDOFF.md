@@ -1,9 +1,76 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-09-19.**
+**App Store Connect state refreshed: 2026-09-26.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## 2.6 (build 81) VALID on internal TestFlight (2026-09-26)
+
+**App Store 2.5 is released.** Live checks on 2026-09-26 show version 2.5
+`READY_FOR_SALE` / `READY_FOR_DISTRIBUTION`, with a manual release type and no phased
+release attached. The release record says build 77 shipped on 2026-09-23; the API
+link was not re-read. **This supersedes the 2.5 plan below.** Builds 77, 78, 79 and 80
+are no longer candidates, and nothing needs to be withdrawn. A released version
+closes its train to new uploads, so the working train is now **2.6** (#39).
+
+What changed since build 80 (all on `main`, no schema change, still V6):
+- **Data integrity (#37):**
+  - Deleting an exercise now also deletes its `SprintVariant` rows. A one-time V2
+    sweep heals existing stores. Backups skip orphaned variants on export and drop
+    them on restore, so files exported by affected builds restore again.
+  - Apple Health import excludes workouts Marble exported itself. Before, each
+    exported session came back as a duplicate "Strength" entry labeled Apple Watch.
+  - Comma lists of loads (`185,205,225`) are no longer merged into one number.
+- **Import dates and times (#38):**
+  - Dates are the local day at the reference time of day. They were 12:00 UTC:
+    5 AM Pacific, and the next day from UTC+12 eastward.
+  - Year-less dates are never in the future.
+  - Rep notation is no longer read as a date (`135x10/10/10`, `Pull-ups 10/8`,
+    `Run 3/4 mile`).
+  - The model path resolves weekdays, "last Tuesday", "N days ago" and ISO
+    timestamps.
+  - Imported sets are stamped chronologically, so Repeat Workout no longer reverses
+    them. The Journal now lists imported workouts newest-first, like manually
+    logged ones.
+  - No date or session end time is saved in the future.
+
+Upload evidence:
+- **Source:** `main` at `1545832` (merge of #39 on top of #37 and #38).
+- **Workflow:** `release-testflight.yml` run `36268181823`, `confirm=publish`. It
+  succeeded and its `upload-receipt` artifact is preserved.
+- **ASC build:** `0f968345-e621-4781-89d1-3aa5f8abd4ce`, 2.6 (81), `VALID`.
+  Internal `IN_BETA_TESTING` with auto-notify on; external
+  `READY_FOR_BETA_SUBMISSION`.
+
+Validation before upload (local, Xcode 27):
+- **`make unit`:** 890 tests, 5 skips, zero failures. Includes the new
+  `ImportDateTimeZoneTests`, which runs in six time zones; the rest of the suite
+  runs in GMT.
+- **`make ui`:** 72 tests with zero assertion failures. The runner crashed once on
+  launch after a simulator reset and xcodebuild retried.
+- **`make snapshot`:** every group except `WorkoutHistorySnapshotTests` passed.
+  History failed the same 8 comparisons on unchanged `main`, so the failure is an
+  environment issue on local Xcode 27, not these changes.
+- **Hosted CI:** PR #37's only failure was the intermittent
+  `testHistoryAndRecoveryAccessibilityAudit_DefaultText`; a re-run was requested.
+  #37 and #38 were merged by owner decision before hosted CI finished.
+
+Not done for this build:
+- `make release-evidence` (the five-gate manifest) was not run for `1545832`.
+- There is no device signoff.
+- There is no App Store 2.6 version, review submission, or external beta.
+
+Before any 2.6 App Store step, do the following:
+1. Run the gated release chain for the exact source.
+2. Confirm on hardware:
+   - A dated paste (e.g. `9/26 Push`) lands on the right day at a sensible time.
+   - With Health export and auto-import both on, no duplicate appears.
+   - Repeat Workout keeps the exercise order.
+   - Deleting a sprint exercise with a plan, then backing up and restoring, works.
+
 ## 2.5 (build 80) VALID on TestFlight; App Review pending device signoff (2026-09-19)
+
+> Superseded: 2.5 was released on 2026-09-23 (see the 2.6 section above). The plan in
+> this section no longer applies.
 
 Build 80 retains build 78's production app behavior and assets, including 25 new
 athlete quotes and single-line filtering. The submission package has detailed
@@ -1390,7 +1457,7 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # reconcile branch version/build; corrected PR candidate is 2.5 (65), pending final SHA/upload
+make asc-version      # reconcile branch version/build; current train is 2.6 (81 uploaded 2026-09-26)
 make asc-status
 make asc-builds
 make asc-next-build   # query fresh; never reuse a historical expected build number
