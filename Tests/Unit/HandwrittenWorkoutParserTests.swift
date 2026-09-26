@@ -11,8 +11,10 @@ final class HandwrittenWorkoutParserTests: MarbleTestCase {
         HandwrittenWorkoutParser.parse(text, referenceDate: Self.fixedNow)
     }
 
+    /// A parsed date is that local day at the reference's time of day.
     private func expectedDate(year: Int, month: Int, day: Int) -> Date {
-        Self.stableCalendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))!
+        let day = Calendar.current.date(from: DateComponents(year: year, month: month, day: day))!
+        return DateHelper.merge(day: day, time: Self.fixedNow)
     }
 
     // MARK: - Strength: sets × reps
@@ -151,8 +153,10 @@ final class HandwrittenWorkoutParserTests: MarbleTestCase {
     // MARK: - Dates & titles
 
     func testSlashDateHeaderSetsDateAndTitle() {
+        // fixedNow is 2025-01-15: a year-less 1/20 is last January, never a
+        // future workout.
         let draft = parse("1/20 Leg Day")
-        XCTAssertEqual(draft.performedAt, expectedDate(year: 2025, month: 1, day: 20))
+        XCTAssertEqual(draft.performedAt, expectedDate(year: 2024, month: 1, day: 20))
         XCTAssertEqual(draft.title, "Leg Day")
         XCTAssertTrue(draft.exercises.isEmpty)
     }
@@ -199,7 +203,7 @@ final class HandwrittenWorkoutParserTests: MarbleTestCase {
         Plank 3x45s
         """
         let draft = parse(note)
-        XCTAssertEqual(draft.performedAt, expectedDate(year: 2025, month: 6, day: 22))
+        XCTAssertEqual(draft.performedAt, expectedDate(year: 2024, month: 6, day: 22))
         XCTAssertEqual(draft.title, "Push Day")
         XCTAssertEqual(draft.exercises.map(\.name), ["Bench Press", "Incline DB Press", "Pull ups", "Plank"])
         XCTAssertEqual(draft.exercises[0].sets.count, 3)

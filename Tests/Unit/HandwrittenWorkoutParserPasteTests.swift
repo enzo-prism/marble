@@ -215,17 +215,17 @@ final class HandwrittenWorkoutParserPasteTests: MarbleTestCase {
         XCTAssertEqual(components.day, expected.day)
     }
 
-    func testRelativeWordWinsOverExplicitDateOnTheSameLine() {
-        // "yesterday 7/22" — the relative word is read first, so it keeps the
-        // session date; the explicit date is stripped but does not override it.
+    func testExplicitDateWinsOverRelativeWordOnTheSameLine() {
+        // "yesterday 7/22" / "Wednesday 7/15" — the explicit date is the more
+        // specific statement, so it is the session date (it used to be the
+        // relative word, turning "Wednesday 7/15" into last Wednesday). With
+        // fixedNow = 2025-01-15 the year-less 7/22 is last July.
         let draft = parse("yesterday 7/22\nBench 3x8")
         let performedAt = try! XCTUnwrap(draft.performedAt)
-        let expected = Calendar.current.date(byAdding: .day, value: -1, to: Self.fixedNow)!
-        let actual = Self.stableCalendar.dateComponents([.year, .month, .day], from: performedAt)
-        let wanted = Self.stableCalendar.dateComponents([.year, .month, .day], from: expected)
-        XCTAssertEqual(actual.year, wanted.year)
-        XCTAssertEqual(actual.month, wanted.month)
-        XCTAssertEqual(actual.day, wanted.day)
+        let actual = Calendar.current.dateComponents([.year, .month, .day], from: performedAt)
+        XCTAssertEqual(actual.year, 2024)
+        XCTAssertEqual(actual.month, 7)
+        XCTAssertEqual(actual.day, 22)
         XCTAssertEqual(draft.exercises.map(\.name), ["Bench"])
     }
 

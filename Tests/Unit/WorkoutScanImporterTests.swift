@@ -130,7 +130,7 @@ final class WorkoutScanImporterTests: MarbleTestCase {
 
     func testPerformedAtUsesDraftDateWhenPresent() throws {
         let context = makeInMemoryContext()
-        let date = Self.stableCalendar.date(from: DateComponents(year: 2025, month: 6, day: 22, hour: 12))!
+        let date = Self.stableCalendar.date(from: DateComponents(year: 2024, month: 6, day: 22, hour: 12))!
         var draft = strengthDraft()
         draft.performedAt = date
         _ = try WorkoutScanImporter.import(draft, externalID: "hash-dated", in: context)
@@ -141,13 +141,14 @@ final class WorkoutScanImporterTests: MarbleTestCase {
         XCTAssertTrue(entries.allSatisfy { abs($0.performedAt.timeIntervalSince(date)) < 1 })
     }
 
-    /// The journal sorts sets by `performedAt` descending; identical timestamps
-    /// come back in undefined order. The importer must space the sets so a
-    /// newest-first listing reproduces the exact order of the reviewed draft —
-    /// the first exercise typed is the first one shown.
+    /// Identical timestamps come back in undefined order, so the importer spaces
+    /// the sets chronologically: the first reviewed set is the earliest and the
+    /// last ends on the workout date. Session detail and Repeat Workout (which
+    /// read oldest-first) then reproduce the reviewed order, and the journal
+    /// shows it newest-first like any manually logged workout.
     func testImportPreservesReviewOrder() throws {
         let context = makeInMemoryContext()
-        let date = Self.stableCalendar.date(from: DateComponents(year: 2025, month: 6, day: 22, hour: 12))!
+        let date = Self.stableCalendar.date(from: DateComponents(year: 2024, month: 6, day: 22, hour: 12))!
         let draft = ParsedWorkoutDraft(performedAt: date, exercises: [
             ParsedExerciseDraft(name: "Bench", sets: [
                 ParsedSetDraft(weight: 185, reps: 8),
@@ -164,20 +165,27 @@ final class WorkoutScanImporterTests: MarbleTestCase {
         _ = try WorkoutScanImporter.import(draft, externalID: "hash-order", in: context)
 
         let entries = try context.fetch(FetchDescriptor<SetEntry>(
-            sortBy: [SortDescriptor(\.performedAt, order: .reverse)]
+            sortBy: [SortDescriptor(\.performedAt)]
         ))
         XCTAssertEqual(entries.count, 5)
         XCTAssertEqual(entries.map(\.exercise.name), ["Bench", "Bench", "Row", "Plank", "Plank"],
-                       "Newest-first journal order must match the reviewed draft order")
-        // Strictly decreasing: no ties left for the store to scramble.
+                       "Chronological order must match the reviewed draft order")
+        // Strictly increasing: no ties left for the store to scramble.
         for (a, b) in zip(entries, entries.dropFirst()) {
-            XCTAssertGreaterThan(a.performedAt, b.performedAt)
+            XCTAssertLessThan(a.performedAt, b.performedAt)
         }
-        // The whole cascade stays inside the same second and the same day.
+        // The whole cascade stays inside the same second and the same day, and
+        // ends exactly on the workout date.
         XCTAssertEqual(entries.last?.performedAt, date)
-        XCTAssertLessThan(entries.first!.performedAt.timeIntervalSince(date), 1)
+        XCTAssertLessThan(date.timeIntervalSince(entries.first!.performedAt), 1)
         XCTAssertEqual(Self.stableCalendar.startOfDay(for: entries.first!.performedAt),
                        Self.stableCalendar.startOfDay(for: date))
+
+        // The session reads back in reviewed order, so Repeat Workout rebuilds
+        // the same workout instead of reversing it on every repeat.
+        let session = try XCTUnwrap(context.fetch(FetchDescriptor<WorkoutSession>()).first)
+        let repeated = WorkoutRepeatDraft.make(from: session, now: now)
+        XCTAssertEqual(repeated.exercises.map(\.name), ["Bench", "Row", "Plank"])
     }
 
     func testImportAllCommitsIndependentIdentities() throws {
@@ -201,7 +209,7 @@ final class WorkoutScanImporterTests: MarbleTestCase {
 
     func testCSVFidelityMapsRPENotesAndSessionClock() throws {
         let context = makeInMemoryContext()
-        let start = Self.stableCalendar.date(from: DateComponents(year: 2025, month: 3, day: 28, hour: 17, minute: 29))!
+        let start = Self.stableCalendar.date(from: DateComponents(year: 2024, month: 3, day: 28, hour: 17, minute: 29))!
         let draft = ParsedWorkoutDraft(
             performedAt: start,
             endedAt: start.addingTimeInterval(76 * 60),
@@ -308,7 +316,7 @@ final class WorkoutScanImporterTests: MarbleTestCase {
     /// the cascade only orders otherwise-identical timestamps.
     func testExplicitPerSetDatesStillOrderChronologically() throws {
         let context = makeInMemoryContext()
-        let base = Self.stableCalendar.date(from: DateComponents(year: 2025, month: 6, day: 22, hour: 12))!
+        let base = Self.stableCalendar.date(from: DateComponents(year: 2024, month: 6, day: 22, hour: 12))!
         let later = base.addingTimeInterval(3600)
         let draft = ParsedWorkoutDraft(performedAt: base, exercises: [
             ParsedExerciseDraft(name: "Bench", sets: [ParsedSetDraft(weight: 185, reps: 8, performedAt: later)]),
