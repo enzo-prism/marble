@@ -84,6 +84,7 @@ enum MarbleBackupService {
         let sprintGoalSnapshots = try context.fetch(FetchDescriptor<SprintGoalSnapshot>())
         // Schema V6: multi-plan sprint variants + per-rep tenths details.
         let sprintVariants = try context.fetch(FetchDescriptor<SprintVariant>())
+        let exerciseIDs = Set(exercises.map(\.id))
         let sprintRepDetails = try context.fetch(FetchDescriptor<SprintRepDetail>())
         // Schema V5. Omitting this is what silently threw away every weigh-in
         // on a phone-to-phone restore — the same class of bug as the dropped
@@ -110,7 +111,11 @@ enum MarbleBackupService {
             plans: plans.map(PlanRecord.init),
             sprintPrescriptions: sprintPrescriptions.map(SprintPrescriptionRecord.init),
             sprintGoalSnapshots: sprintGoalSnapshots.map(SprintGoalSnapshotRecord.init),
-            sprintVariants: sprintVariants.map(SprintVariantRecord.init),
+            // Never export a variant whose exercise is gone; restore would
+            // have to discard it anyway.
+            sprintVariants: sprintVariants
+                .filter { exerciseIDs.contains($0.exerciseID) }
+                .map(SprintVariantRecord.init),
             sprintRepDetails: sprintRepDetails.map(SprintRepDetailRecord.init),
             bodyMetrics: bodyMetrics.map(BodyMetricRecord.init),
             importedWorkouts: importedWorkouts.map(ImportedWorkoutRecord.init),
@@ -571,7 +576,7 @@ enum MarbleBackupService {
         guard payload.formatVersion == currentVersion else {
             throw MarbleBackupError.unsupportedVersion(payload.formatVersion)
         }
-        return payload
+        return payload.droppingOrphanedSprintVariants()
     }
 
     private static func validate(_ payload: Payload) throws {
@@ -717,7 +722,7 @@ private nonisolated struct Payload: Codable {
     let sprintPrescriptions: [SprintPrescriptionRecord]?
     let sprintGoalSnapshots: [SprintGoalSnapshotRecord]?
     /// V6 multi-plan sprint variants; optional so every pre-V6 file restores.
-    let sprintVariants: [SprintVariantRecord]?
+    var sprintVariants: [SprintVariantRecord]?
     /// V6 per-rep tenths details; optional for the same reason.
     let sprintRepDetails: [SprintRepDetailRecord]?
     /// Optional for the same reason as the two above: a 2.1-era backup has no
@@ -733,6 +738,18 @@ private nonisolated struct Payload: Codable {
     /// See `ProgressMediaRecord` for the full rationale.
     let progressMedia: [ProgressMediaRecord]?
     let customNotifications: [CustomNotificationRecord]?
+
+    /// Exercise deletion used to leave its sprint variants behind, and every
+    /// backup exported afterwards carried them. Such a variant belongs to no
+    /// exercise, can never be shown or logged, and would otherwise fail
+    /// validation for the whole file, so it is dropped rather than refused.
+    func droppingOrphanedSprintVariants() -> Payload {
+        guard let sprintVariants else { return self }
+        let exerciseIDs = Set(exercises.map(\.id))
+        var copy = self
+        copy.sprintVariants = sprintVariants.filter { exerciseIDs.contains($0.exerciseID) }
+        return copy
+    }
 }
 
 private nonisolated struct ImportedWorkoutRecord: Codable {
