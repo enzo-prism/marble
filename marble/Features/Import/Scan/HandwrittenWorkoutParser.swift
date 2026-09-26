@@ -198,21 +198,22 @@ nonisolated enum HandwrittenWorkoutParser {
             var line = normalize(rawLine)
             guard !line.isEmpty else { continue }
 
-            // Relative date words ("yesterday", "today") act like explicit date
-            // headers: set the session date and leave the line.
+            // Relative date words ("yesterday", "Monday") and explicit dates act
+            // as date headers: set the session date (first dated line wins) and
+            // strip them so a "Tuesday 3/5" header isn't mistaken for an
+            // exercise. On one line the explicit date is the more specific
+            // statement and wins ("Wednesday 7/15" is 7/15, not last Wednesday).
+            var lineDate: Date?
             if let relative = detectLeadingRelativeDate(in: line, referenceDate: referenceDate) {
-                if draft.performedAt == nil { draft.performedAt = relative.date }
+                lineDate = relative.date
                 line = normalize(line.replacingCharacters(in: relative.range, with: " "))
-                guard !line.isEmpty else { continue }
             }
-
-            // Pull a date out of the line (first one wins for the session date) and strip
-            // it so a "Tuesday 3/5" header isn't mistaken for an exercise.
-            if let match = detectDate(in: line, referenceDate: referenceDate) {
-                if draft.performedAt == nil { draft.performedAt = match.date }
+            if !line.isEmpty, let match = detectDate(in: line, referenceDate: referenceDate) {
+                lineDate = match.date
                 line = normalize(line.replacingCharacters(in: match.range, with: " "))
-                guard !line.isEmpty else { continue }
             }
+            if let lineDate, draft.performedAt == nil { draft.performedAt = lineDate }
+            guard !line.isEmpty else { continue }
 
             // Numbered session labels (`Day 1`, `Session 2: Legs`) split a
             // paste, then stay in each segment. Consume them here so they

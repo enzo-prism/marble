@@ -299,18 +299,12 @@ nonisolated struct GeneratedWorkout {
     }
 
     /// Calendar math stays out of the model: it reports the date *text* and code
-    /// resolves it — relative words directly, explicit forms via the deterministic
-    /// parser's date rules.
+    /// resolves it with exactly the deterministic parser's rules (local day,
+    /// reference time of day, no future year-less dates). Weekdays, "last
+    /// Tuesday", and "2 days ago" used to resolve to nil here and silently
+    /// became "now".
     static func resolveDate(_ text: String, referenceDate: Date) -> Date? {
-        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !cleaned.isEmpty else { return nil }
-        if cleaned.contains("today") || cleaned.contains("this morning") || cleaned.contains("tonight") {
-            return referenceDate
-        }
-        if cleaned.contains("yesterday") || cleaned.contains("last night") {
-            return Calendar.current.date(byAdding: .day, value: -1, to: referenceDate)
-        }
-        return HandwrittenWorkoutParser.explicitDate(in: cleaned, referenceDate: referenceDate)
+        HandwrittenWorkoutDateParser.resolveDateText(text, referenceDate: referenceDate)
     }
 }
 

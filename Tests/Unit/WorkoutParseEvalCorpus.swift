@@ -108,11 +108,11 @@ extension WorkoutParseEvalCase {
             }
         }
 
-        // Date is compared as calendar components in the same fixed UTC calendar the
-        // parser uses, so the noon-UTC anchoring detail doesn't leak into cases.
+        // Date is compared as local calendar components — the parser resolves
+        // dates as local days, so the time of day doesn't leak into cases.
         if expected.month != nil || expected.day != nil || expected.year != nil {
             if let performedAt = draft.performedAt {
-                let components = Self.utcCalendar.dateComponents([.year, .month, .day], from: performedAt)
+                let components = Calendar.current.dateComponents([.year, .month, .day], from: performedAt)
                 if let month = expected.month, components.month != month {
                     failures.append("date: expected month \(month), got \(components.month.map(String.init) ?? "nil")")
                 }
@@ -185,12 +185,6 @@ extension WorkoutParseEvalCase {
 
         return (failures.isEmpty, failures)
     }
-
-    private static let utcCalendar: Calendar = {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
-        return calendar
-    }()
 }
 
 extension WorkoutParseEvalCase {
@@ -269,15 +263,16 @@ extension WorkoutParseEvalCase {
         ),
         WorkoutParseEvalCase(
             name: "date header with title and exercises",
-            // No year written, so the parser adopts the reference year (2025 for
-            // MarbleTestCase.fixedNow).
+            // No year written, so the parser takes the most recent 7/22 on or
+            // before the reference day (2024 for MarbleTestCase.fixedNow,
+            // 2025-01-15) — never a future workout.
             input: "7/22 Push Day\nOHP 5x5 @ 95\nDips 3x12",
             tier: .notation,
             expected: ExpectedWorkout(
                 title: "Push Day",
                 month: 7,
                 day: 22,
-                year: 2025,
+                year: 2024,
                 exercises: [
                     ExpectedExercise(name: "OHP", setCount: 5, reps: 5, weight: 95),
                     ExpectedExercise(name: "Dips", setCount: 3, reps: 12)
