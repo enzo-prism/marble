@@ -151,6 +151,34 @@ final class HandwrittenWorkoutParserPasteTests: MarbleTestCase {
         XCTAssertEqual(draft.exercises[0].sets.map(\.weight), [135, 155, 185])
     }
 
+    /// A comma list of loads used to collapse into one number
+    /// ("185,205,225" → 185,205,225 lb).
+    func testCommaListOfLoadsIsNeverMergedIntoOneNumber() {
+        func shape(_ text: String) -> [[Double?]] {
+            parse(text).exercises.map { $0.sets.map(\.weight) }
+        }
+        for (commaList, spaced) in [
+            ("Squat 5x5 185,205,225", "Squat 5x5 185 205 225"),
+            ("Bench 135,155,175", "Bench 135 155 175"),
+        ] {
+            let weights = shape(commaList).flatMap { $0 }.compactMap { $0 }
+            XCTAssertTrue(weights.allSatisfy { $0 <= 225 }, "\(commaList) → \(weights)")
+            // A comma list reads exactly like the same loads separated by spaces.
+            XCTAssertEqual(shape(commaList), shape(spaced), commaList)
+        }
+        XCTAssertEqual(parse("Bench 135x10,155x8").exercises[0].sets.map(\.weight), [135, 155])
+    }
+
+    func testThousandsSeparatorNextToUnitOrRepsParsesCorrectly() {
+        let legPress = parse("Leg Press 2x10 @ 1,100lb").exercises[0].sets
+        XCTAssertEqual(legPress.map(\.weight), [1100, 1100])
+        XCTAssertTrue(legPress.allSatisfy { $0.weightUnit == .lb })
+        // Reps then a comma then the load: never "10155".
+        let bench = parse("Bench 3x10,155").exercises[0].sets
+        XCTAssertEqual(bench.map(\.reps), [10, 10, 10])
+        XCTAssertEqual(bench.map(\.weight), [155, 155, 155])
+    }
+
     // MARK: - AMRAP / failure / EMOM
 
     func testAmrapKeepsSetCountWithNoReps() {

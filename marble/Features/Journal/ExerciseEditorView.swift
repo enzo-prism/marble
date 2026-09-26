@@ -789,6 +789,12 @@ struct ExerciseEditorView: View {
         sprintPrescriptions
             .filter { $0.exerciseID == exercise.id }
             .forEach(modelContext.delete)
+        // Variants reference the exercise by raw UUID, so nothing cascades. A
+        // leftover variant used to ride along in every later backup and fail
+        // restore validation (unknown exerciseID).
+        sprintVariants
+            .filter { $0.exerciseID == exercise.id }
+            .forEach(modelContext.delete)
         modelContext.delete(exercise)
         do {
             try modelContext.save()

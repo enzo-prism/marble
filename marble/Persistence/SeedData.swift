@@ -6,6 +6,7 @@ enum SeedData {
     private static let didEnsureSplitPlanKey = "didEnsureMarbleSplitPlan"
     private static let didBackfillSprintGoalsKey = "didBackfillSprintGoalsV4"
     private static let didCleanOrphansV1Key = "didCleanMarbleOrphansV1"
+    private static let didCleanOrphansV2Key = "didCleanMarbleOrphansV2"
 
     static func seedIfNeeded(in context: ModelContext) {
         if TestHooks.isUITesting {
@@ -93,11 +94,22 @@ enum SeedData {
         in context: ModelContext,
         defaults: UserDefaults = .standard
     ) {
-        guard !defaults.bool(forKey: didCleanOrphansV1Key) else { return }
-        SprintPrescription.removeOrphans(in: context)
-        SprintGoalSnapshot.removeOrphans(in: context)
-        if context.saveOrRollback() {
-            defaults.set(true, forKey: didCleanOrphansV1Key)
+        if !defaults.bool(forKey: didCleanOrphansV1Key) {
+            SprintPrescription.removeOrphans(in: context)
+            SprintGoalSnapshot.removeOrphans(in: context)
+            if context.saveOrRollback() {
+                defaults.set(true, forKey: didCleanOrphansV1Key)
+            }
+        }
+        // V2: exercise deletion used to leave `SprintVariant` rows behind, and
+        // each one made every later backup fail restore validation.
+        // Heal existing stores once; the delete path now cleans up itself.
+        if !defaults.bool(forKey: didCleanOrphansV2Key) {
+            SprintVariant.removeOrphans(in: context)
+            SprintRepDetail.removeOrphans(in: context)
+            if context.saveOrRollback() {
+                defaults.set(true, forKey: didCleanOrphansV2Key)
+            }
         }
     }
 
