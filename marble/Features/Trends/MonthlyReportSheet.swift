@@ -13,8 +13,11 @@ struct MonthlyReportSheet: View {
     @AppStorage(SharedDefaults.Key.preferredWeightUnit, store: SharedDefaults.suite)
     private var preferredWeightUnitRaw = WeightUnit.lb.rawValue
 
-    @State private var insights: [String] = []
-    @State private var isLoadingInsights = true
+    @State private var insights: TrainingInsights.Result?
+
+    private var weightUnit: WeightUnit {
+        WeightUnit(rawValue: preferredWeightUnitRaw) ?? .lb
+    }
 
     var body: some View {
         NavigationStack {
@@ -51,9 +54,8 @@ struct MonthlyReportSheet: View {
                 }
             }
         }
-        .task {
-            insights = await TrainingInsights.insights(for: report)
-            isLoadingInsights = false
+        .task(id: preferredWeightUnitRaw) {
+            insights = await TrainingInsights.insights(for: report, unit: weightUnit)
         }
     }
 
@@ -61,7 +63,7 @@ struct MonthlyReportSheet: View {
         let cells: [(String, String, String?)] = [
             ("Sessions", "\(report.sessions)", report.sessionsDelta.map { String(format: "%+d", $0) }),
             ("Sets", "\(report.sets)", nil),
-            ("Volume", MonthlyReportPhrasing.volumeText(kilograms: report.volumeKilograms), report.volumeDeltaPercent.map { String(format: "%+.0f%%", $0) }),
+            ("Volume", MonthlyReportPhrasing.volumeText(kilograms: report.volumeKilograms, unit: weightUnit), report.volumeDeltaPercent.map { String(format: "%+.0f%%", $0) }),
             (report.prCount == 1 ? "Record" : "Records", "\(report.prCount)", report.prDelta.map { String(format: "%+d", $0) })
         ]
 
@@ -103,7 +105,7 @@ struct MonthlyReportSheet: View {
     /// month holds no weigh-in, so the report never invents a bodyweight story.
     private var bodyweightText: String? {
         guard let end = report.bodyweightEndKilograms else { return nil }
-        let unit = WeightUnit(rawValue: preferredWeightUnitRaw) ?? .lb
+        let unit = weightUnit
         var parts = ["\(weightText(kilograms: end, in: unit)) \(unit.symbol)"]
         if let delta = report.bodyweightDeltaKilograms {
             let magnitude = weightText(kilograms: abs(delta), in: unit)
@@ -182,17 +184,9 @@ struct MonthlyReportSheet: View {
                 .font(MarbleTypography.sectionTitle)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
-            if isLoadingInsights {
-                HStack(spacing: MarbleSpacing.s) {
-                    ProgressView()
-                    Text("Reading your month…")
-                        .font(MarbleTypography.rowMeta)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                }
-                .padding(MarbleSpacing.s)
-            } else {
+            if let insights {
                 VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                    ForEach(insights, id: \.self) { insight in
+                    ForEach(insights.lines, id: \.self) { insight in
                         Label {
                             Text(insight)
                                 .font(MarbleTypography.rowSubtitle)
@@ -208,13 +202,33 @@ struct MonthlyReportSheet: View {
                 .padding(MarbleSpacing.s)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+            } else {
+                HStack(spacing: MarbleSpacing.s) {
+                    ProgressView()
+                    Text("Reading your month…")
+                        .font(MarbleTypography.rowMeta)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+                .padding(MarbleSpacing.s)
             }
 
-            Text("Computed privately on this device. Insights phrase the stats above — the numbers come first.")
+            Text(Self.provenanceText(for: insights?.source))
                 .font(MarbleTypography.caption)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityIdentifier("Trends.MonthlyReportSheet.Insights")
+    }
+
+    /// Says who wrote the sentences: Apple Intelligence's phrasing and the
+    /// fixed templates read alike, so the footer is the only place a reader
+    /// can tell. Before the insights land it keeps the neutral promise.
+    static func provenanceText(for source: TrainingInsights.Source?) -> String {
+        switch source {
+        case .appleIntelligence:
+            return "Written with Apple Intelligence from your logged numbers, privately on this device. The numbers above come first."
+        case .template, nil:
+            return "Computed privately on this device. Insights phrase the stats above — the numbers come first."
+        }
     }
 }
