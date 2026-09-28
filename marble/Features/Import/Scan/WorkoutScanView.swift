@@ -5,7 +5,8 @@ import SwiftUI
 /// The end-to-end "scan a handwritten workout" flow: capture → on-device read →
 /// review/edit → add to journal. Presented as a sheet from the import screen.
 struct WorkoutScanView: View {
-    @State private var viewModel = WorkoutScanViewModel()
+    // Explicit so a kg lifter's bare "Squat 5x5 @ 100" scans as kg, matching Paste or Type.
+    @State private var viewModel = WorkoutScanViewModel(defaultWeightUnit: WorkoutTextEntryViewModel.preferredWeightUnit)
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
