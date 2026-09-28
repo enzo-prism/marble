@@ -1,7 +1,98 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-09-26.**
+**App Store Connect state refreshed: 2026-09-27.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
+
+## 2.6 (build 82) VALID on internal TestFlight (2026-09-27)
+
+Build 82 is build 81 plus the Apple Intelligence improvements (#41) and the Xcode
+26.x build fix (#43). App Store state is unchanged from the 2.6 (81) section below:
+2.5 is live, there is no 2.6 App Store version, and the train is still 2.6.
+
+What changed since build 81 (no schema change, still V6):
+- **Parser and model calls:**
+  - Weights written without a unit use the user's preferred unit on the model path
+    and on scan. Before, both assumed lb.
+  - Only transient model errors are retried. A 10-minute circuit breaker stops
+    calling the model after asset or unknown failures.
+  - Locale and context-window checks run before any model call.
+  - Prewarm now warms the pass that runs first.
+  - A new `ModelEscalationPolicy` sends implausible "complete" deterministic
+    parses to the model (e.g. `Bench 225x5x3` read as 225 sets). Clean notation
+    skips the model, in the composer and on scan.
+- **Arbiter:**
+  - Exercise names and units are checked against the source text.
+  - Spelled-out set counts count as evidence, and invented exercises and sets
+    are penalized.
+  - When the model's draft wins, notes and RPE from the other draft are kept.
+  - Drafts now record `interpretedByModel` (optional, so saved drafts still
+    decode).
+- **Composer:**
+  - A Stop button appears while reading.
+  - The review screen says "Read with Apple Intelligence — check the numbers"
+    when the model's draft won.
+  - Unread lines stay visible when the deterministic draft wins.
+  - Failure messages explain the cause.
+- **Training Insights:**
+  - Sentences with numbers not in the facts are dropped, and health advice is
+    blocked.
+  - Text is stable (greedy sampling, cached per month) and capped at 2–3
+    sentences.
+  - Volume uses the preferred unit, including on the Coaching card.
+  - The footer says when Apple Intelligence wrote the text.
+
+Toolchain trap (#43): release and CI builds are pinned to **Xcode 26.6** (iOS 26.5
+SDK). #41 was developed and tested on local Xcode 27, and it used symbols that
+exist only in the iOS 27 SDK: `GenerationOptions(samplingMode:)`,
+`LanguageModelError`, `SystemLanguageModel.Error`, `LanguageModelSession.Error` and
+`GeneratedContent.ParsingError`. The first build-82 upload run (`36369370407`)
+therefore failed at archive; nothing was uploaded. Those symbols now sit behind
+`#if compiler(>=6.4)`. Before merging FoundationModels API changes, run the
+release dry run on the branch: `gh workflow run release-testflight.yml --ref
+<branch> -f confirm=publish -f dry_run=true`. It passed for #43 as run
+`36370170710`.
+
+Upload evidence:
+- **Source:** `main` at `4515fe5` (#43 on top of #41 and #42, the build bump).
+- **Workflow:** `release-testflight.yml` run `36370477313`, which succeeded; its
+  `upload-receipt` artifact is preserved.
+- **ASC build:** `2da4ad84-097f-4f5d-83e8-b4257edef403`, 2.6 (82), `VALID`.
+  Internal `IN_BETA_TESTING` with auto-notify on; external
+  `READY_FOR_BETA_SUBMISSION`.
+
+Validation:
+- **`make unit` (local Xcode 27):** 964 tests with 6 skips. The only failure was
+  an existing retry-concurrency test that now takes the deterministic path; its
+  input was switched to prose and its class then passed 52/52. The full suite was
+  not re-run after that fix.
+- **Apple Intelligence quality:** measured with a macOS harness that compiles the
+  real parsing sources against the host's on-device model. The iOS 26.5
+  simulator on this macOS 27 host reports the model `.available`, but every call
+  fails for missing model assets, so the XCTest live eval can't run here.
+  Results over 114 cases, one run each:
+
+  | | Before | After |
+  |---|---|---|
+  | Overall | 70.2% | 74.6% |
+  | Notation | 33/34 | 34/34 |
+  | New hard corpus | 54.9% | 60.6% |
+  | Mean latency | 4.0 s | 1.9 s |
+  | p50 latency | 3.5 s | ~0 s (clean notation skips the model) |
+
+  The Mac model may differ from an iPhone's.
+- **Not run:** the UI and snapshot suites (#41 adds a Stop button, the provenance
+  and model-issue captions, and changes the Coaching card's volume text for lb
+  users, so Trends snapshot baselines may need a deliberate re-record);
+  `make release-evidence`; device signoff.
+
+Before any 2.6 App Store step, do the checks listed in the build 81 section, plus
+these on hardware:
+- Dictate a workout in plain sentences.
+- Paste `Bench 225x5x3`.
+- As a kg user, enter a weight without a unit.
+- Tap Stop while a workout is being read.
+- Open the Monthly Report twice; the insights must match, and the volume unit
+  must be correct.
 
 ## 2.6 (build 81) VALID on internal TestFlight (2026-09-26)
 
@@ -1457,7 +1548,7 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # reconcile branch version/build; current train is 2.6 (81 uploaded 2026-09-26)
+make asc-version      # reconcile branch version/build; current train is 2.6 (82 uploaded 2026-09-27)
 make asc-status
 make asc-builds
 make asc-next-build   # query fresh; never reuse a historical expected build number
