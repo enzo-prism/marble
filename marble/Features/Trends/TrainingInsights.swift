@@ -68,7 +68,7 @@ enum TrainingInsights {
                 generating: GeneratedInsights.self,
                 // Greedy: the same month reads the same way every time the
                 // sheet opens, instead of reshuffling its sentences.
-                options: GenerationOptions(samplingMode: .greedy)
+                options: GenerationOptions(sampling: .greedy)
             )
             if let lines = InsightValidator.validated(response.content.insights, facts: key.facts, unit: unit) {
                 result = Result(lines: lines, source: .appleIntelligence)

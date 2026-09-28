@@ -445,7 +445,7 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
         let response = try await session.respond(
             to: Pass.rewrite.prompt(for: ocrText),
             generating: GeneratedNotation.self,
-            options: GenerationOptions(samplingMode: .greedy)
+            options: GenerationOptions(sampling: .greedy)
         )
         let notation = response.content
         let text = notation.lines.joined(separator: "\n")
@@ -469,7 +469,7 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
         let response = try await session.respond(
             to: Pass.generate.prompt(for: ocrText),
             generating: GeneratedWorkout.self,
-            options: GenerationOptions(samplingMode: .greedy)
+            options: GenerationOptions(sampling: .greedy)
         )
         let draft = response.content.draft(referenceDate: referenceDate, defaultWeightUnit: defaultWeightUnit)
         // The model occasionally returns nothing usable; the arbiter treats nil
@@ -486,6 +486,10 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
     static func classify(_ error: any Error) -> ModelFailure {
         if error is CancellationError { return .cancelled }
         #if canImport(FoundationModels)
+        // The iOS 27 error types exist only in the iOS 27 SDK (Xcode 27, Swift
+        // 6.4). Release archives are pinned to Xcode 26.x, where naming them
+        // fails to compile regardless of `#available`, so gate on the compiler.
+        #if compiler(>=6.4)
         if #available(iOS 27.0, *) {
             if let error = error as? LanguageModelError {
                 switch error {
@@ -506,6 +510,7 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
             }
             if error is GeneratedContent.ParsingError { return .decodingFailure }
         }
+        #endif
         if #available(iOS 26.0, *), let error = error as? LanguageModelSession.GenerationError {
             switch error {
             case .exceededContextWindowSize: return .contextWindowExceeded
