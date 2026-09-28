@@ -488,6 +488,16 @@ struct MonthlyReportCardView: View {
     let onOpen: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(SharedDefaults.Key.preferredWeightUnit, store: SharedDefaults.suite)
+    private var preferredWeightUnitRaw = WeightUnit.lb.rawValue
+
+    /// Volume in the lifter's own unit, matching the report sheet.
+    private var volumeText: String {
+        MonthlyReportPhrasing.volumeText(
+            kilograms: report.volumeKilograms,
+            unit: WeightUnit(rawValue: preferredWeightUnitRaw) ?? .lb
+        )
+    }
 
     var body: some View {
         Button {
@@ -510,7 +520,7 @@ struct MonthlyReportCardView: View {
 
                 HStack(spacing: MarbleSpacing.m) {
                     reportMetric(value: "\(report.sessions)", label: "sessions", delta: report.sessionsDelta.map(deltaText))
-                    reportMetric(value: MonthlyReportPhrasing.volumeText(kilograms: report.volumeKilograms), label: "volume", delta: report.volumeDeltaPercent.map { deltaPercentText($0) })
+                    reportMetric(value: volumeText, label: "volume", delta: report.volumeDeltaPercent.map { deltaPercentText($0) })
                     reportMetric(value: "\(report.prCount)", label: report.prCount == 1 ? "PR" : "PRs", delta: report.prDelta.map(deltaText))
                 }
 
@@ -569,7 +579,7 @@ struct MonthlyReportCardView: View {
         var parts = [
             reportTitle,
             "\(report.sessions) sessions",
-            "volume \(MonthlyReportPhrasing.volumeText(kilograms: report.volumeKilograms))",
+            "volume \(volumeText)",
             "\(report.prCount) personal records"
         ]
         if let comparisonLabel = report.comparisonLabel {

@@ -306,12 +306,15 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         await viewModel.preview(in: context)
         XCTAssertEqual(viewModel.unparsedLines, ["round 2 of 3 felt easy", "round 2 of 3 felt easy"])
 
+        // Prose, not notation: clean notation now resolves deterministically
+        // without awaiting the parser, and this test needs both retries
+        // suspended in the model path at once.
         let first = Task { @MainActor in
-            await viewModel.retryUnparsedLine(at: 0, replacement: "Squat 1x5")
+            await viewModel.retryUnparsedLine(at: 0, replacement: "Squat felt heavy today")
         }
         await Task.yield()
         let second = Task { @MainActor in
-            await viewModel.retryUnparsedLine(at: 1, replacement: "Row 1x5")
+            await viewModel.retryUnparsedLine(at: 1, replacement: "Row felt easy today")
         }
         await first.value
         await second.value
