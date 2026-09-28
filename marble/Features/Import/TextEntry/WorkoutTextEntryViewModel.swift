@@ -269,6 +269,32 @@ final class WorkoutTextEntryViewModel {
     /// parser is always used as a fallback regardless.
     var usesOnDeviceModel: Bool { FoundationModelsWorkoutScanParser.isAvailable }
 
+    /// Why Apple Intelligence didn't help with the last parse, in words the
+    /// user can act on; nil when it ran fine or was never needed.
+    private(set) var modelIssueNote: String?
+
+    private func recordModelIssue() {
+        guard let issue = (parser as? FoundationModelsWorkoutScanParser)?.lastModelIssue else { return }
+        switch issue {
+        case .inputTooLong:
+            modelIssueNote = "That's more than Apple Intelligence can read at once — put a date or a blank line between workouts to split it."
+        case .unsupportedLanguage:
+            modelIssueNote = "Apple Intelligence doesn't support this language yet, so only gym notation was read."
+        case .unavailable, .failed:
+            modelIssueNote = "Apple Intelligence couldn't read this right now, so only gym notation was read."
+        }
+    }
+
+    /// Abandons an in-flight parse and returns to the editor with the text
+    /// intact. The model call can't be interrupted, but its result is ignored.
+    func stopProcessing() {
+        guard phase == .processing else { return }
+        previewGeneration += 1
+        batchProgress = nil
+        parseStage = .readingNotation
+        phase = .input
+    }
+
     /// Privacy / availability line under the editor. Matches Apple's
     /// `SystemLanguageModel.availability` cases instead of a generic lock label.
     var privacyCaption: String {
@@ -324,6 +350,7 @@ final class WorkoutTextEntryViewModel {
         parseStage = .readingNotation
         batchProgress = nil
         errorMessage = nil
+        modelIssueNote = nil
         reviewingSessionID = nil
 
         let segments = WorkoutImportOrchestrator.segments(
@@ -382,7 +409,12 @@ final class WorkoutTextEntryViewModel {
         sessions = built
 
         guard sessions.contains(where: { $0.draft.hasContent }) else {
-            errorMessage = "Couldn't find any exercises in that text. Try one exercise per line, like \"Bench Press 3x8 @ 185, rest 90s\", or import a Hevy/Strong CSV."
+            let guidance = "Try one exercise per line, like \"Bench Press 3x8 @ 185, rest 90s\", or import a Hevy/Strong CSV."
+            if let modelIssueNote {
+                errorMessage = "Couldn't find any exercises in that text. \(modelIssueNote) \(guidance)"
+            } else {
+                errorMessage = "Couldn't find any exercises in that text. \(guidance)"
+            }
             phase = .input
             return
         }
@@ -417,7 +449,11 @@ final class WorkoutTextEntryViewModel {
         let meaningfulDrops = diagnostics.droppedLines.filter { line in
             !HandwrittenWorkoutParser.isSessionSplitHeader(line, referenceDate: AppEnvironment.now)
         }
-        if meaningfulDrops.isEmpty, diagnostics.draft.hasContent {
+        // A complete-looking parse can still be confidently wrong ("Bench
+        // 225x5x3" as 225 sets, two exercises joined on one line); those go to
+        // the model too instead of straight to review.
+        if meaningfulDrops.isEmpty, diagnostics.draft.hasContent,
+           !ModelEscalationPolicy.deterministicDraftNeedsModel(diagnostics.draft, sourceText: segment.sourceText) {
             var draft = diagnostics.draft
             if draft.title == ParsedWorkoutDraft().title { draft.title = Self.defaultTitle }
             return (draft, [])
@@ -427,7 +463,12 @@ final class WorkoutTextEntryViewModel {
             await MainActor.run { self.parseStage = stage }
         }
         if parsed.title == ParsedWorkoutDraft().title { parsed.title = Self.defaultTitle }
-        let unparsed = diagnostics.droppedLines.filter { line in
+        recordModelIssue()
+        // When the deterministic parse won, nothing read the dropped lines:
+        // keep every one visible. Only a model draft can have absorbed them,
+        // and then only lines naming one of its exercises count as read.
+        guard parsed.interpretedByModel == true else { return (parsed, meaningfulDrops) }
+        let unparsed = meaningfulDrops.filter { line in
             let lowered = line.lowercased()
             return !parsed.importableExercises.contains { exercise in
                 let name = exercise.trimmedName.lowercased()
@@ -533,7 +574,22 @@ final class WorkoutTextEntryViewModel {
             }
             return
         }
-        let parsed = await parser.parse(ocrText: trimmed, referenceDate: AppEnvironment.now)
+        // An edited line is usually rewritten into notation: take the
+        // deterministic read when it is clean and plausible, and only pay for
+        // the on-device model when it isn't.
+        let quick = HandwrittenWorkoutParser.parseDetailed(
+            trimmed,
+            referenceDate: AppEnvironment.now,
+            defaultWeightUnit: defaultWeightUnit
+        )
+        let parsed: ParsedWorkoutDraft
+        if quick.droppedLines.isEmpty, quick.draft.hasContent,
+           !ModelEscalationPolicy.deterministicDraftNeedsModel(quick.draft, sourceText: trimmed) {
+            parsed = quick.draft
+        } else {
+            parsed = await parser.parse(ocrText: trimmed, referenceDate: AppEnvironment.now)
+            recordModelIssue()
+        }
         // Parsing yields the main actor. Another retry may have removed or
         // moved this row, so resolve it again by stable identity rather than
         // text, which may be identical in another row.
