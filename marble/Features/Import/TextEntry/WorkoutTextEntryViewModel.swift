@@ -452,8 +452,11 @@ final class WorkoutTextEntryViewModel {
         // A complete-looking parse can still be confidently wrong ("Bench
         // 225x5x3" as 225 sets, two exercises joined on one line); those go to
         // the model too instead of straight to review.
-        if meaningfulDrops.isEmpty, diagnostics.draft.hasContent,
-           !ModelEscalationPolicy.deterministicDraftNeedsModel(diagnostics.draft, sourceText: segment.sourceText) {
+        if !ModelEscalationPolicy.shouldRunModel(
+            for: diagnostics,
+            sourceText: segment.sourceText,
+            referenceDate: AppEnvironment.now
+        ) {
             var draft = diagnostics.draft
             if draft.title == ParsedWorkoutDraft().title { draft.title = Self.defaultTitle }
             return (draft, [])

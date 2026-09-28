@@ -177,7 +177,8 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
         return WorkoutDraftArbiter.choose(
             deterministic: deterministic,
             candidates: candidates,
-            sourceText: ocrText
+            sourceText: ocrText,
+            defaultWeightUnit: defaultWeightUnit
         )
     }
 
