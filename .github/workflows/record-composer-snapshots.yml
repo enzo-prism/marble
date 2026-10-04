@@ -1,0 +1,40 @@
+name: Record Composer snapshots
+
+# Deliberate baseline maintenance on the same toolchain as release checks.
+# Download and review the artifact before committing any changed reference.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: record-composer-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select pinned Xcode
+        run: bash scripts/select_ci_xcode.sh
+      - name: Record Composer references
+        env:
+          SNAPSHOT_GROUPS_OVERRIDE: MarbleSnapshotTests/WorkoutComposerSnapshotTests
+        run: make snapshot-record
+      - name: Verify recorded Composer references
+        env:
+          SNAPSHOT_GROUPS_OVERRIDE: MarbleSnapshotTests/WorkoutComposerSnapshotTests
+        run: make snapshot
+      - name: Upload references for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: composer-snapshot-references
+          path: |
+            Tests/Snapshots/__Snapshots__/WorkoutComposerSnapshotTests/*.png
+            TestResults/*.xcresult
+          if-no-files-found: error
+          retention-days: 14
