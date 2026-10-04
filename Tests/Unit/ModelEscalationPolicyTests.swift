@@ -125,4 +125,28 @@ final class ModelEscalationPolicyTests: MarbleTestCase {
         XCTAssertTrue(ModelEscalationPolicy.nameReadsAsProse("Ran a mile in"))
         XCTAssertTrue(ModelEscalationPolicy.nameReadsAsProse("bench then dropped"))
     }
+    func testExplicitNumericCountsEscalateWhenNotRepresented() {
+        for input in ["jump rope 5 rounds of 3 min, 1 min rest",
+                      "tricep extentions 3 sets 12 reps 40lbs"] {
+            XCTAssertTrue(reasons(input).contains(.explicitSetCountMismatch), input)
+            XCTAssertTrue(ModelEscalationPolicy.shouldRunModel(for: parse(input), sourceText: input, referenceDate: now))
+        }
+    }
+
+    func testExplicitPluralLoadEscalatesForDistanceWork() {
+        let input = "farmer carry 3x40m with 32s"
+        XCTAssertTrue(reasons(input, unit: .kg).contains(.ignoredLoad))
+        XCTAssertFalse(reasons("Farmer carry 3x40m @ 32kg", unit: .kg).contains(.ignoredLoad))
+        for input in ["Plank 3x45s with 30s rest", "Plank 3x45s with 30s of rest",
+                      "Plank 3x45s with 30s between sets", "Plank 3x45s with 30s, rest"] {
+            XCTAssertFalse(reasons(input).contains(.ignoredLoad), input)
+        }
+    }
+
+    func testCountEvidenceIsNotAppliedAcrossMultipleMovements() {
+        let input = "Bench 3 sets of 8 and Squat 5 sets of 5"
+        XCTAssertFalse(reasons(input).contains(.explicitSetCountMismatch))
+        XCTAssertFalse(reasons("Bench 3x8 3 sets").contains(.explicitSetCountMismatch))
+    }
+
 }
