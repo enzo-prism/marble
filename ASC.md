@@ -6,7 +6,7 @@ instead of re-discovering the release setup.
 
 ## Current Baseline
 
-- Installed CLI checked on 2026-09-04: `asc 4.11.0` (also pinned in release workflows)
+- Installed CLI checked on 2026-10-04: `asc 5.8.0` (also pinned in release workflows)
 - Install source: standalone binary at `/Users/enzo/.local/bin/asc` (not Homebrew-managed)
 - Public CLI docs: https://docs.asccli.sh/
 - CLI project: https://github.com/rorkai/App-Store-Connect-CLI
@@ -29,8 +29,10 @@ project-local notes.
 - Archive path: `.asc/artifacts/marble.xcarchive`
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
-- ASC public version state: `2.4` (build 61), `READY_FOR_DISTRIBUTION` on 2026-09-04.
-- Latest internal TestFlight: `2.5` (78), verified VALID / IN_BETA_TESTING on 2026-09-19.
+- ASC public version: `2.5` (77), build `20b9fd0a-d15d-45b0-b063-237efd6b1430`.
+- Latest internal TestFlight: `2.6` (82), build `2da4ad84-097f-4f5d-83e8-b4257edef403`,
+  verified VALID / IN_BETA_TESTING on 2026-10-04; strict validation has zero findings.
+- Local candidate: `2.6` (83), not uploaded or released; full gates and hardware signoff pending.
   Use the project version for new uploads, not older
   version strings in historical examples below. See RELEASE_HANDOFF.md for actual
   source/CI/upload/production readbacks.
@@ -98,9 +100,9 @@ GitHub Actions secrets.
 Those `make asc-*` targets already know the Marble app ID, scheme, project path, artifact
 paths, the required archive destination wiring, and the marketing-version
 fallback for this Xcode setup. `make asc-review` and `make asc-validate` use
-`ASC_APPSTORE_VERSION` (should be `2.4`); `make asc-next-build` and
-`make asc-publish-testflight` use `ASC_TESTFLIGHT_VERSION` (defaulting to the local
-marketing version) for the next upload number.
+`ASC_APPSTORE_VERSION` (2.6 for the candidate, once created). `make asc-next-build`
+is app-wide. Publishing reads the version/build from the checked-in project;
+`ASC_TESTFLIGHT_VERSION` selects read-only status and strict validation commands.
 
 ## New Machine Checklist
 
@@ -191,32 +193,39 @@ Use `asc xcode version --help` before editing or bumping versions.
 ### Release Status And Readiness
 
 ```bash
-make asc-status
-make asc-review
-make asc-validate
+# Current uploaded build; without BUILD_ID, status selects the local project build.
+make asc-status BUILD_ID=2da4ad84-097f-4f5d-83e8-b4257edef403
+make asc-testflight-validate BUILD_ID=2da4ad84-097f-4f5d-83e8-b4257edef403
 make asc-next-build
+# Only after the 2.6 App Store version exists:
+make asc-validate ASC_APPSTORE_VERSION=2.6
 ```
 
-Direct equivalents:
+Status reads exact build/app/train/beta relationships because the aggregate
+`asc status` dashboard has reported stale beta state. It does not imply readiness.
+TestFlight and App Store validators use strict mode and preserve nonzero failures.
+`asc-next-build` considers all version trains and in-flight uploads; last verified
+result was 83. A stale local marketing version must not suggest an old build number.
+
+Stage syntax for ASC 5.8.0 is `--build-id`, with either `--metadata-dir` or
+`--copy-metadata-from` required. The repo uses tracked metadata automatically:
 
 ```bash
-asc status --app "6757725234" --output table
-asc review status --app "6757725234" --version "2.4" --platform IOS --output table
-asc review doctor --app "6757725234" --version "2.4" --platform IOS --output table
-asc validate --app "6757725234" --version "2.4" --platform IOS --output table
-asc builds next-build-number --app "6757725234" --version "2.4" --platform IOS --output table
+scripts/ci_appstore.sh stage --version 2.6 --build <exact-uuid> --confirm --dry-run
 ```
 
-`asc validate` is the canonical App Store submission readiness report in the
-current CLI. `asc review status` and `asc review doctor` are better for review
-state and blocker diagnosis.
+Local publish aliases use the gated scripts. For archive/export without upload use
+`ASC_TESTFLIGHT_FLAGS=--dry-run make asc-publish-testflight`. For a submission plan:
 
-For the next TestFlight build on the 2.4 train, use `make asc-next-build`; it reads
-`MARKETING_VERSION` from the project and reconciles processed builds plus uploads. Build 60
-is already processed, so expect **61** for a future upload — stop and reconcile if live ASC
-reports anything else. Uploading 60 to TestFlight was additive and did not replace the build
-59 App Review binary by itself; the later approved replacement flow canceled the old
-submission, attached build 60, and created the current submission.
+```bash
+make asc-publish-appstore ASC_APPSTORE_PUBLISH_VERSION=2.6 BUILD_ID=<exact-uuid> \
+  ASC_APPSTORE_SUBMIT_FLAGS='--confirm --dry-run'
+```
+
+Real production actions require the matching five-gate manifest, upload receipt,
+and physical-device signoff. Uploads apply `AppStore/TESTFLIGHT_NOTES_2.6.txt`,
+read the exact build's notes back, and run strict TestFlight validation. Dry runs
+and missing devices do not satisfy production gates.
 
 ### Create A Deterministic Archive
 
@@ -287,7 +296,19 @@ asc builds upload \
   --wait
 ```
 
-### Canonical TestFlight Publish
+### Current TestFlight publish
+
+Use the clean candidate branch and the staged GitHub workflow below. It now also
+verifies tracked notes and strict readiness. Start with `dry_run=true`; a successful
+archive/export does not upload a build. Local equivalent: `scripts/ci_testflight.sh`.
+
+### Archived publishing examples (August 2026)
+
+The following observations and commands are historical. Old build numbers and
+publish flags are not current instructions. Use the gated commands under
+**Release Status And Readiness** for current staging and submission.
+
+### Historical TestFlight workflow
 
 For a release from GitHub `main`, prefer the staged workflow used successfully by
 build 58. It archives, signs, exports, uploads, and waits for processing without a
@@ -300,7 +321,7 @@ gh workflow run release-testflight.yml \
   -f dry_run=false
 ```
 
-Current phone-test state as of 2026-08-24:
+Archived phone-test state as of 2026-08-24:
 
 - Build `2.4 (60)` is `VALID`, internal `IN_BETA_TESTING`, and external
   `READY_FOR_BETA_SUBMISSION`: `ef651ca3-451f-468b-903a-1239bcf6dc39`.
@@ -340,7 +361,7 @@ make asc-publish-testflight \
   ASC_TESTFLIGHT_FLAGS="--submit --confirm"
 ```
 
-### Canonical App Store Publish
+### Historical App Store publish
 
 Attaching another build or submitting for review is a release mutation. Do not run this
 target without explicit approval and a clean release branch. The target intentionally

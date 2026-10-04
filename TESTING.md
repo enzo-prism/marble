@@ -1,9 +1,34 @@
 # Marble Testing
 
-**Current work (2026-09-04):** 2.5 build 64 is the local reliability/history candidate,
-not yet a verified release. ASC now reports 2.4 build 61 as READY_FOR_DISTRIBUTION.
-The older dated snapshot below is retained as historical evidence, not current status.
-See RELEASE_HANDOFF.md for the latest release readback.
+## Current candidate and verified distribution (2026-10-04)
+
+- **Local candidate:** 2.6 (83), still under validation. It has not been uploaded,
+  merged to main, or released publicly as part of this hardening work.
+- **Public App Store:** 2.5 (77), build `20b9fd0a-d15d-45b0-b063-237efd6b1430`.
+- **Latest internal TestFlight:** 2.6 (82), build
+  `2da4ad84-097f-4f5d-83e8-b4257edef403`, `VALID` / `IN_BETA_TESTING`.
+  Its What to Test notes were read back and strict validation returned zero errors
+  and zero warnings. This is evidence for build 82 only.
+- No 2.6 App Store version or submission has been created by this work. Physical
+  iPhone acceptance is pending because the device is unavailable. Full final
+  release gates are pending. The local broad accessibility run had seven passes,
+  one runtime skip and two failures (notification navigation and a test-runner
+  termination); the notification helper is corrected but rerun is pending.
+
+### Completed checks for the hardening work
+
+- Local unit suite: **979 executed, 6 skipped, zero failures**.
+- Focused checks: **68 passed**, plus the duplicate-save UI check passed.
+- Explicit opt-in store performance checks: **5 passed**. These synthetic store
+  checks do not establish physical-device performance.
+- Pinned Composer snapshot record and verification passed in GitHub run
+  [37228655891](https://github.com/enzo-prism/marble/actions/runs/37228655891).
+- Signed archive/export **dry run** passed in GitHub run
+  [37229514800](https://github.com/enzo-prism/marble/actions/runs/37229514800).
+  No binary was uploaded by that run.
+
+These checks are scoped evidence, not a complete clean-source release manifest.
+Final counts and candidate identity must be recorded after all gates finish.
 
 **Historical release snapshot (verified 2026-08-30):** internal TestFlight build 63 was
 uploaded from exact merged `main` source
@@ -63,8 +88,10 @@ On a shared Mac, also set `MARBLE_SIMULATOR_ID` to a dedicated simulator. The mi
 uses the same device unless `SIMULATOR_UDID` is set separately; the runner never targets all
 simulators.
 
-The default gate set is unit, full snapshots, UI flows, accessibility, and the shipped-source
-migration. Each invocation creates a new, non-overwriting directory under
+The default gate set is unit, full snapshots, UI flows, accessibility, and shipped-source
+migration. Migration runs both 2.5 (77) and 2.4 (61) sequentially; neither baseline
+may be omitted from production evidence. `MIGRATION_BASE_REF` selects a focused
+diagnostic run only. Each invocation creates a new, non-overwriting directory under
 `<root>/<full-git-sha>/build-<number>/<run-id>/`. Unit and snapshot suites retain independent
 `.xcresult` bundles. UI and accessibility suites retain complete command logs and exit status
 without multi-gigabyte screenshot/hierarchy attachments, and disable Xcode's post-test
@@ -127,7 +154,7 @@ for workflow testing, but it is not full release proof.
   orphan) and each backfill skip reason now enforced by the store predicate (missing
   duration, unprescribed exercise, invalid prescription).
 
-## Current suite inventory (counted from source, 2026-08-30)
+## Archived suite inventory (counted from source, 2026-08-30)
 
 - `Tests/Unit/` — **74 files, 824 test methods**.
 - `Tests/Snapshots/` — **16 test files, 49 test methods**. The full runner schedules
@@ -257,7 +284,7 @@ for workflow testing, but it is not full release proof.
   `5bd874ad-3619-4521-9231-fa45ee18a4b0`. That submission is now also `COMPLETE`
   after build 61 replaced it. Manual release and the public 2.3 storefront remain unchanged.
 
-## Latest verification (2026-08-24, AI-first Add build 59)
+## Archived verification (2026-08-24, AI-first Add build 59)
 
 - PR #27 merged as `eead033`; exact-main CI run `32700219443` passed. TestFlight
   release run `32700683071` archived, signed, exported, uploaded, and processed
@@ -280,7 +307,7 @@ for workflow testing, but it is not full release proof.
 - `make typecheck-tests` succeeded. The only output is the three already known
   test-harness deprecation warnings in snapshot support code.
 
-## Latest verification (2026-08-21, 2.4 release readiness)
+## Archived verification (2026-08-21, 2.4 release readiness)
 
 - Integrated unit suite: **800 tests passed, 1 skipped, 0 failures**.
 - Full UI suite: **55 tests passed, 0 failures** on the dedicated iPhone 17 Pro
@@ -310,7 +337,7 @@ for workflow testing, but it is not full release proof.
   It remains unsubmitted in `PREPARE_FOR_SUBMISSION`. Physical iPhone/iPad checks remain in
   `AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`.
 
-## Latest verification (2026-08-20, bulk import honesty)
+## Archived verification (2026-08-20, bulk import honesty)
 
 - Adds coverage for Hevy `set_index` resets, `superset_id` notes, Strong distance
   units, semicolon/`Weight (kg)` CSV, typed `RPE 8` / `@RPE 8`, `Day N` session
@@ -325,7 +352,7 @@ for workflow testing, but it is not full release proof.
 - TestFlight **2.4 build 57 `VALID`** (buildId `a8f9716a-5b39-4013-a795-181344ff54a6`,
   Actions run `32335409907`). Snapshots / UI / `make audit` still need a Mac.
 
-## Latest verification (2026-08-20, bulk import fidelity)
+## Archived verification (2026-08-20, bulk import fidelity)
 
 - New unit coverage: Hevy/Strong warmup skip, RPE/notes/session clock, multi-page
   OCR join + N>1 scan handoff, OCR weekday punctuation headers, unique
@@ -336,7 +363,7 @@ for workflow testing, but it is not full release proof.
   look for "Typed Workout". File picker accepts `.txt` / `.csv` only.
 - No schema change (still V6).
 
-## Latest verification (2026-08-16, Train / Log / Progress IA on main)
+## Archived verification (2026-08-16, Train / Log / Progress IA on main)
 - GitHub Actions `CI / unit-tests` (`make unit` on macos-26): **green** on PR #19
   (run `31967686916`) after restoring `WeeklyGoalCopy.progress` and removing
   `marble/AppIcon.icon/` (`actool` nil-object crash).
@@ -345,7 +372,7 @@ for workflow testing, but it is not full release proof.
   `make test` as green.
 - No schema change (still V6). This IA subsequently shipped publicly as 2.3 build 56.
 
-## Latest verification (2026-07-30, import review timing wave on main)
+## Archived verification (2026-07-30, import review timing wave on main)
 - `MarbleTests` (`make unit`): **648 passed (1 skipped), 0 failed** — adds
   `WorkoutScanImporterTimingTests` (workout date stamps all sets, per-set
   `performedAt` override wins, `ImportedWorkout` ledger date = earliest effective
@@ -401,7 +428,7 @@ for workflow testing, but it is not full release proof.
   updated for the tenths flow (decimal `AddSet.Sprint.Time` field replaces the h/m/s
   duration menus for sprint exercises; `SetDetail.Sprint.Time` for detailed reps).
 
-## Latest release verification (2026-07-25, 2.2 build 49)
+## Archived release verification (2026-07-25, 2.2 build 49)
 - `MarbleTests` (`make unit`): **519 passed, 0 failed** — 505 on build 48 plus the V4→V5
   recovery case, three `createdExercises` cases, five monthly-report bodyweight cases, and
   `WeeklyGoalWidgetCopyTests`.
@@ -576,35 +603,18 @@ path when needed; do not point Xcode or these wrappers at the retired PortableSS
 
 ## Local App Store submission gate
 
-Apple does not technically require physical-device access for App Review submission. Marble
-2.4 release policy still requires both this simulator gate and the physical acceptance pass
-below before submission approval. Complete this gate on the release Mac:
+Complete `make release-evidence` on a clean final candidate. The required gates
+are unit, full snapshots, UI, accessibility and migration. Migration covers both
+2.5 (77) and 2.4 (61); a focused override is not complete production coverage.
+Preserve the manifest and exact-source upload receipt, and complete
+[the 2.6 physical-device checklist](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.6.md).
+The verifier checks that all evidence identifies the same final SHA/version/build.
 
-1. Confirm the candidate commit, project version, and uploaded build are the intended release.
-2. Run `make unit`, `make ui`, `make audit`, `make verify-widget-plist`, and
-   `make migration-release` on dedicated simulators. The migration target defaults to
-   shipped 2.3 build 56 source `c0cef9e`; override `MIGRATION_BASE_REF` only with another
-   verified immutable shipped source.
-3. Walk fresh-install onboarding and completed-user relaunch on iPhone. Verify onboarding,
-   Settings, and the core layouts on iPad.
-4. Exercise `marble://trends`, `marble://quicklog`, and `marble://import` with
-   `xcrun simctl openurl`, and inspect
-   the built app's `CFBundleURLTypes`.
-5. Use the focused widget/keychain, Live Activity controller, App Intent, Spotlight entity,
-   Health mapping/import, backup/restore, and notification tests as acceptance proof for
-   OS-owned integrations.
-6. Verify the widget extension is embedded, both targets archive, signed entitlements match
-   `RELEASE_HANDOFF.md`, the IPA validates, and App Store Connect reports no blockers.
-7. Keep release type manual. Complete and record the hardware-only checks before requesting
-   approval to submit 2.4 for public App Review.
+A simulator cannot establish real model behavior, locked-device keychain sharing,
+spoken Siri recognition, physical Apple Health integration or device performance.
+These remain separate hardware checks; currently the phone is unavailable.
 
-The simulator cannot prove locked-device keychain sharing, physical Action button assignment,
-spoken Siri recognition, real Apple Health/Watch/Garmin data, Always-On Display, or real
-background suspension. Marble's 2.4 release policy treats the focused device pass as a
-submission-approval gate. Pure behavior, persistence, routing, and failure handling must also
-pass locally.
-
-## Physical-device acceptance pass for 2.4
+## Archived physical-device acceptance pass for 2.4
 
 Record the full pass in [`AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md`](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.4.md).
 
