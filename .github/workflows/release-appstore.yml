@@ -82,7 +82,7 @@ jobs:
       - name: Setup App Store Connect CLI
         uses: rudrankriyam/setup-asc@v1
         with:
-          version: "4.11.0"
+          version: "5.8.0"
 
       - name: Resolve action
         id: plan

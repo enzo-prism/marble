@@ -58,19 +58,23 @@ echo "Local version: ${marketing} (${project_build})"
 echo "=== ASC auth ==="
 asc auth status --validate --output json --pretty || true
 
-echo "=== next build number for ${marketing} ==="
-next_json="$(asc builds next-build-number --app "$MARBLE_ASC_APP_ID" --version "$marketing" --platform "$MARBLE_PLATFORM" --output json --pretty || true)"
+echo "=== next build number across all app versions ==="
+next_json="$(asc builds next-build-number --app "$MARBLE_ASC_APP_ID" --platform "$MARBLE_PLATFORM" --output json --pretty)"
 printf '%s\n' "$next_json"
 next_build="$(printf '%s' "$next_json" | jq -r '
-  .nextBuildNumber // .next_build_number // .data.nextBuildNumber // .data // empty
-' 2>/dev/null || true)"
-if [[ -n "$next_build" && "$next_build" != "null" ]]; then
+  .nextBuildNumber // .next_build_number // .data.nextBuildNumber // empty
+')"
+[[ "$next_build" =~ ^[0-9]+$ ]] || { echo "error: ASC did not return a numeric next build" >&2; exit 1; }
+if [[ -n "$next_build" ]]; then
   if [[ "$project_build" =~ ^[0-9]+$ && "$next_build" =~ ^[0-9]+$ && "$project_build" -lt "$next_build" ]]; then
     echo "error: project CURRENT_PROJECT_VERSION=${project_build} is behind ASC next-build ${next_build}" >&2
     echo "Bump CURRENT_PROJECT_VERSION in marble.xcodeproj before uploading." >&2
     exit 1
   fi
 fi
+
+notes_path="$ROOT/AppStore/TESTFLIGHT_NOTES_${marketing}.txt"
+[[ -s "$notes_path" ]] || { echo "error: missing What to Test notes: $notes_path" >&2; exit 1; }
 
 echo "=== archive ==="
 make asc-archive
@@ -118,10 +122,28 @@ if [[ "$WAIT" -eq 1 ]]; then
   build_json="$(asc builds list --app "$MARBLE_ASC_APP_ID" --version "$marketing" --build-number "$project_build" --output json)"
   uploaded_id="$(printf '%s' "$build_json" | jq -er --arg number "$project_build" '[.data[] | select(.attributes.version == $number and .attributes.processingState == "VALID")] | if length == 1 then .[0].id else error("Expected exactly one VALID uploaded build") end')"
   ruby scripts/write_upload_receipt.rb "$ROOT/.asc/artifacts/upload-receipts" "$source_sha" "$MARBLE_ASC_APP_ID" "$marketing" "$project_build" "$uploaded_id" "$IPA_PATH"
+  notes="$(cat "$notes_path")"
+  notes_json="$(asc builds test-notes list --build-id "$uploaded_id" --output json)"
+  if printf '%s' "$notes_json" | jq -e '.data | any(.attributes.locale == "en-US")' >/dev/null; then
+    notes_action=update
+  else
+    notes_action=create
+  fi
+  asc builds test-notes "$notes_action" --build-id "$uploaded_id" --locale en-US --whats-new "$notes" --output json
+  notes_json="$(asc builds test-notes list --build-id "$uploaded_id" --output json)"
+  printf '%s' "$notes_json" | jq -e --arg notes "$notes" '.data | any(.attributes.locale == "en-US" and .attributes.whatsNew == $notes)' >/dev/null || {
+    echo "error: TestFlight notes readback differs from tracked notes" >&2; exit 1;
+  }
+  ruby scripts/asc_build_status.rb --app "$MARBLE_ASC_APP_ID" --version "$marketing" --platform "$MARBLE_PLATFORM" --build "$uploaded_id" --build-number "$project_build" --validate
+
 else
   echo "Upload processing not verified; no production upload receipt was generated."
 fi
 
 echo "=== recent builds ==="
 asc builds list --app "$MARBLE_ASC_APP_ID" --sort -uploadedDate --limit 5 --output table || true
-echo "TestFlight upload complete. Internal group 'test group A' auto-receives VALID builds."
+if [[ "$WAIT" -eq 1 ]]; then
+  echo "TestFlight processing, notes, and strict readiness verified for build $uploaded_id."
+else
+  echo "Upload accepted; processing, notes, and TestFlight readiness are not verified."
+fi

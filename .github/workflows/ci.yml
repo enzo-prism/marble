@@ -60,8 +60,7 @@ jobs:
       - name: Verify release tooling
         if: success() || failure()
         run: |
-          ruby scripts/tests/release_candidate_test.rb
-          ruby scripts/tests/migration_probe_test.rb
+          for test in scripts/tests/*_test.rb; do ruby "$test"; done
 
       - name: Verify shipped-store migration
         if: success() || failure()

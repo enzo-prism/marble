@@ -6,7 +6,9 @@ import XCTest
 final class AppStoreScreenshotUITests: MarbleUITestCase {
     private func launchScreenshotApp(
         initialTab: String? = nil,
-        nowISO8601: String = "2026-07-16T04:30:00.000Z",
+        nowISO8601: String = MarbleUITestCase.fixtureNowISO8601(
+            hour: 21, minute: 30, year: 2026, month: 7, day: 15
+        ),
         extraEnvironment: [String: String] = [:]
     ) {
         var environment = ["MARBLE_APP_STORE_SCREENSHOTS": "1"]
@@ -16,7 +18,8 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         environment.merge(extraEnvironment) { _, new in new }
         launchApp(
             fixtureMode: "screenshots",
-            // 9:30 PM PDT: the deterministic fixture includes a real same-day
+            // 9:30 PM in the simulator timezone, including UTC CI runners.
+            // The deterministic fixture includes a real same-day
             // workout, so Trends shows the shipping Daily Highlights surface.
             nowISO8601: nowISO8601,
             forceReduceTransparency: true,

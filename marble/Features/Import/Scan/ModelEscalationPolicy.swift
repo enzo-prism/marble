@@ -36,6 +36,9 @@ nonisolated enum ModelEscalationPolicy {
         /// A sets×reps exercise has no load, yet a load-sized number is on
         /// its line ("Curls 3x12 with 25s").
         case ignoredLoad
+        /// An unambiguous numeric "N sets/rounds" on the movement's line
+        /// disagrees with the count that the deterministic parser produced.
+        case explicitSetCountMismatch
     }
 
     /// Sets beyond this are a misread ("225x5x3" → 225 sets), except EMOMs.
@@ -86,6 +89,20 @@ nonisolated enum ModelEscalationPolicy {
             }
 
             let sourceLines = Self.lines(lines, naming: exercise.trimmedName)
+            // Compare only a single named source line carrying one explicit
+            // count. Multiple movements/counts and continuation rows are not
+            // safely attributable to this exercise by name containment alone.
+            if sourceLines.count == 1,
+               let count = explicitSetCount(in: sourceLines[0]),
+               count != exercise.sets.count {
+                note(.explicitSetCountMismatch)
+            }
+            if exercise.sets.allSatisfy({ $0.weight == nil }),
+               sourceLines.contains(where: hasExplicitPluralLoad) {
+                // A timed/distance carry can otherwise swallow "with 32s" as
+                // seconds and escape the reps-only ignored-load check below.
+                note(.ignoredLoad)
+            }
             let lineLoads = sourceLines.flatMap(loadSizedNumbers)
             let hasLoadSizedNumber = lineLoads.contains { $0 >= 45 }
 
@@ -108,6 +125,27 @@ nonisolated enum ModelEscalationPolicy {
             note(.multipleMovementsOnLine)
         }
         return found
+    }
+
+    private static let explicitCountRegex = try? NSRegularExpression(
+        pattern: #"(?<![\d.])\b(\d+)\s+(?:sets?|rounds?)\b"#,
+        options: [.caseInsensitive]
+    )
+
+    private static func explicitSetCount(in line: String) -> Int? {
+        guard let regex = explicitCountRegex else { return nil }
+        let matches = regex.matches(in: line, range: NSRange(line.startIndex..., in: line))
+        guard matches.count == 1,
+              let range = Range(matches[0].range(at: 1), in: line),
+              let count = Int(line[range]), count > 0 else { return nil }
+        return count
+    }
+
+    private static func hasExplicitPluralLoad(_ line: String) -> Bool {
+        line.range(
+            of: #"\bwith\s+(?:the\s+)?\d+(?:\.\d+)?s\b(?![\s,;.)\]]*(?:(?:of\s+)?(?:rest|rests|resting|recovery|break)|between\s+(?:sets?|rounds?))\b)"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
     }
 
     // MARK: - Names

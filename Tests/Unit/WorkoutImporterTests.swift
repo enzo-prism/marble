@@ -105,6 +105,24 @@ final class WorkoutImporterTests: MarbleTestCase {
         XCTAssertEqual(summary.skipped, 0)
     }
 
+    func testIntermediateImportFailureRollsBackBatchAndPreservesExistingEdits() throws {
+        let context = makeInMemoryContext()
+        let existing = Exercise(name: "Existing", category: .chest, metrics: .weightAndRepsRequired, defaultRestSeconds: 90)
+        context.insert(existing)
+        context.autosaveEnabled = true
+        XCTAssertThrowsError(try WorkoutImporter.importRecords(
+            [cardioRecord(), cardioRecord(externalID: "hk-2")], in: context,
+            afterRecord: { throw MockSaveError.failed }
+        ))
+        XCTAssertTrue(context.autosaveEnabled)
+        XCTAssertFalse(context.hasChanges)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<Exercise>()).map(\.name), ["Existing"])
+        XCTAssertTrue(try context.fetch(FetchDescriptor<SetEntry>()).isEmpty)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<ImportedWorkout>()).isEmpty)
+        try context.save()
+        XCTAssertTrue(try context.fetch(FetchDescriptor<ImportedWorkout>()).isEmpty)
+    }
+
     func testImportRecordsThrowsWhenSaveFails() throws {
         let context = makeInMemoryContext()
 

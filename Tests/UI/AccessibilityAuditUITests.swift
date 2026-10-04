@@ -437,8 +437,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
 
     private func openNotifications() {
         let button = app.buttons["Journal.Notifications"]
-        waitFor(button)
-        button.tap()
+        // Native toolbar activation points can be stale after an XXXL audit.
+        // Exercise the visible button coordinate, as in the other flow helpers.
+        forceTap(button)
         waitForIdentifier("Notifications.List", timeout: 5)
     }
 

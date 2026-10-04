@@ -72,7 +72,23 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-09-19)
+## Current candidate and verified distribution (2026-10-04)
+
+- **Local candidate:** 2.6 (83), still under validation. It has not been uploaded,
+  merged to main, or released publicly as part of this hardening work.
+- **Public App Store:** 2.5 (77), build `20b9fd0a-d15d-45b0-b063-237efd6b1430`.
+- **Latest internal TestFlight:** 2.6 (82), build
+  `2da4ad84-097f-4f5d-83e8-b4257edef403`, `VALID` / `IN_BETA_TESTING`.
+  Its What to Test notes were read back and strict validation returned zero errors
+  and zero warnings. This is evidence for build 82 only.
+- No 2.6 App Store version or submission has been created by this work. Physical
+  iPhone acceptance is pending because the device is unavailable. Full final
+  release gates are pending; an accessibility failure is being investigated.
+
+See [RELEASE_HANDOFF.md](RELEASE_HANDOFF.md) for exact release evidence and
+[TESTING.md](TESTING.md) for test scope.
+
+## Archived state (2026-09-19)
 
 **2.5 build 78 is available on internal TestFlight**, adding 25 sourced athlete quotes
 (131 total) and enforcing complete single-line quotes in Progress and Daily
