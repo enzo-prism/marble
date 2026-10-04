@@ -1,0 +1,15 @@
+Marble 2.6 focuses on reliable workout imports and clearer on-device parsing.
+
+Please test these flows on your iPhone:
+- Paste or dictate a workout, review every value, then save. Check exercises, weights, reps, dates, rest, and notes.
+- Log the same typed workout on two different days. Both should save. Repeating it on the same day should be skipped without losing your draft; changing the review date should let you save it on another day.
+- With kg selected, enter a weight without a unit and confirm kg is preserved.
+- Try Bench 225x5x3 and rest shorthand such as rest: 90s, (2m rest), and rest .5min. Check the reviewed values.
+- Tap Stop while reading. Leave and reopen a reviewed draft; confirm edits remain intact.
+- Import representative Hevy/Strong files. Check session boundaries, dates, and set order. Malformed numeric values should never crash the app.
+- Repeat a workout from History and verify chronological set order.
+- Open a Monthly Report twice; insights should remain consistent and volume should use your preferred unit.
+- Check Add, Log, and Progress with Larger Text and VoiceOver. Verify review dates and save controls remain reachable.
+- After exporting a Marble session to Apple Health, import Health workouts and confirm that session is not duplicated.
+
+Report crashes, missing data, incorrect values, or slow interactions with your device model, iOS version, and a non-sensitive example of the input.
