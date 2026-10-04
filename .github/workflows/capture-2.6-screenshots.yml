@@ -20,6 +20,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          sudo systemsetup -settimezone America/Los_Angeles
           export DERIVED_DATA_PATH="$RUNNER_TEMP/screenshots-derived"
           mkdir -p captures
           for device in iphone ipad; do
@@ -37,13 +38,6 @@ jobs:
             xcrun simctl status_bar "$udid" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
             mkdir -p "captures/$device"
             MARBLE_SIMULATOR_ID="$udid" RESULT_BUNDLE_PATH="$PWD/captures/$device/captures.xcresult" scripts/xcodebuild_test.sh \
-              -only-testing:MarbleUITests/AppStoreScreenshotUITests/test00AddComposer \
-              -only-testing:MarbleUITests/AppStoreScreenshotUITests/test01Journal \
-              -only-testing:MarbleUITests/AppStoreScreenshotUITests/test02PasteOrTypeReview \
-              -only-testing:MarbleUITests/AppStoreScreenshotUITests/test05StrengthTrends \
-              -only-testing:MarbleUITests/AppStoreScreenshotUITests/test07TrainingCalendar \
-              -only-testing:MarbleUITests/AppStoreScreenshotUITests/test09PrivateBackup \
-              -only-testing:MarbleUITests/AppStoreScreenshotUITests/test11DailyHighlights \
               -only-testing:MarbleUITests/AppStoreScreenshotUITests/test12HistoryAndRepeat
             xcrun xcresulttool export attachments --path "captures/$device/captures.xcresult" --output-path "captures/$device/attachments"
             xcrun simctl shutdown "$udid"
@@ -57,7 +51,9 @@ jobs:
           m=json.load(open('AppStore/screenshots/2.5/manifest.json'))
           for k in ['binarySourceCommit','submissionBuild','sourceNote','capturedBuild','submissionSourceCommit']:m.pop(k,None)
           m.update(version='2.6',build='83',sourceCommit='8d46a09815776b0a35d68326b22772487a4cfe0f')
-          m['fixture']['now']='2026-07-15 21:30 simulator local time'
+          m['screenshots']=[s for s in m['screenshots'] if s['rawName'] in ['12-workout-history','13-repeat-workout']]
+          m['fixture']['timezone']='America/Los_Angeles'
+          m['fixture']['now']='2026-07-15T16:30:00Z'
           json.dump(m,open(root/'manifest.json','w'),indent=2)
           for device in ['iphone','ipad']:
             dest=root/device/'raw';dest.mkdir()
