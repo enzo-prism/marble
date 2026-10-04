@@ -186,6 +186,7 @@ final class WorkoutTextEntryViewModel {
 
     func resumeDraft(in context: ModelContext) {
         reloadMatcher(in: context)
+        refreshDuplicateState(in: context)
         hasRestoredDraft = false
     }
 
@@ -378,11 +379,8 @@ final class WorkoutTextEntryViewModel {
             let externalID = WorkoutImportOrchestrator.externalID(for: segment)
             let alreadyImported: Bool
             if hasContent {
-                alreadyImported = (try? WorkoutScanImporter.alreadyImported(
-                    externalID: externalID,
-                    source: .textEntry,
-                    in: context
-                )) ?? false
+                alreadyImported = (try? isDuplicate(externalID: externalID, kind: segment.kind,
+                                                     draft: parsed.draft, in: context)) ?? false
                 for exercise in parsed.draft.exercises {
                     resolutions[exercise.id] = makeResolution(for: exercise.name)
                 }
@@ -526,6 +524,51 @@ final class WorkoutTextEntryViewModel {
                     )
             }
     }
+
+    private func effectiveDay(for draft: ParsedWorkoutDraft) -> Date {
+        min(draft.performedAt ?? AppEnvironment.now, AppEnvironment.now)
+    }
+
+    private func isDuplicate(externalID: String, kind: WorkoutImportPayloadKind,
+                             draft: ParsedWorkoutDraft, in context: ModelContext) throws -> Bool {
+        if kind == .typedText {
+            return try WorkoutScanImporter.alreadyImportedText(
+                externalID: externalID, day: effectiveDay(for: draft), in: context)
+        }
+        return try WorkoutScanImporter.alreadyImported(externalID: externalID, source: .textEntry, in: context)
+    }
+
+    private func commitIdentity(for session: WorkoutImportSession) -> String {
+        WorkoutImportOrchestrator.commitIdentity(externalID: session.externalID, kind: session.kind,
+                                                day: effectiveDay(for: session.draft))
+    }
+
+    /// Review date edits and restored drafts must reflect the actual save gate.
+    func refreshDuplicateState(in context: ModelContext) {
+        persistOpenReview()
+        do {
+            try refreshDuplicateSessions(in: context)
+            if !alreadyImported && errorMessage == Self.duplicateGuidance {
+                errorMessage = nil
+            }
+        } catch { errorMessage = "Couldn't check existing workouts. Please try again." }
+    }
+
+    private func refreshDuplicateSessions(in context: ModelContext) throws {
+        for index in sessions.indices {
+            let wasDuplicate = sessions[index].alreadyImported
+            let duplicate = try isDuplicate(externalID: sessions[index].externalID,
+                                            kind: sessions[index].kind, draft: sessions[index].draft, in: context)
+            sessions[index].alreadyImported = duplicate
+            if duplicate { sessions[index].selected = false }
+            else if wasDuplicate { sessions[index].selected = sessions[index].draft.hasContent }
+        }
+        if let id = reviewingSessionID, let session = sessions.first(where: { $0.id == id }) {
+            alreadyImported = session.alreadyImported
+        }
+    }
+
+    static let duplicateGuidance = "This workout is already in your journal. Change the date to log the same text on another day."
 
     private func reloadMatcher(in context: ModelContext) {
         let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
@@ -866,12 +909,20 @@ final class WorkoutTextEntryViewModel {
         errorMessage = nil
         let toImport = draftApplyingResolutions(draft)
         celebration = computeCelebration(for: [toImport], in: context)
+        let kind = sessions.first?.kind ?? .typedText
         let origin = sessions.first?.kind.originName
         do {
-            let summary = try importHandler?(toImport, externalID, context)
+            guard try !isDuplicate(externalID: externalID, kind: kind, draft: toImport, in: context) else {
+                alreadyImported = true
+                errorMessage = Self.duplicateGuidance
+                return
+            }
+            let identity = WorkoutImportOrchestrator.commitIdentity(externalID: externalID, kind: kind,
+                                                                   day: effectiveDay(for: toImport))
+            let summary = try importHandler?(toImport, identity, context)
                 ?? WorkoutScanImporter.import(
                     toImport,
-                    externalID: externalID,
+                    externalID: identity,
                     source: .textEntry,
                     originName: origin,
                     in: context
@@ -894,10 +945,16 @@ final class WorkoutTextEntryViewModel {
             errorMessage = "Review each workout that Marble couldn't read before adding this batch."
             return
         }
+        do { try refreshDuplicateSessions(in: context) }
+        catch {
+            errorMessage = "Couldn't check existing workouts. Please try again."
+            return
+        }
         let selected = importableSelectedSessions
         guard !selected.isEmpty else {
             if alreadyImportedSessionCount > 0 {
-                finishCommit(summary: WorkoutImporter.Summary(skipped: alreadyImportedSessionCount))
+                lastSummary = WorkoutImporter.Summary(skipped: alreadyImportedSessionCount)
+                errorMessage = Self.duplicateGuidance
                 return
             }
             errorMessage = "Select at least one workout that isn't already in your journal."
@@ -905,7 +962,7 @@ final class WorkoutTextEntryViewModel {
         }
         errorMessage = nil
         let items = selected.map { session in
-            (draftApplyingResolutions(session.draft), session.externalID)
+            (draftApplyingResolutions(session.draft), commitIdentity(for: session))
         }
         celebration = computeCelebration(for: items.map(\.0), in: context)
         do {
@@ -929,7 +986,7 @@ final class WorkoutTextEntryViewModel {
                     selected.map {
                         (
                             draft: draftApplyingResolutions($0.draft),
-                            externalID: $0.externalID,
+                            externalID: commitIdentity(for: $0),
                             originName: $0.kind.originName
                         )
                     },
@@ -970,6 +1027,10 @@ final class WorkoutTextEntryViewModel {
 
     private func finishCommit(summary: WorkoutImporter.Summary) {
         lastSummary = summary
+        if summary.importedSets == 0 && summary.skipped > 0 {
+            errorMessage = Self.duplicateGuidance
+            return
+        }
         if summary.importedSets > 0 {
             MarbleHaptics.success()
             if celebration.prExercises.isEmpty {

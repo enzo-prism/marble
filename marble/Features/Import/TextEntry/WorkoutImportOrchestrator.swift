@@ -49,4 +49,14 @@ nonisolated enum WorkoutImportOrchestrator {
             return WorkoutScanImageHash.hash(Data(segment.identityKey.utf8))
         }
     }
+    /// A typed workout can recur on another day. CSV exports retain their
+    /// source identity, independent of edits made during review.
+    static func commitIdentity(externalID: String, kind: WorkoutImportPayloadKind, day: Date) -> String {
+        guard kind == .typedText else { return externalID }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let components = calendar.dateComponents([.year, .month, .day], from: day)
+        return "\(externalID)|\(components.year!)-\(components.month!)-\(components.day!)"
+    }
+
 }

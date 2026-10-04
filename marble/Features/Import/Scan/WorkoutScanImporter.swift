@@ -34,6 +34,20 @@ enum WorkoutScanImporter {
         return !(try context.fetch(descriptor)).isEmpty
     }
 
+    /// Compatibility with pre-date-scoped typed ledgers: only their saved day
+    /// blocks a repeat. Their raw content identity remains untouched on disk.
+    static func alreadyImportedText(externalID: String, day: Date, in context: ModelContext) throws -> Bool {
+        let identity = WorkoutImportOrchestrator.commitIdentity(externalID: externalID, kind: .typedText, day: day)
+        if try alreadyImported(externalID: identity, source: .textEntry, in: context) { return true }
+        let legacyKey = ImportedWorkout.deduplicationKey(source: .textEntry, externalID: externalID)
+        var descriptor = FetchDescriptor<ImportedWorkout>(
+            predicate: #Predicate<ImportedWorkout> { $0.deduplicationKey == legacyKey }
+        )
+        descriptor.fetchLimit = 1
+        guard let legacy = try context.fetch(descriptor).first else { return false }
+        return Calendar.current.isDate(legacy.workoutDate, inSameDayAs: day)
+    }
+
     /// Persist the draft. `externalID` is a stable identity for the captured image
     /// (a content hash) so re-importing the identical photo is a no-op.
     @discardableResult
@@ -45,6 +59,17 @@ enum WorkoutScanImporter {
         attachSession: Bool = true,
         in context: ModelContext,
         save: (ModelContext) throws -> Void = { try $0.save() }
+    ) throws -> WorkoutImporter.Summary {
+        try WorkoutImporter.transaction(in: context) {
+            try stageImport(draft, externalID: externalID, source: source, originName: originName,
+                            attachSession: attachSession, in: context, save: save)
+        }
+    }
+
+    private static func stageImport(
+        _ draft: ParsedWorkoutDraft, externalID: String, source: ImportSource,
+        originName: String?, attachSession: Bool, in context: ModelContext,
+        save: (ModelContext) throws -> Void
     ) throws -> WorkoutImporter.Summary {
         var summary = WorkoutImporter.Summary()
 
@@ -206,10 +231,36 @@ enum WorkoutScanImporter {
         in context: ModelContext,
         save: (ModelContext) throws -> Void = { try $0.save() }
     ) throws -> WorkoutImporter.Summary {
+        try importAll(items, source: source, attachSession: attachSession, in: context,
+                      afterItem: nil, save: save)
+    }
+
+    /// The fault hook requires an explicit label so existing trailing save
+    /// closures continue to bind to the production API above.
+    @discardableResult
+    static func importAll(
+        _ items: [(draft: ParsedWorkoutDraft, externalID: String, originName: String?)],
+        source: ImportSource = .textEntry,
+        attachSession: Bool = true,
+        in context: ModelContext,
+        afterItem: (() throws -> Void)?,
+        save: (ModelContext) throws -> Void = { try $0.save() }
+    ) throws -> WorkoutImporter.Summary {
+        try WorkoutImporter.transaction(in: context) {
+            try stageAll(items, source: source, attachSession: attachSession, in: context,
+                         save: save, afterItem: afterItem)
+        }
+    }
+
+    private static func stageAll(
+        _ items: [(draft: ParsedWorkoutDraft, externalID: String, originName: String?)],
+        source: ImportSource, attachSession: Bool, in context: ModelContext,
+        save: (ModelContext) throws -> Void, afterItem: (() throws -> Void)?
+    ) throws -> WorkoutImporter.Summary {
         var summary = WorkoutImporter.Summary()
         let exercisesBefore = WorkoutImporter.exerciseCount(in: context)
         for item in items {
-            let one = try `import`(
+            let one = try stageImport(
                 item.draft,
                 externalID: item.externalID,
                 source: source,
@@ -221,6 +272,7 @@ enum WorkoutScanImporter {
             summary.importedWorkouts += one.importedWorkouts
             summary.importedSets += one.importedSets
             summary.skipped += one.skipped
+            try afterItem?()
         }
         do {
             try save(context)
