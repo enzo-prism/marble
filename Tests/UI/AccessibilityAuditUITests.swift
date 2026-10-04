@@ -29,7 +29,16 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             forceTap(waitForIdentifier("Journal.WorkoutHistory", timeout: 8))
             waitFor(app.staticTexts["No completed sessions"], timeout: 8)
             try runAudit(name: "History_Empty_\(appearance.envValue)_\(sizeLabel)")
-            forceTap(waitForIdentifier("History.FilterDate"))
+            // The toolbar exposes both a wrapper and a leaf with this identifier.
+            // After an audit, target the real button and verify the presentation.
+            let filterDate = app.buttons["History.FilterDate"]
+            let datePicker = app.descendants(matching: .any)
+                .matching(identifier: "History.Date").firstMatch
+            forceTap(filterDate)
+            if !datePicker.waitForExistence(timeout: 3) {
+                // Retry only the unopened filter; never toggle a presented sheet.
+                forceTap(filterDate)
+            }
             waitForIdentifier("History.Date", timeout: 8)
             try runAudit(name: "History_DateFilter_\(appearance.envValue)_\(sizeLabel)")
 
