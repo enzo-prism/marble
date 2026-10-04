@@ -78,4 +78,47 @@ final class HandwrittenWorkoutParserRestTests: MarbleTestCase {
         XCTAssertEqual(draft.exercises[0].name, "Squat")
         XCTAssertTrue(draft.exercises[0].sets.allSatisfy { $0.restSeconds == nil })
     }
+    func testRestPunctuationAndMinuteShorthandPreserveWork() {
+        for (suffix, seconds) in [("(rest 90s)", 90), ("(2 min rest)", 120),
+                                  ("rest: 45s", 45), ("rest 2m", 120), ("rest 1.5m", 90),
+                                  ("rest .5min", 30), ("rest .5m", 30), ("rest .5", 30)] {
+            let draft = parse("Bench Press 3x8 @ 185 " + suffix)
+            XCTAssertEqual(draft.exercises.count, 1, suffix)
+            let sets = draft.exercises.first?.sets ?? []
+            XCTAssertEqual(sets.count, 3, suffix)
+            XCTAssertTrue(sets.allSatisfy {
+                $0.restSeconds == seconds && $0.reps == 8 && $0.weight == 185
+                    && $0.durationSeconds == nil && $0.distance == nil
+            }, suffix)
+        }
+    }
+
+    func testWrappedRestContinuationPreservesExplicitRest() {
+        let draft = parse("Bench 3x8 rest 60s\n(rest: 2m)")
+        XCTAssertEqual(draft.exercises.count, 1)
+        XCTAssertEqual(draft.exercises.first?.sets.count, 3)
+        XCTAssertTrue(draft.exercises[0].sets.allSatisfy { $0.restSeconds == 60 })
+    }
+
+    func testMetersRemainDistanceOutsideRest() {
+        let draft = parse("Run 400m rest 2m")
+        XCTAssertEqual(draft.exercises.count, 1)
+        let set = draft.exercises.first?.sets.first
+        XCTAssertEqual(set?.distance, 400)
+        XCTAssertEqual(set?.distanceUnit, .meters)
+        XCTAssertEqual(set?.restSeconds, 120)
+        XCTAssertNil(set?.durationSeconds)
+    }
+
+    func testOversizedSetCountsStayAvailableForReview() {
+        for input in ["Plank 999999999x30s", "Bench 999999999x8x100", "EMOM 999999999 min: 5 burpees"] {
+            let result = HandwrittenWorkoutParser.parseDetailed(input, referenceDate: Self.fixedNow)
+            XCTAssertLessThanOrEqual(result.draft.totalSetCount, 1000, input)
+            XCTAssertFalse(result.droppedLines.isEmpty, input)
+        }
+        let circuit = HandwrittenWorkoutParser.parseDetailed("999999999 rounds:\nPushups 10", referenceDate: Self.fixedNow)
+        XCTAssertLessThanOrEqual(circuit.draft.totalSetCount, 1000)
+        XCTAssertFalse(circuit.droppedLines.isEmpty)
+    }
+
 }
