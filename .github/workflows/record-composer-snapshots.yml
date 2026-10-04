@@ -4,6 +4,9 @@ name: Record Composer snapshots
 # Download and review the artifact before committing any changed reference.
 on:
   workflow_dispatch:
+  push:
+    branches: [fix/release-hardening-2.6]
+    paths: [.github/workflows/record-composer-snapshots.yml]
 
 permissions:
   contents: read
