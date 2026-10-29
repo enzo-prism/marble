@@ -40,22 +40,27 @@ nonisolated enum WorkoutDraftArbiter {
         defaultWeightUnit: WeightUnit = .lb
     ) -> ParsedWorkoutDraft {
         let context = SourceContext(sourceText, defaultWeightUnit: defaultWeightUnit)
-        let contenders = candidates.compactMap { $0 }.map { candidate in
+        let grounding = candidates.compactMap { $0 }.map { candidate in
             grounded(candidate, in: sourceText, context: context)
-        }.filter(\.hasContent)
+        }.filter(\.draft.hasContent)
+        let contenders = grounding.map(\.draft)
         guard !contenders.isEmpty else { return deterministic }
 
         // The deterministic draft leads the field when it has content, so an equal
         // score never displaces it; among model drafts, earlier candidates win ties.
         // Positions, not equality, identify the winner: a model draft can be
         // value-identical to the deterministic one and must not claim provenance.
-        var field: [(draft: ParsedWorkoutDraft, isModel: Bool)] = contenders.map { ($0, true) }
-        if deterministic.hasContent { field.insert((deterministic, false), at: 0) }
+        // A candidate stripped of unsupported exercises still claimed them: it
+        // pays the same price an ungrounded name would have cost it.
+        var field: [(draft: ParsedWorkoutDraft, isModel: Bool, penalty: Double)] = grounding.map {
+            ($0.draft, true, min(2.0, Double($0.rejected) * 0.75))
+        }
+        if deterministic.hasContent { field.insert((deterministic, false, 0), at: 0) }
 
         var winnerIndex = 0
-        var winnerScore = score(field[0].draft, context: context)
+        var winnerScore = score(field[0].draft, context: context) - field[0].penalty
         for index in field.indices.dropFirst() {
-            let contenderScore = score(field[index].draft, context: context)
+            let contenderScore = score(field[index].draft, context: context) - field[index].penalty
             if contenderScore > winnerScore {
                 winnerIndex = index
                 winnerScore = contenderScore
@@ -250,7 +255,7 @@ nonisolated enum WorkoutDraftArbiter {
     /// than becoming fabricated journal metrics.
     private static func grounded(
         _ candidate: ParsedWorkoutDraft, in sourceText: String, context: SourceContext
-    ) -> ParsedWorkoutDraft {
+    ) -> (draft: ParsedWorkoutDraft, rejected: Int) {
         var grounded = candidate
         var seenMovements: Set<String> = []
         grounded.exercises = candidate.exercises.compactMap { proposed in
@@ -272,7 +277,7 @@ nonisolated enum WorkoutDraftArbiter {
                 }
             return faithful ? exercise : nil
         }
-        return grounded
+        return (grounded, candidate.exercises.count - grounded.exercises.count)
     }
 
     /// Whole-note selection must not erase independently recognized movements,
@@ -409,7 +414,10 @@ nonisolated enum WorkoutDraftArbiter {
     }
 
     /// When notation supplies typed facts, number membership is insufficient:
-    /// "20 minutes" is not 20 pounds and "2 sets" is not two repetitions.
+    /// "20 minutes" is not 20 pounds and "2 sets" is not two repetitions. A
+    /// claimed value must match the local reading's field, or fill a field the
+    /// reading left blank with a number the reading did not already use
+    /// ("with the 60s" as a load the notation parser skipped).
     private static func agreesWithKnownMetrics(_ exercise: ParsedExerciseDraft, source: String) -> Bool {
         let reading = HandwrittenWorkoutParser.parseDetailed(
             source, referenceDate: Date(timeIntervalSince1970: 0),
@@ -417,14 +425,28 @@ nonisolated enum WorkoutDraftArbiter {
         )
         guard reading.droppedLines.isEmpty, reading.draft.importableExercises.count == 1,
               let known = reading.draft.importableExercises.first else { return true }
+        var used: Set<Double> = [Double(known.sets.count)]
+        for fact in known.sets {
+            for value in [fact.weight, fact.reps.map(Double.init), fact.distance, fact.difficulty.map(Double.init)] {
+                if let value { used.insert(value) }
+            }
+            for seconds in [fact.durationSeconds, fact.restSeconds].compactMap({ $0 }).map(Double.init) {
+                used.formUnion([seconds, seconds / 60, seconds / 3600])
+            }
+        }
+        func agrees(_ claimed: Double?, _ fact: Double?, sameUnit: Bool = true) -> Bool {
+            guard let claimed else { return true }
+            if let fact { return claimed == fact && sameUnit }
+            return !used.contains(claimed)
+        }
         return exercise.sets.allSatisfy { claimed in
             known.sets.contains { fact in
-                (claimed.weight == nil || (claimed.weight == fact.weight && claimed.weightUnit == fact.weightUnit))
-                    && (claimed.reps == nil || claimed.reps == fact.reps)
-                    && (claimed.distance == nil || (claimed.distance == fact.distance && claimed.distanceUnit == fact.distanceUnit))
-                    && (claimed.durationSeconds == nil || claimed.durationSeconds == fact.durationSeconds)
-                    && (claimed.restSeconds == nil || claimed.restSeconds == fact.restSeconds)
-                    && (claimed.difficulty == nil || claimed.difficulty == fact.difficulty)
+                agrees(claimed.weight, fact.weight, sameUnit: claimed.weightUnit == fact.weightUnit)
+                    && agrees(claimed.reps.map(Double.init), fact.reps.map(Double.init))
+                    && agrees(claimed.distance, fact.distance, sameUnit: claimed.distanceUnit == fact.distanceUnit)
+                    && agrees(claimed.durationSeconds.map(Double.init), fact.durationSeconds.map(Double.init))
+                    && agrees(claimed.restSeconds.map(Double.init), fact.restSeconds.map(Double.init))
+                    && agrees(claimed.difficulty.map(Double.init), fact.difficulty.map(Double.init))
             }
         }
     }

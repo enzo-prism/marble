@@ -640,7 +640,9 @@ final class WorkoutDraftArbiterTests: MarbleTestCase {
     }
 
     func testWinnerInheritsLosersRPEForTheSameSet() {
-        let text = "Bench 3x8 @ 185"
+        // The RPE must be written: a model effort rating absent from the text
+        // is invented and rejects that exercise instead.
+        let text = "Bench 3x8 @ 185 RPE 9"
         let deterministic = draft(exercises: [exercise("Bench", sets: benchSets(count: 3))])
         let model = draft(exercises: [
             exercise("Bench Press", sets: [set(weight: 185, reps: 8, difficulty: 9)])

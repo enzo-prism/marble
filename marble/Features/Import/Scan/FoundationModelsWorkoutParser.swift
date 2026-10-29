@@ -163,23 +163,25 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
     ) async -> ParsedWorkoutDraft {
         await onStage(.readingNotation)
         let deterministic = await fallback.parse(ocrText: ocrText, referenceDate: referenceDate)
-
-        // Complete, plausible notation is already solved; the arbiter would keep
-        // it anyway, so don't pay seconds of model time to confirm it.
-        let diagnostics = HandwrittenWorkoutParser.parseDetailed(
-            ocrText, referenceDate: referenceDate, defaultWeightUnit: defaultWeightUnit
+        // Complete, plausible notation is already solved (the same gate both
+        // callers apply); the arbiter would keep it, so skip the model's seconds.
+        let needsModel = ModelEscalationPolicy.shouldRunModel(
+            for: HandwrittenWorkoutParser.parseDetailed(
+                ocrText, referenceDate: referenceDate, defaultWeightUnit: defaultWeightUnit
+            ),
+            sourceText: ocrText,
+            referenceDate: referenceDate
         )
-        if !ModelEscalationPolicy.shouldRunModel(for: diagnostics, sourceText: ocrText, referenceDate: referenceDate) {
-            report.issue = nil
-            await onStage(.finalizing)
-            return diagnostics.draft
-        }
 
         var candidates: [ParsedWorkoutDraft?] = []
         var issue: ModelIssue? = .unavailable
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
-            (candidates, issue) = await modelCandidates(ocrText: ocrText, referenceDate: referenceDate, onStage: onStage)
+            if needsModel {
+                (candidates, issue) = await modelCandidates(ocrText: ocrText, referenceDate: referenceDate, onStage: onStage)
+            } else {
+                issue = await availabilityIssue()
+            }
         }
         #endif
         report.issue = issue
@@ -411,9 +413,7 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
         referenceDate: Date,
         onStage: @Sendable (WorkoutParseStage) async -> Void
     ) async -> (candidates: [ParsedWorkoutDraft?], issue: ModelIssue?) {
-        guard case .available = SystemLanguageModel.default.availability,
-              await breaker.allowsRequests() else { return ([], .unavailable) }
-        guard SystemLanguageModel.default.supportsLocale() else { return ([], .unsupportedLanguage) }
+        if let issue = await availabilityIssue() { return ([], issue) }
         guard Self.canAttemptModel(for: ocrText) else { return ([], .inputTooLong) }
 
         // Two model readings, in order: a rewrite into gym notation that the
@@ -454,6 +454,16 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
             }
         }
         return (candidates, candidates.isEmpty ? issues.first : nil)
+    }
+
+    /// Why the model can't be asked right now, nil when it can: not available,
+    /// cooling down after a hard failure, or an unsupported locale.
+    @available(iOS 26.0, *)
+    private func availabilityIssue() async -> ModelIssue? {
+        guard case .available = SystemLanguageModel.default.availability,
+              await breaker.allowsRequests() else { return .unavailable }
+        guard SystemLanguageModel.default.supportsLocale() else { return .unsupportedLanguage }
+        return nil
     }
 
     /// One attempt, plus a single fresh-session retry for transient failures.

@@ -6,6 +6,10 @@ import XCTest
 /// Every effort is checked, including values the user deliberately did not supply.
 @MainActor
 final class WorkoutNotesAcceptanceTests: MarbleTestCase {
+    /// The day after the note. Imports never save a future date (it becomes
+    /// "now"), so the suite's January 2025 clock would move a 2026 note.
+    override var now: Date { ISO8601DateFormatter().date(from: "2026-09-05T12:00:00Z")! }
+
     private let note = """
         9/4/26
 

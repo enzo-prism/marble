@@ -216,7 +216,7 @@ final class FoundationModelsParserUnitTests: MarbleTestCase {
     func testScanEscalatesImplausibleAndProseText() async {
         let (_, implausible) = await scan("Bench 225x5x3")
         XCTAssertEqual(implausible.calls, 1)
-        let (_, prose) = await scan("I did three sets of eight on bench at 185")
+        let (_, prose) = await scan("Ran a mile in 8 minutes then 3 sets of 20 pushups")
         XCTAssertEqual(prose.calls, 1)
     }
 }

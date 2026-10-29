@@ -205,7 +205,7 @@ struct WorkoutSessionDetailView: View {
             }
             .listRowBackground(Theme.backgroundColor(for: colorScheme))
             Section {
-                ForEach(WorkoutHistoryQuery.orderedEntries(for: session)) { entry in
+                ForEach(session.orderedEntries) { entry in
                     NavigationLink {
                         SetDetailView(entry: entry)
                     } label: {

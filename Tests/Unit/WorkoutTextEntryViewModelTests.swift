@@ -480,8 +480,11 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         await first.value
         await second.value
 
-        XCTAssertTrue(viewModel.unparsedLines.isEmpty)
-        XCTAssertEqual(Set(viewModel.draft.exercises.map(\.name)), ["Bench", "Squat", "Row"])
+        // A prose retry joins the workout only once a deterministic reading can
+        // verify the whole line, so both stay for review. Each must keep its
+        // own edit: identical source rows are resolved by identity, not text.
+        XCTAssertEqual(viewModel.unparsedLines, ["Squat felt heavy today", "Row felt easy today"])
+        XCTAssertEqual(viewModel.draft.exercises.map(\.name), ["Bench"])
     }
 
     // MARK: - Live preview

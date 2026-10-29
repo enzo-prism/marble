@@ -70,10 +70,16 @@ observations. Primary metrics remain nil when absent.
 
 ## Apple Intelligence boundaries
 
-Availability is checked on device. Model work uses at most two fresh generation
-attempts and checks cancellation between stages. A conservative 4,000 UTF-8 byte
-per-session input budget reserves context for instructions, schema, and output;
-oversized source falls back without truncation. CSV never goes through the model.
+Availability, locale and the circuit breaker are checked on device first. Complete,
+plausible notation (per `ModelEscalationPolicy`) skips the model entirely. The
+notation rewrite runs first; structured extraction runs only when the rewrite yields
+no source-grounded content. Each pass gets one fresh-session retry, and only for
+transient failures (guardrail, refusal, rate limit, concurrent requests); missing
+assets or unclassified errors stop model calls for 10 minutes. Cancellation is
+checked between stages. A conservative 4,000 UTF-8 byte per-session input budget,
+then a token count against the context window, reserves room for instructions,
+schema, and output; oversized source falls back without truncation. CSV never goes
+through the model.
 No cloud model, account, external workout upload, or subscription was added.
 
 Guided generation provides a structured response, not proof that its facts are

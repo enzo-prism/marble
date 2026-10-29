@@ -24,8 +24,11 @@ final class WorkoutHistoryTests: MarbleTestCase {
         let journal = try reloaded.fetch(FetchDescriptor<SetEntry>(
             sortBy: [SortDescriptor(\.performedAt, order: .reverse)]
         ))
-        XCTAssertEqual(journal.map { $0.exercise.name }, expectedSets)
-        XCTAssertEqual(WorkoutHistoryQuery.orderedEntries(for: session).map(\.id), journal.map(\.id))
+        // Imports are chronological in written order, like manually logged
+        // sets: the newest-first journal lists the last written set first, and
+        // History detail reads the session in written order.
+        XCTAssertEqual(journal.map { $0.exercise.name }, Array(expectedSets.reversed()))
+        XCTAssertEqual(session.orderedEntries.map(\.id), journal.reversed().map(\.id))
         let repeated = WorkoutRepeatDraft.make(from: session, now: now)
         XCTAssertEqual(repeated.exercises.map(\.name), names)
         XCTAssertEqual(repeated.exercises.map { $0.sets.count }, [2, 2, 2, 2])
@@ -35,19 +38,23 @@ final class WorkoutHistoryTests: MarbleTestCase {
 
     func testImportedHistoryKeepsExplicitTimestampPrecedenceAndMixedSessionsChronological() throws {
         let context = makeInMemoryContext()
+        // Row is written second but has its own earlier time; imports never
+        // keep a future time, so the explicit time is in the past.
         let draft = ParsedWorkoutDraft(performedAt: now, title: "Timed import", exercises: [
             ParsedExerciseDraft(name: "Squat", sets: [ParsedSetDraft(reps: 5)]),
-            ParsedExerciseDraft(name: "Row", sets: [ParsedSetDraft(reps: 8, performedAt: now.addingTimeInterval(60))])
+            ParsedExerciseDraft(name: "Row", sets: [ParsedSetDraft(reps: 8, performedAt: now.addingTimeInterval(-60))])
         ])
         try WorkoutScanImporter.import(draft, externalID: "explicit-time-order", source: .photoScan, in: context)
         let session = try XCTUnwrap(context.fetch(FetchDescriptor<WorkoutSession>()).first)
-        XCTAssertEqual(WorkoutHistoryQuery.orderedEntries(for: session).map { $0.exercise.name }, ["Row", "Squat"])
+        // The explicit time outranks written order.
+        XCTAssertEqual(session.orderedEntries.map { $0.exercise.name }, ["Row", "Squat"])
         XCTAssertEqual(WorkoutRepeatDraft.make(from: session, now: now).exercises.map(\.name), ["Row", "Squat"])
 
-        let manual = SetEntry(exercise: session.entries[0].exercise, performedAt: now.addingTimeInterval(30), reps: 3, restAfterSeconds: 60)
+        let squat = try XCTUnwrap(session.orderedEntries.last?.exercise)
+        let manual = SetEntry(exercise: squat, performedAt: now.addingTimeInterval(-30), reps: 3, restAfterSeconds: 60)
         context.insert(manual)
         session.append(manual)
-        XCTAssertEqual(WorkoutHistoryQuery.orderedEntries(for: session).map(\.id), session.orderedEntries.map(\.id))
+        XCTAssertEqual(session.orderedEntries.map { $0.exercise.name }, ["Row", "Squat", "Squat"])
     }
 
     func testSprintRepeatKeepsPrecisePreviousTimingInNotes() {
@@ -80,7 +87,7 @@ final class WorkoutHistoryTests: MarbleTestCase {
         let session = WorkoutSession(title: "Circuit", startedAt: now, endedAt: now.addingTimeInterval(600), notes: "Keep form controlled", entries: entries)
         context.insert(session)
         try context.save()
-        XCTAssertEqual(WorkoutHistoryQuery.orderedEntries(for: session).map(\.id), entries.map(\.id),
+        XCTAssertEqual(session.orderedEntries.map(\.id), entries.map(\.id),
                        "Manual circuits keep ascending performance time in History")
         let today = now.addingTimeInterval(86_400)
         var draft = WorkoutRepeatDraft.make(from: session, now: today)
