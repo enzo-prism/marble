@@ -14,8 +14,7 @@ Agents drive both through `scripts/cloud_release.sh` / `make cloud-*`. They stil
 - **Public App Store:** 2.6 (83), build `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`,
   `READY_FOR_DISTRIBUTION`. Shipped source is `8d46a09` (PR #45, tag `v2.6-83`).
 - Physical-device signoff and final five-gate evidence for build 83 are not recorded
-  in git. The scheduled `Release checks` workflow is red (`test11DailyHighlights`
-  plus a job timeout); see RELEASE_HANDOFF.md.
+  in git. See RELEASE_HANDOFF.md for the `Release checks` history and fixes.
 
 Release workflows pin ASC **5.8.0**. Follow [RELEASE_HANDOFF.md](RELEASE_HANDOFF.md)
 for evidence and [the physical checklist](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.6.md).

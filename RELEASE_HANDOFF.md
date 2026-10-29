@@ -17,11 +17,13 @@ External state can change outside git, so always re-run the **Live state checks*
   so `main` contains the shipped source again; tag `v2.6-83` marks the shipped commit.
 - **Not recorded in git:** physical-device signoff and the final five-gate evidence
   manifest for build 83. Do not cite build 83 as having passed those gates.
-- **Known red check:** the scheduled `Release checks` workflow has failed on every run
-  since 2026-10-05 (and on `8d46a09`, run 37231157543). The UI gate has one failure,
-  `test11DailyHighlights` (XCTAssertTrue), and the job then hits its 230-minute timeout.
-  Daily Highlights is time-of-day gated (8:00 PM–11:59 PM), so check that test for a
-  real-clock dependency first.
+- **Release checks history:** scheduled runs tested `21bf511` until #45 merged and failed
+  `test11DailyHighlights`: its pinned `2026-07-16T04:30Z` is 9:30 PM only in Pacific
+  time, so UTC runners were outside the Daily Highlights window. `476dc16` (#45) pins
+  9:30 PM in the simulator timezone; on `8d46a09` (run 37231157543) unit, snapshot, UI
+  and accessibility passed. Migration failed there only because no Simulator was
+  booted; `test_previous_release_migration.sh` now falls back to `sim_destination.sh`,
+  and the job timeout is raised so the real migration builds fit.
 - **Next build:** use `make asc-next-build` (latest uploaded is 83).
 
 The section below records the pre-upload state of the hardening work and is historical.

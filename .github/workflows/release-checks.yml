@@ -15,7 +15,7 @@ concurrency:
 jobs:
   candidate:
     runs-on: macos-26
-    timeout-minutes: 240
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,7 +26,8 @@ jobs:
         run: brew install xcbeautify || true
       - name: Run candidate checks
         # Reserve time for evidence upload if the suite exceeds its own limit.
-        timeout-minutes: 230
+        # The five gates took ~208 min on 8d46a09 before migration ran builds.
+        timeout-minutes: 290
         env:
           RELEASE_EVIDENCE_ROOT: ${{ runner.temp }}/marble-release-evidence
           DERIVED_DATA_PATH: ${{ runner.temp }}/marble-derived-data
