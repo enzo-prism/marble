@@ -9,18 +9,13 @@ Linux Cloud Agents cannot run `xcodebuild`. This repo splits shipping in two:
 
 Agents drive both through `scripts/cloud_release.sh` / `make cloud-*`. They still must not bump builds, upload, submit, or release without explicit user approval.
 
-## Current candidate and verified distribution (2026-10-04)
+## Current distribution (readback 2026-10-29)
 
-- **Local candidate:** 2.6 (83), still under validation. It has not been uploaded,
-  merged to main, or released publicly as part of this hardening work.
-- **Public App Store:** 2.5 (77), build `20b9fd0a-d15d-45b0-b063-237efd6b1430`.
-- **Latest internal TestFlight:** 2.6 (82), build
-  `2da4ad84-097f-4f5d-83e8-b4257edef403`, `VALID` / `IN_BETA_TESTING`.
-  Its What to Test notes were read back and strict validation returned zero errors
-  and zero warnings. This is evidence for build 82 only.
-- No 2.6 App Store version or submission has been created by this work. Physical
-  iPhone acceptance is pending because the device is unavailable. Full final
-  release gates are pending; an accessibility failure is being investigated.
+- **Public App Store:** 2.6 (83), build `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`,
+  `READY_FOR_DISTRIBUTION`. Shipped source is `8d46a09` (PR #45, tag `v2.6-83`).
+- Physical-device signoff and final five-gate evidence for build 83 are not recorded
+  in git. The scheduled `Release checks` workflow is red (`test11DailyHighlights`
+  plus a job timeout); see RELEASE_HANDOFF.md.
 
 Release workflows pin ASC **5.8.0**. Follow [RELEASE_HANDOFF.md](RELEASE_HANDOFF.md)
 for evidence and [the physical checklist](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.6.md).

@@ -1,13 +1,36 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-10-04.**
+**App Store Connect state refreshed: 2026-10-29.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## Current candidate and verified distribution (2026-10-04)
+## 2.6 (build 83) is public (readback 2026-10-29)
 
-- **Local candidate:** 2.6 (83), still under validation. It has not been uploaded,
-  merged to main, or released publicly as part of this hardening work.
-- **Public App Store:** 2.5 (77), build `20b9fd0a-d15d-45b0-b063-237efd6b1430`.
+- **Public App Store:** 2.6 version `96648678-f09f-453e-a534-d63b9cb2bce8` is
+  `READY_FOR_DISTRIBUTION` with build 83 `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`
+  attached. Review submission `cfd710cc-0554-401e-8c2e-095c7ee49bf6` (submitted
+  2026-10-04 16:56 PDT) is `COMPLETE`. Phased release is not configured.
+- **Shipped source:** `8d46a09815776b0a35d68326b22772487a4cfe0f`, the head of
+  `fix/release-hardening-2.6` (PR #45). TestFlight workflow
+  [37231788266](https://github.com/enzo-prism/marble/actions/runs/37231788266)
+  checked out that exact SHA, archived build 83 (2.6), and discovered upload
+  `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`. PR #45 was merged to `main` after release
+  so `main` contains the shipped source again; tag `v2.6-83` marks the shipped commit.
+- **Not recorded in git:** physical-device signoff and the final five-gate evidence
+  manifest for build 83. Do not cite build 83 as having passed those gates.
+- **Known red check:** the scheduled `Release checks` workflow has failed on every run
+  since 2026-10-05 (and on `8d46a09`, run 37231157543). The UI gate has one failure,
+  `test11DailyHighlights` (XCTAssertTrue), and the job then hits its 230-minute timeout.
+  Daily Highlights is time-of-day gated (8:00 PM–11:59 PM), so check that test for a
+  real-clock dependency first.
+- **Next build:** use `make asc-next-build` (latest uploaded is 83).
+
+The section below records the pre-upload state of the hardening work and is historical.
+
+## Pre-upload candidate state (2026-10-04, historical)
+
+- **Local candidate:** 2.6 (83), still under validation at the time. It had not been
+  uploaded, merged to main, or released publicly as part of this hardening work.
+- **Public App Store (then):** 2.5 (77), build `20b9fd0a-d15d-45b0-b063-237efd6b1430`.
 - **Latest internal TestFlight:** 2.6 (82), build
   `2da4ad84-097f-4f5d-83e8-b4257edef403`, `VALID` / `IN_BETA_TESTING`.
   Its What to Test notes were read back and strict validation returned zero errors

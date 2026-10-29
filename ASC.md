@@ -29,10 +29,10 @@ project-local notes.
 - Archive path: `.asc/artifacts/marble.xcarchive`
 - IPA path: `.asc/artifacts/marble.ipa`
 - Platform: `IOS`
-- ASC public version: `2.5` (77), build `20b9fd0a-d15d-45b0-b063-237efd6b1430`.
-- Latest internal TestFlight: `2.6` (82), build `2da4ad84-097f-4f5d-83e8-b4257edef403`,
-  verified VALID / IN_BETA_TESTING on 2026-10-04; strict validation has zero findings.
-- Local candidate: `2.6` (83), not uploaded or released; full gates and hardware signoff pending.
+- ASC public version: `2.6` (83), build `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`,
+  `READY_FOR_DISTRIBUTION` (readback 2026-10-29). Shipped source is
+  `8d46a09` (tag `v2.6-83`).
+- Latest uploaded build: `2.6` (83). Use `make asc-next-build` for the next number.
   Use the project version for new uploads, not older
   version strings in historical examples below. See RELEASE_HANDOFF.md for actual
   source/CI/upload/production readbacks.
