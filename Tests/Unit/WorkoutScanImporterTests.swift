@@ -14,6 +14,26 @@ final class WorkoutScanImporterTests: MarbleTestCase {
         return ParsedWorkoutDraft(exercises: [ParsedExerciseDraft(name: name, sets: setDrafts)])
     }
 
+    func testIntermediateBatchFailureRollsBackEveryImportAndPreservesExistingEdits() throws {
+        enum Failure: Error { case injected }
+        let context = makeInMemoryContext()
+        let existing = Exercise(name: "Existing", category: .chest, metrics: .weightAndRepsRequired, defaultRestSeconds: 90)
+        context.insert(existing)
+        context.autosaveEnabled = true
+        XCTAssertThrowsError(try WorkoutScanImporter.importAll([
+            (draft: strengthDraft(), externalID: "first", originName: nil),
+            (draft: strengthDraft(name: "Squat"), externalID: "second", originName: nil)
+        ], in: context, afterItem: { throw Failure.injected }))
+        XCTAssertTrue(context.autosaveEnabled)
+        XCTAssertFalse(context.hasChanges)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<Exercise>()).map(\.name), ["Existing"])
+        XCTAssertTrue(try context.fetch(FetchDescriptor<SetEntry>()).isEmpty)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<ImportedWorkout>()).isEmpty)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<WorkoutSession>()).isEmpty)
+        try context.save()
+        XCTAssertTrue(try context.fetch(FetchDescriptor<SetEntry>()).isEmpty)
+    }
+
     private func setEntryCount(in context: ModelContext) throws -> Int {
         try context.fetch(FetchDescriptor<SetEntry>()).count
     }

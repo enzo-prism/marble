@@ -244,7 +244,9 @@ case "$COMMAND" in
     ;;
   status)
     if marble_asc_env_ready; then
-      run_local_api status --version "$VERSION"
+      extra=(status --version "$VERSION")
+      [[ -z "$BUILD_ID" ]] || extra+=(--build "$BUILD_ID")
+      run_local_api "${extra[@]}"
     else
       echo "No ASC credentials here. Showing GitHub Actions recent runs instead."
       gh run list --repo "$MARBLE_GITHUB_SLUG" --limit 10 || true

@@ -630,13 +630,15 @@ class MarbleUITestCase: XCTestCase {
         }
     }
 
-    static func fixtureNowISO8601(hour: Int, minute: Int = 0) -> String {
+    static func fixtureNowISO8601(
+        hour: Int, minute: Int = 0, year: Int = 2025, month: Int = 1, day: Int = 15
+    ) -> String {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         var components = DateComponents()
-        components.year = 2025
-        components.month = 1
-        components.day = 15
+        components.year = year
+        components.month = month
+        components.day = day
         components.hour = hour
         components.minute = minute
         components.second = 0

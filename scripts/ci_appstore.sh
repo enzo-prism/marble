@@ -52,6 +52,13 @@ if [[ -z "$VERSION" ]]; then
   VERSION="$(marble_marketing_version "$ROOT")"
 fi
 
+stage_version() {
+  local metadata_dir="$ROOT/AppStore/metadata/version/$VERSION"
+  [[ -d "$metadata_dir" ]] || { echo "error: missing tracked version metadata: $metadata_dir" >&2; return 1; }
+  asc release stage --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --build-id "$BUILD_ID" \
+    --metadata-dir "$metadata_dir" --platform "$MARBLE_PLATFORM" --strict-validate "$@"
+}
+
 require_confirm() {
   if [[ "$CONFIRM" -ne 1 ]]; then
     echo "error: ${ACTION} is a production mutation; pass --confirm" >&2
@@ -72,18 +79,6 @@ version_record() {
   '
 }
 
-latest_valid_build_id() {
-  local json
-  json="$(asc builds list --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --sort -uploadedDate --limit 20 --output json)"
-  printf '%s' "$json" | jq -r '
-    (.data // [])
-    | map(select(
-        ((.attributes.processingState // "") | ascii_upcase) == "VALID"
-        or ((.attributes.processingState // "") | ascii_upcase) == "VALID"
-      ))
-    | .[0].id // empty
-  '
-}
 
 verify_build_identity() {
   local build_json build_number expected train_builds
@@ -97,6 +92,7 @@ verify_build_identity() {
     echo "error: App Store build does not match verified candidate ${expected}" >&2
     exit 1
   fi
+  ruby "${ROOT}/scripts/asc_build_status.rb" --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --platform "$MARBLE_PLATFORM" --build "$1" --build-number "$expected" --validate
   train_builds="$(asc builds list --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --build-number "$expected" --output json)"
   printf '%s' "$train_builds" | jq -e --arg id "$1" '.data | any(.id == $id)' >/dev/null || {
     echo "error: build does not belong to this app and version" >&2
@@ -105,17 +101,19 @@ verify_build_identity() {
 }
 
 print_status() {
-  echo "=== status ==="
-  asc status --app "$MARBLE_ASC_APP_ID" --output table || true
-  echo "=== review ==="
-  asc review status --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --platform "$MARBLE_PLATFORM" --output table || true
-  echo "=== validate ==="
-  asc validate --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --platform "$MARBLE_PLATFORM" --output table || true
+  local selector=(--build-number "$(marble_project_build "$ROOT")")
+  [[ -z "$BUILD_ID" ]] || selector=(--build "$BUILD_ID")
+  ruby "${ROOT}/scripts/asc_build_status.rb" --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --platform "$MARBLE_PLATFORM" "${selector[@]}"
+  asc versions list --app "$MARBLE_ASC_APP_ID" --platform "$MARBLE_PLATFORM" --output table
+}
+
+validate_appstore() {
+  asc validate --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --platform "$MARBLE_PLATFORM" --strict --output table
 }
 
 case "$ACTION" in
   validate)
-    print_status
+    validate_appstore
     ;;
   status)
     print_status
@@ -127,38 +125,33 @@ case "$ACTION" in
   stage)
     require_confirm
     if [[ -z "$BUILD_ID" ]]; then
-      BUILD_ID="$(latest_valid_build_id)"
-    fi
-    if [[ -z "$BUILD_ID" ]]; then
-      echo "error: no VALID TestFlight build found for version ${VERSION}" >&2
+      echo "error: --build must identify the exact verified ASC build" >&2
       exit 1
     fi
     echo "Staging ${VERSION} with build ${BUILD_ID}"
     if [[ "$DRY_RUN" -eq 1 ]]; then
-      asc release stage --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --build "$BUILD_ID" --platform "$MARBLE_PLATFORM" --dry-run
+      stage_version --dry-run
       exit 0
     fi
     verify_build_identity "$BUILD_ID"
-    asc release stage --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --build "$BUILD_ID" --platform "$MARBLE_PLATFORM" --confirm
+    stage_version --dry-run
+    stage_version --confirm
     ;;
   submit)
     require_confirm
-    print_status
     if [[ -z "$BUILD_ID" ]]; then
-      BUILD_ID="$(latest_valid_build_id)"
-    fi
-    if [[ -z "$BUILD_ID" ]]; then
-      echo "error: no VALID TestFlight build found for version ${VERSION}; upload one first" >&2
+      echo "error: --build must identify the exact verified ASC build" >&2
       exit 1
     fi
     echo "Submitting ${VERSION} (build ${BUILD_ID}) for App Review"
     if [[ "$DRY_RUN" -eq 1 ]]; then
-      asc release stage --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --build "$BUILD_ID" --platform "$MARBLE_PLATFORM" --dry-run || true
+      stage_version --dry-run
       echo "dry-run: skipping review submission"
       exit 0
     fi
     verify_build_identity "$BUILD_ID"
-    asc release stage --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --build "$BUILD_ID" --platform "$MARBLE_PLATFORM" --confirm
+    stage_version --dry-run
+    stage_version --confirm
 
     local_version_json="$(version_record || true)"
     version_id="$(printf '%s' "$local_version_json" | jq -r '.id // empty')"
@@ -167,20 +160,10 @@ case "$ACTION" in
       exit 1
     fi
 
-    echo "Creating review submission for version ${version_id}"
-    submission_json="$(asc review submissions-create --app "$MARBLE_ASC_APP_ID" --platform "$MARBLE_PLATFORM" --output json --pretty || true)"
-    submission_id="$(printf '%s' "$submission_json" | jq -r '.data.id // .id // empty')"
-    if [[ -z "$submission_id" ]]; then
-      # A submission may already exist for this platform; reuse the newest.
-      submission_id="$(asc review submissions-list --app "$MARBLE_ASC_APP_ID" --platform "$MARBLE_PLATFORM" --output json \
-        | jq -r '(.data // []) | .[0].id // empty')"
-    fi
-    if [[ -z "$submission_id" ]]; then
-      echo "error: could not create or locate a review submission" >&2
-      printf '%s\n' "$submission_json"
-      exit 1
-    fi
-    asc review items-add --submission "$submission_id" --item-type appStoreVersions --item-id "$version_id" || true
+    validate_appstore
+
+    source "${SCRIPT_DIR}/lib/review_submission.sh"
+    submission_id="$(marble_review_submission_id "$MARBLE_ASC_APP_ID" "$MARBLE_PLATFORM" "$version_id")"
     asc review submissions-submit --id "$submission_id" --confirm
     echo "Submitted. submission_id=${submission_id} version_id=${version_id} build_id=${BUILD_ID}"
     asc submit status --version-id "$version_id" --output table || true

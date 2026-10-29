@@ -80,10 +80,47 @@ enum WorkoutImporter {
         return .imported(setCount: entries.count)
     }
 
+    /// Checkpoint unrelated edits, then own the entire import mutation scope.
+    /// Disabling autosave prevents partial batches from reaching disk before a
+    /// later lookup fails. Restore the caller's autosave setting on every exit.
+    static func transaction<T>(in context: ModelContext, operation: () throws -> T) throws -> T {
+        if context.hasChanges { try context.save() }
+        let previousAutosave = context.autosaveEnabled
+        context.autosaveEnabled = false
+        var completed = false
+        defer {
+            if !completed { context.rollback() }
+            context.autosaveEnabled = previousAutosave
+        }
+        let result = try operation()
+        completed = true
+        return result
+    }
+
     static func importRecords(
         _ records: [WorkoutImportRecord],
         in context: ModelContext,
         save: (ModelContext) throws -> Void = { try $0.save() }
+    ) throws -> Summary {
+        try importRecords(records, in: context, afterRecord: nil, save: save)
+    }
+
+    /// Explicit fault-injection overload keeps the production trailing save
+    /// closure unambiguous under Swift's forward closure matching rules.
+    static func importRecords(
+        _ records: [WorkoutImportRecord],
+        in context: ModelContext,
+        afterRecord: (() throws -> Void)?,
+        save: (ModelContext) throws -> Void = { try $0.save() }
+    ) throws -> Summary {
+        try transaction(in: context) {
+            try stageRecords(records, in: context, save: save, afterRecord: afterRecord)
+        }
+    }
+
+    private static func stageRecords(
+        _ records: [WorkoutImportRecord], in context: ModelContext,
+        save: (ModelContext) throws -> Void, afterRecord: (() throws -> Void)?
     ) throws -> Summary {
         var summary = Summary()
         let exercisesBefore = exerciseCount(in: context)
@@ -101,6 +138,7 @@ enum WorkoutImporter {
             case .alreadyImported:
                 summary.skipped += 1
             }
+            try afterRecord?()
         }
         do {
             try save(context)

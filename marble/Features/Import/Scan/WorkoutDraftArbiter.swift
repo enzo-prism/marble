@@ -65,6 +65,18 @@ nonisolated enum WorkoutDraftArbiter {
             winner = merge(winner: winner, loser: loser)
         }
         if field[winnerIndex].isModel { winner.interpretedByModel = true }
+        // A model can label an unstated unit "lb" despite the user's kg
+        // preference. Scoring only penalizes that guess; it does not prevent
+        // it from winning. With no source unit anywhere, the default is the
+        // authoritative unit, not a request to convert the numeric load.
+        if !context.hasExplicitWeightUnit {
+            for exerciseIndex in winner.exercises.indices {
+                for setIndex in winner.exercises[exerciseIndex].sets.indices
+                    where winner.exercises[exerciseIndex].sets[setIndex].weight != nil {
+                    winner.exercises[exerciseIndex].sets[setIndex].weightUnit = defaultWeightUnit
+                }
+            }
+        }
         return winner
     }
 
@@ -396,6 +408,8 @@ nonisolated enum WorkoutDraftArbiter {
     /// Everything the score reads off the source text, computed once per choice.
     private struct SourceContext {
         let defaultWeightUnit: WeightUnit
+        /// Separate from documentUnit: nil there can also mean mixed units.
+        let hasExplicitWeightUnit: Bool
         /// Numbers the text states — digits, number words, colon durations in
         /// seconds, and articles standing in for 1 ("a mile").
         let tokens: Set<Double>
@@ -423,6 +437,8 @@ nonisolated enum WorkoutDraftArbiter {
             self.writtenUnits = Self.writtenUnits(in: text)
             let mentionsKg = Self.matchCount(Self.kgWordRegex, in: text) > 0
             let mentionsLb = Self.matchCount(Self.lbWordRegex, in: text) > 0
+            self.hasExplicitWeightUnit = mentionsKg || mentionsLb || sourceText.contains("#")
+                || Self.matchCount(Self.unitBeforeMultiplicationRegex, in: text) > 0
             self.documentUnit = mentionsKg == mentionsLb ? nil : (mentionsKg ? .kg : .lb)
             let words = WorkoutDraftArbiter.expandedWords(text)
             self.sourceWords = words.map(WorkoutDraftArbiter.stem)
@@ -520,6 +536,13 @@ nonisolated enum WorkoutDraftArbiter {
 
         private static let lbWordRegex = try? NSRegularExpression(
             pattern: #"(?<![a-z])(?:lbs?|pounds?)(?![a-z])"#,
+            options: [.caseInsensitive]
+        )
+
+        /// "80kgx8" / "225lbs×5" still state a unit. The ordinary word
+        /// boundary excludes the following x, so preserve this compact form too.
+        private static let unitBeforeMultiplicationRegex = try? NSRegularExpression(
+            pattern: #"(?<![a-z])(?:kgs?|kilos?|kilograms?|lbs?|pounds?)(?=x\s*\d)"#,
             options: [.caseInsensitive]
         )
 

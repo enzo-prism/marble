@@ -576,4 +576,78 @@ final class WorkoutDraftArbiterTests: MarbleTestCase {
             XCTAssertNil(chosen.interpretedByModel, testCase.text)
         }
     }
+    func testUnitlessSourceGroundsWinningWeightedDipsInUserDefault() {
+        let text = "overhead press four sets of six at fifty then dips three sets of ten plus twenty"
+        let model = draft(exercises: [
+            exercise("Overhead Press", sets: benchSets(count: 4, weight: 50, unit: .kg, reps: 6)),
+            exercise("Dips", sets: benchSets(count: 3, weight: 20, unit: .lb, reps: 10))
+        ])
+        for unit in [WeightUnit.kg, .lb] {
+            let chosen = WorkoutDraftArbiter.choose(
+                deterministic: draft(exercises: []), model: model, sourceText: text, defaultWeightUnit: unit
+            )
+            XCTAssertEqual(chosen.exercises.count, 2)
+            XCTAssertEqual(chosen.exercises[0].sets.map(\.weight), [50, 50, 50, 50])
+            XCTAssertEqual(chosen.exercises[1].sets.map(\.weight), [20, 20, 20])
+            XCTAssertEqual(chosen.exercises[0].sets.map(\.reps), [6, 6, 6, 6])
+            XCTAssertEqual(chosen.exercises[1].sets.map(\.reps), [10, 10, 10])
+            XCTAssertTrue(chosen.exercises.flatMap(\.sets).allSatisfy { $0.weightUnit == unit })
+        }
+    }
+
+    func testExplicitUnitVariantsInhibitDefaultOverride() {
+        for spelling in ["lb", "lbs", "pound", "pounds", "LB", "#"] {
+            let model = draft(exercises: [exercise("Dips", sets: benchSets(count: 3, weight: 20, unit: .lb, reps: 10))])
+            let chosen = WorkoutDraftArbiter.choose(
+                deterministic: draft(exercises: []), model: model,
+                sourceText: "Dips 3x10 @ 20" + spelling, defaultWeightUnit: .kg
+            )
+            XCTAssertEqual(chosen.exercises[0].sets[0].weightUnit, .lb, spelling)
+            XCTAssertEqual(chosen.exercises[0].sets[0].weight, 20, spelling)
+        }
+        for spelling in ["kg", "kgs", "kilo", "kilos", "kilogram", "kilograms", "KG"] {
+            let model = draft(exercises: [exercise("Dips", sets: benchSets(count: 3, weight: 20, unit: .kg, reps: 10))])
+            let chosen = WorkoutDraftArbiter.choose(
+                deterministic: draft(exercises: []), model: model,
+                sourceText: "Dips three sets of ten at twenty " + spelling, defaultWeightUnit: .lb
+            )
+            XCTAssertEqual(chosen.exercises[0].sets[0].weightUnit, .kg, spelling)
+        }
+    }
+
+    func testMixedUnitsAndPoundsHeaderArePreserved() {
+        let model = draft(exercises: [
+            exercise("Bench", sets: benchSets(count: 3, weight: 80, unit: .kg, reps: 8)),
+            exercise("Dips", sets: benchSets(count: 3, weight: 20, unit: .lb, reps: 10))
+        ])
+        let mixed = WorkoutDraftArbiter.choose(
+            deterministic: draft(exercises: []), model: model,
+            sourceText: "Bench 3x8 @ 80kg; Dips 3x10 @ 20lbs", defaultWeightUnit: .kg
+        )
+        XCTAssertEqual(mixed.exercises[0].sets[0].weightUnit, .kg)
+        XCTAssertEqual(mixed.exercises[1].sets[0].weightUnit, .lb)
+        let header = WorkoutDraftArbiter.choose(
+            deterministic: draft(exercises: []), model: model,
+            sourceText: "All weights #\nBench 3x8 @ 80\nDips 3x10 @ 20", defaultWeightUnit: .kg
+        )
+        XCTAssertEqual(header.exercises[1].sets[0].weightUnit, .lb)
+    }
+
+    func testCompactUnitBeforeMultiplicationIsExplicit() {
+        for (text, unit, defaultUnit, load) in [
+            ("Bench 80kgx8", WeightUnit.kg, WeightUnit.lb, 80.0),
+            ("Bench 80KGX8", .kg, .lb, 80.0),
+            ("Bench 80kg×8", .kg, .lb, 80.0),
+            ("Bench 225lbsx5", .lb, .kg, 225.0),
+            ("Bench 225pounds×5", .lb, .kg, 225.0)
+        ] {
+            let model = draft(exercises: [exercise("Bench", sets: benchSets(count: 1, weight: load, unit: unit, reps: 8))])
+            let chosen = WorkoutDraftArbiter.choose(
+                deterministic: draft(exercises: []), model: model, sourceText: text, defaultWeightUnit: defaultUnit
+            )
+            XCTAssertEqual(chosen.exercises[0].sets[0].weightUnit, unit, text)
+            XCTAssertEqual(chosen.exercises[0].sets[0].weight, load, text)
+        }
+    }
+
 }

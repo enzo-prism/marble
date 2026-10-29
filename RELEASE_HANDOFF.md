@@ -1,7 +1,86 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-09-27.**
+**App Store Connect state refreshed: 2026-10-29.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
+
+## 2.6 (build 83) is public (readback 2026-10-29)
+
+- **Public App Store:** 2.6 version `96648678-f09f-453e-a534-d63b9cb2bce8` is
+  `READY_FOR_DISTRIBUTION` with build 83 `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`
+  attached. Review submission `cfd710cc-0554-401e-8c2e-095c7ee49bf6` (submitted
+  2026-10-04 16:56 PDT) is `COMPLETE`. Phased release is not configured.
+- **Shipped source:** `8d46a09815776b0a35d68326b22772487a4cfe0f`, the head of
+  `fix/release-hardening-2.6` (PR #45). TestFlight workflow
+  [37231788266](https://github.com/enzo-prism/marble/actions/runs/37231788266)
+  checked out that exact SHA, archived build 83 (2.6), and discovered upload
+  `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`. PR #45 was merged to `main` after release
+  so `main` contains the shipped source again; tag `v2.6-83` marks the shipped commit.
+- **Not recorded in git:** physical-device signoff and the final five-gate evidence
+  manifest for build 83. Do not cite build 83 as having passed those gates.
+- **Known red check:** the scheduled `Release checks` workflow has failed on every run
+  since 2026-10-05 (and on `8d46a09`, run 37231157543). The UI gate has one failure,
+  `test11DailyHighlights` (XCTAssertTrue), and the job then hits its 230-minute timeout.
+  Daily Highlights is time-of-day gated (8:00 PM–11:59 PM), so check that test for a
+  real-clock dependency first.
+- **Next build:** use `make asc-next-build` (latest uploaded is 83).
+
+The section below records the pre-upload state of the hardening work and is historical.
+
+## Pre-upload candidate state (2026-10-04, historical)
+
+- **Local candidate:** 2.6 (83), still under validation at the time. It had not been
+  uploaded, merged to main, or released publicly as part of this hardening work.
+- **Public App Store (then):** 2.5 (77), build `20b9fd0a-d15d-45b0-b063-237efd6b1430`.
+- **Latest internal TestFlight:** 2.6 (82), build
+  `2da4ad84-097f-4f5d-83e8-b4257edef403`, `VALID` / `IN_BETA_TESTING`.
+  Its What to Test notes were read back and strict validation returned zero errors
+  and zero warnings. This is evidence for build 82 only.
+- No 2.6 App Store version or submission has been created by this work. Physical
+  iPhone acceptance is pending because the device is unavailable. Full final
+  release gates are pending. The local broad accessibility run had seven passes,
+  one runtime skip and two failures (notification navigation and a test-runner
+  termination); the notification helper is corrected but rerun is pending.
+
+### Completed checks for the hardening work
+
+- Local unit suite: **979 executed, 6 skipped, zero failures**.
+- Focused checks: **68 passed**, plus the duplicate-save UI check passed.
+- Explicit opt-in store performance checks: **5 passed**. These synthetic store
+  checks do not establish physical-device performance.
+- Pinned Composer snapshot record and verification passed in GitHub run
+  [37228655891](https://github.com/enzo-prism/marble/actions/runs/37228655891).
+- Signed archive/export **dry run** passed in GitHub run
+  [37229514800](https://github.com/enzo-prism/marble/actions/runs/37229514800).
+  No binary was uploaded by that run.
+
+These checks are scoped evidence, not a complete clean-source release manifest.
+Final counts and candidate identity must be recorded after all gates finish.
+
+### Current release tooling
+
+Release workflows pin ASC 5.8.0. `make asc-status BUILD_ID=<uuid>` reads the
+exact build and its app, pre-release version, and beta-detail relationships.
+Do not use the aggregate `asc status` dashboard as a release gate. Build numbers
+are selected app-wide by `make asc-next-build`; the latest verified next number
+was 83. `make asc-testflight-validate BUILD_ID=<uuid>` uses strict validation.
+
+`make migration-release` tests both current production 2.5 (77), source
+`80396c19481739184aaca00e5f175512b7a92ded`, and older 2.4 (61), source
+`9e8346f6cad4683991a78fbaf223baaf01e9f068`. Build-77 source provenance is its
+versioned source/CI and upload timing; a historical upload receipt was not found.
+Each migration run records its source and checks the baseline app's version/build.
+
+App Store staging uses `--build-id`, tracked metadata under
+`AppStore/metadata/version/2.6`, and `--strict-validate`. Stage and submit dry runs
+against build 82 passed; readiness checks requiring an existing 2.6 version were
+deferred. The production verifier still requires all five gates, an exact-source
+upload receipt, and real device signoff. Follow
+[the 2.6 device checklist](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.6.md).
+
+## Archived release records
+
+The dated sections below preserve their original observations. They are not
+current instructions or evidence that build 83 passed the same checks.
 
 ## 2.6 (build 82) VALID on internal TestFlight (2026-09-27)
 

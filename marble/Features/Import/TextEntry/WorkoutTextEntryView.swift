@@ -611,6 +611,9 @@ struct WorkoutTextEntryView: View {
                 notes: $viewModel.draft.notes,
                 durationSeconds: viewModel.draft.durationSeconds
             )
+            .onChange(of: viewModel.draft.performedAt) { _, _ in
+                viewModel.refreshDuplicateState(in: modelContext)
+            }
 
             if viewModel.alreadyImported {
                 Section {

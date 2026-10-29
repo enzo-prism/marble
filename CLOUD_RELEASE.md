@@ -9,6 +9,17 @@ Linux Cloud Agents cannot run `xcodebuild`. This repo splits shipping in two:
 
 Agents drive both through `scripts/cloud_release.sh` / `make cloud-*`. They still must not bump builds, upload, submit, or release without explicit user approval.
 
+## Current distribution (readback 2026-10-29)
+
+- **Public App Store:** 2.6 (83), build `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`,
+  `READY_FOR_DISTRIBUTION`. Shipped source is `8d46a09` (PR #45, tag `v2.6-83`).
+- Physical-device signoff and final five-gate evidence for build 83 are not recorded
+  in git. The scheduled `Release checks` workflow is red (`test11DailyHighlights`
+  plus a job timeout); see RELEASE_HANDOFF.md.
+
+Release workflows pin ASC **5.8.0**. Follow [RELEASE_HANDOFF.md](RELEASE_HANDOFF.md)
+for evidence and [the physical checklist](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.6.md).
+
 ## One-time setup (human, on the Mac that already ships)
 
 GitHub Actions secrets cannot be written by the Cloud Agent token. Run this **once** on the Mac that archived builds 48–55.
@@ -91,7 +102,7 @@ Equivalent:
 scripts/cloud_release.sh preflight
 scripts/cloud_release.sh testflight
 # Production dispatch: use the exact candidate branch already pushed to GitHub.
-scripts/cloud_release.sh appstore-submit --version 2.5 --confirm --github \
+scripts/cloud_release.sh appstore-submit --version 2.6 --build <exact-uploaded-build-uuid> --confirm --github \
   --evidence-run 123456 --upload-run 123457 \
   --device-signoff /absolute/path/device-signoff.json
 # Replace appstore-submit with appstore-release after Apple approves the same build.
@@ -119,13 +130,17 @@ Do not force-push those tags. Do not upload `.ipa` artifacts from Actions — th
 5. `asc builds upload --ipa .asc/artifacts/marble.ipa --wait`
 6. Read back the exact VALID build and write a source/build/IPA-hash upload receipt. Actions preserves it in the immutable `upload-receipt` artifact. Receipts contain no signing credentials or binary data.
 
+7. Apply tracked What to Test notes to that exact build, verify readback, and run strict TestFlight validation.
+
 Internal group **test group A** has `hasAccessToAllBuilds: true`; do not assign the build to it (the API rejects that).
 
 **App Store submit** (`scripts/ci_appstore.sh submit`):
 
 1. Verify clean-source full checks (unit, snapshots, UI, accessibility, migration), physical-device signoff, and upload receipt for the same SHA/version/build.
 2. Verify the exact ASC build ID belongs to the upload receipt and the app/version.
-3. Run ASC status/validation, stage the build, and submit review.
+3. Dry-run then stage using `--build-id`, tracked version metadata, and strict validation.
+4. Validate readiness strictly, then create or reuse only an editable review draft containing
+   exactly the intended version. Failed reads, item additions, and unrelated drafts stop submission.
 
 **App Store release** (`scripts/ci_appstore.sh release`):
 
