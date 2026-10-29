@@ -24,7 +24,7 @@ DERIVED_DATA_PATH ?= $(CURDIR)/DerivedData
 
 .PHONY: test unit ui ui-smoke audit snapshot snapshot-quick snapshot-record quick only migration-release verify-widget-plist
 .PHONY: release-evidence release-evidence-verify
-.PHONY: asc-auth asc-doctor asc-app asc-builds asc-version asc-status asc-review asc-validate asc-next-build
+.PHONY: asc-auth asc-doctor asc-app asc-builds asc-version asc-status asc-review asc-validate asc-next-build asc-testflight-validate
 .PHONY: asc-archive asc-export asc-publish-testflight asc-publish-appstore
 .PHONY: cloud-preflight cloud-status cloud-testflight cloud-appstore-validate cloud-appstore-submit cloud-appstore-release
 
@@ -75,7 +75,7 @@ only:
 	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:$(TEST)
 
 migration-release:
-	MIGRATION_BASE_REF="$${MIGRATION_BASE_REF:-9e8346f6cad4683991a78fbaf223baaf01e9f068}" SIMULATOR_UDID="$${SIMULATOR_UDID:-}" scripts/test_previous_release_migration.sh
+	SIMULATOR_UDID="$${SIMULATOR_UDID:-}" scripts/test_release_migrations.sh
 
 # Immutable, candidate-labeled release proof. Set RELEASE_EVIDENCE_ROOT to an
 # absolute path when evidence should live outside this checkout's TestResults.
@@ -104,17 +104,21 @@ asc-version:
 	@ruby -e 'project = File.read("$(PROJECT)/project.pbxproj"); versions = project.scan(/MARKETING_VERSION = ([^;]+);/).flatten.map(&:strip).uniq; abort("not found") if versions.empty?; puts versions.join(",")'
 
 asc-status:
-	asc status --app "$(ASC_APP)" --output table
+	ruby scripts/asc_build_status.rb --app "$(ASC_APP)" --version "$(ASC_TESTFLIGHT_VERSION)" --platform "$(ASC_PLATFORM)" $(if $(BUILD_ID),--build "$(BUILD_ID)",--build-number "$(shell ruby -e 'print File.read("$(PROJECT)/project.pbxproj")[/CURRENT_PROJECT_VERSION = ([^;]+);/, 1]')")
 
 asc-review:
 	asc review status --app "$(ASC_APP)" --version "$(ASC_APPSTORE_VERSION)" --platform "$(ASC_PLATFORM)" --output table
 	asc review doctor --app "$(ASC_APP)" --version "$(ASC_APPSTORE_VERSION)" --platform "$(ASC_PLATFORM)" --output table
 
 asc-validate:
-	asc validate --app "$(ASC_APP)" --version "$(ASC_APPSTORE_VERSION)" --platform "$(ASC_PLATFORM)" --output table
+	asc validate --app "$(ASC_APP)" --version "$(ASC_APPSTORE_VERSION)" --platform "$(ASC_PLATFORM)" --strict --output table
+
+asc-testflight-validate:
+	@test -n "$(BUILD_ID)" || { echo "Set BUILD_ID to the exact ASC build UUID"; exit 1; }
+	ruby scripts/asc_build_status.rb --app "$(ASC_APP)" --version "$(ASC_TESTFLIGHT_VERSION)" --platform "$(ASC_PLATFORM)" --build "$(BUILD_ID)" --validate
 
 asc-next-build:
-	asc builds next-build-number --app "$(ASC_APP)" --version "$(ASC_TESTFLIGHT_VERSION)" --platform "$(ASC_PLATFORM)" --output table
+	asc builds next-build-number --app "$(ASC_APP)" --platform "$(ASC_PLATFORM)" --output table
 
 asc-archive:
 	mkdir -p "$(ASC_ARTIFACTS_DIR)"
@@ -126,21 +130,15 @@ asc-export:
 	mkdir -p "$(ASC_ARTIFACTS_DIR)"
 	asc xcode export --archive-path "$(ASC_ARCHIVE_PATH)" --export-options "$(ASC_EXPORT_OPTIONS)" --ipa-path "$(ASC_IPA_PATH)" --overwrite --output json --pretty
 
+# Both local aliases use the same exact-source/notes/evidence gates as CI.
+# ASC_TESTFLIGHT_FLAGS supports --dry-run; App Store flags require --confirm
+# and may include --dry-run. BUILD_ID is the exact already-uploaded ASC UUID.
 asc-publish-testflight:
-	@if [[ -z "$(ASC_EXPORT_OPTIONS)" ]]; then echo "Set ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist"; exit 1; fi
-	@if [[ ! -f "$(ASC_EXPORT_OPTIONS)" ]]; then echo "Export options file not found: $(ASC_EXPORT_OPTIONS)"; exit 1; fi
-	@if [[ -z "$(ASC_TESTFLIGHT_GROUP)" ]]; then echo "Set ASC_TESTFLIGHT_GROUP='Group name or ID'"; exit 1; fi
-	mkdir -p "$(ASC_ARTIFACTS_DIR)"
-	rm -rf "$(ASC_ARCHIVE_PATH)" "$(ASC_IPA_PATH)"
-	asc publish testflight --app "$(ASC_APP)" --project "$(PROJECT)" --scheme "$(SCHEME)" --configuration Release --archive-path "$(ASC_ARCHIVE_PATH)" --export-options "$(ASC_EXPORT_OPTIONS)" --ipa-path "$(ASC_IPA_PATH)" --archive-xcodebuild-flag=-destination --archive-xcodebuild-flag=generic/platform=iOS --version "$(ASC_TESTFLIGHT_VERSION)" --group "$(ASC_TESTFLIGHT_GROUP)" --wait --poll-interval "$(ASC_POLL_INTERVAL)" --timeout "$(ASC_UPLOAD_TIMEOUT)" --output json --pretty $(ASC_TESTFLIGHT_FLAGS)
+	ASC_APP="$(ASC_APP)" ASC_EXPORT_OPTIONS="$(ASC_EXPORT_OPTIONS)" scripts/ci_testflight.sh $(ASC_TESTFLIGHT_FLAGS)
 
 asc-publish-appstore:
-	@if [[ -z "$(ASC_APPSTORE_PUBLISH_VERSION)" ]]; then echo "Set ASC_APPSTORE_PUBLISH_VERSION explicitly before publishing to the App Store"; exit 1; fi
-	@if [[ -z "$(ASC_EXPORT_OPTIONS)" ]]; then echo "Set ASC_EXPORT_OPTIONS=/absolute/path/to/ExportOptions.plist"; exit 1; fi
-	@if [[ ! -f "$(ASC_EXPORT_OPTIONS)" ]]; then echo "Export options file not found: $(ASC_EXPORT_OPTIONS)"; exit 1; fi
-	mkdir -p "$(ASC_ARTIFACTS_DIR)"
-	rm -rf "$(ASC_ARCHIVE_PATH)" "$(ASC_IPA_PATH)"
-	asc publish appstore --app "$(ASC_APP)" --project "$(PROJECT)" --scheme "$(SCHEME)" --configuration Release --archive-path "$(ASC_ARCHIVE_PATH)" --export-options "$(ASC_EXPORT_OPTIONS)" --ipa-path "$(ASC_IPA_PATH)" --archive-xcodebuild-flag=-destination --archive-xcodebuild-flag=generic/platform=iOS --version "$(ASC_APPSTORE_PUBLISH_VERSION)" --wait --poll-interval "$(ASC_POLL_INTERVAL)" --timeout "$(ASC_UPLOAD_TIMEOUT)" --output json --pretty $(ASC_APPSTORE_SUBMIT_FLAGS)
+	@if [[ -z "$(ASC_APPSTORE_PUBLISH_VERSION)" || -z "$(BUILD_ID)" ]]; then echo "Set ASC_APPSTORE_PUBLISH_VERSION and BUILD_ID explicitly"; exit 1; fi
+	ASC_APP="$(ASC_APP)" scripts/ci_appstore.sh submit --version "$(ASC_APPSTORE_PUBLISH_VERSION)" --build "$(BUILD_ID)" $(ASC_APPSTORE_SUBMIT_FLAGS)
 
 # Cloud Agent publish path. Linux VMs cannot xcodebuild; these targets
 # dispatch GitHub Actions (macos-26 for TestFlight binaries, ubuntu for

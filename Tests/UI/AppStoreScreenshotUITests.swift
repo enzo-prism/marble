@@ -6,6 +6,9 @@ import XCTest
 final class AppStoreScreenshotUITests: MarbleUITestCase {
     private func launchScreenshotApp(
         initialTab: String? = nil,
+        nowISO8601: String = MarbleUITestCase.fixtureNowISO8601(
+            hour: 21, minute: 30, year: 2026, month: 7, day: 15
+        ),
         extraEnvironment: [String: String] = [:]
     ) {
         var environment = ["MARBLE_APP_STORE_SCREENSHOTS": "1"]
@@ -15,12 +18,55 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         environment.merge(extraEnvironment) { _, new in new }
         launchApp(
             fixtureMode: "screenshots",
-            // 9:30 PM PDT: the deterministic fixture includes a real same-day
+            // 9:30 PM in the simulator timezone, including UTC CI runners.
+            // The deterministic fixture includes a real same-day
             // workout, so Trends shows the shipping Daily Highlights surface.
-            nowISO8601: "2026-07-16T04:30:00.000Z",
+            nowISO8601: nowISO8601,
             forceReduceTransparency: true,
             extraEnvironment: environment
         )
+    }
+
+    func test12HistoryAndRepeat() {
+        launchScreenshotApp(initialTab: "add", nowISO8601: "2026-07-15T16:30:00.000Z")
+        forceTap(waitForIdentifier("Workout.Open", timeout: 8))
+        forceTap(waitForIdentifier("Workout.Finish", timeout: 8))
+        forceTap(waitForIdentifier("Workout.Finish.Confirm", timeout: 8))
+        app.navigationBars["Workout"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)))
+        navigateToTab(.journal)
+        forceTap(waitForIdentifier("Journal.WorkoutHistory", timeout: 8))
+        let session = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'History.Session.'")).firstMatch
+        waitFor(session, timeout: 10)
+        takeScreenshot("12-workout-history")
+        forceTap(session)
+        let repeatButton = waitForIdentifier("History.Repeat", timeout: 8)
+        XCTAssertTrue(repeatButton.isEnabled)
+        forceTap(repeatButton)
+        _ = waitForIdentifier("TextEntry.Title", timeout: 8)
+        _ = waitForIdentifier("TextEntry.Import", timeout: 8)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "TextEntry.Imported").firstMatch.exists)
+        takeScreenshot("13-repeat-workout")
+    }
+
+    func test00AddComposer() {
+        launchScreenshotApp(initialTab: "add")
+        let editor = app.textViews["TextEntry.Editor"]
+        waitFor(editor, timeout: 10)
+        clearAndType(editor, text: "Bench Press 3x8 @ 185 lb\nShoulder Press 3x10 @ 95 lb\nSquat 3x5 @ 225 lb")
+        forceTap(waitForIdentifier("TextEntry.Keyboard.Done", timeout: 5))
+        takeScreenshot("00-add-composer")
+    }
+
+    func test11DailyHighlights() {
+        launchScreenshotApp(initialTab: "trends")
+        revealDetailedTrends()
+        _ = waitForIdentifier("Trends.DailyHighlights", timeout: 10)
+        let quote = app.buttons["Trends.DailyHighlights.Quote"]
+        waitFor(quote, timeout: 8)
+        quote.swipeRight()
+        takeScreenshot("11-daily-highlights")
     }
 
     func test01Journal() {
@@ -87,8 +133,11 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
 
     func test05StrengthTrends() {
         launchScreenshotApp(initialTab: "trends")
-        _ = waitForIdentifier("Trends.Overview.Status", timeout: 15)
+        _ = waitForIdentifier("Trends.TopExercises", timeout: 15)
         _ = waitForIdentifier("Trends.Details.Toggle", timeout: 15)
+        let quote = app.buttons["Trends.Overview.Quote"]
+        waitFor(quote, timeout: 8)
+        quote.swipeRight()
         takeScreenshot("05-strength-trends")
     }
 
@@ -125,10 +174,12 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
     func test09PrivateBackup() {
         launchScreenshotApp(initialTab: "add")
         openAddToolbarAction("Workout.Settings")
-        // 2.2 moved Data & Backups behind the new Settings screen, below the
-        // fold of a lazy List — it isn't in the tree until we scroll to it.
-        scrollToElement(app.descendants(matching: .any).matching(identifier: "Settings.Data").firstMatch, in: app)
-        forceTap(waitForIdentifier("Settings.Data", timeout: 10))
+        let data = app.buttons["Settings.Data"]
+        let list = app.collectionViews.firstMatch
+        if list.exists { scrollToElement(data, in: list) }
+        else { scrollToElement(data, in: app) }
+        waitFor(data, timeout: 10)
+        data.tap()
         _ = waitForIdentifier("Data.Summary", timeout: 12)
         _ = waitForIdentifier("Data.Export", timeout: 10)
         _ = waitForIdentifier("Data.Restore", timeout: 10)

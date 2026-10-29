@@ -151,6 +151,34 @@ final class HandwrittenWorkoutParserPasteTests: MarbleTestCase {
         XCTAssertEqual(draft.exercises[0].sets.map(\.weight), [135, 155, 185])
     }
 
+    /// A comma list of loads used to collapse into one number
+    /// ("185,205,225" → 185,205,225 lb).
+    func testCommaListOfLoadsIsNeverMergedIntoOneNumber() {
+        func shape(_ text: String) -> [[Double?]] {
+            parse(text).exercises.map { $0.sets.map(\.weight) }
+        }
+        for (commaList, spaced) in [
+            ("Squat 5x5 185,205,225", "Squat 5x5 185 205 225"),
+            ("Bench 135,155,175", "Bench 135 155 175"),
+        ] {
+            let weights = shape(commaList).flatMap { $0 }.compactMap { $0 }
+            XCTAssertTrue(weights.allSatisfy { $0 <= 225 }, "\(commaList) → \(weights)")
+            // A comma list reads exactly like the same loads separated by spaces.
+            XCTAssertEqual(shape(commaList), shape(spaced), commaList)
+        }
+        XCTAssertEqual(parse("Bench 135x10,155x8").exercises[0].sets.map(\.weight), [135, 155])
+    }
+
+    func testThousandsSeparatorNextToUnitOrRepsParsesCorrectly() {
+        let legPress = parse("Leg Press 2x10 @ 1,100lb").exercises[0].sets
+        XCTAssertEqual(legPress.map(\.weight), [1100, 1100])
+        XCTAssertTrue(legPress.allSatisfy { $0.weightUnit == .lb })
+        // Reps then a comma then the load: never "10155".
+        let bench = parse("Bench 3x10,155").exercises[0].sets
+        XCTAssertEqual(bench.map(\.reps), [10, 10, 10])
+        XCTAssertEqual(bench.map(\.weight), [155, 155, 155])
+    }
+
     // MARK: - AMRAP / failure / EMOM
 
     func testAmrapKeepsSetCountWithNoReps() {
@@ -187,17 +215,17 @@ final class HandwrittenWorkoutParserPasteTests: MarbleTestCase {
         XCTAssertEqual(components.day, expected.day)
     }
 
-    func testRelativeWordWinsOverExplicitDateOnTheSameLine() {
-        // "yesterday 7/22" — the relative word is read first, so it keeps the
-        // session date; the explicit date is stripped but does not override it.
+    func testExplicitDateWinsOverRelativeWordOnTheSameLine() {
+        // "yesterday 7/22" / "Wednesday 7/15" — the explicit date is the more
+        // specific statement, so it is the session date (it used to be the
+        // relative word, turning "Wednesday 7/15" into last Wednesday). With
+        // fixedNow = 2025-01-15 the year-less 7/22 is last July.
         let draft = parse("yesterday 7/22\nBench 3x8")
         let performedAt = try! XCTUnwrap(draft.performedAt)
-        let expected = Calendar.current.date(byAdding: .day, value: -1, to: Self.fixedNow)!
-        let actual = Self.stableCalendar.dateComponents([.year, .month, .day], from: performedAt)
-        let wanted = Self.stableCalendar.dateComponents([.year, .month, .day], from: expected)
-        XCTAssertEqual(actual.year, wanted.year)
-        XCTAssertEqual(actual.month, wanted.month)
-        XCTAssertEqual(actual.day, wanted.day)
+        let actual = Calendar.current.dateComponents([.year, .month, .day], from: performedAt)
+        XCTAssertEqual(actual.year, 2024)
+        XCTAssertEqual(actual.month, 7)
+        XCTAssertEqual(actual.day, 22)
         XCTAssertEqual(draft.exercises.map(\.name), ["Bench"])
     }
 

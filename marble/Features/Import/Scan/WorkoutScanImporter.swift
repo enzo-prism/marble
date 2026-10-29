@@ -34,6 +34,20 @@ enum WorkoutScanImporter {
         return !(try context.fetch(descriptor)).isEmpty
     }
 
+    /// Compatibility with pre-date-scoped typed ledgers: only their saved day
+    /// blocks a repeat. Their raw content identity remains untouched on disk.
+    static func alreadyImportedText(externalID: String, day: Date, in context: ModelContext) throws -> Bool {
+        let identity = WorkoutImportOrchestrator.commitIdentity(externalID: externalID, kind: .typedText, day: day)
+        if try alreadyImported(externalID: identity, source: .textEntry, in: context) { return true }
+        let legacyKey = ImportedWorkout.deduplicationKey(source: .textEntry, externalID: externalID)
+        var descriptor = FetchDescriptor<ImportedWorkout>(
+            predicate: #Predicate<ImportedWorkout> { $0.deduplicationKey == legacyKey }
+        )
+        descriptor.fetchLimit = 1
+        guard let legacy = try context.fetch(descriptor).first else { return false }
+        return Calendar.current.isDate(legacy.workoutDate, inSameDayAs: day)
+    }
+
     /// Persist the draft. `externalID` is a stable identity for the captured image
     /// (a content hash) so re-importing the identical photo is a no-op.
     @discardableResult
@@ -46,6 +60,17 @@ enum WorkoutScanImporter {
         in context: ModelContext,
         save: (ModelContext) throws -> Void = { try $0.save() }
     ) throws -> WorkoutImporter.Summary {
+        try WorkoutImporter.transaction(in: context) {
+            try stageImport(draft, externalID: externalID, source: source, originName: originName,
+                            attachSession: attachSession, in: context, save: save)
+        }
+    }
+
+    private static func stageImport(
+        _ draft: ParsedWorkoutDraft, externalID: String, source: ImportSource,
+        originName: String?, attachSession: Bool, in context: ModelContext,
+        save: (ModelContext) throws -> Void
+    ) throws -> WorkoutImporter.Summary {
         var summary = WorkoutImporter.Summary()
 
         let exercises = draft.importableExercises
@@ -56,23 +81,56 @@ enum WorkoutScanImporter {
             return summary
         }
 
-        let performedAt = draft.performedAt ?? AppEnvironment.now
+        // Workouts are imported, never scheduled: the review picker is capped at
+        // now, so a future draft date (an explicit future year) is saved as now,
+        // matching what the picker showed.
+        let now = AppEnvironment.now
+        let performedAt = min(draft.performedAt ?? now, now)
+        func effectiveDate(of set: ParsedSetDraft) -> Date {
+            set.performedAt.map { min($0, now) } ?? performedAt
+        }
         let exercisesBefore = WorkoutImporter.exerciseCount(in: context)
         var setCount = 0
         var createdEntries: [SetEntry] = []
         var exerciseResolver = WorkoutImportMapper.Resolver(in: context)
 
         // Review-order preservation: imported sets usually share one workout-level
-        // date, and the journal sorts by `performedAt` descending — ties come back
-        // in undefined storage order, scrambling multi-exercise workouts. Give the
-        // sets a deterministic millisecond cascade so the first set of the reviewed
-        // draft is the newest and the journal lists the workout exactly as reviewed.
-        // The cascade steps *forward* from the effective date, so a date-only pick
-        // (midnight) never pushes sets into the previous day, and the whole span
-        // stays sub-second: invisible at minute display precision and far below any
-        // explicit per-set time gap, so real timestamps still win.
-        let totalSets = exercises.reduce(0) { $0 + $1.sets.count }
-        var setOrdinal = 0
+        // date, and ties come back in undefined storage order, scrambling
+        // multi-exercise workouts. Give the sets a deterministic millisecond
+        // cascade in *chronological* order — the first reviewed set is the
+        // earliest and the last ends exactly on the effective date — so session
+        // detail, Repeat Workout, PR trails, and "latest set" all read the
+        // workout the way it was done, exactly like manually logged sets. (It
+        // used to run newest-first, which made Repeat reverse the workout on
+        // every repeat.) Only sets sharing one effective date are spread, so a
+        // set with its own explicit time keeps it exactly. The span stays
+        // sub-second: invisible at minute display precision and far below any
+        // explicit per-set time gap. It never starts before the date's local
+        // day and never ends after the date, so an undated import stays at or
+        // before "now".
+        var groupSizes: [Date: Int] = [:]
+        for set in exercises.flatMap(\.sets) {
+            groupSizes[effectiveDate(of: set), default: 0] += 1
+        }
+        var groupOrdinals: [Date: Int] = [:]
+        func cascaded(_ base: Date) -> Date {
+            let ordinal = groupOrdinals[base, default: 0]
+            groupOrdinals[base] = ordinal + 1
+            let stepsBack = max((groupSizes[base] ?? 1) - 1 - ordinal, 0)
+            guard stepsBack > 0 else { return base }
+            // Just after midnight there may be less than the full span left in
+            // the day: shrink the step so the group still ends on `base`
+            // without spilling into the previous day.
+            let available = base.timeIntervalSince(Calendar.current.startOfDay(for: base))
+            let fullSpan = Self.orderPreservationStep * Double((groupSizes[base] ?? 1) - 1)
+            let step = available >= fullSpan
+                ? Self.orderPreservationStep
+                : available / Double((groupSizes[base] ?? 1) - 1)
+            guard step > 0 else {
+                return base.addingTimeInterval(Self.orderPreservationStep * Double(ordinal))
+            }
+            return base.addingTimeInterval(-step * Double(stepsBack))
+        }
 
         for exercise in exercises {
             let name = exercise.trimmedName
@@ -87,9 +145,7 @@ enum WorkoutScanImporter {
             )
 
             for set in exercise.sets {
-                let orderedDate = (set.performedAt ?? performedAt)
-                    .addingTimeInterval(Self.orderPreservationStep * Double(totalSets - 1 - setOrdinal))
-                setOrdinal += 1
+                let orderedDate = cascaded(effectiveDate(of: set))
                 let entry = SetEntry(
                     exercise: resolved,
                     performedAt: orderedDate,
@@ -110,12 +166,9 @@ enum WorkoutScanImporter {
         }
 
         // The ledger's date must match what actually landed in the journal:
-        // with per-set overrides in play that is the earliest effective set
-        // date, not necessarily the workout-level date.
-        let ledgerDate = exercises
-            .flatMap(\.sets)
-            .map { $0.performedAt ?? performedAt }
-            .min() ?? performedAt
+        // the earliest saved set, which with per-set overrides in play is not
+        // necessarily the workout-level date.
+        let ledgerDate = createdEntries.map(\.performedAt).min() ?? performedAt
         let ledger = ImportedWorkout(
             source: source,
             externalID: externalID,
@@ -139,12 +192,14 @@ enum WorkoutScanImporter {
         if attachSession, !createdEntries.isEmpty {
             let startedAt = createdEntries.map(\.performedAt).min() ?? ledgerDate
             let cascadeEnd = createdEntries.map(\.performedAt).max() ?? startedAt
-            let endedAt = sessionEndedAt(draft: draft, startedAt: startedAt, cascadeEnd: cascadeEnd)
+            let endedAt = sessionEndedAt(draft: draft, startedAt: startedAt, cascadeEnd: cascadeEnd, now: now)
             let sessionTitle = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let session = WorkoutSession(
                 title: sessionTitle.isEmpty ? "Imported workout" : sessionTitle,
                 startedAt: startedAt,
-                endedAt: max(endedAt, startedAt),
+                // A session can't end in the future: a stated duration from a
+                // start moments ago stops at now.
+                endedAt: max(min(endedAt, now), startedAt),
                 notes: composedNote(source: source, originName: originName, userNote: draft.notes),
                 entries: createdEntries
             )
@@ -176,10 +231,36 @@ enum WorkoutScanImporter {
         in context: ModelContext,
         save: (ModelContext) throws -> Void = { try $0.save() }
     ) throws -> WorkoutImporter.Summary {
+        try importAll(items, source: source, attachSession: attachSession, in: context,
+                      afterItem: nil, save: save)
+    }
+
+    /// The fault hook requires an explicit label so existing trailing save
+    /// closures continue to bind to the production API above.
+    @discardableResult
+    static func importAll(
+        _ items: [(draft: ParsedWorkoutDraft, externalID: String, originName: String?)],
+        source: ImportSource = .textEntry,
+        attachSession: Bool = true,
+        in context: ModelContext,
+        afterItem: (() throws -> Void)?,
+        save: (ModelContext) throws -> Void = { try $0.save() }
+    ) throws -> WorkoutImporter.Summary {
+        try WorkoutImporter.transaction(in: context) {
+            try stageAll(items, source: source, attachSession: attachSession, in: context,
+                         save: save, afterItem: afterItem)
+        }
+    }
+
+    private static func stageAll(
+        _ items: [(draft: ParsedWorkoutDraft, externalID: String, originName: String?)],
+        source: ImportSource, attachSession: Bool, in context: ModelContext,
+        save: (ModelContext) throws -> Void, afterItem: (() throws -> Void)?
+    ) throws -> WorkoutImporter.Summary {
         var summary = WorkoutImporter.Summary()
         let exercisesBefore = WorkoutImporter.exerciseCount(in: context)
         for item in items {
-            let one = try `import`(
+            let one = try stageImport(
                 item.draft,
                 externalID: item.externalID,
                 source: source,
@@ -191,6 +272,7 @@ enum WorkoutScanImporter {
             summary.importedWorkouts += one.importedWorkouts
             summary.importedSets += one.importedSets
             summary.skipped += one.skipped
+            try afterItem?()
         }
         do {
             try save(context)
@@ -237,8 +319,11 @@ enum WorkoutScanImporter {
         return nil
     }
 
-    private static func sessionEndedAt(draft: ParsedWorkoutDraft, startedAt: Date, cascadeEnd: Date) -> Date {
-        if let endedAt = draft.endedAt, endedAt > startedAt { return endedAt }
+    private static func sessionEndedAt(draft: ParsedWorkoutDraft, startedAt: Date, cascadeEnd: Date, now: Date) -> Date {
+        // An export's own end time is trusted only when it is in the past; a
+        // clamped future draft falls back to its duration from the real start
+        // (itself capped at now by the caller).
+        if let endedAt = draft.endedAt, endedAt > startedAt, endedAt <= now { return endedAt }
         if let duration = draft.durationSeconds, duration > 0 {
             return startedAt.addingTimeInterval(TimeInterval(duration))
         }

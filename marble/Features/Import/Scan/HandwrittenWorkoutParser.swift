@@ -233,21 +233,22 @@ nonisolated enum HandwrittenWorkoutParser {
             line = line.replacingOccurrences(of: #"^\s*[•\-]?\s*[A-Za-z]\d{1,2}\s*[:.)-]?\s+"#,
                                              with: "", options: .regularExpression)
 
-            // Relative date words ("yesterday", "today") act like explicit date
-            // headers: set the session date and leave the line.
+            // Relative date words ("yesterday", "Monday") and explicit dates act
+            // as date headers: set the session date (first dated line wins) and
+            // strip them so a "Tuesday 3/5" header isn't mistaken for an
+            // exercise. On one line the explicit date is the more specific
+            // statement and wins ("Wednesday 7/15" is 7/15, not last Wednesday).
+            var lineDate: Date?
             if let relative = detectLeadingRelativeDate(in: line, referenceDate: referenceDate) {
-                if draft.performedAt == nil { draft.performedAt = relative.date }
+                lineDate = relative.date
                 line = normalize(line.replacingCharacters(in: relative.range, with: " "))
-                guard !line.isEmpty else { continue }
             }
-
-            // Pull a date out of the line (first one wins for the session date) and strip
-            // it so a "Tuesday 3/5" header isn't mistaken for an exercise.
-            if let match = detectDate(in: line, referenceDate: referenceDate) {
-                if draft.performedAt == nil { draft.performedAt = match.date }
+            if !line.isEmpty, let match = detectDate(in: line, referenceDate: referenceDate) {
+                lineDate = match.date
                 line = normalize(line.replacingCharacters(in: match.range, with: " "))
-                guard !line.isEmpty else { continue }
             }
+            if let lineDate, draft.performedAt == nil { draft.performedAt = lineDate }
+            guard !line.isEmpty else { continue }
 
             // A note may mention work that was planned, skipped, or corrected.
             // Preserve the whole line for interpretation instead of turning the
@@ -1161,33 +1162,52 @@ nonisolated enum HandwrittenWorkoutParser {
     /// and "90s rest".
     private static func extractRest(_ tokens: [String]) -> (tokens: [String], restSeconds: Int?) {
         var remaining = tokens
-        guard let markerIndex = remaining.firstIndex(where: { restMarkers.contains($0.lowercased()) }) else {
+        guard let markerIndex = remaining.firstIndex(where: { restMarkers.contains(restKey($0)) }) else {
             return (remaining, nil)
         }
 
         // "rest 90s" / "rest 90" — the value follows the marker.
         if markerIndex + 1 < remaining.count {
-            let next = remaining[markerIndex + 1].lowercased()
-            if let duration = parseDuration(next) {
+            let next = restKey(remaining[markerIndex + 1])
+            if let duration = restDuration(next) {
                 remaining.removeSubrange(markerIndex...(markerIndex + 1))
                 return (remaining, duration)
             }
-            if let value = Double(next), value.isFinite, value > 0, value <= 1_000_000 {
+            if let value = Double(next), value > 0, value <= 1_000_000,
+               let seconds = WorkoutNotationDuration.wholeSeconds(value >= 15 ? value : value * 60) {
                 remaining.removeSubrange(markerIndex...(markerIndex + 1))
                 // Bare numbers are seconds when ≥ 15 ("rest 90"), minutes below
                 // ("rest 2") — nobody rests 2 seconds or 90 minutes between sets.
-                return (remaining, value >= 15 ? Int(value) : Int(value * 60))
+                return (remaining, seconds)
             }
         }
 
         // "90s rest" — the value precedes the marker.
-        if markerIndex > 0, let duration = parseDuration(remaining[markerIndex - 1].lowercased()) {
+        if markerIndex > 0, let duration = restDuration(restKey(remaining[markerIndex - 1])) {
             remaining.removeSubrange((markerIndex - 1)...markerIndex)
             return (remaining, duration)
         }
 
         remaining.remove(at: markerIndex)
         return (remaining, nil)
+    }
+
+    /// Strip wrappers only for rest recognition, leaving other notation untouched.
+    private static func restKey(_ token: String) -> String {
+        var key = token.lowercased()
+        while let first = key.first, "([".contains(first) { key.removeFirst() }
+        while let last = key.last, ")]:,.".contains(last) { key.removeLast() }
+        return key
+    }
+
+    private static func restDuration(_ token: String) -> Int? {
+        if let seconds = parseDuration(token) { return seconds }
+        // "m" means minutes only beside an explicit rest marker. Elsewhere it
+        // remains meters, so "Run 400m" keeps its distance.
+        guard token.hasSuffix("m"), let minutes = Double(token.dropLast()), minutes > 0 else {
+            return nil
+        }
+        return WorkoutNotationDuration.wholeSeconds((minutes * 60).rounded())
     }
 
     // MARK: - RPE notation
@@ -1240,7 +1260,7 @@ nonisolated enum HandwrittenWorkoutParser {
     /// returns its duration; the caller applies it to the previous exercise.
     private static func restOnlyLineSeconds(_ line: String) -> Int? {
         let tokens = mergeSpecTokens(line.split(separator: " ").map(String.init))
-        guard tokens.contains(where: { restMarkers.contains($0.lowercased()) }) else { return nil }
+        guard tokens.contains(where: { restMarkers.contains(restKey($0)) }) else { return nil }
         let (remaining, restSeconds) = extractRest(tokens)
         guard let restSeconds else { return nil }
         // Anything left with a digit means the line carried real work too.
@@ -1584,31 +1604,7 @@ nonisolated enum HandwrittenWorkoutParser {
     }
 
     private static func parseDuration(_ token: String) -> Int? {
-        if token.contains(":") {
-            let parts = token.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
-            let numbers = parts.compactMap { Int($0) }
-            guard numbers.count == parts.count,
-                  numbers.allSatisfy({ $0 >= 0 && $0 <= Int.max / 10800 }) else { return nil }
-            switch numbers.count {
-            case 2: return numbers[0] * 60 + numbers[1]            // mm:ss
-            case 3: return numbers[0] * 3600 + numbers[1] * 60 + numbers[2] // h:mm:ss
-            default: return nil
-            }
-        }
-        let units: [(String, Int)] = [
-            ("hours", 3600), ("hour", 3600), ("hrs", 3600), ("hr", 3600), ("h", 3600),
-            ("minutes", 60), ("minute", 60), ("mins", 60), ("min", 60),
-            ("seconds", 1), ("second", 1), ("secs", 1), ("sec", 1), ("s", 1)
-        ]
-        for (suffix, multiplier) in units {
-            guard token.hasSuffix(suffix) else { continue }
-            let numberPart = String(token.dropLast(suffix.count))
-            guard let value = Double(numberPart), value >= 0 else { continue }
-            let seconds = (value * Double(multiplier)).rounded()
-            guard seconds.isFinite, seconds < Double(Int.max) else { return nil }
-            return Int(seconds)
-        }
-        return nil
+        WorkoutNotationDuration.seconds(token)
     }
 
     // MARK: - Dates
@@ -1702,9 +1698,8 @@ nonisolated enum HandwrittenWorkoutParser {
     }
 
     private static func intIfWhole(_ value: Double?) -> Int? {
-        guard let value, value.isFinite, value >= 0, value < Double(Int.max),
-              value == value.rounded() else { return nil }
-        return Int(value)
+        guard let value, value >= 0, value == value.rounded() else { return nil }
+        return WorkoutNotationDuration.wholeSeconds(value)
     }
 }
 

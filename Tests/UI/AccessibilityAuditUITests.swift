@@ -247,7 +247,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         try runAudit(name: "Supplements_Populated_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.trends)
-        waitForIdentifier("Trends.Overview.Status", timeout: 8)
+        waitForIdentifier("Trends.TopExercises", timeout: 8)
         try runAudit(name: "Trends_Overview_\(appearance.envValue)_\(sizeLabel)")
         revealDetailedTrends()
         waitForIdentifier("Trends.DailyHighlights", timeout: 8)
@@ -344,7 +344,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         try runAudit(name: "Supplements_Empty_\(appearance.envValue)_\(sizeLabel)")
 
         navigateToTab(.trends)
-        waitForIdentifier("Trends.EmptyState")
+        waitForIdentifier("Trends.TopExercises")
         try runAudit(name: "Trends_Empty_\(appearance.envValue)_\(sizeLabel)")
 
         launchApp(
@@ -392,15 +392,32 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 note.lifetime = .keepAlways
                 add(note)
             }
-            try app.performAccessibilityAudit(for: auditTypes) { issue in
-                issues.append(issue)
-                if let element = issue.element {
-                    let list = self.app.collectionViews.firstMatch
-                    issueVisibility[ObjectIdentifier(issue)] = (
-                        element.frame, element.isHittable, list.exists ? list.frame : .null
-                    )
+            for attempt in 1...2 {
+                print("Accessibility audit \(name), attempt \(attempt)")
+                do {
+                    try app.performAccessibilityAudit(for: auditTypes) { issue in
+                        issues.append(issue)
+                        if let element = issue.element {
+                            let list = self.app.collectionViews.firstMatch
+                            issueVisibility[ObjectIdentifier(issue)] = (
+                                element.frame, element.isHittable, list.exists ? list.frame : .null
+                            )
+                        }
+                        return true
+                    }
+                    break
+                } catch {
+                    let nsError = error as NSError
+                    print("Accessibility audit \(name), attempt \(attempt) failed: \(nsError)")
+                    // Retry only an empty runtime timeout. Never discard issues
+                    // reported before a timeout or turn a repeated failure into a skip.
+                    guard attempt == 1,
+                          issues.isEmpty,
+                          nsError.domain == "com.apple.xcode.xctest.accessibilityAudit",
+                          nsError.code == -56 else {
+                        throw error
+                    }
                 }
-                return true
             }
         } catch {
             let nsError = error as NSError
@@ -578,8 +595,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
 
     private func openNotifications() {
         let button = app.buttons["Journal.Notifications"]
-        waitFor(button)
-        button.tap()
+        // Native toolbar activation points can be stale after an XXXL audit.
+        // Exercise the visible button coordinate, as in the other flow helpers.
+        forceTap(button)
         waitForIdentifier("Notifications.List", timeout: 5)
     }
 

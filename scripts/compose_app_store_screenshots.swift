@@ -76,7 +76,7 @@ func compose(story: ScreenshotStory, inputURL: URL, outputURL: URL) throws {
     NSRect(x: 0, y: 0, width: width, height: height).fill()
 
     let isTablet = CGFloat(width) / CGFloat(height) > 0.70
-    let horizontalInset = CGFloat(width) * (isTablet ? 0.09 : 0.08)
+    let horizontalInset = CGFloat(width) * (isTablet ? 0.12 : 0.095)
     let screenshotWidth = CGFloat(width) - horizontalInset * 2
     let screenshotHeight = screenshotWidth * CGFloat(height) / CGFloat(width)
     let screenshotRect = NSRect(

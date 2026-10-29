@@ -1,64 +1,425 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-09-05 (pre-upload checkpoint).**
+**App Store Connect state refreshed: 2026-10-29.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## Build 68 Add Workout follow-up — September 5, 2026
+## 2.6 (build 83) is public (readback 2026-10-29)
 
-Production was freshly verified as 2.4 build 61; next ASC build number is 68.
-Build 67 (`f863e45`) is merged and VALID / internal IN_BETA_TESTING, and its
-focused/main CI passed. Owner testing nevertheless exposed a genuine Notes parser
-failure. Do not publish build 67 as a resolution of that issue.
+- **Public App Store:** 2.6 version `96648678-f09f-453e-a534-d63b9cb2bce8` is
+  `READY_FOR_DISTRIBUTION` with build 83 `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`
+  attached. Review submission `cfd710cc-0554-401e-8c2e-095c7ee49bf6` (submitted
+  2026-10-04 16:56 PDT) is `COMPLETE`. Phased release is not configured.
+- **Shipped source:** `8d46a09815776b0a35d68326b22772487a4cfe0f`, the head of
+  `fix/release-hardening-2.6` (PR #45). TestFlight workflow
+  [37231788266](https://github.com/enzo-prism/marble/actions/runs/37231788266)
+  checked out that exact SHA, archived build 83 (2.6), and discovered upload
+  `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`. PR #45 was merged to `main` after release
+  so `main` contains the shipped source again; tag `v2.6-83` marks the shipped commit.
+- **Not recorded in git:** physical-device signoff and the final five-gate evidence
+  manifest for build 83. Do not cite build 83 as having passed those gates.
+- **Known red check:** the scheduled `Release checks` workflow has failed on every run
+  since 2026-10-05 (and on `8d46a09`, run 37231157543). The UI gate has one failure,
+  `test11DailyHighlights` (XCTAssertTrue), and the job then hits its 230-minute timeout.
+  Daily Highlights is time-of-day gated (8:00 PM–11:59 PM), so check that test for a
+  real-clock dependency first.
+- **Next build:** use `make asc-next-build` (latest uploaded is 83).
 
-Build 68 implements counted efforts (including metricless drills), per-set distance
-counts, light kilogram load pairs, bounded source-grounded model reconciliation,
-and review that preserves unresolved source before saving. Schema remains V6.
-See WORKOUT_TEXT_ENTRY.md for the exact owner fixture and validation contract.
+The section below records the pre-upload state of the hardening work and is historical.
 
-Final local unit run `work/workout-all-unit-v4.log` passed **920 tests with five
-skips**. It includes the owner eight-effort persistence/recovery/dedup regression.
-The real Mac model harness passed **11/11 final strict pipeline cases**, checking
-every set, movement order/identity, explicit metrics/units, nil metrics and named
-dates. Earlier direct structured-model checks failed; this result is for the
-production route: complete deterministic parsing → validated notation rewrite →
-structured extraction only if the rewrite has no usable grounded content. Partial
-results retain unresolved source for review. History details and Repeat now preserve
-source exercise/set order. See `WORKOUT_TEXT_ENTRY.md` and the coordinating
-workspace's `outputs/marble-workout-ai-evaluation.md` for evidence and limits.
+## Pre-upload candidate state (2026-10-04, historical)
 
-Local Notes accessibility checks passed both methods across 16 review/timing
-screens in light/dark and default/largest text. The simulator does not support the
-Dynamic Type audit category at the largest size; other categories still run there.
-Exact footer contrast reports caused by native scrolling require a separate fully
-visible contrast pass, with original visibility captured before any re-audit.
-The full UI baseline completed 72 tests and exposed a test cursor tap on a rounded
-field border; the corrected interior tap preserves keyboard and saved-value
-assertions. Focused owner-note, source-order, unresolved-review and PR checks pass.
+- **Local candidate:** 2.6 (83), still under validation at the time. It had not been
+  uploaded, merged to main, or released publicly as part of this hardening work.
+- **Public App Store (then):** 2.5 (77), build `20b9fd0a-d15d-45b0-b063-237efd6b1430`.
+- **Latest internal TestFlight:** 2.6 (82), build
+  `2da4ad84-097f-4f5d-83e8-b4257edef403`, `VALID` / `IN_BETA_TESTING`.
+  Its What to Test notes were read back and strict validation returned zero errors
+  and zero warnings. This is evidence for build 82 only.
+- No 2.6 App Store version or submission has been created by this work. Physical
+  iPhone acceptance is pending because the device is unavailable. Full final
+  release gates are pending. The local broad accessibility run had seven passes,
+  one runtime skip and two failures (notification navigation and a test-runner
+  termination); the notification helper is corrected but rerun is pending.
 
-The final spacing follow-up adds 8 pt above the review content after an independent
-contrast probe reproduced a navigation-edge heading failure. Both Notes audit
-methods then passed (2 tests, zero failures) with no new issue exclusions. The
-exact PR interaction selection passed all 8 local tests, and all 7 Composer methods
-passed normal comparison after 32 deliberately reviewed reference updates. The
-prior remote candidate also passed existing History and Composer references;
-local History scene-inset differences remain a capture-host limitation. Its UTC
-fixture formatter is now pinned and restored after capture.
+### Completed checks for the hardening work
 
-The prior remote run `33983138346` reported accessibility and interaction failures;
-its failure evidence must be read before treating a later rerun as resolved. Build
-68 upload run `33983356510` was cancelled during archive, before upload. A live ASC
-build-68 query at 18:18 UTC returned no build. No production change is claimed.
+- Local unit suite: **979 executed, 6 skipped, zero failures**.
+- Focused checks: **68 passed**, plus the duplicate-save UI check passed.
+- Explicit opt-in store performance checks: **5 passed**. These synthetic store
+  checks do not establish physical-device performance.
+- Pinned Composer snapshot record and verification passed in GitHub run
+  [37228655891](https://github.com/enzo-prism/marble/actions/runs/37228655891).
+- Signed archive/export **dry run** passed in GitHub run
+  [37229514800](https://github.com/enzo-prism/marble/actions/runs/37229514800).
+  No binary was uploaded by that run.
 
-This is the pre-release verification checkpoint for PR #34. Final normal snapshot,
-UI, migration and exact-source GitHub evidence remain release gates; inspect
-Actions and the immutable candidate/upload receipts for their final results.
-Physical-device acceptance remains unverified; Mac model results are separate from
-iPhone behavior.
-The iPhone last reported Developer Mode disabled. Production authorization is
-already provided, conditional on actual release gates; no new permission request
-is needed. Do not fabricate hardware results or treat source/CI as an uploaded binary.
+These checks are scoped evidence, not a complete clean-source release manifest.
+Final counts and candidate identity must be recorded after all gates finish.
 
-## Historical build 67 validation follow-up — September 5, 2026
+### Current release tooling
+
+Release workflows pin ASC 5.8.0. `make asc-status BUILD_ID=<uuid>` reads the
+exact build and its app, pre-release version, and beta-detail relationships.
+Do not use the aggregate `asc status` dashboard as a release gate. Build numbers
+are selected app-wide by `make asc-next-build`; the latest verified next number
+was 83. `make asc-testflight-validate BUILD_ID=<uuid>` uses strict validation.
+
+`make migration-release` tests both current production 2.5 (77), source
+`80396c19481739184aaca00e5f175512b7a92ded`, and older 2.4 (61), source
+`9e8346f6cad4683991a78fbaf223baaf01e9f068`. Build-77 source provenance is its
+versioned source/CI and upload timing; a historical upload receipt was not found.
+Each migration run records its source and checks the baseline app's version/build.
+
+App Store staging uses `--build-id`, tracked metadata under
+`AppStore/metadata/version/2.6`, and `--strict-validate`. Stage and submit dry runs
+against build 82 passed; readiness checks requiring an existing 2.6 version were
+deferred. The production verifier still requires all five gates, an exact-source
+upload receipt, and real device signoff. Follow
+[the 2.6 device checklist](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.6.md).
+
+## Archived release records
+
+The dated sections below preserve their original observations. They are not
+current instructions or evidence that build 83 passed the same checks.
+
+## 2.6 (build 82) VALID on internal TestFlight (2026-09-27)
+
+Build 82 is build 81 plus the Apple Intelligence improvements (#41) and the Xcode
+26.x build fix (#43). App Store state is unchanged from the 2.6 (81) section below:
+2.5 is live, there is no 2.6 App Store version, and the train is still 2.6.
+
+What changed since build 81 (no schema change, still V6):
+- **Parser and model calls:**
+  - Weights written without a unit use the user's preferred unit on the model path
+    and on scan. Before, both assumed lb.
+  - Only transient model errors are retried. A 10-minute circuit breaker stops
+    calling the model after asset or unknown failures.
+  - Locale and context-window checks run before any model call.
+  - Prewarm now warms the pass that runs first.
+  - A new `ModelEscalationPolicy` sends implausible "complete" deterministic
+    parses to the model (e.g. `Bench 225x5x3` read as 225 sets). Clean notation
+    skips the model, in the composer and on scan.
+- **Arbiter:**
+  - Exercise names and units are checked against the source text.
+  - Spelled-out set counts count as evidence, and invented exercises and sets
+    are penalized.
+  - When the model's draft wins, notes and RPE from the other draft are kept.
+  - Drafts now record `interpretedByModel` (optional, so saved drafts still
+    decode).
+- **Composer:**
+  - A Stop button appears while reading.
+  - The review screen says "Read with Apple Intelligence — check the numbers"
+    when the model's draft won.
+  - Unread lines stay visible when the deterministic draft wins.
+  - Failure messages explain the cause.
+- **Training Insights:**
+  - Sentences with numbers not in the facts are dropped, and health advice is
+    blocked.
+  - Text is stable (greedy sampling, cached per month) and capped at 2–3
+    sentences.
+  - Volume uses the preferred unit, including on the Coaching card.
+  - The footer says when Apple Intelligence wrote the text.
+
+Toolchain trap (#43): release and CI builds are pinned to **Xcode 26.6** (iOS 26.5
+SDK). #41 was developed and tested on local Xcode 27, and it used symbols that
+exist only in the iOS 27 SDK: `GenerationOptions(samplingMode:)`,
+`LanguageModelError`, `SystemLanguageModel.Error`, `LanguageModelSession.Error` and
+`GeneratedContent.ParsingError`. The first build-82 upload run (`36369370407`)
+therefore failed at archive; nothing was uploaded. Those symbols now sit behind
+`#if compiler(>=6.4)`. Before merging FoundationModels API changes, run the
+release dry run on the branch: `gh workflow run release-testflight.yml --ref
+<branch> -f confirm=publish -f dry_run=true`. It passed for #43 as run
+`36370170710`.
+
+Upload evidence:
+- **Source:** `main` at `4515fe5` (#43 on top of #41 and #42, the build bump).
+- **Workflow:** `release-testflight.yml` run `36370477313`, which succeeded; its
+  `upload-receipt` artifact is preserved.
+- **ASC build:** `2da4ad84-097f-4f5d-83e8-b4257edef403`, 2.6 (82), `VALID`.
+  Internal `IN_BETA_TESTING` with auto-notify on; external
+  `READY_FOR_BETA_SUBMISSION`.
+
+Validation:
+- **`make unit` (local Xcode 27):** 964 tests with 6 skips. The only failure was
+  an existing retry-concurrency test that now takes the deterministic path; its
+  input was switched to prose and its class then passed 52/52. The full suite was
+  not re-run after that fix.
+- **Apple Intelligence quality:** measured with a macOS harness that compiles the
+  real parsing sources against the host's on-device model. The iOS 26.5
+  simulator on this macOS 27 host reports the model `.available`, but every call
+  fails for missing model assets, so the XCTest live eval can't run here.
+  Results over 114 cases, one run each:
+
+  | | Before | After |
+  |---|---|---|
+  | Overall | 70.2% | 74.6% |
+  | Notation | 33/34 | 34/34 |
+  | New hard corpus | 54.9% | 60.6% |
+  | Mean latency | 4.0 s | 1.9 s |
+  | p50 latency | 3.5 s | ~0 s (clean notation skips the model) |
+
+  The Mac model may differ from an iPhone's.
+- **Not run:** the UI and snapshot suites (#41 adds a Stop button, the provenance
+  and model-issue captions, and changes the Coaching card's volume text for lb
+  users, so Trends snapshot baselines may need a deliberate re-record);
+  `make release-evidence`; device signoff.
+
+Before any 2.6 App Store step, do the checks listed in the build 81 section, plus
+these on hardware:
+- Dictate a workout in plain sentences.
+- Paste `Bench 225x5x3`.
+- As a kg user, enter a weight without a unit.
+- Tap Stop while a workout is being read.
+- Open the Monthly Report twice; the insights must match, and the volume unit
+  must be correct.
+
+## 2.6 (build 81) VALID on internal TestFlight (2026-09-26)
+
+**App Store 2.5 is released.** Live checks on 2026-09-26 show version 2.5
+`READY_FOR_SALE` / `READY_FOR_DISTRIBUTION`, with a manual release type and no phased
+release attached. The release record says build 77 shipped on 2026-09-23; the API
+link was not re-read. **This supersedes the 2.5 plan below.** Builds 77, 78, 79 and 80
+are no longer candidates, and nothing needs to be withdrawn. A released version
+closes its train to new uploads, so the working train is now **2.6** (#39).
+
+What changed since build 80 (all on `main`, no schema change, still V6):
+- **Data integrity (#37):**
+  - Deleting an exercise now also deletes its `SprintVariant` rows. A one-time V2
+    sweep heals existing stores. Backups skip orphaned variants on export and drop
+    them on restore, so files exported by affected builds restore again.
+  - Apple Health import excludes workouts Marble exported itself. Before, each
+    exported session came back as a duplicate "Strength" entry labeled Apple Watch.
+  - Comma lists of loads (`185,205,225`) are no longer merged into one number.
+- **Import dates and times (#38):**
+  - Dates are the local day at the reference time of day. They were 12:00 UTC:
+    5 AM Pacific, and the next day from UTC+12 eastward.
+  - Year-less dates are never in the future.
+  - Rep notation is no longer read as a date (`135x10/10/10`, `Pull-ups 10/8`,
+    `Run 3/4 mile`).
+  - The model path resolves weekdays, "last Tuesday", "N days ago" and ISO
+    timestamps.
+  - Imported sets are stamped chronologically, so Repeat Workout no longer reverses
+    them. The Journal now lists imported workouts newest-first, like manually
+    logged ones.
+  - No date or session end time is saved in the future.
+
+Upload evidence:
+- **Source:** `main` at `1545832` (merge of #39 on top of #37 and #38).
+- **Workflow:** `release-testflight.yml` run `36268181823`, `confirm=publish`. It
+  succeeded and its `upload-receipt` artifact is preserved.
+- **ASC build:** `0f968345-e621-4781-89d1-3aa5f8abd4ce`, 2.6 (81), `VALID`.
+  Internal `IN_BETA_TESTING` with auto-notify on; external
+  `READY_FOR_BETA_SUBMISSION`.
+
+Validation before upload (local, Xcode 27):
+- **`make unit`:** 890 tests, 5 skips, zero failures. Includes the new
+  `ImportDateTimeZoneTests`, which runs in six time zones; the rest of the suite
+  runs in GMT.
+- **`make ui`:** 72 tests with zero assertion failures. The runner crashed once on
+  launch after a simulator reset and xcodebuild retried.
+- **`make snapshot`:** every group except `WorkoutHistorySnapshotTests` passed.
+  History failed the same 8 comparisons on unchanged `main`, so the failure is an
+  environment issue on local Xcode 27, not these changes.
+- **Hosted CI:** PR #37's only failure was the intermittent
+  `testHistoryAndRecoveryAccessibilityAudit_DefaultText`; a re-run was requested.
+  #37 and #38 were merged by owner decision before hosted CI finished.
+
+Not done for this build:
+- `make release-evidence` (the five-gate manifest) was not run for `1545832`.
+- There is no device signoff.
+- There is no App Store 2.6 version, review submission, or external beta.
+
+Before any 2.6 App Store step, do the following:
+1. Run the gated release chain for the exact source.
+2. Confirm on hardware:
+   - A dated paste (e.g. `9/26 Push`) lands on the right day at a sensible time.
+   - With Health export and auto-import both on, no duplicate appears.
+   - Repeat Workout keeps the exercise order.
+   - Deleting a sprint exercise with a plan, then backing up and restoring, works.
+
+## 2.5 (build 80) VALID on TestFlight; App Review pending device signoff (2026-09-19)
+
+> Superseded: 2.5 was released on 2026-09-23 (see the 2.6 section above). The plan in
+> this section no longer applies.
+
+Build 80 retains build 78's production app behavior and assets, including 25 new
+athlete quotes and single-line filtering. The submission package has detailed
+metadata, reviewer instructions, and nine genuine iPhone/iPad screenshots per
+family: Add, History, Repeat, Review, Log, Progress, Highlights, Calendar, Backups.
+Both ASC size/format checks passed with zero errors or warnings.
+
+Build 79 is VALID and available in TestFlight, but its full release preflight
+failed History accessibility snapshots. The earlier reference-only refresh was
+insufficient: native search fields could use a cached font derived from the
+system category despite the snapshot hierarchy's accessibility-size override.
+The correction runs History's default and accessibility variants in separate
+launches with matching actual simulator text sizes, restores the prior setting,
+and preserves every variant and the 98% precision threshold. Refreshed references
+show real native rendering rather than a hierarchy-only trait simulation.
+Composer date-picker reference corrections are retained. The audit harness also
+restores the prior release branch's one-time retry for an empty XCTest framework
+timeout (exact accessibility-audit domain/code -56); reported issues and repeated
+errors still fail normally. Build79 CI passed units, interactions, migration,
+release tooling, and navigation, but failed the History snapshots and timed out
+on the History detail accessibility audit. No production code,
+data/schema, or privacy changes are introduced by this release preparation.
+
+Exact uploaded/tested source: `ebea8e8a8fc8ff675c05a225f0514b169c35970c`.
+ASC build: `ccbce04d-5fe7-491c-96c7-c415fbb5f3e3`, `VALID` and
+`IN_BETA_TESTING`, with verified testing notes. App and widget both report 2.5 (80),
+and deep/strict signature verification passed. The immutable upload receipt
+records the IPA hash and source identity.
+
+All five local release gates passed in one clean exact-source run:
+- Unit: 874 tests, 5 skips, zero failures.
+- Full snapshot suite: 43 groups, including separate real system text sizes for History.
+- UI: 73 tests, zero failures.
+- Accessibility: 10 tests, 2 unsupported-runtime skips, zero failures.
+- Shipped-store migration: passed from `9e8346f6cad4683991a78fbaf223baaf01e9f068`,
+  preserving 40 exercises.
+The generated manifest verified all 58 artifacts. A separate full accessibility
+run also passed. History/Composer comparisons passed two consecutive runs and
+passed hosted CI on Xcode 26.6 as well as local Xcode 27.
+
+GitHub run 35483870839 attempt 1 passed every stage except the History/recovery
+audit entry: automation's Log-tab tap was interrupted, leaving Add selected,
+and the expected History button was therefore absent. No accessibility audit
+had started. Attempt 2 is running against the same commit; do not claim CI is
+fully green until its fresh result is checked.
+
+The production verifier currently stops at `Physical-device signoff required`.
+The owner's affirmative build 78 feedback is preserved for 78 only; exact-build 80
+hardware confirmation is pending. Do not manufacture or carry forward passing
+checks to another build. The clean release worktree remains pinned at the
+uploaded source for the final verifier and `ci_appstore.sh submit` call.
+
+Existing App Store 2.5 build 77 remains `PENDING_DEVELOPER_RELEASE`, held for manual
+release. Public version remains 2.4. No new review submission or public release
+has occurred. Once the build 80 device checks are confirmed, verify the candidate,
+withdraw the approved old candidate, apply the reviewed metadata and 18 screenshots,
+attach build 80, validate, and submit. Re-read ASC state before mutation.
+
+## 2.5 (build 78) VALID on TestFlight (2026-09-19)
+
+Adds 25 sourced athlete quotes (131 total); see `ATHLETE_QUOTES.md` for exact
+wording and sources. Progress and Daily Highlights both skip quotes that cannot
+fit their actual width at the current scaled italic font, including Bold Text.
+No wrapping, shrinking, or truncation; the counter reflects the eligible pool.
+
+Validation: 874 unit tests, 5 skipped, zero failures; all 8 Trends snapshots and
+5 quote/Progress interaction tests pass. Accessibility audit: 10 tests, 2 runtime
+Dynamic Type skips, zero failures. All 25 new quotes fit 250 points at standard
+caption size, including Bold Text; larger text filters the pool. No schema change.
+
+ASC readback before upload: build 77 is VALID; next build number is 78. App Store
+2.5 is PENDING_DEVELOPER_RELEASE; this TestFlight upload does not release it.
+Signed archive/export/upload succeeded from exact main source
+`4ea0d05621e511906b2e7ccbc125ef35d8d4f7dc`. App and widget both report 2.5 (78).
+ASC build `7c3be94a-d36c-4a7a-89e0-a324c7678247` is `VALID` and
+`IN_BETA_TESTING`, with `autoNotifyEnabled: true`. Internal test group A has
+access to all builds. What to Test notes were verified by API readback. An
+immutable local upload receipt records the source SHA and IPA SHA-256 under
+`.asc/artifacts/upload-receipts/`. GitHub CI remains running at release readback;
+the completed local checks above are the validation evidence for this upload.
+
+## 2.5 (build 76) VALID on TestFlight (2026-09-06)
+
+The Progress overview only rotates through complete quotes that fit one line at
+its actual content width and scaled caption font, including Bold Text. Quotes
+never shrink or truncate; if none fit, the decorative footer is empty. Authors
+remain centered below. The Daily Highlights card keeps its full wrapping pool.
+Quote swipes now take priority over button taps, so right swipe goes backward
+instead of also triggering the next-quote action. No schema changes.
+
+Validation: 871 unit tests, 5 skipped, zero failures; empty/populated Progress
+snapshots intentionally refreshed and verified; Daily Highlights snapshots passed.
+All 5 Progress UI tests passed, including tap/left swipe/right swipe and the
+largest-text Details control. Signed 2.5 (76) archive/export succeeded.
+Full accessibility audit passed: 10 tests, 2 runtime Dynamic Type skips, zero
+failures. Code commit `9153598` is on main. ASC build
+`4d4a9aa5-eff3-48fe-afbc-b932dc79be6a` is `VALID`, `IN_BETA_TESTING`, with
+automatic notifications enabled; internal "test group A" has access to all builds.
+What to Test notes verified by readback.
+
+## 2.5 (build 75) VALID on TestFlight (2026-09-06)
+
+Progress overview Top Exercises now excludes exercises without a usable weight PR
+and its performed date before applying the five-row limit. Every row requires a
+PR summary; no dash-only rows. Frequency and alphabetical ranking remain unchanged.
+Empty-state copy explains the weighted-set requirement. No schema changes.
+
+Validation: unit suite 868 tests, 5 skipped, 0 failures; all Progress snapshots
+passed after intentionally recording empty/populated overview baselines; widget
+snapshots passed. `make audit`: 10 tests, 2 runtime Dynamic Type skips, 0 failures.
+The full snapshot run passed every group except WorkoutHistory's 8 large-text
+comparisons; all 8 reproduced on clean unchanged `origin/main` (2af6112).
+Release archive/export/upload succeeded for 2.5 (75), code commit `eba364c`.
+ASC build `c36adcd6-a121-45f2-bd95-98b07e752682` is `VALID`,
+`internalBuildState: IN_BETA_TESTING`, `autoNotifyEnabled: true`. Existing internal
+"test group A" has access to all builds. What to Test notes verified by readback.
+
+## 2.5 (build 74) VALID on TestFlight (2026-09-05)
+
+**2.5 build 74** (buildId `0d9bfbf8-351d-4160-ab46-cdec4036098f`, `VALID`) ships the
+Daily Highlights quote upgrade: the pool grows 45 → 106 (61 validated extension
+entries, every text ≤140 chars, https sources, max 3/author; q123/q147/q148 dropped
+as duplicates/truncations, q121/q126/q127 replaced in place with verbatim PD texts).
+The full-pool per-launch session shuffle replaces the 3-per-day cohorts, with the
+stable bundled order kept under tests/snapshots. Tap advances, a horizontal swipe
+moves back/forward through the pool, and the counter reads N of 106; the Progress
+overview footer reuses the same session order and engine. Docs updated
+(`DAILY_HIGHLIGHTS.md` schedule section, README Progress/Daily Highlights bullets).
+Direct foreground publish via `make asc-publish-testflight` ("test group A" already
+receives all builds, so group assignment was skipped). No schema change (still V6).
+Gates observed: `make asc-next-build` 73 → 74, Release archive/export/upload
+succeeded, ASC processing `VALID`; audit pass on the same code tree beforehand:
+`typecheck-tests` BUILD SUCCEEDED, unit 865 tests with 0 failures, Trends snapshots
+re-recorded and green.
+
+## 2.5 (build 73) VALID on TestFlight (2026-09-05)
+
+**2.5 build 73** (buildId `da51a176-88e3-4c73-ba88-e654e55ae9da`, `VALID`) trims the
+Progress overview to the Top Exercises card + centered quote footer: the This Week
+status section (`ProgressOverviewView` + overview memo/signature) is fully removed
+(`ProgressDetailHeading` survives in its own file for Details), UI tests now wait
+on `Trends.TopExercises`, and Trends empty/populated snapshots are re-recorded.
+Staged foreground publish (asc-archive → asc-export → builds upload); "test group
+A" auto-receives. No schema change (still V6). Gates observed before push:
+`TrendsShareCardTests` 7/7, Trends empty/populated snapshots green,
+`typecheck-tests` BUILD SUCCEEDED.
+
+## 2.5 (build 72) VALID on TestFlight (2026-09-05)
+
+**2.5 build 72** (buildId `66423604-10ad-4c19-ab01-df7368a39e5c`, `VALID`) reorders the
+Progress overview: rotating training-quote footer first, then the Top Exercises
+card, then the This Week status (footer separator padding removed now that it
+opens the screen). Staged foreground publish (asc-archive → asc-export → builds
+upload); "test group A" auto-receives. No schema change (still V6). Gates observed
+before push: `TrendsShareCardTests` 7/7, `typecheck-tests` BUILD SUCCEEDED.
+
+## 2.5 (build 71) VALID on TestFlight (2026-09-05)
+
+**2.5 build 71** (buildId `31bb6714-8be7-4e9a-9c9d-8aa592436596`, `VALID`) removes Share
+from the Progress Top Exercises card (no `ShareLink` button, text export, or share
+IDs; card ID is now `Trends.TopExercises`) following the Daily Highlights precedent
+(build 43 also removed its Share/export control). Staged foreground publish
+(asc-archive → asc-export → builds upload); "test group A" auto-receives. No schema
+change (still V6). Gates observed before push: `TrendsShareCardTests` 7/7,
+`typecheck-tests` BUILD SUCCEEDED.
+
+## 2.5 (build 70) VALID on TestFlight (2026-09-05)
+
+**2.5 build 70** (buildId `cabc1bb6-bc79-40ff-b06e-df69d98e1841`, `VALID`) carries the
+Progress overview wave: shareable Top Exercises card first (top 5 most-logged
+exercises, PR weight + date only, `ShareLink` text export), simplified from the
+earlier reps-and-sets layout, plus a quiet centered rotating training-quote footer
+reusing the Daily Highlights quote schedule/engine (`ProgressQuoteFooter`). Staged
+foreground publish (asc-archive → asc-export → builds upload); "test group A"
+auto-receives. No schema change (still V6). Gates observed before push:
+`TrendsShareCardTests` 8/8, `DailyHighlightsTests` 15/15, `typecheck-tests`
+BUILD SUCCEEDED.
+
+## Build 67 validation follow-up — September 5, 2026
 
 Build 66 source `fb1baca9e0d954025b4806446d75c9eaa8c7ecc9` merged through PR #32.
 PR CI `33949349236` and main CI `33950718543` passed. Upload `33950444971`
@@ -82,8 +443,7 @@ and a missing booted simulator before migration. The follow-up corrects test
 interaction/setup and scopes the verified decorative report to History set rows.
 Physical VoiceOver testing remains required; automation hierarchy is not signoff.
 
-At that checkpoint, build 67 validation and upload were pending; the build-68
-section above supersedes that state. Production remains 2.4 build 61.
+Build 67 validation and upload are pending. Production remains 2.4 build 61.
 Owner hardware acceptance has not been performed; no simulator result substitutes
 for it. Earlier records below are historical and do not establish release readiness.
 
@@ -101,7 +461,7 @@ Build 66 tightens set-row accessibility semantics. Final validation, upload, mer
 and owner hardware acceptance remain pending. Keep builds 64 and 65 internal.
 The following build-65 preparation record is retained as historical context.
 
-## Historical build-64/65 snapshot — September 4–5, 2026
+## Current release snapshot — verified September 4–5, 2026
 
 - Approved scope: complete the reliability, draft recovery, history/repeat, performance,
   and release-quality work; merge main; publish TestFlight and production when gates pass.
@@ -1267,7 +1627,7 @@ Do not delete/rewrite `backup/*` or `feature/*` branches without an explicit req
 git fetch --all --prune
 git status --short --branch
 git branch -vv
-make asc-version      # reconcile branch version/build; corrected PR candidate is 2.5 (65), pending final SHA/upload
+make asc-version      # reconcile branch version/build; current train is 2.6 (82 uploaded 2026-09-27)
 make asc-status
 make asc-builds
 make asc-next-build   # query fresh; never reuse a historical expected build number

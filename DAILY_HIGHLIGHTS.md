@@ -24,27 +24,41 @@ server, background process, or sharing integration.
 
 ## Daily motivation
 
-The app bundles **45 short public-domain quotations** with attribution, source title, and a
-primary-source URL. The catalog is arranged into 15 balanced three-quote cohorts. A fixed,
-versioned local-day schedule means:
-
-- exactly three unique quotes are selected for each celebration day;
-- the same local day always receives the same trio across relaunches;
-- adjacent days never share a quote;
-- every quote appears once before the 15-day schedule repeats; and
-- an overnight window continues using the prior celebration day's trio after midnight.
+The app bundles **131 quotations** (the original 45, a 61-entry historical
+extension catalog, and 25 short athlete quotes) with attribution, source title, and a primary-source URL. The contemporary athlete quotes are not labeled public domain. Each app
+launch shuffles the full pool into one random session order and the rotator walks that
+order; under tests, UI tests, snapshots, and App Store screenshots the stable bundled
+order is used instead, so recorded output never depends on the shuffle. There is no
+per-day limit — the quote shown follows the session order and the rotation clock, not
+the calendar day.
 
 The visible quote advances every 12 seconds with a short crossfade. Tapping it advances
-manually and holds the chosen quote for at least one full interval, after which automatic
+manually, and a horizontal swipe moves back or forward through the pool; a manual pick
+holds the chosen quote for at least one full interval, after which automatic
 rotation resumes on the shared schedule. VoiceOver and Reduce Motion stop automatic
 rotation, and a manual pick is then permanent; the quote remains a single adjustable
 accessibility element with
-its author and “quote N of 3” position. Dynamic Type wraps naturally without line limits or
-text scaling. Visually, motivation is deliberately a quiet footer: secondary italic text
+its author and its position within the currently fitting pool. Both surfaces measure
+each complete quote at the actual available width with the same scaled italic font
+used for display, including Bold Text. Quotes that do not fit a single line are
+excluded, never shortened, wrapped, or shrunk. Visually, motivation is deliberately a quiet footer: secondary italic text
 with a compact author and position line. It has no heading, quote icon, or pagination
 ornament, keeping the day's achievements and results at the top of the hierarchy.
 
-Every catalog entry is auditable in `DailyHighlightQuotes.swift`. Primary archives include
+The Progress overview reuses the same session order and rotation engine as a centered
+footer (`ProgressQuoteFooter`, `DailyHighlightQuoteRotator` with `centered: true`): same
+12-second rotation, tap-to-advance, and swipe, no counter, same VoiceOver/Reduce Motion behavior.
+The overview filters that order to complete quotes that fit one line at the current
+available width, caption size, and Bold Text setting. It measures with the same font
+it renders; quotes never shrink or truncate. Resizing or changing Dynamic Type
+recomputes eligibility. If no quote fits, this decorative footer is empty. The author
+remains underneath. The Daily Highlights card applies the same rule to its own
+measured content width; its position counter counts only eligible quotes.
+
+Every catalog entry is auditable in `DailyHighlightQuotes.swift` and
+`DailyHighlightQuoteExtension.swift`, and `AthleteQuotes.swift`. The athlete catalog
+links to official sports organizations, athlete-authored articles, and interview
+transcripts; see [the athlete source register](ATHLETE_QUOTES.md). Primary historical archives include
 [Project Gutenberg](https://www.gutenberg.org/), the
 [Library of Congress Frederick Douglass papers](https://www.loc.gov/resource/mss11879.21039/?sp=45),
 the [Founders Online Franklin papers](https://founders.archives.gov/documents/Franklin/01-02-02-0028),
@@ -85,8 +99,11 @@ background task, image renderer, or share payload in this feature.
 ## Engineering map
 
 - `marble/Features/Trends/DailyHighlights.swift` — time-window and ranking engine.
-- `marble/Features/Trends/DailyHighlightQuotes.swift` — sourced catalog and deterministic
-  three-per-day schedule.
+- `marble/Features/Trends/DailyHighlightQuotes.swift` — sourced pool (45 + 61 extension + 25 athlete
+  entries) and full-pool per-launch session order.
+- `marble/Features/Trends/AthleteQuotes.swift` — 25 short athlete quotes and their sources.
+- `marble/Features/Trends/DailyHighlightQuoteRotator.swift` — shared single-line width
+  filtering and the tap/swipe/automatic rotation UI for both surfaces.
 - `marble/Features/Trends/DailyHighlightQuoteRotation.swift` — pure timing rules for the
   quote rotator's hold-then-resume behavior after a manual pick.
 - `marble/Features/Trends/DailyHighlightsView.swift` — monochrome celebration card and isolated

@@ -186,6 +186,7 @@ final class WorkoutTextEntryViewModel {
 
     func resumeDraft(in context: ModelContext) {
         reloadMatcher(in: context)
+        refreshDuplicateState(in: context)
         hasRestoredDraft = false
     }
 
@@ -269,6 +270,32 @@ final class WorkoutTextEntryViewModel {
     /// parser is always used as a fallback regardless.
     var usesOnDeviceModel: Bool { FoundationModelsWorkoutScanParser.isAvailable }
 
+    /// Why Apple Intelligence didn't help with the last parse, in words the
+    /// user can act on; nil when it ran fine or was never needed.
+    private(set) var modelIssueNote: String?
+
+    private func recordModelIssue() {
+        guard let issue = (parser as? FoundationModelsWorkoutScanParser)?.lastModelIssue else { return }
+        switch issue {
+        case .inputTooLong:
+            modelIssueNote = "That's more than Apple Intelligence can read at once — put a date or a blank line between workouts to split it."
+        case .unsupportedLanguage:
+            modelIssueNote = "Apple Intelligence doesn't support this language yet, so only gym notation was read."
+        case .unavailable, .failed:
+            modelIssueNote = "Apple Intelligence couldn't read this right now, so only gym notation was read."
+        }
+    }
+
+    /// Abandons an in-flight parse and returns to the editor with the text
+    /// intact. The model call can't be interrupted, but its result is ignored.
+    func stopProcessing() {
+        guard phase == .processing else { return }
+        previewGeneration += 1
+        batchProgress = nil
+        parseStage = .readingNotation
+        phase = .input
+    }
+
     /// Privacy / availability line under the editor. Matches Apple's
     /// `SystemLanguageModel.availability` cases instead of a generic lock label.
     var privacyCaption: String {
@@ -324,6 +351,7 @@ final class WorkoutTextEntryViewModel {
         parseStage = .readingNotation
         batchProgress = nil
         errorMessage = nil
+        modelIssueNote = nil
         reviewingSessionID = nil
 
         let segments = WorkoutImportOrchestrator.segments(
@@ -351,11 +379,8 @@ final class WorkoutTextEntryViewModel {
             let externalID = WorkoutImportOrchestrator.externalID(for: segment)
             let alreadyImported: Bool
             if hasContent {
-                alreadyImported = (try? WorkoutScanImporter.alreadyImported(
-                    externalID: externalID,
-                    source: .textEntry,
-                    in: context
-                )) ?? false
+                alreadyImported = (try? isDuplicate(externalID: externalID, kind: segment.kind,
+                                                     draft: parsed.draft, in: context)) ?? false
                 for exercise in parsed.draft.exercises {
                     resolutions[exercise.id] = makeResolution(for: exercise.name)
                 }
@@ -382,7 +407,13 @@ final class WorkoutTextEntryViewModel {
         sessions = built
 
         guard sessions.contains(where: { $0.draft.hasContent }) else {
-            errorMessage = "Your text is still here. I couldn’t confidently identify the completed exercises yet. Add a little detail about what you did, then try again."
+            let lead = "Your text is still here. I couldn’t confidently identify the completed exercises yet."
+            let guidance = "Add a little detail about what you did, then try again."
+            if let modelIssueNote {
+                errorMessage = "\(lead) \(modelIssueNote) \(guidance)"
+            } else {
+                errorMessage = "\(lead) \(guidance)"
+            }
             phase = .input
             return
         }
@@ -417,7 +448,14 @@ final class WorkoutTextEntryViewModel {
         let meaningfulDrops = diagnostics.droppedLines.filter { line in
             !HandwrittenWorkoutParser.isSessionSplitHeader(line, referenceDate: AppEnvironment.now)
         }
-        if meaningfulDrops.isEmpty, diagnostics.draft.hasContent {
+        // A complete-looking parse can still be confidently wrong ("Bench
+        // 225x5x3" as 225 sets, two exercises joined on one line); those go to
+        // the model too instead of straight to review.
+        if !ModelEscalationPolicy.shouldRunModel(
+            for: diagnostics,
+            sourceText: segment.sourceText,
+            referenceDate: AppEnvironment.now
+        ) {
             var draft = diagnostics.draft
             if draft.title == ParsedWorkoutDraft().title { draft.title = Self.defaultTitle }
             return (draft, [])
@@ -427,7 +465,11 @@ final class WorkoutTextEntryViewModel {
             await MainActor.run { self.parseStage = stage }
         }
         if parsed.title == ParsedWorkoutDraft().title { parsed.title = Self.defaultTitle }
-        let unparsed = diagnostics.droppedLines.filter { line in
+        recordModelIssue()
+        // When the deterministic parse won, nothing read the dropped lines:
+        // keep every one visible. Only a model draft can have absorbed them.
+        guard parsed.interpretedByModel == true else { return (parsed, meaningfulDrops) }
+        let unparsed = meaningfulDrops.filter { line in
             // Recognizing a movement's name does not prove its entire source line
             // was understood (e.g. an omitted second effort or correction).
             // Clear a warning only when a deterministic reading of this line can
@@ -485,6 +527,51 @@ final class WorkoutTextEntryViewModel {
                     )
             }
     }
+
+    private func effectiveDay(for draft: ParsedWorkoutDraft) -> Date {
+        min(draft.performedAt ?? AppEnvironment.now, AppEnvironment.now)
+    }
+
+    private func isDuplicate(externalID: String, kind: WorkoutImportPayloadKind,
+                             draft: ParsedWorkoutDraft, in context: ModelContext) throws -> Bool {
+        if kind == .typedText {
+            return try WorkoutScanImporter.alreadyImportedText(
+                externalID: externalID, day: effectiveDay(for: draft), in: context)
+        }
+        return try WorkoutScanImporter.alreadyImported(externalID: externalID, source: .textEntry, in: context)
+    }
+
+    private func commitIdentity(for session: WorkoutImportSession) -> String {
+        WorkoutImportOrchestrator.commitIdentity(externalID: session.externalID, kind: session.kind,
+                                                day: effectiveDay(for: session.draft))
+    }
+
+    /// Review date edits and restored drafts must reflect the actual save gate.
+    func refreshDuplicateState(in context: ModelContext) {
+        persistOpenReview()
+        do {
+            try refreshDuplicateSessions(in: context)
+            if !alreadyImported && errorMessage == Self.duplicateGuidance {
+                errorMessage = nil
+            }
+        } catch { errorMessage = "Couldn't check existing workouts. Please try again." }
+    }
+
+    private func refreshDuplicateSessions(in context: ModelContext) throws {
+        for index in sessions.indices {
+            let wasDuplicate = sessions[index].alreadyImported
+            let duplicate = try isDuplicate(externalID: sessions[index].externalID,
+                                            kind: sessions[index].kind, draft: sessions[index].draft, in: context)
+            sessions[index].alreadyImported = duplicate
+            if duplicate { sessions[index].selected = false }
+            else if wasDuplicate { sessions[index].selected = sessions[index].draft.hasContent }
+        }
+        if let id = reviewingSessionID, let session = sessions.first(where: { $0.id == id }) {
+            alreadyImported = session.alreadyImported
+        }
+    }
+
+    static let duplicateGuidance = "This workout is already in your journal. Change the date to log the same text on another day."
 
     private func reloadMatcher(in context: ModelContext) {
         let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
@@ -579,7 +666,22 @@ final class WorkoutTextEntryViewModel {
             errorMessage = "Keep this detail in workout notes, or enter the text you want to organize."
             return
         }
-        let parsed = await parser.parse(ocrText: trimmed, referenceDate: AppEnvironment.now)
+        // An edited line is usually rewritten into notation: take the
+        // deterministic read when it is clean and plausible, and only pay for
+        // the on-device model when it isn't.
+        let quick = HandwrittenWorkoutParser.parseDetailed(
+            trimmed,
+            referenceDate: AppEnvironment.now,
+            defaultWeightUnit: defaultWeightUnit
+        )
+        let parsed: ParsedWorkoutDraft
+        if quick.droppedLines.isEmpty, quick.draft.hasContent,
+           !ModelEscalationPolicy.deterministicDraftNeedsModel(quick.draft, sourceText: trimmed) {
+            parsed = quick.draft
+        } else {
+            parsed = await parser.parse(ocrText: trimmed, referenceDate: AppEnvironment.now)
+            recordModelIssue()
+        }
         // Parsing yields the main actor. Another retry may have removed or
         // moved this row, so resolve it again by stable identity rather than
         // text, which may be identical in another row.
@@ -865,12 +967,20 @@ final class WorkoutTextEntryViewModel {
         errorMessage = nil
         let toImport = draftApplyingResolutions(draft)
         celebration = computeCelebration(for: [toImport], in: context)
+        let kind = sessions.first?.kind ?? .typedText
         let origin = sessions.first?.kind.originName
         do {
-            let summary = try importHandler?(toImport, externalID, context)
+            guard try !isDuplicate(externalID: externalID, kind: kind, draft: toImport, in: context) else {
+                alreadyImported = true
+                errorMessage = Self.duplicateGuidance
+                return
+            }
+            let identity = WorkoutImportOrchestrator.commitIdentity(externalID: externalID, kind: kind,
+                                                                   day: effectiveDay(for: toImport))
+            let summary = try importHandler?(toImport, identity, context)
                 ?? WorkoutScanImporter.import(
                     toImport,
-                    externalID: externalID,
+                    externalID: identity,
                     source: .textEntry,
                     originName: origin,
                     in: context
@@ -893,10 +1003,16 @@ final class WorkoutTextEntryViewModel {
             errorMessage = "Review each workout that Marble couldn't read before adding this batch."
             return
         }
+        do { try refreshDuplicateSessions(in: context) }
+        catch {
+            errorMessage = "Couldn't check existing workouts. Please try again."
+            return
+        }
         let selected = importableSelectedSessions
         guard !selected.isEmpty else {
             if alreadyImportedSessionCount > 0 {
-                finishCommit(summary: WorkoutImporter.Summary(skipped: alreadyImportedSessionCount))
+                lastSummary = WorkoutImporter.Summary(skipped: alreadyImportedSessionCount)
+                errorMessage = Self.duplicateGuidance
                 return
             }
             errorMessage = "Select at least one workout that isn't already in your journal."
@@ -904,7 +1020,7 @@ final class WorkoutTextEntryViewModel {
         }
         errorMessage = nil
         let items = selected.map { session in
-            (draftApplyingResolutions(session.draft), session.externalID)
+            (draftApplyingResolutions(session.draft), commitIdentity(for: session))
         }
         celebration = computeCelebration(for: items.map(\.0), in: context)
         do {
@@ -928,7 +1044,7 @@ final class WorkoutTextEntryViewModel {
                     selected.map {
                         (
                             draft: draftApplyingResolutions($0.draft),
-                            externalID: $0.externalID,
+                            externalID: commitIdentity(for: $0),
                             originName: $0.kind.originName
                         )
                     },
@@ -969,6 +1085,10 @@ final class WorkoutTextEntryViewModel {
 
     private func finishCommit(summary: WorkoutImporter.Summary) {
         lastSummary = summary
+        if summary.importedSets == 0 && summary.skipped > 0 {
+            errorMessage = Self.duplicateGuidance
+            return
+        }
         if summary.importedSets > 0 {
             MarbleHaptics.success()
             if celebration.prExercises.isEmpty {

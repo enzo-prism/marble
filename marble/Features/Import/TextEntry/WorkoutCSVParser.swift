@@ -565,13 +565,13 @@ nonisolated enum CSVNumber {
         } else {
             cleaned = trimmed.replacingOccurrences(of: ",", with: "")
         }
-        guard let value = Double(cleaned), value > 0 else { return nil }
+        guard let value = Double(cleaned), value.isFinite, value > 0 else { return nil }
         return value
     }
 
     static func positiveInt(_ raw: String, decimalComma: Bool = false) -> Int? {
         guard let value = positiveDouble(raw, decimalComma: decimalComma) else { return nil }
-        return Int(value.rounded())
+        return WorkoutNotationDuration.wholeSeconds(value.rounded())
     }
 
     /// Zero is a real failed-rep count; empty still returns nil.
@@ -586,7 +586,7 @@ nonisolated enum CSVNumber {
             cleaned = trimmed.replacingOccurrences(of: ",", with: "")
         }
         guard let value = Double(cleaned), value >= 0 else { return nil }
-        return Int(value.rounded())
+        return WorkoutNotationDuration.wholeSeconds(value.rounded())
     }
 
     /// Strong's Duration column is often "60m" / "1h 5m" on the workout, not the set.
@@ -603,7 +603,7 @@ nonisolated enum CSVNumber {
     /// Hevy/Strong RPE. Empty and zero keep the journal default; half-steps round.
     static func rpe(_ raw: String, decimalComma: Bool = false) -> Int? {
         guard let value = positiveDouble(raw, decimalComma: decimalComma) else { return nil }
-        return min(10, max(1, Int(value.rounded())))
+        return Int(min(10, max(1, value.rounded())))
     }
 
     /// Strong's workout `Duration` ("60m", "1h 5m") or a colon clock ("1:16:00").
@@ -612,13 +612,8 @@ nonisolated enum CSVNumber {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !trimmed.isEmpty else { return nil }
 
-        let colon = trimmed.split(separator: ":", omittingEmptySubsequences: false)
-        if colon.count == 3,
-           let hours = Int(colon[0]), let minutes = Int(colon[1]), let seconds = Int(colon[2]) {
-            return hours * 3600 + minutes * 60 + seconds
-        }
-        if colon.count == 2, let minutes = Int(colon[0]), let seconds = Int(colon[1]) {
-            return minutes * 60 + seconds
+        if trimmed.contains(":") {
+            return WorkoutNotationDuration.seconds(trimmed)
         }
 
         guard let regex = durationPieceRegex else { return nil }
@@ -626,7 +621,8 @@ nonisolated enum CSVNumber {
         let matches = regex.matches(in: trimmed, range: nsRange)
         if matches.isEmpty {
             if trimmed.allSatisfy(\.isNumber), let minutes = Int(trimmed), minutes > 0 {
-                return minutes * 60
+                let seconds = minutes.multipliedReportingOverflow(by: 60)
+                return seconds.overflow ? nil : seconds.partialValue
             }
             return nil
         }
@@ -635,12 +631,17 @@ nonisolated enum CSVNumber {
             guard let numberRange = Range(match.range(at: 1), in: trimmed),
                   let unitRange = Range(match.range(at: 2), in: trimmed),
                   let value = Double(trimmed[numberRange]) else { continue }
+            let multiplier: Double
             switch trimmed[unitRange].first {
-            case "h": total += Int((value * 3600).rounded())
-            case "m": total += Int((value * 60).rounded())
-            case "s": total += Int(value.rounded())
-            default: break
+            case "h": multiplier = 3600
+            case "m": multiplier = 60
+            case "s": multiplier = 1
+            default: continue
             }
+            guard let seconds = WorkoutNotationDuration.wholeSeconds((value * multiplier).rounded()) else { return nil }
+            let sum = total.addingReportingOverflow(seconds)
+            guard !sum.overflow else { return nil }
+            total = sum.partialValue
         }
         return total > 0 ? total : nil
     }
@@ -650,8 +651,8 @@ nonisolated enum CSVNumber {
     )
 
     static func display(_ value: Double) -> String {
-        if value == value.rounded() {
-            return String(Int(value.rounded()))
+        if value == value.rounded(), let integer = Int(exactly: value) {
+            return String(integer)
         }
         return String(value)
     }

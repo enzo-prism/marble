@@ -97,9 +97,9 @@ struct HealthKitWorkoutProvider: WorkoutImportProvider {
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthKitImportError.unavailable
         }
-        let predicate = range.map {
+        let predicate = Self.excludingMarbleWorkouts(range.map {
             HKQuery.predicateForSamples(withStart: $0.lowerBound, end: $0.upperBound, options: .strictStartDate)
-        }
+        })
         let sortDescriptors = [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
         let limit = range == nil ? Self.unboundedFetchLimit : HKObjectQueryNoLimit
         let workouts: [HKWorkout] = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKWorkout], Error>) in
@@ -117,7 +117,7 @@ struct HealthKitWorkoutProvider: WorkoutImportProvider {
             }
             healthStore.execute(query)
         }
-        return await Self.records(from: workouts, in: healthStore)
+        return await Self.records(from: Self.withoutMarbleWorkouts(workouts), in: healthStore)
     }
 
     /// Incremental fetch for auto-import: returns only workouts added to Health
@@ -131,7 +131,9 @@ struct HealthKitWorkoutProvider: WorkoutImportProvider {
         let anchor = anchorData.flatMap {
             try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: $0)
         }
-        let predicate = HKQuery.predicateForSamples(withStart: notBefore, end: nil, options: .strictStartDate)
+        let predicate = Self.excludingMarbleWorkouts(
+            HKQuery.predicateForSamples(withStart: notBefore, end: nil, options: .strictStartDate)
+        )
         let (workouts, newAnchor): ([HKWorkout], HKQueryAnchor?) = try await withCheckedThrowingContinuation { continuation in
             let query = HKAnchoredObjectQuery(
                 type: HKObjectType.workoutType(),
@@ -147,7 +149,7 @@ struct HealthKitWorkoutProvider: WorkoutImportProvider {
             }
             healthStore.execute(query)
         }
-        let records = await Self.records(from: workouts, in: healthStore)
+        let records = await Self.records(from: Self.withoutMarbleWorkouts(workouts), in: healthStore)
         let archived = newAnchor.flatMap {
             try? NSKeyedArchiver.archivedData(withRootObject: $0, requiringSecureCoding: true)
         }
@@ -310,6 +312,33 @@ extension HealthKitWorkoutProvider {
     /// Indoor/outdoor flag, from workout metadata. Pure for unit tests.
     static func isIndoor(from metadata: [String: Any]?) -> Bool? {
         (metadata?[HKMetadataKeyIndoorWorkout] as? NSNumber)?.boolValue
+    }
+
+    /// `HealthSessionExporter` writes Marble's own sessions to Health. Reading
+    /// them back made every exported session return as a duplicate "Strength"
+    /// entry labeled Apple Watch, so Marble's source is excluded in the query
+    /// itself (keeping the unbounded fetch limit for real workouts).
+    private static func excludingMarbleWorkouts(_ predicate: NSPredicate?) -> NSPredicate {
+        let notMarble = NSCompoundPredicate(
+            notPredicateWithSubpredicate: HKQuery.predicateForObjects(from: HKSource.default())
+        )
+        guard let predicate else { return notMarble }
+        return NSCompoundPredicate(andPredicateWithSubpredicates: [predicate, notMarble])
+    }
+
+    /// Second guard behind the query predicate, by bundle identifier.
+    private static func withoutMarbleWorkouts(_ workouts: [HKWorkout]) -> [HKWorkout] {
+        workouts.filter {
+            !isMarbleSource(
+                bundleIdentifier: $0.sourceRevision.source.bundleIdentifier,
+                ownBundleIdentifier: Bundle.main.bundleIdentifier
+            )
+        }
+    }
+
+    static func isMarbleSource(bundleIdentifier: String, ownBundleIdentifier: String?) -> Bool {
+        guard let ownBundleIdentifier else { return false }
+        return bundleIdentifier == ownBundleIdentifier
     }
 
     /// Identifies which app/device actually recorded a HealthKit workout so the import hub

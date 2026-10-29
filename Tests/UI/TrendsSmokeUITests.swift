@@ -16,7 +16,7 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         let quote = app.buttons["Trends.DailyHighlights.Quote"]
         waitFor(quote, timeout: 8)
         XCTAssertTrue(quote.label.contains("Daily motivation"))
-        XCTAssertTrue((quote.value as? String)?.contains("Quote 1 of 3") == true)
+        XCTAssertTrue((quote.value as? String)?.contains("Quote 1 of ") == true)
 
         let firstQuote = quote.value as? String
         forceTap(quote)
@@ -70,11 +70,31 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         )
     }
 
+    func testOverviewShortQuotesStillSupportTapAndSwipe() {
+        launchApp(fixtureMode: "populated")
+        navigateToTab(.trends)
+        let quote = app.buttons["Trends.Overview.Quote"]
+        scrollToElement(quote, in: app)
+        waitFor(quote, timeout: 8)
+        let first = quote.value as? String
+        XCTAssertNotNil(first)
+        forceTap(quote)
+        let changed = expectation(for: NSPredicate(format: "value != %@", first ?? ""), evaluatedWith: quote)
+        wait(for: [changed], timeout: 3)
+        let second = quote.value as? String
+        quote.swipeLeft()
+        let swiped = expectation(for: NSPredicate(format: "value != %@", second ?? ""), evaluatedWith: quote)
+        wait(for: [swiped], timeout: 3)
+        quote.swipeRight()
+        let returned = expectation(for: NSPredicate(format: "value == %@", second ?? ""), evaluatedWith: quote)
+        wait(for: [returned], timeout: 3)
+    }
+
     func testProgressOverviewKeepsDetailedDataOutOfTheDefaultState() {
         launchApp(fixtureMode: "populated")
         navigateToTab(.trends)
 
-        waitForIdentifier("Trends.Overview.Status", timeout: 8)
+        waitForIdentifier("Trends.TopExercises", timeout: 8)
         let details = waitForIdentifier("Trends.Details.Toggle", timeout: 8)
         XCTAssertTrue(details.isHittable)
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "Trends.Range").firstMatch.exists)

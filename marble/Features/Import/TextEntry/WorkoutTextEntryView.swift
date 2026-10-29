@@ -505,17 +505,28 @@ struct WorkoutTextEntryView: View {
 
     private var processingView: some View {
         VStack(spacing: MarbleSpacing.s) {
-            ProgressView()
-                .tint(Theme.primaryTextColor(for: colorScheme))
-            Text(processingStageLabel)
-            .font(MarbleTypography.caption)
-            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            VStack(spacing: MarbleSpacing.s) {
+                ProgressView()
+                    .tint(Theme.primaryTextColor(for: colorScheme))
+                Text(processingStageLabel)
+                .font(MarbleTypography.caption)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(processingStageLabel)
+            .accessibilityIdentifier("TextEntry.Processing")
+
+            // Reading with the on-device model can take several seconds; the
+            // user can always get back to their text without discarding it.
+            Button("Stop") { viewModel.stopProcessing() }
+                .font(MarbleTypography.caption)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .frame(minHeight: 44)
+                .accessibilityHint("Returns to your text without reading it")
+                .accessibilityIdentifier("TextEntry.StopProcessing")
         }
         .frame(maxWidth: 260)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(processingStageLabel)
-        .accessibilityIdentifier("TextEntry.Processing")
     }
 
     /// Per-line feedback under the editor, recomputed after a short typing
@@ -604,9 +615,15 @@ struct WorkoutTextEntryView: View {
                     } header: {
                         WorkoutReviewSectionHeader(title: "Keep every detail")
                     } footer: {
-                        Text("These lines need a closer look. Edit and retry, or keep them in workout notes before saving.")
-                            .font(MarbleTypography.caption)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                            if let note = viewModel.modelIssueNote {
+                                Text(note)
+                                    .accessibilityIdentifier("TextEntry.ModelIssue")
+                            }
+                            Text("These lines need a closer look. Edit and retry, or keep them in workout notes before saving.")
+                        }
+                        .font(MarbleTypography.caption)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     }
                 }
 
@@ -616,6 +633,15 @@ struct WorkoutTextEntryView: View {
                         .accessibilityIdentifier("TextEntry.Title")
                 } header: {
                     WorkoutReviewSectionHeader(title: "Workout")
+                } footer: {
+                    // Model reads are good but not exact; say so where the numbers
+                    // are reviewed rather than implying the parse is certain.
+                    if viewModel.draft.interpretedByModel == true {
+                        Label("Read with Apple Intelligence — check the numbers before adding.", systemImage: "apple.intelligence")
+                            .font(MarbleTypography.caption)
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                            .accessibilityIdentifier("TextEntry.ReadWithAppleIntelligence")
+                    }
                 }
 
                 ImportDateSection(
@@ -624,6 +650,9 @@ struct WorkoutTextEntryView: View {
                     notes: $viewModel.draft.notes,
                     durationSeconds: viewModel.draft.durationSeconds
                 )
+                .onChange(of: viewModel.draft.performedAt) { _, _ in
+                    viewModel.refreshDuplicateState(in: modelContext)
+                }
 
                 if viewModel.alreadyImported {
                     Section {

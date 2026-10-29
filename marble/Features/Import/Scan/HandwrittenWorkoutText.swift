@@ -26,12 +26,16 @@ nonisolated enum HandwrittenWorkoutText {
             with: "$1$2",
             options: .regularExpression
         )
-        // Digit-grouping commas are thousands separators ("1,025" → "1025"), never
-        // token breaks — the generic comma→space rule below would silently turn
-        // the load into 1.
+        // Digit-grouping commas are thousands separators ("1,025" → "1025",
+        // "1,100lb" → "1100lb"), never token breaks — the generic comma→space
+        // rule below would silently turn the load into 1. Only a standalone 1–2 digit group followed by exactly
+        // one 3-digit group qualifies: a comma list of loads ("185,205,225",
+        // "135,155") stays a list instead of collapsing into one 185,205,225 lb
+        // set, and "3x10,155" / "135x10,155x8" keep the reps and load apart
+        // (the letter/digit split above has already made "3x10" into "3x 10").
         result = result.replacingOccurrences(
-            of: #"(?<=\d),(?=\d{3}\b)"#,
-            with: "",
+            of: #"(?<![\d,xX])(?<![xX] )(\d{1,2}),(\d{3})(?![\dxX]|,\d)"#,
+            with: "$1$2",
             options: .regularExpression
         )
         result = result.replacingOccurrences(of: ",", with: " ")

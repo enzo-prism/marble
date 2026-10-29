@@ -134,7 +134,19 @@ final class WorkoutEntryDraftPersistenceTests: MarbleTestCase {
         let replay = model(store)
         replay.commit(into: context)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<SetEntry>()), count)
-        XCTAssertNil(store.value)
+        XCTAssertEqual(replay.phase, .review)
+        XCTAssertEqual(replay.errorMessage, WorkoutTextEntryViewModel.duplicateGuidance)
+        // A duplicate is not a successful save: keep the recovered source so
+        // the user can inspect it, choose another day, or explicitly discard.
+        XCTAssertEqual(store.value?.text, preCommit?.text)
+        XCTAssertEqual(store.value?.draft, preCommit?.draft)
+        let recoveredAgain = model(store)
+        recoveredAgain.resumeDraft(in: context)
+        XCTAssertTrue(recoveredAgain.alreadyImported)
+        recoveredAgain.commit(into: context)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<SetEntry>()), count)
+        recoveredAgain.reset()
+        XCTAssertNil(store.value, "Explicit discard still clears the recovered duplicate")
     }
 
     func testDiscardClearsAndRepeatPreservesLibraryIdentity() {

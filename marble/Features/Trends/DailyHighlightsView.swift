@@ -3,6 +3,7 @@ import SwiftUI
 struct DailyHighlightsSection: View {
     let summary: DailyHighlightSummary
     let occurrence: DailyHighlightOccurrence
+    let availableWidth: CGFloat
     let onCustomize: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -11,7 +12,7 @@ struct DailyHighlightsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             sectionHeader
-            DailyHighlightsCard(summary: summary)
+            DailyHighlightsCard(summary: summary, availableWidth: availableWidth)
         }
     }
 
@@ -59,6 +60,7 @@ struct DailyHighlightsSection: View {
 
 private struct DailyHighlightsCard: View {
     let summary: DailyHighlightSummary
+    let availableWidth: CGFloat
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -99,7 +101,10 @@ private struct DailyHighlightsCard: View {
                 }
             }
 
-            DailyHighlightQuoteRotator(day: summary.day)
+            DailyHighlightQuoteRotator(
+                day: summary.day,
+                availableWidth: max(0, availableWidth - 2 * MarbleSpacing.m)
+            )
         }
         .padding(MarbleSpacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -222,104 +227,5 @@ private struct DailyHighlightAchievementView: View {
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
         }
-    }
-}
-
-private struct DailyHighlightQuoteRotator: View {
-    let day: Date
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var manualSelection: DailyHighlightQuoteRotation.ManualSelection?
-
-    private let rotationInterval: TimeInterval = 12
-
-    var body: some View {
-        let quotes = DailyHighlightQuoteLibrary.quotes(for: day)
-
-        Group {
-            if shouldAnimate {
-                TimelineView(.periodic(from: .now, by: rotationInterval)) { _ in
-                    quoteButton(quotes: quotes, index: displayedIndex(for: quotes.count))
-                }
-            } else {
-                quoteButton(quotes: quotes, index: displayedIndex(for: quotes.count))
-            }
-        }
-        .id(day)
-    }
-
-    private var shouldAnimate: Bool {
-        !reduceMotion && !voiceOverEnabled && !TestHooks.reduceDecorativeMotion && !TestHooks.disableAnimations
-    }
-
-    private func quoteButton(quotes: [DailyHighlightQuote], index: Int) -> some View {
-        let quote = quotes[index]
-
-        return Button {
-            select(index: (index + 1) % quotes.count)
-            MarbleHaptics.selection()
-        } label: {
-            VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
-                Text("“\(quote.text)”")
-                    .font(MarbleTypography.rowMeta)
-                    .italic()
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.xs) {
-                    Text(quote.author)
-                    Spacer(minLength: MarbleSpacing.xs)
-                    Text("\(index + 1) / \(quotes.count)")
-                        .monospacedDigit()
-                }
-                .font(MarbleTypography.smallLabel)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .accessibilityHidden(true)
-            }
-            .id(quote.id)
-            .transition(.opacity)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .animation(shouldAnimate ? .easeInOut(duration: 0.35) : nil, value: index)
-        .accessibilityElement(children: .ignore)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityLabel("Daily motivation")
-        .accessibilityValue("\(quote.text), \(quote.author). Quote \(index + 1) of \(quotes.count)")
-        .accessibilityHint("Shows the next quote.")
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment:
-                select(index: (index + 1) % quotes.count)
-            case .decrement:
-                select(index: (index - 1 + quotes.count) % quotes.count)
-            @unknown default:
-                break
-            }
-        }
-        .accessibilityIdentifier("Trends.DailyHighlights.Quote")
-    }
-
-    /// Records the pick with the tick it was made in, so
-    /// `DailyHighlightQuoteRotation` can hold it for at least one full
-    /// interval and then let auto-rotation resume. With rotation off
-    /// (VoiceOver, Reduce Motion, tests) the pick is permanent.
-    private func select(index: Int) {
-        manualSelection = DailyHighlightQuoteRotation.ManualSelection(
-            index: index,
-            tick: DailyHighlightQuoteRotation.tick(at: AppEnvironment.now, interval: rotationInterval)
-        )
-    }
-
-    private func displayedIndex(for quoteCount: Int) -> Int {
-        DailyHighlightQuoteRotation.displayedIndex(
-            quoteCount: quoteCount,
-            autoRotates: shouldAnimate,
-            manualSelection: manualSelection,
-            currentTick: DailyHighlightQuoteRotation.tick(at: AppEnvironment.now, interval: rotationInterval)
-        )
     }
 }

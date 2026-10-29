@@ -3,11 +3,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# The newest source a real user can already be running: App Store 2.4 build 61.
-# Refreshed against ASC September 4, 2026. The default gate is the upgrade
-# every current install performs. Point MIGRATION_BASE_REF at an older release
-# to widen the check.
-BASE_REF="${MIGRATION_BASE_REF:-9e8346f6cad4683991a78fbaf223baaf01e9f068}"
+# App Store 2.5 build 77. This is the build-77 source commit immediately
+# preceding its 2026-09-12 upload; CI also records this exact source.
+BASE_REF="${MIGRATION_BASE_REF:-80396c19481739184aaca00e5f175512b7a92ded}"
 SIMULATOR_UDID="${SIMULATOR_UDID:-}"
 RUN_ROOT="${MIGRATION_RUN_ROOT:-$ROOT_DIR/work}"
 if [[ -n "${RELEASE_EVIDENCE_RUN_DIR:-}" && -z "${MIGRATION_RUN_ROOT:-}" ]]; then
@@ -62,6 +60,10 @@ fi
 echo "Preparing previous Release source at $BASE_REF"
 git -C "$ROOT_DIR" worktree add --detach "$BASE_DIR" "$BASE_REF" >/dev/null
 
+jq -n --arg source "$(git -C "$BASE_DIR" rev-parse HEAD)" \
+    --arg candidate "$(git -C "$ROOT_DIR" rev-parse HEAD)" \
+    '{base_git_sha: $source, candidate_git_sha: $candidate}' >"$RUN_DIR/source-identity.json"
+
 echo "Building previous Release"
 xcodebuild build \
     -project "$BASE_DIR/marble.xcodeproj" \
@@ -100,6 +102,19 @@ for app in "$BASE_APP" "$CANDIDATE_APP"; do
         exit 1
     fi
 done
+
+base_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$BASE_APP/Info.plist")"
+base_build="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$BASE_APP/Info.plist")"
+case "$BASE_REF" in
+    80396c19481739184aaca00e5f175512b7a92ded) expected_identity="2.5 (77)" ;;
+    9e8346f6cad4683991a78fbaf223baaf01e9f068) expected_identity="2.4 (61)" ;;
+    *) expected_identity="$base_version ($base_build)" ;;
+esac
+[[ "$base_version ($base_build)" == "$expected_identity" ]] || {
+    echo "Migration baseline identity mismatch: expected $expected_identity, got $base_version ($base_build)" >&2
+    exit 1
+}
+echo "Migration baseline: $base_version ($base_build), source $BASE_REF"
 
 # Release builds do not require the destination to remain booted. Re-establish
 # a ready Simulator immediately before the install/launch migration sequence.

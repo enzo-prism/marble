@@ -26,9 +26,12 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   **Personal-best (PR) badges** celebrate record sets right in the history, and the logging
   screen shows your current PR (heaviest + most reps) and usual range so you can shoot to
   beat it — with a live "New PR!" cue the moment your entry passes your best.
-- **Progress** — a quiet weekly status and one Details action by default, with generous
-  whitespace; goals, highlights, training analytics, reports, body metrics, habits,
-  supplements, milestones, and records remain organized one tap away.
+- **Progress** — a minimal **Top Exercises** card first (top 5 most-logged exercises
+  with a valid PR weight + set date; exercises without both are excluded before the limit), then a subtle rotating training-quote footer
+  (short quotes that fit one line, tap or swipe to move through them),
+  with one Details action by default and generous whitespace; weekly goal, highlights,
+  training analytics, reports, body metrics, habits, supplements, milestones, and
+  records remain organized one tap away.
 - **Workout history** — search completed sessions by workout or exercise and filter by
   date from Log. Open a session to review its sets or repeat it as a fresh, editable draft;
   repetition never logs anything without confirmation.
@@ -47,8 +50,11 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   goal hit rate, and plans that keep getting beaten earn a progression nudge.
   See [`SPRINT_WORKOUTS.md`](SPRINT_WORKOUTS.md).
 - **Daily Highlights** — from 8:00 PM through 11:59 PM by default, Progress celebrates
-  that day's genuine PRs in a clean monochrome card with three daily quotes as a quiet
-  rotating footer. The window is customizable and the feature remains entirely on-device.
+  that day's genuine PRs in a clean monochrome card with a quiet rotating footer drawn
+  from 131 bundled quotes, including 25 short athlete quotes (tap or swipe to move through them).
+  Only complete quotes fitting a single line at the current width and text size are eligible.
+  The window is
+  customizable and the feature remains entirely on-device.
   See [`DAILY_HIGHLIGHTS.md`](DAILY_HIGHLIGHTS.md).
 - **Body** — log bodyweight (and body fat) in whichever unit you think in, stored as
   canonical kilograms. Weigh-ins are **editable and deletable** from Progress, Settings, and
@@ -70,18 +76,28 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current state (2026-08-30)
+## Current distribution (readback 2026-10-29)
 
-App Store **2.3 build 56 remains live**. The current internal TestFlight build is
-**2.4 build 63**, uploaded from exact merged `main` source
-`cbeb6d2f7131c14ab1327ff07e703f812a6fc754`. Build 63 is `VALID`,
-`IN_BETA_TESTING` in internal **test group A**, and strict TestFlight validation
-is clean. App Store 2.4 separately remains
-`WAITING_FOR_REVIEW` with build 61 attached under submission
-`ce4a0d8a-f5ea-4d1e-9463-03937e467343`; it uses manual release, so submission
-is not public production. Build 63 did not replace or modify that submission.
-Exact IDs and workflow evidence are tracked in
-[`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
+- **Public App Store:** 2.6 (83), build `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`,
+  `READY_FOR_DISTRIBUTION`. Shipped source is `8d46a09` (PR #45, tag `v2.6-83`).
+- Physical-device signoff and final five-gate evidence for build 83 are not recorded
+  in git. The scheduled `Release checks` workflow is red (`test11DailyHighlights`
+  plus a job timeout); see RELEASE_HANDOFF.md.
+
+See [RELEASE_HANDOFF.md](RELEASE_HANDOFF.md) for exact release evidence and
+[TESTING.md](TESTING.md) for test scope.
+
+## Archived state (2026-09-19)
+
+**2.5 build 78 is available on internal TestFlight**, adding 25 sourced athlete quotes
+(131 total) and enforcing complete single-line quotes in Progress and Daily
+Highlights. Quotes that do not fit the current width, Dynamic Type size, and
+Bold Text setting are skipped. See [`ATHLETE_QUOTES.md`](ATHLETE_QUOTES.md).
+
+Build 78 is verified `VALID` / `IN_BETA_TESTING` in internal **test group A**.
+App Store 2.5 is separately `PENDING_DEVELOPER_RELEASE`; this internal beta does
+not publish that App Store version. Current upload evidence and validation are
+tracked in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
 
 - **Build 63 Add responsiveness + Progress performance** (exact uploaded `main`
   source `cbeb6d2f7131c14ab1327ff07e703f812a6fc754`; App Store Connect build

@@ -36,8 +36,16 @@ final class WorkoutScanViewModel {
     /// Per-exercise library match, same policy as Paste or Type.
     private(set) var resolutions: [UUID: WorkoutTextEntryViewModel.Resolution] = [:]
 
+    /// Why the on-device model didn't contribute to the last scan (nil when it
+    /// did, when the deterministic parse was trusted without it, or when the
+    /// injected parser isn't the on-device one).
+    private(set) var modelIssue: FoundationModelsWorkoutScanParser.ModelIssue?
+
     private let recognizer: WorkoutTextRecognizing
     private let parser: WorkoutScanParsing
+    /// Unit assumed for weights written without one — the user's preferred
+    /// unit, same source of truth as Paste or Type.
+    private let defaultWeightUnit: WeightUnit
     /// Test seam: when nil, `commit` calls `WorkoutScanImporter` directly (on the main
     /// actor, where it belongs).
     private let importHandler: ImportHandler?
@@ -45,11 +53,13 @@ final class WorkoutScanViewModel {
 
     init(
         recognizer: WorkoutTextRecognizing = VisionWorkoutTextRecognizer(),
-        parser: WorkoutScanParsing = FoundationModelsWorkoutScanParser(),
-        importHandler: ImportHandler? = nil
+        parser: WorkoutScanParsing? = nil,
+        importHandler: ImportHandler? = nil,
+        defaultWeightUnit: WeightUnit = WorkoutTextEntryViewModel.preferredWeightUnit
     ) {
         self.recognizer = recognizer
-        self.parser = parser
+        self.defaultWeightUnit = defaultWeightUnit
+        self.parser = parser ?? FoundationModelsWorkoutScanParser(defaultWeightUnit: defaultWeightUnit)
         self.importHandler = importHandler
     }
 
@@ -118,12 +128,31 @@ final class WorkoutScanViewModel {
             return
         }
 
-        let parsed = await parser.parse(ocrText: combined, referenceDate: AppEnvironment.now)
-        draft = parsed
+        draft = await parse(combined)
         reloadMatcher(in: context)
         rebuildResolutions()
         alreadyImported = (try? WorkoutScanImporter.alreadyImported(externalID: externalID, in: context)) ?? false
         phase = .review
+    }
+
+    /// Same gate as Paste or Type: a clean deterministic parse (nothing
+    /// meaningful dropped, nothing implausible per `ModelEscalationPolicy`) is
+    /// already the answer, so the scan skips the seconds-long model passes. The
+    /// model runs for prose, dropped lines, and confident misreads.
+    private func parse(_ text: String) async -> ParsedWorkoutDraft {
+        let referenceDate = AppEnvironment.now
+        let diagnostics = HandwrittenWorkoutParser.parseDetailed(
+            text,
+            referenceDate: referenceDate,
+            defaultWeightUnit: defaultWeightUnit
+        )
+        modelIssue = nil
+        guard ModelEscalationPolicy.shouldRunModel(for: diagnostics, sourceText: text, referenceDate: referenceDate) else {
+            return diagnostics.draft
+        }
+        let parsed = await parser.parse(ocrText: text, referenceDate: referenceDate)
+        modelIssue = (parser as? FoundationModelsWorkoutScanParser)?.lastModelIssue
+        return parsed
     }
 
     /// Joins OCR from successive notebook pages. Blank pages drop out so they
@@ -288,5 +317,6 @@ final class WorkoutScanViewModel {
         handoffText = ""
         resolutions = [:]
         matcher = ExerciseMatcher(candidates: [])
+        modelIssue = nil
     }
 }

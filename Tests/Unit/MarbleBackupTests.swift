@@ -380,6 +380,52 @@ final class MarbleBackupTests: MarbleTestCase {
         XCTAssertEqual(try destination.fetchCount(FetchDescriptor<SprintGoalSnapshot>()), 0)
     }
 
+    /// Exercise deletion used to leave its sprint variants behind. Export must
+    /// skip them, and files already exported with them must still restore.
+    func testOrphanedSprintVariantIsNotExportedAndDoesNotBlockRestore() throws {
+        let source = makeInMemoryContext()
+        let exercise = Exercise(name: "Sprint", category: .run, metrics: .distanceAndDurationRequired, defaultRestSeconds: 180)
+        source.insert(exercise)
+        source.insert(SprintVariant(
+            exerciseID: exercise.id,
+            title: "Speed",
+            distance: 60,
+            distanceUnit: .meters,
+            repetitionCount: 6,
+            targetLowerTenths: 75,
+            targetUpperTenths: 80
+        ))
+        source.insert(SprintVariant(
+            exerciseID: UUID(),
+            title: "Deleted exercise's plan",
+            distance: 150,
+            distanceUnit: .meters,
+            repetitionCount: 4,
+            targetLowerTenths: 190,
+            targetUpperTenths: 210
+        ))
+        try source.save()
+
+        let document = try MarbleBackupService.makeDocument(in: source, now: now)
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: document.data) as? [String: Any])
+        var variants = try XCTUnwrap(json["sprintVariants"] as? [[String: Any]])
+        XCTAssertEqual(variants.count, 1)
+
+        // Recreate a file exported by an affected build.
+        var orphan = variants[0]
+        orphan["id"] = UUID().uuidString
+        orphan["exerciseID"] = UUID().uuidString
+        variants.append(orphan)
+        json["sprintVariants"] = variants
+        let affectedData = try JSONSerialization.data(withJSONObject: json)
+
+        let destination = makeInMemoryContext()
+        let summary = try MarbleBackupService.restore(data: affectedData, into: destination)
+        XCTAssertEqual(summary.exercises, 1)
+        let restored = try destination.fetch(FetchDescriptor<SprintVariant>())
+        XCTAssertEqual(restored.map(\.exerciseID), [exercise.id])
+    }
+
     // MARK: - Payload exhaustiveness guard
 
     /// Fails the moment a new `@Model` joins the schema without joining the

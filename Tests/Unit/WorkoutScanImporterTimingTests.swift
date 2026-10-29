@@ -8,7 +8,7 @@ import XCTest
 final class WorkoutScanImporterTimingTests: MarbleTestCase {
 
     private func date(_ day: Int, hour: Int) -> Date {
-        Self.stableCalendar.date(from: DateComponents(year: 2026, month: 7, day: day, hour: hour))!
+        Self.stableCalendar.date(from: DateComponents(year: 2024, month: 7, day: day, hour: hour))!
     }
 
     func testWorkoutDateStampsAllSetsWithoutOverrides() throws {

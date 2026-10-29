@@ -22,6 +22,8 @@ nonisolated struct WorkoutParseEvalCase: Sendable {
     var input: String
     var tier: Tier
     var expected: ExpectedWorkout
+    /// The user's preferred unit, used for weights written without one.
+    var defaultWeightUnit: WeightUnit = .lb
 }
 
 /// The expected structure for a corpus case. All optionals mean "don't check" so
@@ -49,14 +51,18 @@ nonisolated struct ExpectedWorkout: Sendable {
     }
 }
 
-/// Per-exercise expectations. Optional per-set values are checked against the FIRST
-/// set only — the corpus pins the shape of the parse, not every repeated set, and
-/// most notations produce identical sets anyway.
+/// Per-exercise expectations. `reps`/`weight`/… are checked against the FIRST set
+/// only — the corpus pins the shape of the parse, and most notations produce
+/// identical sets. `perSetReps`/`perSetWeights` check every set when sets differ,
+/// and `weightUnit` checks the unit of every weighted set.
 nonisolated struct ExpectedExercise: Sendable {
     var name: String
     var setCount: Int
     var reps: Int?
     var weight: Double?
+    var weightUnit: WeightUnit?
+    var perSetReps: [Int]?
+    var perSetWeights: [Double]?
     var restSeconds: Int?
     var durationSeconds: Int?
     var distance: Double?
@@ -69,6 +75,9 @@ nonisolated struct ExpectedExercise: Sendable {
         setCount: Int,
         reps: Int? = nil,
         weight: Double? = nil,
+        weightUnit: WeightUnit? = nil,
+        perSetReps: [Int]? = nil,
+        perSetWeights: [Double]? = nil,
         restSeconds: Int? = nil,
         durationSeconds: Int? = nil,
         distance: Double? = nil,
@@ -78,6 +87,9 @@ nonisolated struct ExpectedExercise: Sendable {
         self.setCount = setCount
         self.reps = reps
         self.weight = weight
+        self.weightUnit = weightUnit
+        self.perSetReps = perSetReps
+        self.perSetWeights = perSetWeights
         self.restSeconds = restSeconds
         self.durationSeconds = durationSeconds
         self.distance = distance
@@ -108,11 +120,11 @@ extension WorkoutParseEvalCase {
             }
         }
 
-        // Date is compared as calendar components in the same fixed UTC calendar the
-        // parser uses, so the noon-UTC anchoring detail doesn't leak into cases.
+        // Date is compared as local calendar components — the parser resolves
+        // dates as local days, so the time of day doesn't leak into cases.
         if expected.month != nil || expected.day != nil || expected.year != nil {
             if let performedAt = draft.performedAt {
-                let components = Self.utcCalendar.dateComponents([.year, .month, .day], from: performedAt)
+                let components = Calendar.current.dateComponents([.year, .month, .day], from: performedAt)
                 if let month = expected.month, components.month != month {
                     failures.append("date: expected month \(month), got \(components.month.map(String.init) ?? "nil")")
                 }
@@ -144,6 +156,25 @@ extension WorkoutParseEvalCase {
             }
             if actual.sets.count != expectedExercise.setCount {
                 failures.append("exercise \(index): expected \(expectedExercise.setCount) sets, got \(actual.sets.count)")
+            }
+            if let perSetReps = expectedExercise.perSetReps, actual.sets.map(\.reps) != perSetReps.map(Optional.some) {
+                failures.append("exercise \(index): expected reps \(perSetReps), got \(actual.sets.map { $0.reps.map(String.init) ?? "nil" })")
+            }
+            if let perSetWeights = expectedExercise.perSetWeights {
+                let actualWeights = actual.sets.map(\.weight)
+                let matches = actualWeights.count == perSetWeights.count
+                    && zip(actualWeights, perSetWeights).allSatisfy { actual, expected in
+                        actual.map { abs($0 - expected) <= 0.001 } ?? false
+                    }
+                if !matches {
+                    failures.append("exercise \(index): expected weights \(perSetWeights), got \(actualWeights.map { $0.map { String($0) } ?? "nil" })")
+                }
+            }
+            if let unit = expectedExercise.weightUnit {
+                let wrong = actual.sets.filter { $0.weight != nil && $0.weightUnit != unit }
+                if !wrong.isEmpty {
+                    failures.append("exercise \(index): expected weights in \(unit.rawValue), got \(wrong.map(\.weightUnit.rawValue))")
+                }
             }
             guard let firstSet = actual.sets.first else {
                 if expectedExercise.reps != nil || expectedExercise.weight != nil || expectedExercise.restSeconds != nil
@@ -185,12 +216,6 @@ extension WorkoutParseEvalCase {
 
         return (failures.isEmpty, failures)
     }
-
-    private static let utcCalendar: Calendar = {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
-        return calendar
-    }()
 }
 
 extension WorkoutParseEvalCase {
@@ -285,15 +310,16 @@ extension WorkoutParseEvalCase {
         ),
         WorkoutParseEvalCase(
             name: "date header with title and exercises",
-            // No year written, so the parser adopts the reference year (2025 for
-            // MarbleTestCase.fixedNow).
+            // No year written, so the parser takes the most recent 7/22 on or
+            // before the reference day (2024 for MarbleTestCase.fixedNow,
+            // 2025-01-15) — never a future workout.
             input: "7/22 Push Day\nOHP 5x5 @ 95\nDips 3x12",
             tier: .notation,
             expected: ExpectedWorkout(
                 title: "Push Day",
                 month: 7,
                 day: 22,
-                year: 2025,
+                year: 2024,
                 exercises: [
                     ExpectedExercise(name: "OHP", setCount: 5, reps: 5, weight: 95),
                     ExpectedExercise(name: "Dips", setCount: 3, reps: 12)

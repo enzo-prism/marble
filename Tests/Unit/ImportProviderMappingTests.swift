@@ -129,6 +129,17 @@ final class ImportProviderMappingTests: MarbleTestCase {
         XCTAssertEqual(config.clientID, "info-id")
     }
 
+    // MARK: - HealthKit own-source exclusion
+
+    /// Marble exports its sessions to Health; importing them back duplicated
+    /// every exported session in the journal.
+    func testHealthImportExcludesMarbleOwnWorkouts() {
+        XCTAssertTrue(HealthKitWorkoutProvider.isMarbleSource(bundleIdentifier: "Prism.marble", ownBundleIdentifier: "Prism.marble"))
+        XCTAssertFalse(HealthKitWorkoutProvider.isMarbleSource(bundleIdentifier: "com.apple.health", ownBundleIdentifier: "Prism.marble"))
+        XCTAssertFalse(HealthKitWorkoutProvider.isMarbleSource(bundleIdentifier: "com.garmin.connect.mobile", ownBundleIdentifier: "Prism.marble"))
+        XCTAssertFalse(HealthKitWorkoutProvider.isMarbleSource(bundleIdentifier: "Prism.marble", ownBundleIdentifier: nil))
+    }
+
     // MARK: - HealthKit activity kind mapping
 
     func testHealthKitActivityKindMapping() {

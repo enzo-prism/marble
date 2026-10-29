@@ -196,8 +196,92 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertTrue(second.alreadyImported)
 
         second.commit(into: context)
-        XCTAssertEqual(second.lastSummary?.skipped, 1)
-        XCTAssertEqual(second.lastSummary?.importedSets, 0)
+        XCTAssertEqual(second.phase, .review)
+        XCTAssertEqual(second.errorMessage, WorkoutTextEntryViewModel.duplicateGuidance)
+        XCTAssertEqual(second.text, "Squat 5x5 @ 225", "Duplicate saves must preserve source text")
+    }
+
+    func testSameTypedTextOnAnotherReviewDayImportsAgain() async throws {
+        let context = makeInMemoryContext()
+        let firstDay = Calendar.current.date(byAdding: .day, value: -3, to: AppEnvironment.now)!
+        let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: firstDay)!
+        let first = makeViewModel()
+        first.text = "Squat 5x5 @ 225"
+        await first.preview(in: context)
+        first.draft.performedAt = firstDay
+        first.commit(into: context)
+
+        let second = makeViewModel()
+        second.text = "Squat 5x5 @ 225"
+        await second.preview(in: context)
+        second.draft.performedAt = firstDay
+        second.refreshDuplicateState(in: context)
+        XCTAssertTrue(second.alreadyImported)
+        second.commit(into: context)
+        XCTAssertEqual(second.errorMessage, WorkoutTextEntryViewModel.duplicateGuidance)
+        second.draft.performedAt = nextDay
+        second.refreshDuplicateState(in: context)
+        XCTAssertFalse(second.alreadyImported)
+        XCTAssertNil(second.errorMessage, "Date correction clears the resolved duplicate error")
+        second.errorMessage = "An unrelated save error"
+        second.refreshDuplicateState(in: context)
+        XCTAssertEqual(second.errorMessage, "An unrelated save error")
+        second.commit(into: context)
+        XCTAssertEqual(second.lastSummary?.importedSets, 5)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<SetEntry>()).count, 10)
+    }
+
+    func testLegacyTypedLedgerStillBlocksItsDayButAllowsAnotherDay() async throws {
+        let context = makeInMemoryContext()
+        let day = Calendar.current.date(byAdding: .day, value: -3, to: AppEnvironment.now)!
+        let text = "Squat 5x5 @ 225"
+        let rawID = WorkoutScanImageHash.hash(Data(text.utf8))
+        let first = makeViewModel()
+        first.text = text
+        await first.preview(in: context)
+        first.draft.performedAt = day
+        _ = try WorkoutScanImporter.import(first.draft, externalID: rawID, source: .textEntry, in: context)
+
+        let second = makeViewModel()
+        second.text = text
+        await second.preview(in: context)
+        second.draft.performedAt = day
+        second.commit(into: context)
+        XCTAssertEqual(second.phase, .review)
+        XCTAssertEqual(second.errorMessage, WorkoutTextEntryViewModel.duplicateGuidance)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<SetEntry>()).count, 5)
+        second.draft.performedAt = Calendar.current.date(byAdding: .day, value: 1, to: day)!
+        second.commit(into: context)
+        XCTAssertEqual(second.lastSummary?.importedSets, 5)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<SetEntry>()).count, 10)
+    }
+
+    func testBatchDateEditMakesOnlyEditedDuplicateImportable() async throws {
+        let context = makeInMemoryContext()
+        let text = "3/5\nBench 3x8 @ 185\n\n3/6\nSquat 5x5 @ 225"
+        let first = makeViewModel()
+        first.text = text
+        await first.preview(in: context)
+        first.commitSelected(into: context)
+        let second = makeViewModel()
+        second.text = text
+        await second.preview(in: context)
+        XCTAssertTrue(second.sessions.allSatisfy(\.alreadyImported))
+        second.openSession(second.sessions[0].id)
+        let previous = second.draft.performedAt!
+        second.draft.performedAt = Calendar.current.date(byAdding: .day, value: -1, to: previous)!
+        second.refreshDuplicateState(in: context)
+        XCTAssertFalse(second.alreadyImported)
+        second.returnToBatch()
+        second.commitSelected(into: context)
+        XCTAssertEqual(second.lastSummary?.importedWorkouts, 1)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<ImportedWorkout>()).count, 3)
+    }
+
+    func testCSVIdentityRemainsStableAcrossReviewDateEdits() {
+        let date = AppEnvironment.now
+        XCTAssertEqual(WorkoutImportOrchestrator.commitIdentity(externalID: "hevy-session", kind: .hevyCSV, day: date), "hevy-session")
+        XCTAssertEqual(WorkoutImportOrchestrator.commitIdentity(externalID: "strong-session", kind: .strongCSV, day: date), "strong-session")
     }
 
     // MARK: - Editing helpers
@@ -383,12 +467,15 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         await viewModel.preview(in: context)
         XCTAssertEqual(viewModel.unparsedLines, ["round 2 of 3 felt easy", "round 2 of 3 felt easy"])
 
+        // Prose, not notation: clean notation now resolves deterministically
+        // without awaiting the parser, and this test needs both retries
+        // suspended in the model path at once.
         let first = Task { @MainActor in
-            await viewModel.retryUnparsedLine(at: 0, replacement: "Squat 1x5")
+            await viewModel.retryUnparsedLine(at: 0, replacement: "Squat felt heavy today")
         }
         await Task.yield()
         let second = Task { @MainActor in
-            await viewModel.retryUnparsedLine(at: 1, replacement: "Row 1x5")
+            await viewModel.retryUnparsedLine(at: 1, replacement: "Row felt easy today")
         }
         await first.value
         await second.value
@@ -544,7 +631,9 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         }
     }
 
-    private actor RecordingParser: WorkoutScanParsing {
+    // Match WorkoutScanParsing's MainActor isolation under the current SDK.
+    // A separate actor cannot conform to a globally isolated protocol.
+    @MainActor private final class RecordingParser: WorkoutScanParsing {
         private(set) var parseCallCount = 0
 
         func parse(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft {
@@ -579,7 +668,7 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertEqual(viewModel.phase, .review)
         XCTAssertEqual(viewModel.draft.exercises.first?.name, "Bench Press")
         XCTAssertEqual(viewModel.draft.exercises.first?.sets.count, 3)
-        let parseCallCount = await parser.parseCallCount
+        let parseCallCount = parser.parseCallCount
         XCTAssertEqual(parseCallCount, 0,
                        "A complete notation parse should not invoke the model parser")
     }

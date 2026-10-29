@@ -23,6 +23,11 @@ nonisolated struct ParsedWorkoutDraft: Equatable, Sendable, Codable {
     /// A short human label (a header line on the note, or a default).
     var title: String
     var exercises: [ParsedExerciseDraft]
+    /// Provenance: `true` when the on-device model's reading of the text won
+    /// `WorkoutDraftArbiter` (including after merging fields from the other
+    /// parses); `nil` for the deterministic parse and structured imports.
+    /// Optional so drafts encoded before this field existed still decode.
+    var interpretedByModel: Bool?
 
     init(
         performedAt: Date? = nil,
@@ -30,7 +35,8 @@ nonisolated struct ParsedWorkoutDraft: Equatable, Sendable, Codable {
         durationSeconds: Int? = nil,
         notes: String? = nil,
         title: String = "Scanned workout",
-        exercises: [ParsedExerciseDraft] = []
+        exercises: [ParsedExerciseDraft] = [],
+        interpretedByModel: Bool? = nil
     ) {
         self.performedAt = performedAt
         self.endedAt = endedAt
@@ -38,6 +44,7 @@ nonisolated struct ParsedWorkoutDraft: Equatable, Sendable, Codable {
         self.notes = notes
         self.title = title
         self.exercises = exercises
+        self.interpretedByModel = interpretedByModel
     }
 
     /// Exercises that actually carry at least one set — the only ones worth importing.

@@ -124,6 +124,42 @@ final class SeedDataTests: MarbleTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<SprintGoalSnapshot>()), 1)
     }
 
+    /// Installs that already ran the V1 sweep still get the V2 sweep, which
+    /// removes the sprint variants that exercise deletion used to leave behind.
+    func testOrphanMaintenanceV2RemovesOrphanedSprintVariantsAfterV1() throws {
+        let context = makeInMemoryContext()
+        let suiteName = "SeedDataTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: "didCleanMarbleOrphansV1")
+
+        let exercise = Exercise(name: "Sprint", category: .run, metrics: .distanceAndDurationRequired, defaultRestSeconds: 180)
+        context.insert(exercise)
+        let kept = SprintVariant(
+            exerciseID: exercise.id,
+            title: "Speed",
+            distance: 60,
+            distanceUnit: .meters,
+            repetitionCount: 6,
+            targetLowerTenths: 75,
+            targetUpperTenths: 80
+        )
+        context.insert(kept)
+        context.insert(SprintVariant(
+            exerciseID: UUID(),
+            title: "Orphan",
+            distance: 150,
+            distanceUnit: .meters,
+            repetitionCount: 4,
+            targetLowerTenths: 190,
+            targetUpperTenths: 210
+        ))
+        try context.save()
+
+        SeedData.performOneTimeMaintenanceIfNeeded(in: context, defaults: defaults)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<SprintVariant>()).map(\.id), [kept.id])
+    }
+
     func testScreenshotFixtureUsesExerciseMatchedEmojiAndFeatureData() throws {
         let context = makeInMemoryContext()
         let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-07-15T16:30:00Z"))
