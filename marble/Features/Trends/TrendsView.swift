@@ -135,6 +135,9 @@ struct TrendsContentView: View {
     // state and re-runs `body`) doesn't re-filter/-group/-sort the full history
     // every frame. Rebuilt only when the signature below changes.
     @State private var derivedMemo = RenderMemo<TrendsInputSignature, TrendsDerivedData>()
+    // The overview card is lifetime-scoped, so it reads full history; cache it
+    // so that one-shot fetch runs per data change, not per render.
+    @State private var topExercisesMemo = RenderMemo<TopExercisesSignature, [TrendsShareCardRow]>()
 
     init(
         range: Binding<TrendRange>,
@@ -370,9 +373,7 @@ struct TrendsContentView: View {
                             }
                         } else {
                             VStack(alignment: .leading, spacing: MarbleSpacing.xl) {
-                                TrendsShareCardView(
-                                    rows: TrendsShareCard.topExercises(from: entries)
-                                )
+                                TrendsShareCardView(rows: lifetimeTopExercises)
                                 .padding(.horizontal, MarbleSpacing.xs)
                                 ProgressQuoteFooter(
                                     day: activeDay,
@@ -605,6 +606,23 @@ struct TrendsContentView: View {
         if range == .all { return Array(entries) }
         let descriptor = FetchDescriptor<SetEntry>()
         return (try? modelContext.fetch(descriptor)) ?? Array(entries)
+    }
+
+    /// Lifetime Top Exercises for the overview, independent of `range`. The
+    /// range-scoped `entries` query only feeds the signature: its count catches
+    /// in-range inserts and deletes, the freshness probe catches edits, and
+    /// `dataRevision` catches deletes and renames anywhere in history.
+    private var lifetimeTopExercises: [TrendsShareCardRow] {
+        let signature = TopExercisesSignature(
+            entryCount: entries.count,
+            exerciseCount: exercises.count,
+            latestEntryUpdate: latestUpdatedEntries.first?.updatedAt ?? .distantPast,
+            activeDay: activeDay,
+            dataRevision: dataRevision
+        )
+        return topExercisesMemo.value(for: signature) {
+            TrendsShareCard.lifetimeTopExercises(in: modelContext)
+        }
     }
 
     /// A cheap fingerprint of everything `makeDerivedData()` actually depends on.
@@ -1813,6 +1831,17 @@ struct TrendsInputSignature: Equatable {
     let latestBodyweightUpdate: Date
     /// Context-save fallback catches deletions that leave one-row latest-update
     /// probes unchanged, including history outside the selected range.
+    let dataRevision: Int
+}
+
+/// Inputs the lifetime Top Exercises card depends on. `range` is left out on
+/// purpose: the card must not change with the Details range picker.
+/// `activeDay` refreshes the "Today"/"Yesterday" labels after midnight.
+struct TopExercisesSignature: Equatable {
+    let entryCount: Int
+    let exerciseCount: Int
+    let latestEntryUpdate: Date
+    let activeDay: Date
     let dataRevision: Int
 }
 

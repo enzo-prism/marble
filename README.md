@@ -26,8 +26,10 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   **Personal-best (PR) badges** celebrate record sets right in the history, and the logging
   screen shows your current PR (heaviest + most reps) and usual range so you can shoot to
   beat it — with a live "New PR!" cue the moment your entry passes your best.
-- **Progress** — a minimal **Top Exercises** card first (top 5 most-logged exercises
-  with a valid PR weight + set date; exercises without both are excluded before the limit), then a subtle rotating training-quote footer
+- **Progress** — a minimal **Top Exercises** card first: the top 5 most-logged exercises
+  across your whole history, each with its lifetime PR weight + set date (exercises without
+  both are excluded before the limit). It never follows the Details range picker; bests from
+  an earlier year show the year. Then a subtle rotating training-quote footer
   (short quotes that fit one line, tap or swipe to move through them),
   with one Details action by default and generous whitespace; weekly goal, highlights,
   training analytics, reports, body metrics, habits, supplements, milestones, and
