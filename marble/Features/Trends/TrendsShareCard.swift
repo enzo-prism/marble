@@ -1,14 +1,16 @@
 import Foundation
+import SwiftData
 import SwiftUI
 
-/// One row of the Progress Top Exercises card: an exercise ranked by SetEntry
-/// count plus its personal best.
+/// One row of the Progress Top Exercises card: an exercise ranked by lifetime
+/// SetEntry count plus its lifetime personal best.
 ///
 /// PB definition (documented per contract): `PersonalRecords.records(for:entries:)`
 /// `.heaviestEntry` — the max-weight set, unit-normalized. Weight and
 /// performed-date come from that same set; the date uses
 /// `DateHelper.dayLabel`, matching the rest of Trends ("Today",
-/// "Yesterday", …). Only exercises with a usable weight PR and date qualify.
+/// "Yesterday", …), plus the year when the best is from an earlier year.
+/// Only exercises with a usable weight PR and date qualify.
 struct TrendsShareCardRow: Equatable {
     let exerciseID: UUID
     let exerciseName: String
@@ -19,6 +21,18 @@ struct TrendsShareCardRow: Equatable {
 /// Pure, unit-testable engine behind the Progress first-screen Top Exercises card.
 enum TrendsShareCard {
     static let maxRows = 5
+
+    /// The overview card always describes the lifter's whole history. It reads
+    /// every SetEntry instead of the Progress range query, so neither the
+    /// ranking nor a PB changes with the range chosen in Details.
+    static func lifetimeTopExercises(
+        in context: ModelContext,
+        limit: Int = maxRows,
+        now: Date = AppEnvironment.now
+    ) -> [TrendsShareCardRow] {
+        let entries = (try? context.fetch(FetchDescriptor<SetEntry>())) ?? []
+        return topExercises(from: entries, limit: limit, now: now)
+    }
 
     /// Top `limit` exercises with a dated weight PR, ranked by SetEntry count. Ties break alphabetically
     /// (case-insensitive) so the ranking is deterministic.
@@ -54,7 +68,16 @@ enum TrendsShareCard {
         guard let entry = records.heaviestEntry,
               let weight = entry.weight, weight.isFinite, weight > 0,
               entry.performedAt.timeIntervalSinceReferenceDate.isFinite else { return nil }
-        return "\(exercise.formattedWeightSummary(weight, unit: entry.weightUnit)) · \(DateHelper.dayLabel(for: entry.performedAt, now: now))"
+        return "\(exercise.formattedWeightSummary(weight, unit: entry.weightUnit)) · \(bestDateLabel(for: entry.performedAt, now: now))"
+    }
+
+    /// Lifetime bests can be years old, and "Mon, Mar 3" would read as this
+    /// year, so earlier years show the year instead of the weekday.
+    private static func bestDateLabel(for date: Date, now: Date, calendar: Calendar = .current) -> String {
+        if calendar.isDate(date, equalTo: now, toGranularity: .year) {
+            return DateHelper.dayLabel(for: date, now: now, calendar: calendar)
+        }
+        return Formatters.dayWithYear.string(from: date)
     }
 }
 

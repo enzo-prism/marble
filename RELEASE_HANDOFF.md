@@ -3,6 +3,21 @@
 **App Store Connect state refreshed: 2026-10-29.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## 2.6.1 (build 84): lifetime Top Exercises, for internal TestFlight (2026-10-29)
+
+- **Change:** the Progress overview **Top Exercises** card now always ranks the five
+  most-logged exercises across the whole history and shows each one's lifetime heaviest
+  set. Before, it read the range-scoped `entries` query, so ranking and PBs followed the
+  Details range picker (30 days by default). `TrendsShareCard.lifetimeTopExercises(in:)`
+  fetches every `SetEntry` once per data change (`TopExercisesSignature` memo in
+  `TrendsView`); `range` is deliberately not part of that signature.
+- **PB dates:** bests from an earlier calendar year show `MMM d, yyyy`
+  (`Formatters.dayWithYear`); this year's keep `DateHelper.dayLabel`.
+- **Version:** 2.6 is released, so its train is closed; this is 2.6.1 (84), separate from
+  the draft 2.7 work in PR #47. No schema change (still V6).
+- **Scope:** TestFlight only. No App Store version, review submission, or release has been
+  created for 2.6.1.
+
 ## 2.6 (build 83) is public (readback 2026-10-29)
 
 - **Public App Store:** 2.6 version `96648678-f09f-453e-a534-d63b9cb2bce8` is
