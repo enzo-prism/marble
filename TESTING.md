@@ -765,6 +765,21 @@ coverage.
 - Snapshot suite runs in small groups to avoid simulator flakiness; results land in `TestResults/MarbleSnapshots_*.xcresult`.
 - Snapshot runs log each variant as a separate test activity for faster diagnosis.
 
+### Composer date pill depends on the CI runner (2026-10-29)
+
+The review timing section uses a system compact `DatePicker`. At accessibility text sizes
+it draws the date as either "Jan 15, 2025" or "1/15/25", and which one has changed with the
+`macos-26` runner environment rather than with Marble code. The 2026-10-04 Composer
+re-record captured "1/15/25"; runs on 2026-10-29 (pinned Xcode 26.6, iOS 26.5) draw
+"Jan 15, 2025", as the 2026-09-19 baselines did. That broke the eight `_a11y` variants of
+`testWorkoutComposerReview` and `testWorkoutComposerCorrectedWeightAfterRecovery` on `main`.
+They were replaced with the CI failure images from run 40977926958 after checking that each
+differs from its old reference only inside the date-pill rows.
+
+If only those variants fail and the difference image shows only the date pill, treat it as
+runner drift: take the new images from the CI run's xcresult (or record on the pinned
+toolchain) and verify in CI. Do not change the picker or loosen precision to hide it.
+
 ## Add a new snapshot state
 1. Add a new scenario in a `*SnapshotTests.swift` file under `Tests/Snapshots`.
 2. If the scenario needs seeded data, add it in `Tests/Snapshots/SnapshotFixtures.swift`.
