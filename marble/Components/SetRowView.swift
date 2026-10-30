@@ -41,7 +41,7 @@ struct SetRowView: View {
             parts.append(DateHelper.formattedDuration(seconds: duration))
         }
 
-        let summary = parts.isEmpty ? "No metrics" : parts.joined(separator: " · ")
+        let summary = parts.isEmpty ? "Set recorded" : parts.joined(separator: " · ")
         var prefix = prBadge.isEmpty ? "" : "\(prBadge.accessibilityDescription). "
         if let imported = entry.importedWorkout {
             prefix += "Imported from \(imported.displayOrigin). "
@@ -159,7 +159,7 @@ struct SetRowView: View {
         }
 
         if parts.isEmpty {
-            return "No metrics"
+            return "Set recorded"
         }
 
         return parts.joined(separator: " · ")

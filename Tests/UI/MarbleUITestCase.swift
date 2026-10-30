@@ -450,7 +450,12 @@ class MarbleUITestCase: XCTestCase {
     func clearAndType(_ element: XCUIElement, text: String) {
         element.tap()
         if let value = element.value as? String, !value.isEmpty {
-            element.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+            // Rounded SwiftUI text-field bounds include a non-editable border.
+            // The former 98% edge tap could hit that border and dismiss focus
+            // immediately before typing (observed in the live PR weight flow).
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.90, dy: 0.5)).tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5),
+                          "Editing an existing value must keep the keyboard open")
             let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count + 2)
             element.typeText(deleteString)
         }

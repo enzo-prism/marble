@@ -1,5 +1,15 @@
 # Marble — H2 2026 Implementation Plan (written 2026-07-20)
 
+## September 5 update — Add Workout fidelity
+
+Owner testing found that count-only drills were rejected and explicit sprint counts
+were collapsed. The next candidate prioritizes correct Notes interpretation and
+source preservation over new features: counted efforts, explicit-unit pairs,
+source-grounded AI arbitration, visible exercise/set totals, and unresolved-note
+disposition before save. [WORKOUT_TEXT_ENTRY.md](WORKOUT_TEXT_ENTRY.md) records the
+contract and tests. Implementation and release validation are ongoing; build 67's
+passing CI does not resolve the reported product failure.
+
 ## September 4 update — 2.5 candidate
 
 Implemented locally: non-destructive storage-unavailable recovery, complete resumable

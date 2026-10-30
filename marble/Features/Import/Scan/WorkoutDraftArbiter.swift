@@ -2,9 +2,9 @@ import Foundation
 
 /// Picks between the deterministic notation parse and the on-device model parse of
 /// the same source text. The model reads prose the notation parser can't, but it
-/// also collapses set counts, invents numbers and exercises, and guesses units;
-/// the notation parser never hallucinates but goes empty on anything that isn't
-/// gym shorthand. Scoring both drafts against the source text lets the more
+/// can also collapse set counts, invent numbers and exercises, and guess units.
+/// The notation parser gives stable readings of supported formats, but can
+/// misread unfamiliar prose. Scoring both drafts against the source text lets the more
 /// faithful one win instead of blindly preferring whichever the model produced.
 nonisolated enum WorkoutDraftArbiter {
 
@@ -26,8 +26,10 @@ nonisolated enum WorkoutDraftArbiter {
     /// Multi-candidate form: the deterministic draft competes against any number of
     /// model-derived drafts (structured extraction, notation rewrite, …). Highest
     /// fidelity wins; ties prefer the earliest contender, with the deterministic
-    /// draft first — it never hallucinates, so at equal fidelity it is the safer
-    /// draft to put in front of the user. A winning model draft comes back with
+    /// draft first, preserving a stable interpretation when fidelity is tied.
+    /// Model exercises must first be grounded in their own source line: names
+    /// the text actually states, numbers from that line, and no planned, skipped
+    /// or corrected work. A winning model draft comes back with
     /// `interpretedByModel` set so review can say the text was interpreted.
     /// `defaultWeightUnit` is the unit the user logs in, assumed wherever the
     /// text writes no unit.
@@ -37,21 +39,28 @@ nonisolated enum WorkoutDraftArbiter {
         sourceText: String,
         defaultWeightUnit: WeightUnit = .lb
     ) -> ParsedWorkoutDraft {
-        let contenders = candidates.compactMap { $0 }.filter(\.hasContent)
+        let context = SourceContext(sourceText, defaultWeightUnit: defaultWeightUnit)
+        let grounding = candidates.compactMap { $0 }.map { candidate in
+            grounded(candidate, in: sourceText, context: context)
+        }.filter(\.draft.hasContent)
+        let contenders = grounding.map(\.draft)
         guard !contenders.isEmpty else { return deterministic }
 
         // The deterministic draft leads the field when it has content, so an equal
         // score never displaces it; among model drafts, earlier candidates win ties.
         // Positions, not equality, identify the winner: a model draft can be
         // value-identical to the deterministic one and must not claim provenance.
-        var field: [(draft: ParsedWorkoutDraft, isModel: Bool)] = contenders.map { ($0, true) }
-        if deterministic.hasContent { field.insert((deterministic, false), at: 0) }
+        // A candidate stripped of unsupported exercises still claimed them: it
+        // pays the same price an ungrounded name would have cost it.
+        var field: [(draft: ParsedWorkoutDraft, isModel: Bool, penalty: Double)] = grounding.map {
+            ($0.draft, true, min(2.0, Double($0.rejected) * 0.75))
+        }
+        if deterministic.hasContent { field.insert((deterministic, false, 0), at: 0) }
 
-        let context = SourceContext(sourceText, defaultWeightUnit: defaultWeightUnit)
         var winnerIndex = 0
-        var winnerScore = score(field[0].draft, context: context)
+        var winnerScore = score(field[0].draft, context: context) - field[0].penalty
         for index in field.indices.dropFirst() {
-            let contenderScore = score(field[index].draft, context: context)
+            let contenderScore = score(field[index].draft, context: context) - field[index].penalty
             if contenderScore > winnerScore {
                 winnerIndex = index
                 winnerScore = contenderScore
@@ -64,7 +73,25 @@ nonisolated enum WorkoutDraftArbiter {
         for loser in losers {
             winner = merge(winner: winner, loser: loser)
         }
-        if field[winnerIndex].isModel { winner.interpretedByModel = true }
+
+        // Lexical anchoring cannot distinguish repeated occurrences of a name
+        // (Squat / Bench / Squat), or multiple movements on one source line.
+        // Never reorder or overwrite a trusted deterministic sequence in that
+        // situation. Unresolved source stays available for explicit review.
+        let originalNames = deterministic.importableExercises.map { movementKey($0.name) }
+        if Set(originalNames).count < originalNames.count { return deterministic }
+        let winnerNames = winner.importableExercises.map { movementKey($0.name) }
+        if Set(winnerNames).count < winnerNames.count, deterministic.hasContent {
+            return deterministic
+        }
+        let wonByModel = field[winnerIndex].isModel
+        if Set(winnerNames).count == winnerNames.count {
+            winner = restoringSourceMovements(
+                in: winner, deterministic: deterministic, contenders: contenders,
+                sourceText: sourceText, defaultWeightUnit: defaultWeightUnit
+            )
+        }
+        if wonByModel { winner.interpretedByModel = true }
         // A model can label an unstated unit "lb" despite the user's kg
         // preference. Scoring only penalizes that guess; it does not prevent
         // it from winning. With no source unit anywhere, the default is the
@@ -196,8 +223,21 @@ nonisolated enum WorkoutDraftArbiter {
 
         let unitPenalty = unitMismatchPenalty(draft, context: context)
 
+        // Global numeric coverage is only a secondary signal: penalize claims
+        // using numbers found on a different movement's line, and set counts
+        // that disagree with the count written on the movement's own line.
+        let localPenalty = exercises.reduce(0.0) { penalty, exercise in
+            guard let span = sourceSpan(for: exercise.name, in: context.sourceText) else { return penalty }
+            let local = numberTokens(in: span.text)
+            let values = numericValues(in: ParsedWorkoutDraft(exercises: [exercise]))
+            let misplaced = values.exact.filter { tokens.contains($0) && !local.contains($0) }.count
+            let expected = expectedSetCount(in: span.text)
+            let countPenalty = expected.map { $0 == exercise.sets.count ? 0.0 : 2.0 } ?? 0
+            return penalty + min(4, Double(misplaced)) + countPenalty
+        }
+
         return presence + 3 * agreement + 3 * fidelity + 2 * coverage
-            - ungroundedPenalty - repeatPenalty - unitPenalty
+            - ungroundedPenalty - repeatPenalty - unitPenalty - localPenalty
     }
 
     /// Total sets the text states, nil when it states none: explicit NxM tokens
@@ -205,6 +245,245 @@ nonisolated enum WorkoutDraftArbiter {
     /// of the two is taken, so "3x8, 3 sets" isn't counted twice.
     static func expectedSetCount(in sourceText: String) -> Int? {
         SourceContext.setCounts(in: sourceText).expected
+    }
+
+    // MARK: - Source anchoring
+
+    /// Keeps only the model exercises the text can vouch for, one line at a time.
+    /// A number belonging only to another movement or the date cannot justify a
+    /// model claim. Unsupported claims stay in source text for review rather
+    /// than becoming fabricated journal metrics.
+    private static func grounded(
+        _ candidate: ParsedWorkoutDraft, in sourceText: String, context: SourceContext
+    ) -> (draft: ParsedWorkoutDraft, rejected: Int) {
+        var grounded = candidate
+        var seenMovements: Set<String> = []
+        grounded.exercises = candidate.exercises.compactMap { proposed in
+            let metrics = proposed.sets.map { set in
+                "\(set.weight ?? -1):\(set.weightUnit):\(set.reps ?? -1):\(set.distance ?? -1):\(set.distanceUnit):\(set.durationSeconds ?? -1):\(set.restSeconds ?? -1)"
+            }.joined(separator: "|")
+            guard seenMovements.insert(movementKey(proposed.name) + ":" + metrics).inserted,
+                  context.grounds(exerciseName: proposed.trimmedName),
+                  let source = sourceSpan(for: proposed.name, in: sourceText),
+                  !requiresIntentReview(source.text) else { return nil }
+            let exercise = fillingKnownOmissions(proposed, source: source.text)
+            let local = numberTokens(in: source.text)
+            let values = numericValues(in: ParsedWorkoutDraft(exercises: [exercise]))
+            let faithful = agreesWithKnownMetrics(exercise, source: source.text)
+                && values.exact.allSatisfy { local.contains($0) }
+                && values.seconds.allSatisfy { value in
+                    let variants: Set<Double> = [value, value / 60, value / 3600]
+                    return !variants.isDisjoint(with: local)
+                }
+            return faithful ? exercise : nil
+        }
+        return (grounded, candidate.exercises.count - grounded.exercises.count)
+    }
+
+    /// Whole-note selection must not erase independently recognized movements,
+    /// nor reorder them. A partial but grounded candidate can recover a movement
+    /// absent from the winning draft; a deterministic row whose source-local
+    /// reading is more faithful replaces the winner's, keeping its notes and
+    /// review metadata. The result follows the source's written order.
+    private static func restoringSourceMovements(
+        in selected: ParsedWorkoutDraft,
+        deterministic: ParsedWorkoutDraft,
+        contenders: [ParsedWorkoutDraft],
+        sourceText: String,
+        defaultWeightUnit: WeightUnit
+    ) -> ParsedWorkoutDraft {
+        var winner = selected
+        for candidate in contenders {
+            for exercise in candidate.importableExercises {
+                guard sourceSpan(for: exercise.name, in: sourceText) != nil,
+                      !winner.exercises.contains(where: {
+                          movementKey($0.name) == movementKey(exercise.name)
+                      }) else { continue }
+                winner.exercises.append(exercise)
+            }
+        }
+        for exercise in deterministic.importableExercises {
+            guard let source = sourceSpan(for: exercise.name, in: sourceText) else { continue }
+            if let index = winner.exercises.firstIndex(where: {
+                movementKey($0.name) == movementKey(exercise.name)
+            }) {
+                // Strictly better only: at equal local fidelity the selected
+                // draft's reading (often the model's fuller name) stands.
+                let original = ParsedWorkoutDraft(exercises: [exercise])
+                let current = ParsedWorkoutDraft(exercises: [winner.exercises[index]])
+                if score(original, against: source.text, defaultWeightUnit: defaultWeightUnit)
+                    > score(current, against: source.text, defaultWeightUnit: defaultWeightUnit) {
+                    winner.exercises[index] = exercise
+                }
+            } else {
+                winner.exercises.append(exercise)
+            }
+        }
+        winner.exercises = winner.exercises.enumerated().sorted { lhs, rhs in
+            let left = sourceSpan(for: lhs.element.name, in: sourceText)?.index ?? Int.max
+            let right = sourceSpan(for: rhs.element.name, in: sourceText)?.index ?? Int.max
+            return left == right ? lhs.offset < rhs.offset : left < right
+        }.map(\.element)
+        return winner
+    }
+
+    /// Movement identity for de-duplication: expanded, plural-stripped name words
+    /// without equipment, "press", or spelled distance words, so "Bench" and
+    /// "Barbell Bench Press" are one movement.
+    private static func movementKey(_ name: String) -> String {
+        let ignored: Set<String> = [
+            "barbell", "dumbbell", "kettlebell", "press", "meter", "metre", "fifty", "twenty", "hundred"
+        ]
+        let words = nameWords(name)
+        let kept = words.filter { !ignored.contains($0) }
+        return (kept.isEmpty ? words : kept).joined(separator: " ")
+    }
+
+    /// Whether a source word states a name word: verbatim, inside a longer word
+    /// ("pullups" ⊃ "pull"), or one OCR slip away ("Bnech").
+    private static func sourceWord(_ candidate: String, states word: String) -> Bool {
+        if candidate == word { return true }
+        if word.count >= 3, candidate.contains(word) { return true }
+        let limit = word.count >= 7 ? 2 : (word.count >= 4 ? 1 : 0)
+        return limit > 0 && abs(candidate.count - word.count) <= limit && editDistance(word, candidate) <= limit
+    }
+
+    /// Conservative lexical anchoring: equipment expansion is allowed, but a
+    /// model must still name a movement actually present in this source segment.
+    /// Split sentences at explicit transitions, not commas (which carry metrics).
+    static func sourceSpan(for name: String, in text: String) -> (index: Int, text: String)? {
+        let normalizedText = text.replacingOccurrences(
+            of: #"(?i)[;\n]|(?<=[a-z])\.\s+|,?\s+(?:then|followed by)\s+"#, with: "\n", options: .regularExpression
+        )
+        let lines = normalizedText.components(separatedBy: .newlines)
+        let allNameWords = Set(nameWords(name))
+        let anchors = allNameWords.filter { $0.count >= 3 && !optionalNameWords.contains($0) && $0 != "press" }
+        let required = anchors.isEmpty ? allNameWords : anchors
+        guard !required.isEmpty else { return nil }
+        let matches = lines.enumerated().compactMap { index, line -> (Int, String, Int)? in
+            let lineWords = nameWords(line)
+            let overlap = required.filter { word in lineWords.contains { sourceWord($0, states: word) } }.count
+            guard overlap > 0, overlap * 2 >= required.count else { return nil }
+            return (index, line, overlap)
+        }
+        guard let best = matches.max(by: { lhs, rhs in
+            if lhs.2 != rhs.2 { return lhs.2 < rhs.2 }
+            let leftExtra = Set(nameWords(lhs.1)).subtracting(allNameWords).count
+            let rightExtra = Set(nameWords(rhs.1)).subtracting(allNameWords).count
+            return leftExtra == rightExtra ? lhs.0 > rhs.0 : leftExtra > rightExtra
+        }) else { return nil }
+        // Include numeric continuation rows under a standalone movement heading.
+        var source = best.1
+        var next = best.0 + 1
+        while next < lines.count {
+            let line = lines[next].trimmingCharacters(in: .whitespaces)
+            if line.isEmpty { next += 1; continue }
+            guard line.first?.isNumber == true || line.lowercased().hasPrefix("set ") || line.lowercased().hasPrefix("rest ") else { break }
+            source += "\n" + line
+            next += 1
+        }
+        return (best.0, source)
+    }
+
+    /// Numbers a span of source text states, read the same way as the score.
+    private static func numberTokens(in text: String) -> Set<Double> {
+        Set(SourceContext.numberCounts(in: SourceContext.normalize(text)).keys)
+    }
+
+    /// The model may recognize a movement while omitting a metric. Fill only
+    /// explicit facts from a complete local parse with the exact same set count;
+    /// contradictory model values remain intact for the validator to reject.
+    private static func fillingKnownOmissions(_ proposed: ParsedExerciseDraft, source: String) -> ParsedExerciseDraft {
+        let reading = HandwrittenWorkoutParser.parseDetailed(
+            source, referenceDate: Date(timeIntervalSince1970: 0),
+            defaultWeightUnit: proposed.sets.first?.weightUnit ?? .lb
+        )
+        guard reading.droppedLines.isEmpty, reading.draft.importableExercises.count == 1,
+              let known = reading.draft.importableExercises.first,
+              known.sets.count == proposed.sets.count else { return proposed }
+        var result = proposed
+        for index in result.sets.indices {
+            let fact = known.sets[index]
+            if result.sets[index].weight == nil { result.sets[index].weight = fact.weight; result.sets[index].weightUnit = fact.weightUnit }
+            if result.sets[index].reps == nil { result.sets[index].reps = fact.reps }
+            if result.sets[index].distance == nil { result.sets[index].distance = fact.distance; result.sets[index].distanceUnit = fact.distanceUnit }
+            if result.sets[index].durationSeconds == nil { result.sets[index].durationSeconds = fact.durationSeconds }
+            if result.sets[index].restSeconds == nil { result.sets[index].restSeconds = fact.restSeconds }
+        }
+        return result
+    }
+
+    /// When notation supplies typed facts, number membership is insufficient:
+    /// "20 minutes" is not 20 pounds and "2 sets" is not two repetitions. A
+    /// claimed value must match the local reading's field, or fill a field the
+    /// reading left blank with a number the reading did not already use
+    /// ("with the 60s" as a load the notation parser skipped).
+    private static func agreesWithKnownMetrics(_ exercise: ParsedExerciseDraft, source: String) -> Bool {
+        let reading = HandwrittenWorkoutParser.parseDetailed(
+            source, referenceDate: Date(timeIntervalSince1970: 0),
+            defaultWeightUnit: exercise.sets.first?.weightUnit ?? .lb
+        )
+        guard reading.droppedLines.isEmpty, reading.draft.importableExercises.count == 1,
+              let known = reading.draft.importableExercises.first else { return true }
+        var used: Set<Double> = [Double(known.sets.count)]
+        for fact in known.sets {
+            for value in [fact.weight, fact.reps.map(Double.init), fact.distance, fact.difficulty.map(Double.init)] {
+                if let value { used.insert(value) }
+            }
+            for seconds in [fact.durationSeconds, fact.restSeconds].compactMap({ $0 }).map(Double.init) {
+                used.formUnion([seconds, seconds / 60, seconds / 3600])
+            }
+        }
+        func agrees(_ claimed: Double?, _ fact: Double?, sameUnit: Bool = true) -> Bool {
+            guard let claimed else { return true }
+            if let fact { return claimed == fact && sameUnit }
+            return !used.contains(claimed)
+        }
+        return exercise.sets.allSatisfy { claimed in
+            known.sets.contains { fact in
+                agrees(claimed.weight, fact.weight, sameUnit: claimed.weightUnit == fact.weightUnit)
+                    && agrees(claimed.reps.map(Double.init), fact.reps.map(Double.init))
+                    && agrees(claimed.distance, fact.distance, sameUnit: claimed.distanceUnit == fact.distanceUnit)
+                    && agrees(claimed.durationSeconds.map(Double.init), fact.durationSeconds.map(Double.init))
+                    && agrees(claimed.restSeconds.map(Double.init), fact.restSeconds.map(Double.init))
+                    && agrees(claimed.difficulty.map(Double.init), fact.difficulty.map(Double.init))
+            }
+        }
+    }
+
+    /// A model must not turn planned, skipped, or contradicted activity into
+    /// completed sets merely because its numbers are present in the source.
+    private static func requiresIntentReview(_ text: String) -> Bool {
+        text.range(
+            of: #"(?i)\b(skip(?:ped)?|didn't|did not|not done|planned|tomorrow|instead|actually|correction|scratch that|total|altogether)\b"#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    /// A name substring alone cannot clear an unresolved-source warning.
+    static func isSourceLineRepresented(
+        _ line: String, by draft: ParsedWorkoutDraft, referenceDate: Date,
+        defaultWeightUnit: WeightUnit
+    ) -> Bool {
+        guard !requiresIntentReview(line) else { return false }
+        let reading = HandwrittenWorkoutParser.parseDetailed(
+            line, referenceDate: referenceDate, defaultWeightUnit: defaultWeightUnit
+        )
+        guard reading.droppedLines.isEmpty, reading.draft.hasContent else { return false }
+        return reading.draft.importableExercises.allSatisfy { expected in
+            draft.importableExercises.contains { actual in
+                guard actual.trimmedName.caseInsensitiveCompare(expected.trimmedName) == .orderedSame,
+                      actual.sets.count == expected.sets.count else { return false }
+                return zip(actual.sets, expected.sets).allSatisfy { lhs, rhs in
+                    lhs.weight == rhs.weight && lhs.weightUnit == rhs.weightUnit
+                        && lhs.reps == rhs.reps && lhs.distance == rhs.distance
+                        && lhs.distanceUnit == rhs.distanceUnit
+                        && lhs.durationSeconds == rhs.durationSeconds
+                        && lhs.restSeconds == rhs.restSeconds
+                        && lhs.difficulty == rhs.difficulty && lhs.notes == rhs.notes
+                }
+            }
+        }
     }
 
     // MARK: - Merging
@@ -273,6 +552,7 @@ nonisolated enum WorkoutDraftArbiter {
             for set in exercise.sets {
                 if let weight = set.weight { exerciseExact.insert(weight) }
                 if let reps = set.reps { exerciseExact.insert(Double(reps)) }
+                if let difficulty = set.difficulty { exerciseExact.insert(Double(difficulty)) }
                 if let distance = set.distance { exerciseExact.insert(distance) }
                 if let duration = set.durationSeconds { exerciseSeconds.insert(Double(duration)) }
                 if let rest = set.restSeconds { exerciseSeconds.insert(Double(rest)) }
@@ -407,6 +687,7 @@ nonisolated enum WorkoutDraftArbiter {
 
     /// Everything the score reads off the source text, computed once per choice.
     private struct SourceContext {
+        let sourceText: String
         let defaultWeightUnit: WeightUnit
         /// Separate from documentUnit: nil there can also mean mixed units.
         let hasExplicitWeightUnit: Bool
@@ -426,6 +707,7 @@ nonisolated enum WorkoutDraftArbiter {
         let compactSource: String
 
         init(_ sourceText: String, defaultWeightUnit: WeightUnit) {
+            self.sourceText = sourceText
             self.defaultWeightUnit = defaultWeightUnit
             let text = Self.normalize(sourceText)
             let counts = Self.numberCounts(in: text)
@@ -559,6 +841,7 @@ nonisolated enum WorkoutDraftArbiter {
             "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
             "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
             "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60,
+            "seventy": 70, "eighty": 80, "ninety": 90,
             "single": 1, "double": 2, "triple": 3
         ]
 
@@ -576,15 +859,40 @@ nonisolated enum WorkoutDraftArbiter {
         /// weight of 185.0, with how often each is written. Colon durations also
         /// contribute their value in seconds ("1:30" → 90), so a draft that
         /// correctly resolved them isn't scored as inventing numbers.
-        private static func numberCounts(in text: String) -> [Double: Int] {
+        static func numberCounts(in text: String) -> [Double: Int] {
             var counts: [Double: Int] = [:]
             let range = NSRange(text.startIndex..., in: text)
             for match in numberTokenRegex?.matches(in: text, range: range) ?? [] {
                 if let value = group(match, 0, in: text).flatMap(Double.init) { counts[value, default: 0] += 1 }
             }
-            for word in text.lowercased().split(whereSeparator: { !$0.isLetter }) {
-                if let value = numberWords[String(word)] { counts[value, default: 0] += 1 }
+            let words = text.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init)
+            for word in words {
+                if let value = numberWords[word] { counts[value, default: 0] += 1 }
             }
+            // Spoken loads: "one eighty five", "one hundred and eighty five",
+            // and "twenty five". Keep these within contiguous number-word spans.
+            var run: [String] = []
+            func flush() {
+                defer { run.removeAll() }
+                let values = run.compactMap { numberWords[$0] }
+                guard values.count > 1 else { return }
+                let spoken: Double
+                if let hundred = run.firstIndex(of: "hundred"), hundred > 0,
+                   let leading = numberWords[run[hundred - 1]] {
+                    spoken = leading * 100 + run.dropFirst(hundred + 1).compactMap { numberWords[$0] }.reduce(0, +)
+                } else if values[0] < 10, values[1] >= 20 {
+                    spoken = values[0] * 100 + values.dropFirst().reduce(0, +)
+                } else {
+                    spoken = values.reduce(0, +)
+                }
+                counts[spoken, default: 0] += 1
+            }
+            for word in words {
+                if numberWords[word] != nil || word == "hundred" || (word == "and" && !run.isEmpty) {
+                    run.append(word)
+                } else { flush() }
+            }
+            flush()
             for match in colonDurationRegex?.matches(in: text, range: range) ?? [] {
                 let groups = (1...3).map { group(match, $0, in: text).flatMap { Int($0) } }
                 if let first = groups[0], let second = groups[1] {

@@ -24,15 +24,22 @@ final class ModelEscalationPolicyTests: MarbleTestCase {
     // MARK: - Implausible drafts escalate
 
     static let implausibleInputs = [
-        "Bench 225x5x3",
         "Squat 3x5 at 315 then backoff 2x8 at 275",
-        "Squat 100kg 5x5 then 3x10 at 80",
         "bench 3x8 185, incline db 3x10 60s",
         "Front squat 3x5 @ 60 kg, back squat 3x5 @ 100 kg",
         "Ran a mile in 8 minutes then 3 sets of 20 pushups",
         "Did 20 minutes on the bike then 3x10 pushups",
-        "Bench 3x8 185 then dropped to 135 for 12",
         "Curls 3x12 with 25s",
+        "Pushups 24x10",
+    ]
+
+    /// Misreads the parser used to claim and now leaves unresolved instead
+    /// (an impossible set count, two prescriptions on one line). A dropped
+    /// line escalates on its own, so these must reach the model too.
+    static let unresolvedInputs = [
+        "Bench 225x5x3",
+        "Squat 100kg 5x5 then 3x10 at 80",
+        "Bench 3x8 185 then dropped to 135 for 12",
     ]
 
     func testImplausibleInputsParseWithoutDroppedLines() {
@@ -47,10 +54,20 @@ final class ModelEscalationPolicyTests: MarbleTestCase {
     func testImplausibleInputsNeedModel() {
         for input in Self.implausibleInputs {
             XCTAssertTrue(needsModel(input), input)
+        }
+        for input in Self.implausibleInputs + Self.unresolvedInputs {
             XCTAssertTrue(
                 ModelEscalationPolicy.shouldRunModel(for: parse(input), sourceText: input, referenceDate: now),
                 input
             )
+        }
+    }
+
+    func testUnresolvedInputsAreDroppedRatherThanMisread() {
+        for input in Self.unresolvedInputs {
+            let result = parse(input)
+            XCTAssertEqual(result.droppedLines, [input], input)
+            XCTAssertFalse(result.draft.hasContent, input)
         }
     }
 
@@ -61,8 +78,8 @@ final class ModelEscalationPolicyTests: MarbleTestCase {
     }
 
     func testReasonsNameTheMisread() {
-        XCTAssertTrue(reasons("Bench 225x5x3").contains(.implausibleSetCount))
-        XCTAssertTrue(reasons("Squat 100kg 5x5 then 3x10 at 80").contains(.loadLooksLikeSetCount))
+        XCTAssertTrue(reasons("Pushups 24x10").contains(.implausibleSetCount))
+        XCTAssertTrue(reasons("bench 3x8 185, incline db 3x10 60s").contains(.loadLooksLikeSetCount))
         XCTAssertTrue(reasons("Ran a mile in 8 minutes then 3 sets of 20 pushups").contains(.proseInName))
         XCTAssertTrue(reasons("Front squat 3x5 @ 60 kg, back squat 3x5 @ 100 kg").contains(.multipleMovementsOnLine))
         XCTAssertEqual(reasons("Curls 3x12 with 25s"), [.ignoredLoad])
@@ -114,7 +131,8 @@ final class ModelEscalationPolicyTests: MarbleTestCase {
     // MARK: - The shared gate
 
     func testGateRunsModelForDroppedLinesAndEmptyDrafts() {
-        let prose = "I did three sets of eight on bench at 185"
+        let prose = "Bench three sets of 8 at 185, shoulders felt tight"
+        XCTAssertFalse(parse(prose).droppedLines.isEmpty)
         XCTAssertTrue(ModelEscalationPolicy.shouldRunModel(for: parse(prose), sourceText: prose, referenceDate: now))
         XCTAssertTrue(ModelEscalationPolicy.shouldRunModel(for: parse(""), sourceText: "", referenceDate: now))
     }
@@ -126,10 +144,24 @@ final class ModelEscalationPolicyTests: MarbleTestCase {
         XCTAssertTrue(ModelEscalationPolicy.nameReadsAsProse("bench then dropped"))
     }
     func testExplicitNumericCountsEscalateWhenNotRepresented() {
-        for input in ["jump rope 5 rounds of 3 min, 1 min rest",
-                      "tricep extentions 3 sets 12 reps 40lbs"] {
-            XCTAssertTrue(reasons(input).contains(.explicitSetCountMismatch), input)
-            XCTAssertTrue(ModelEscalationPolicy.shouldRunModel(for: parse(input), sourceText: input, referenceDate: now))
+        let input = "jump rope 5 rounds of 3 min, 1 min rest"
+        XCTAssertTrue(reasons(input).contains(.explicitSetCountMismatch), input)
+        XCTAssertTrue(ModelEscalationPolicy.shouldRunModel(for: parse(input), sourceText: input, referenceDate: now))
+    }
+
+    func testProseTheParserReadsCorrectlySkipsTheModel() {
+        // Once the notation parser represents every stated count and load,
+        // there is nothing for the model to fix.
+        for (input, sets, reps, weight) in [
+            ("tricep extentions 3 sets 12 reps 40lbs", 3, 12, 40.0),
+            ("I did three sets of eight on bench at 185", 3, 8, 185.0),
+        ] {
+            let result = parse(input)
+            let exercise = result.draft.exercises.first
+            XCTAssertEqual(exercise?.sets.count, sets, input)
+            XCTAssertEqual(exercise?.sets.first?.reps, reps, input)
+            XCTAssertEqual(exercise?.sets.first?.weight, weight, input)
+            XCTAssertFalse(ModelEscalationPolicy.shouldRunModel(for: result, sourceText: input, referenceDate: now), input)
         }
     }
 

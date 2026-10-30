@@ -173,6 +173,11 @@ nonisolated enum HandwrittenWorkoutDateParser {
                 .map { _ in match }
         }
 
+        // A completed-work narration may spell every quantity ("Yesterday I
+        // did two sets..."). Digits are not required to make that date explicit.
+        if suffix.range(of: #"(?i)^(?:i\s+)?(?:did|ran|walked|cycled|rowed)\s+"#, options: .regularExpression) != nil {
+            return match
+        }
         return HandwrittenWorkoutText.isWordOnly(String(suffix)) ? nil : match
     }
 

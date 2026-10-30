@@ -162,6 +162,10 @@ We intentionally **don't** import GPS tracks, per-second streams, photos, or soc
 
 ## On-device capture (scan, paste, CSV)
 
+See [WORKOUT_TEXT_ENTRY.md](WORKOUT_TEXT_ENTRY.md) for the September 5 Notes-paste
+regression, counted efforts, source-grounded model interpretation, and unresolved
+text preservation. Review must account for every line before saving.
+
 These paths are not `WorkoutImportProvider`s. They produce `ParsedWorkoutDraft`s, then
 `WorkoutScanImporter` writes `SetEntry`s, an `ImportedWorkout` ledger row, and a finished
 `WorkoutSession`. Source is `.photoScan` or `.textEntry`. Schema stays V6.

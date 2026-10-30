@@ -3,6 +3,24 @@
 **App Store Connect state refreshed: 2026-10-30.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## 2.7 (build 85) merged to main for internal TestFlight (2026-10-30)
+
+- **Source:** [PR #47](https://github.com/enzo-prism/marble/pull/47), which merges `main`
+  (2.6.1 build 84, below) into PR #34's workout-intelligence branch. `MARKETING_VERSION` 2.7,
+  `CURRENT_PROJECT_VERSION` 85 (`make asc-next-build` on 2026-10-30). Merged to `main` and
+  uploaded to internal TestFlight at the owner's request; the TestFlight readback is
+  recorded below once the upload finishes. Tester notes: `AppStore/TESTFLIGHT_NOTES_2.7.txt`
+  (from `AppStore/testflight/2.7-candidate.md`).
+- **App Store:** no 2.7 version or submission. Draft text is in
+  `AppStore/metadata/version/2.7/en-US.json`. 2.6.1 (84) is in App Review from tag
+  `v2.6.1-84` (`080d834`); a fix for a 2.6.1 rejection must branch from that tag, not
+  from `main`.
+- **Composer snapshots:** 2.7's baselines, re-recorded and verified on the pinned toolchain
+  (run 40976251491), replace the 2.6.1-era references from PR #50.
+- **Still required before an App Store submission of 2.7:** `make release-evidence`, a live
+  on-device model check of the Notes, prose and kg cases in the TestFlight notes,
+  `make migration-release`, and physical-device signoff.
+
 ## 2.6.1 (build 84) submitted to App Review (2026-10-30)
 
 - **Submission:** App Store version 2.6.1 `7cb21391-b238-4beb-9be0-bd6ba557c9b9` with build 84

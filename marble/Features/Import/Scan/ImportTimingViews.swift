@@ -82,7 +82,7 @@ struct ImportDateSection: View {
                 Text("Blank RPE saves as 8. Blank rest uses the exercise default.")
             }
             .font(MarbleTypography.caption)
-            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
         }
     }
 
