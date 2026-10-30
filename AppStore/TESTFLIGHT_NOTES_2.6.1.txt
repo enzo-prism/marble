@@ -1,0 +1,10 @@
+Marble 2.6.1 makes the Progress Top Exercises card describe your whole training history.
+
+Please test these flows on your iPhone:
+- Open Progress. Top Exercises should list your five most-logged exercises across all of your history, each with its all-time heaviest set.
+- Tap Details, switch the range (7D, 30D, 90D, 1Y, All), then tap Overview. Top Exercises should not change.
+- If a best is from an earlier year, its date should include the year. Bests from this year still read Today, Yesterday, or the weekday and date.
+- Log a heavier set for one of those exercises, then return to Progress. Its PB should update. Delete that set and confirm the previous best returns.
+- Check the card with Larger Text and VoiceOver. The PB line should wrap without clipping.
+
+Report incorrect rankings, wrong PB weights or dates, or slow opening of Progress with your device model, iOS version, and roughly how many sets you have logged.

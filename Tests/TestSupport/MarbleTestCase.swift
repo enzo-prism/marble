@@ -23,6 +23,8 @@ class MarbleTestCase: XCTestCase {
     private var originalTimeZone: TimeZone?
     private var originalDayLocale: Locale?
     private var originalDayTimeZone: TimeZone?
+    private var originalDayWithYearLocale: Locale?
+    private var originalDayWithYearTimeZone: TimeZone?
 
     override func setUp() {
         super.setUp()
@@ -37,6 +39,11 @@ class MarbleTestCase: XCTestCase {
         originalDayTimeZone = Formatters.day.timeZone
         Formatters.day.locale = Locale(identifier: "en_US_POSIX")
         Formatters.day.timeZone = TimeZone(secondsFromGMT: 0)
+
+        originalDayWithYearLocale = Formatters.dayWithYear.locale
+        originalDayWithYearTimeZone = Formatters.dayWithYear.timeZone
+        Formatters.dayWithYear.locale = Locale(identifier: "en_US_POSIX")
+        Formatters.dayWithYear.timeZone = TimeZone(secondsFromGMT: 0)
     }
 
     override func tearDown() {
@@ -49,6 +56,12 @@ class MarbleTestCase: XCTestCase {
         }
         if let originalDayTimeZone {
             Formatters.day.timeZone = originalDayTimeZone
+        }
+        if let originalDayWithYearLocale {
+            Formatters.dayWithYear.locale = originalDayWithYearLocale
+        }
+        if let originalDayWithYearTimeZone {
+            Formatters.dayWithYear.timeZone = originalDayWithYearTimeZone
         }
         super.tearDown()
     }
