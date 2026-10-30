@@ -1,24 +1,51 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-10-29.**
+**App Store Connect state refreshed: 2026-10-30.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## 2.7 candidate in PR #47 (2026-10-29, unreleased)
+## 2.7 (build 85) merged to main for internal TestFlight (2026-10-30)
 
-- **Source:** branch `codex/workout-intelligence-2.7` ([PR #47](https://github.com/enzo-prism/marble/pull/47)).
-  It merges `origin/main` (2.6.1 build 84, below) into PR #34's workout-intelligence branch.
-  `MARKETING_VERSION` is 2.7. The build number stays 84 until an upload is approved;
-  then take the next one from `make asc-next-build` (85 on 2026-10-29).
-- **App Store Connect:** untouched. There is no 2.7 version, no upload and no submission.
-  Draft text is in `AppStore/metadata/version/2.7/en-US.json` and
-  `AppStore/testflight/2.7-candidate.md`. The 2.6 metadata file now matches the live
-  2.6 text.
-- **Composer snapshots:** re-recorded and verified on the pinned toolchain
-  (run 40976251491). The only change is the review date format that 2.6 introduced.
-- **Still required before any upload:** the release dry run on the branch (it signs an
-  archive, so it needs approval), `make release-evidence`, a live on-device model check
-  of the Notes, prose and kg cases in the TestFlight notes, `make migration-release`,
-  and physical-device signoff.
+- **Source:** [PR #47](https://github.com/enzo-prism/marble/pull/47), which merges `main`
+  (2.6.1 build 84, below) into PR #34's workout-intelligence branch. `MARKETING_VERSION` 2.7,
+  `CURRENT_PROJECT_VERSION` 85 (`make asc-next-build` on 2026-10-30). Merged to `main` and
+  uploaded to internal TestFlight at the owner's request; the TestFlight readback is
+  recorded below once the upload finishes. Tester notes: `AppStore/TESTFLIGHT_NOTES_2.7.txt`
+  (from `AppStore/testflight/2.7-candidate.md`).
+- **App Store:** no 2.7 version or submission. Draft text is in
+  `AppStore/metadata/version/2.7/en-US.json`. 2.6.1 (84) is in App Review from tag
+  `v2.6.1-84` (`080d834`); a fix for a 2.6.1 rejection must branch from that tag, not
+  from `main`.
+- **Composer snapshots:** 2.7's baselines, re-recorded and verified on the pinned toolchain
+  (run 40976251491), replace the 2.6.1-era references from PR #50.
+- **Still required before an App Store submission of 2.7:** `make release-evidence`, a live
+  on-device model check of the Notes, prose and kg cases in the TestFlight notes,
+  `make migration-release`, and physical-device signoff.
+
+## 2.6.1 (build 84) submitted to App Review (2026-10-30)
+
+- **Submission:** App Store version 2.6.1 `7cb21391-b238-4beb-9be0-bd6ba557c9b9` with build 84
+  `cf9e94aa-187f-4bbb-859c-f2509644daa4` attached; review submission
+  `b0ce529c-d8ad-4bc2-a369-aa3408be6a04` submitted 2026-10-30 13:17 UTC, `WAITING_FOR_REVIEW`.
+  Release type is `AFTER_APPROVAL` (carried over from 2.6), and no phased release is
+  configured, so approval puts 2.6.1 live for everyone.
+- **Source:** build 84 was archived from `080d834`. `main` at `9714791` (after PR #50) has
+  no app, widget or project changes since then; PRs #49 and #50 touched docs and snapshot
+  references only.
+- **Metadata:** `AppStore/metadata/version/2.6.1/en-US.json` was built from the live 2.6
+  text (pulled with `asc metadata pull`), not from the tracked 2.6 file, which is older than
+  what App Store Connect shows. Only What's New, promotional text, and the Top Exercises
+  description line changed. Screenshots carried over from 2.6. Strict `asc validate`:
+  0 errors, 0 warnings, 1 info (App Privacy publish state is not readable via the API; it
+  was published for 2.6 and nothing changed).
+- **How it was staged:** directly with `asc` 5.17.1 (`asc release stage --metadata-dir
+  AppStore/metadata --strict-validate --confirm`, then `asc review submit`), not through
+  `scripts/ci_appstore.sh`. That script passes `AppStore/metadata/version/<v>` to
+  `--metadata-dir`; asc 5.17 rejects that and needs the metadata root (the workflows pin
+  5.8.0). The release-evidence manifest and physical-device signoff for build 84 are not
+  recorded, the same as for build 83.
+- **After approval:** confirm `READY_FOR_DISTRIBUTION` with `asc versions list`, then
+  update this file, README.md, CLOUD_RELEASE.md and ASC.md.
+
 ## 2.6.1 (build 84): lifetime Top Exercises, on internal TestFlight (2026-10-29)
 
 - **TestFlight readback:** build 84 `cf9e94aa-187f-4bbb-859c-f2509644daa4`, version 2.6.1,
@@ -44,8 +71,8 @@ External state can change outside git, so always re-run the **Live state checks*
   (`Formatters.dayWithYear`); this year's keep `DateHelper.dayLabel`.
 - **Version:** 2.6 is released, so its train is closed; this is 2.6.1 (84), separate from
   the draft 2.7 work in PR #47. No schema change (still V6).
-- **Scope:** TestFlight only. No App Store version, review submission, or release has been
-  created for 2.6.1.
+- **Scope (at upload):** TestFlight only. The App Store submission followed on 2026-10-30;
+  see the section above.
 
 ## 2.6 (build 83) is public (readback 2026-10-29)
 
@@ -61,11 +88,13 @@ External state can change outside git, so always re-run the **Live state checks*
   so `main` contains the shipped source again; tag `v2.6-83` marks the shipped commit.
 - **Not recorded in git:** physical-device signoff and the final five-gate evidence
   manifest for build 83. Do not cite build 83 as having passed those gates.
-- **Known red check:** the scheduled `Release checks` workflow has failed on every run
-  since 2026-10-05 (and on `8d46a09`, run 37231157543). The UI gate has one failure,
-  `test11DailyHighlights` (XCTAssertTrue), and the job then hits its 230-minute timeout.
-  Daily Highlights is time-of-day gated (8:00 PM–11:59 PM), so check that test for a
-  real-clock dependency first.
+- **Release checks history:** scheduled runs tested `21bf511` until #45 merged and failed
+  `test11DailyHighlights`: its pinned `2026-07-16T04:30Z` is 9:30 PM only in Pacific
+  time, so UTC runners were outside the Daily Highlights window. `476dc16` (#45) pins
+  9:30 PM in the simulator timezone; on `8d46a09` (run 37231157543) unit, snapshot, UI
+  and accessibility passed. Migration failed there only because no Simulator was
+  booted; `test_previous_release_migration.sh` now falls back to `sim_destination.sh`,
+  and the job timeout is raised so the real migration builds fit.
 - **Next build:** use `make asc-next-build` (latest uploaded is 83).
 
 The section below records the pre-upload state of the hardening work and is historical.
