@@ -1,7 +1,60 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-10-29.**
+**App Store Connect state refreshed: 2026-10-30.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
+
+## 2.6.1 (build 84) submitted to App Review (2026-10-30)
+
+- **Submission:** App Store version 2.6.1 `7cb21391-b238-4beb-9be0-bd6ba557c9b9` with build 84
+  `cf9e94aa-187f-4bbb-859c-f2509644daa4` attached; review submission
+  `b0ce529c-d8ad-4bc2-a369-aa3408be6a04` submitted 2026-10-30 13:17 UTC, `WAITING_FOR_REVIEW`.
+  Release type is `AFTER_APPROVAL` (carried over from 2.6), and no phased release is
+  configured, so approval puts 2.6.1 live for everyone.
+- **Source:** build 84 was archived from `080d834`. `main` at `9714791` (after PR #50) has
+  no app, widget or project changes since then; PRs #49 and #50 touched docs and snapshot
+  references only.
+- **Metadata:** `AppStore/metadata/version/2.6.1/en-US.json` was built from the live 2.6
+  text (pulled with `asc metadata pull`), not from the tracked 2.6 file, which is older than
+  what App Store Connect shows. Only What's New, promotional text, and the Top Exercises
+  description line changed. Screenshots carried over from 2.6. Strict `asc validate`:
+  0 errors, 0 warnings, 1 info (App Privacy publish state is not readable via the API; it
+  was published for 2.6 and nothing changed).
+- **How it was staged:** directly with `asc` 5.17.1 (`asc release stage --metadata-dir
+  AppStore/metadata --strict-validate --confirm`, then `asc review submit`), not through
+  `scripts/ci_appstore.sh`. That script passes `AppStore/metadata/version/<v>` to
+  `--metadata-dir`; asc 5.17 rejects that and needs the metadata root (the workflows pin
+  5.8.0). The release-evidence manifest and physical-device signoff for build 84 are not
+  recorded, the same as for build 83.
+- **After approval:** confirm `READY_FOR_DISTRIBUTION` with `asc versions list`, then
+  update this file, README.md, CLOUD_RELEASE.md and ASC.md.
+
+## 2.6.1 (build 84): lifetime Top Exercises, on internal TestFlight (2026-10-29)
+
+- **TestFlight readback:** build 84 `cf9e94aa-187f-4bbb-859c-f2509644daa4`, version 2.6.1,
+  `VALID` and `IN_BETA_TESTING`. Uploaded by TestFlight workflow
+  [40990723459](https://github.com/enzo-prism/marble/actions/runs/40990723459) from exact
+  `main` merge `080d83445ef5c91b64da0559b88177b0857a8dc9` (PR #48), with Xcode 26.6.
+  The workflow verified the upload receipt (`upload-84-080d834….json` artifact), strict
+  readiness, and What to Test notes matching `AppStore/TESTFLIGHT_NOTES_2.6.1.txt`.
+  Internal **test group A** receives all builds; external groups were not submitted.
+- **Verification:** PR #48 CI ran 989 unit tests with 0 failures (13 in
+  `TrendsShareCardTests`) plus release tooling, migration, and navigation smoke checks. Its
+  `Verify History and Composer snapshots` step failed on the same eight
+  `WorkoutComposer` accessibility-size snapshots that fail on `main` at `01d3322`; not
+  caused by this change. Physical-device signoff for 84 is not recorded.
+
+- **Change:** the Progress overview **Top Exercises** card now always ranks the five
+  most-logged exercises across the whole history and shows each one's lifetime heaviest
+  set. Before, it read the range-scoped `entries` query, so ranking and PBs followed the
+  Details range picker (30 days by default). `TrendsShareCard.lifetimeTopExercises(in:)`
+  fetches every `SetEntry` once per data change (`TopExercisesSignature` memo in
+  `TrendsView`); `range` is deliberately not part of that signature.
+- **PB dates:** bests from an earlier calendar year show `MMM d, yyyy`
+  (`Formatters.dayWithYear`); this year's keep `DateHelper.dayLabel`.
+- **Version:** 2.6 is released, so its train is closed; this is 2.6.1 (84), separate from
+  the draft 2.7 work in PR #47. No schema change (still V6).
+- **Scope (at upload):** TestFlight only. The App Store submission followed on 2026-10-30;
+  see the section above.
 
 ## 2.6 (build 83) is public (readback 2026-10-29)
 

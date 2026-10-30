@@ -1,8 +1,9 @@
 import XCTest
 @testable import marble
 
-/// Locks the Progress Top Exercises card ranking: top 5 by SetEntry count,
-/// alphabetical tie-break, max-weight PB (weight + Trends-style date only).
+/// Locks the Progress Top Exercises card ranking: top 5 by lifetime SetEntry
+/// count, alphabetical tie-break, lifetime max-weight PB (weight + Trends-style
+/// date only, with the year for earlier years).
 @MainActor
 final class TrendsShareCardTests: MarbleTestCase {
     private let calendar = MarbleTestCase.stableCalendar
@@ -124,6 +125,47 @@ final class TrendsShareCardTests: MarbleTestCase {
         XCTAssertEqual(rows.first?.bestSummary, "200 lb · Yesterday")
     }
 
+    func testLifetimeTopExercisesRankAndBestFromHistoryOutsideEveryBoundedRange() throws {
+        let context = makeInMemoryContext()
+        let deadlift = exercise(named: "Deadlift")
+        let bench = exercise(named: "Bench Press")
+        context.insert(deadlift)
+        context.insert(bench)
+        let longAgo = date(year: 2023, month: 6, day: 1)
+        // Older than the longest bounded range, so a range-scoped query never sees it.
+        XCTAssertLessThan(longAgo, try XCTUnwrap(TrendRange.oneYear.startDate))
+
+        for _ in 0..<4 {
+            context.insert(set(deadlift, on: longAgo, weight: 405))
+        }
+        context.insert(set(bench, on: longAgo, weight: 225))
+        context.insert(set(bench, daysFromNow: -1, weight: 185))
+        context.insert(set(bench, daysFromNow: -1, weight: 185))
+        try context.save()
+
+        let rows = TrendsShareCard.lifetimeTopExercises(in: context, now: now)
+
+        // Lifetime counts: Deadlift 4 sets, Bench 3. A 30-day view would show Bench alone at 185.
+        XCTAssertEqual(rows.map(\.exerciseName), ["Deadlift", "Bench Press"])
+        XCTAssertEqual(rows.map(\.bestSummary), ["405 lb · Jun 1, 2023", "225 lb · Jun 1, 2023"])
+    }
+
+    func testBestFromEarlierThisYearKeepsTheDayLabel() {
+        let bench = exercise(named: "Bench")
+        let rows = TrendsShareCard.topExercises(from: [set(bench, daysFromNow: -13, weight: 200)], now: now)
+        XCTAssertEqual(rows.first?.bestSummary, "200 lb · Thu, Jan 2")
+    }
+
+    func testBestFromAnEarlierYearShowsTheYear() {
+        let bench = exercise(named: "Bench")
+        // Only 15 days back, but in the previous year: the weekday label would mislead.
+        let rows = TrendsShareCard.topExercises(
+            from: [set(bench, on: date(year: 2024, month: 12, day: 31), weight: 200)],
+            now: now
+        )
+        XCTAssertEqual(rows.first?.bestSummary, "200 lb · Dec 31, 2024")
+    }
+
     // MARK: - Helpers
 
     private func exercise(named name: String) -> Exercise {
@@ -145,6 +187,21 @@ final class TrendsShareCardTests: MarbleTestCase {
             reps: reps,
             restAfterSeconds: 90
         )
+    }
+
+    private func set(_ exercise: Exercise, on day: Date, weight: Double) -> SetEntry {
+        SetEntry(
+            exercise: exercise,
+            performedAt: day,
+            weight: weight,
+            weightUnit: .lb,
+            reps: 5,
+            restAfterSeconds: 90
+        )
+    }
+
+    private func date(year: Int, month: Int, day: Int) -> Date {
+        calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 9)) ?? now
     }
 
     private func date(daysFromNow: Int, hour: Int = 9, minute: Int = 0) -> Date {

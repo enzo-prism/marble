@@ -22,8 +22,10 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   **Personal-best (PR) badges** celebrate record sets right in the history, and the logging
   screen shows your current PR (heaviest + most reps) and usual range so you can shoot to
   beat it — with a live "New PR!" cue the moment your entry passes your best.
-- **Progress** — a minimal **Top Exercises** card first (top 5 most-logged exercises
-  with a valid PR weight + set date; exercises without both are excluded before the limit), then a subtle rotating training-quote footer
+- **Progress** — a minimal **Top Exercises** card first: the top 5 most-logged exercises
+  across your whole history, each with its lifetime PR weight + set date (exercises without
+  both are excluded before the limit). It never follows the Details range picker; bests from
+  an earlier year show the year. Then a subtle rotating training-quote footer
   (short quotes that fit one line, tap or swipe to move through them),
   with one Details action by default and generous whitespace; weekly goal, highlights,
   training analytics, reports, body metrics, habits, supplements, milestones, and
@@ -72,10 +74,13 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current distribution (readback 2026-10-29)
+## Current distribution (readback 2026-10-30)
 
 - **Public App Store:** 2.6 (83), build `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`,
   `READY_FOR_DISTRIBUTION`. Shipped source is `8d46a09` (PR #45, tag `v2.6-83`).
+- **In App Review:** 2.6.1 (84), version `7cb21391-b238-4beb-9be0-bd6ba557c9b9`, submitted
+  2026-10-30 as `b0ce529c-d8ad-4bc2-a369-aa3408be6a04` (`WAITING_FOR_REVIEW`). Release type is
+  after approval, so it goes public as soon as Apple approves it.
 - Physical-device signoff and final five-gate evidence for build 83 are not recorded
   in git. See RELEASE_HANDOFF.md for the `Release checks` history and fixes.
 

@@ -64,6 +64,12 @@ nonisolated enum Formatters {
         return formatter
     }()
 
+    nonisolated(unsafe) static let dayWithYear: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter
+    }()
+
     nonisolated(unsafe) static let fullDateTime: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium

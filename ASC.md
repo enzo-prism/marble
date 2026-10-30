@@ -32,7 +32,10 @@ project-local notes.
 - ASC public version: `2.6` (83), build `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`,
   `READY_FOR_DISTRIBUTION` (readback 2026-10-29). Shipped source is
   `8d46a09` (tag `v2.6-83`).
-- Latest uploaded build: `2.6` (83). Use `make asc-next-build` for the next number.
+- Latest uploaded build: `2.6.1` (84), build `cf9e94aa-187f-4bbb-859c-f2509644daa4`.
+  App Store 2.6.1 version `7cb21391-b238-4beb-9be0-bd6ba557c9b9` was submitted with it on
+  2026-10-30 (submission `b0ce529c-d8ad-4bc2-a369-aa3408be6a04`, `WAITING_FOR_REVIEW`,
+  release after approval). Use `make asc-next-build` for the next number.
   Use the project version for new uploads, not older
   version strings in historical examples below. See RELEASE_HANDOFF.md for actual
   source/CI/upload/production readbacks.
