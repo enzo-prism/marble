@@ -441,7 +441,23 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             for label in clippedFooters where nonDynamicIssues.contains(where: {
                 $0.auditType == .contrast && $0.element?.elementType == .staticText && $0.element?.label == label
             }) {
-                if try verifyWorkoutFooterContrast(label: label, auditName: name) {
+                if try verifyWorkoutNotesTextContrast(label: label, auditName: name) {
+                    verifiedFooters.insert(label)
+                }
+            }
+            // CI 33986268685 and 40977735540 flagged plain black-on-white Notes
+            // review text ("Bounds · 2 sets…", then "Your workout") while the
+            // all-category audit scrolled the List under the navigation bar's
+            // scroll-edge effect. Resolve such a report only when a focused
+            // contrast audit passes with that same text settled fully visible.
+            if name.hasPrefix("WorkoutNotes_") {
+                let reported = Set(nonDynamicIssues.compactMap { issue -> String? in
+                    guard issue.auditType == .contrast, let element = issue.element,
+                          element.elementType == .staticText, !element.label.isEmpty,
+                          !verifiedFooters.contains(element.label) else { return nil }
+                    return element.label
+                })
+                for label in reported.sorted() where try verifyWorkoutNotesTextContrast(label: label, auditName: name) {
                     verifiedFooters.insert(label)
                 }
             }
@@ -512,7 +528,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
     }
 
     @available(iOS 17.0, *)
-    private func verifyWorkoutFooterContrast(label: String, auditName: String) throws -> Bool {
+    private func verifyWorkoutNotesTextContrast(label: String, auditName: String) throws -> Bool {
         let element = app.staticTexts[label]
         let list = app.collectionViews.firstMatch
         for _ in 0..<12 {
@@ -526,7 +542,10 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                                 withVelocity: .slow, thenHoldForDuration: 0.3)
         }
         guard element.isHittable, workoutNotesAuditViewport(list).contains(element.frame) else { return false }
-        takeScreenshot("\(auditName)_FullyVisible_\(label.hasPrefix("Applied") ? "TimingHelp" : "DefaultsHelp")")
+        let shotName = label.hasPrefix("Applied") ? "TimingHelp"
+            : label.hasPrefix("Blank RPE") ? "DefaultsHelp"
+            : label.filter { $0.isLetter || $0.isNumber }
+        takeScreenshot("\(auditName)_FullyVisible_\(shotName)")
         var failed = false
         // Only resolve the original viewport sampling report after this same
         // meaningful text passes contrast fully visible. Evidence: Notes v7.

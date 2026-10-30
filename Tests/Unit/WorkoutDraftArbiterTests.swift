@@ -814,20 +814,23 @@ final class WorkoutDraftArbiterTests: MarbleTestCase {
         XCTAssertEqual(header.exercises[1].sets[0].weightUnit, .lb)
     }
 
-    func testCompactUnitBeforeMultiplicationIsExplicit() {
-        for (text, unit, defaultUnit, load) in [
-            ("Bench 80kgx8", WeightUnit.kg, WeightUnit.lb, 80.0),
-            ("Bench 80KGX8", .kg, .lb, 80.0),
-            ("Bench 80kg×8", .kg, .lb, 80.0),
-            ("Bench 225lbsx5", .lb, .kg, 225.0),
-            ("Bench 225pounds×5", .lb, .kg, 225.0)
+    func testCompactUnitBeforeMultiplicationIsExplicit() throws {
+        // Reps match each line: a model rep count the text contradicts is
+        // rejected by grounding before units are considered.
+        for (text, unit, defaultUnit, load, reps) in [
+            ("Bench 80kgx8", WeightUnit.kg, WeightUnit.lb, 80.0, 8),
+            ("Bench 80KGX8", .kg, .lb, 80.0, 8),
+            ("Bench 80kg×8", .kg, .lb, 80.0, 8),
+            ("Bench 225lbsx5", .lb, .kg, 225.0, 5),
+            ("Bench 225pounds×5", .lb, .kg, 225.0, 5)
         ] {
-            let model = draft(exercises: [exercise("Bench", sets: benchSets(count: 1, weight: load, unit: unit, reps: 8))])
+            let model = draft(exercises: [exercise("Bench", sets: benchSets(count: 1, weight: load, unit: unit, reps: reps))])
             let chosen = WorkoutDraftArbiter.choose(
                 deterministic: draft(exercises: []), model: model, sourceText: text, defaultWeightUnit: defaultUnit
             )
-            XCTAssertEqual(chosen.exercises[0].sets[0].weightUnit, unit, text)
-            XCTAssertEqual(chosen.exercises[0].sets[0].weight, load, text)
+            let set = try XCTUnwrap(chosen.exercises.first?.sets.first, text)
+            XCTAssertEqual(set.weightUnit, unit, text)
+            XCTAssertEqual(set.weight, load, text)
         }
     }
 

@@ -3,6 +3,23 @@
 **App Store Connect state refreshed: 2026-10-29.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
+## 2.7 candidate in PR #47 (2026-10-29, unreleased)
+
+- **Source:** branch `codex/workout-intelligence-2.7` ([PR #47](https://github.com/enzo-prism/marble/pull/47)).
+  It merges `origin/main` (2.6 build 83) into PR #34's workout-intelligence branch.
+  `MARKETING_VERSION` is 2.7. The build number stays 83 until an upload is approved;
+  then take the next one from `make asc-next-build` (84 on 2026-10-29).
+- **App Store Connect:** untouched. There is no 2.7 version, no upload and no submission.
+  Draft text is in `AppStore/metadata/version/2.7/en-US.json` and
+  `AppStore/testflight/2.7-candidate.md`. The 2.6 metadata file now matches the live
+  2.6 text.
+- **Composer snapshots:** re-recorded and verified on the pinned toolchain
+  (run 40976251491). The only change is the review date format that 2.6 introduced.
+- **Still required before any upload:** the release dry run on the branch (it signs an
+  archive, so it needs approval), `make release-evidence`, a live on-device model check
+  of the Notes, prose and kg cases in the TestFlight notes, `make migration-release`,
+  and physical-device signoff.
+
 ## 2.6 (build 83) is public (readback 2026-10-29)
 
 - **Public App Store:** 2.6 version `96648678-f09f-453e-a534-d63b9cb2bce8` is
