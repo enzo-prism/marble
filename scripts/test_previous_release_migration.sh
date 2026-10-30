@@ -53,8 +53,11 @@ if [[ -z "$SIMULATOR_UDID" ]]; then
 fi
 
 if [[ -z "$SIMULATOR_UDID" ]]; then
-    echo "No booted iOS Simulator. Boot one or set SIMULATOR_UDID." >&2
-    exit 1
+    # Release-check runners reach this gate with nothing booted (run
+    # 37231157543). Use the device the test gates use; it is booted below.
+    destination="$("$ROOT_DIR/scripts/sim_destination.sh")"
+    SIMULATOR_UDID="${destination#id=}"
+    echo "No booted iOS Simulator; using $SIMULATOR_UDID from sim_destination.sh"
 fi
 
 echo "Preparing previous Release source at $BASE_REF"

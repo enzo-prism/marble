@@ -17,8 +17,7 @@ Agents drive both through `scripts/cloud_release.sh` / `make cloud-*`. They stil
   2026-10-30 as `b0ce529c-d8ad-4bc2-a369-aa3408be6a04` (`WAITING_FOR_REVIEW`). Release type is
   after approval, so it goes public as soon as Apple approves it.
 - Physical-device signoff and final five-gate evidence for build 83 are not recorded
-  in git. The scheduled `Release checks` workflow is red (`test11DailyHighlights`
-  plus a job timeout); see RELEASE_HANDOFF.md.
+  in git. See RELEASE_HANDOFF.md for the `Release checks` history and fixes.
 
 Release workflows pin ASC **5.8.0**. Follow [RELEASE_HANDOFF.md](RELEASE_HANDOFF.md)
 for evidence and [the physical checklist](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.6.md).
