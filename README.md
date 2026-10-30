@@ -74,10 +74,13 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 
 Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
 
-## Current distribution (readback 2026-10-29)
+## Current distribution (readback 2026-10-30)
 
 - **Public App Store:** 2.6 (83), build `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`,
   `READY_FOR_DISTRIBUTION`. Shipped source is `8d46a09` (PR #45, tag `v2.6-83`).
+- **In App Review:** 2.6.1 (84), version `7cb21391-b238-4beb-9be0-bd6ba557c9b9`, submitted
+  2026-10-30 as `b0ce529c-d8ad-4bc2-a369-aa3408be6a04` (`WAITING_FOR_REVIEW`). Release type is
+  after approval, so it goes public as soon as Apple approves it.
 - Physical-device signoff and final five-gate evidence for build 83 are not recorded
   in git. The scheduled `Release checks` workflow is red (`test11DailyHighlights`
   plus a job timeout); see RELEASE_HANDOFF.md.
