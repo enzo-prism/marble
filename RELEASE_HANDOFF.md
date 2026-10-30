@@ -3,14 +3,24 @@
 **App Store Connect state refreshed: 2026-10-30.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## 2.7 (build 85) merged to main for internal TestFlight (2026-10-30)
+## 2.7 (build 85) on internal TestFlight (2026-10-30)
 
 - **Source:** [PR #47](https://github.com/enzo-prism/marble/pull/47), which merges `main`
   (2.6.1 build 84, below) into PR #34's workout-intelligence branch. `MARKETING_VERSION` 2.7,
-  `CURRENT_PROJECT_VERSION` 85 (`make asc-next-build` on 2026-10-30). Merged to `main` and
-  uploaded to internal TestFlight at the owner's request; the TestFlight readback is
-  recorded below once the upload finishes. Tester notes: `AppStore/TESTFLIGHT_NOTES_2.7.txt`
-  (from `AppStore/testflight/2.7-candidate.md`).
+  `CURRENT_PROJECT_VERSION` 85 (`make asc-next-build` on 2026-10-30). Merged to `main` as
+  `5edb94badea9ff3e7c2d00ce06a70faf8faac68d` at the owner's request, after PR #46 (release-check
+  migration gate, `8460ab7`). PR #34 is marked merged through #47. Tester notes:
+  `AppStore/TESTFLIGHT_NOTES_2.7.txt` (from `AppStore/testflight/2.7-candidate.md`).
+- **TestFlight readback:** build 85 `4de0ef0f-7dc9-405e-8a6c-706b6658e309`, version 2.7,
+  `VALID`, internal `IN_BETA_TESTING`, auto-notify on, external
+  `READY_FOR_BETA_SUBMISSION` (no external group submitted). Uploaded by TestFlight workflow
+  [41092535119](https://github.com/enzo-prism/marble/actions/runs/41092535119) from exact
+  `main` `5edb94b`, with Xcode 26.6. What to Test notes read back from the build match
+  `AppStore/TESTFLIGHT_NOTES_2.7.txt`. Internal **test group A** receives all builds.
+- **Verification:** PR #47 CI passed on `c3a6fd7` (run 41071002566). Its first attempt failed
+  only `testWorkoutNotesReviewAccessibility_DefaultText` (a contrast audit on the
+  "Your workout" header, under the navigation bar) with app source identical to the last
+  green run `ceaa6dd`; the rerun of that job passed. Treat a repeat as a real defect.
 - **App Store:** no 2.7 version or submission. Draft text is in
   `AppStore/metadata/version/2.7/en-US.json`. 2.6.1 (84) is in App Review from tag
   `v2.6.1-84` (`080d834`); a fix for a 2.6.1 rejection must branch from that tag, not

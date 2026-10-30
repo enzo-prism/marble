@@ -16,6 +16,8 @@ Agents drive both through `scripts/cloud_release.sh` / `make cloud-*`. They stil
 - **In App Review:** 2.6.1 (84), version `7cb21391-b238-4beb-9be0-bd6ba557c9b9`, submitted
   2026-10-30 as `b0ce529c-d8ad-4bc2-a369-aa3408be6a04` (`WAITING_FOR_REVIEW`). Release type is
   after approval, so it goes public as soon as Apple approves it.
+- **Internal TestFlight:** 2.7 (85), build `4de0ef0f-7dc9-405e-8a6c-706b6658e309`, `VALID` /
+  `IN_BETA_TESTING` from `main` `5edb94b` (2026-10-30). Not submitted for App Store review.
 - Physical-device signoff and final five-gate evidence for build 83 are not recorded
   in git. See RELEASE_HANDOFF.md for the `Release checks` history and fixes.
 
