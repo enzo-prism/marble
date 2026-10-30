@@ -3,7 +3,20 @@
 **App Store Connect state refreshed: 2026-10-29.**
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
-## 2.6.1 (build 84): lifetime Top Exercises, for internal TestFlight (2026-10-29)
+## 2.6.1 (build 84): lifetime Top Exercises, on internal TestFlight (2026-10-29)
+
+- **TestFlight readback:** build 84 `cf9e94aa-187f-4bbb-859c-f2509644daa4`, version 2.6.1,
+  `VALID` and `IN_BETA_TESTING`. Uploaded by TestFlight workflow
+  [40990723459](https://github.com/enzo-prism/marble/actions/runs/40990723459) from exact
+  `main` merge `080d83445ef5c91b64da0559b88177b0857a8dc9` (PR #48), with Xcode 26.6.
+  The workflow verified the upload receipt (`upload-84-080d834….json` artifact), strict
+  readiness, and What to Test notes matching `AppStore/TESTFLIGHT_NOTES_2.6.1.txt`.
+  Internal **test group A** receives all builds; external groups were not submitted.
+- **Verification:** PR #48 CI ran 989 unit tests with 0 failures (13 in
+  `TrendsShareCardTests`) plus release tooling, migration, and navigation smoke checks. Its
+  `Verify History and Composer snapshots` step failed on the same eight
+  `WorkoutComposer` accessibility-size snapshots that fail on `main` at `01d3322`; not
+  caused by this change. Physical-device signoff for 84 is not recorded.
 
 - **Change:** the Progress overview **Top Exercises** card now always ranks the five
   most-logged exercises across the whole history and shows each one's lifetime heaviest
