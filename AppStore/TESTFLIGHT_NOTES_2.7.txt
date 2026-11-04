@@ -26,4 +26,6 @@ Please try these (1–5 in Add, by paste or typing):
 
 6. In Progress, Top Exercises should list your most-logged exercises across your whole history, whatever range Details is set to. Bests from an earlier year show the year.
 
+7. In Shortcuts, add a Marble exercise action (for example "Get Exercise") and look at its details: Favorite, Last Performed, Total Sets, Heaviest Set, Most Reps and Usual Range should match what you see in Marble. "Log a Set of an Exercise" should still log the set you asked for.
+
 No data model change. Existing workouts, drafts and backups should be unaffected; please report anything that looks different after updating from 2.6 or 2.6.1.
