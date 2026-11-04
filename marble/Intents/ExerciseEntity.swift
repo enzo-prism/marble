@@ -397,6 +397,31 @@ enum ExerciseSpotlightIndex {
         MarbleShortcuts.updateAppShortcutParameters()
     }
 
+    private static var pendingSaveRefresh: Task<Void, Never>?
+
+    /// Debounced `reindexAll()` after the journal saves in the app. The indexed
+    /// entities carry set-derived values (heaviest set, usual range, last performed,
+    /// total sets), so without this a logged, edited or deleted set left Spotlight
+    /// and background Siri answering with the old personal best until the next cold
+    /// launch. One save burst (a workout's sets, an undo) costs one reindex.
+    static func scheduleRefreshAfterSave() {
+        guard !TestHooks.isUITesting, AppIntentsSupport.container != nil else { return }
+        pendingSaveRefresh?.cancel()
+        pendingSaveRefresh = Task {
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            await reindexAll()
+        }
+    }
+
+    /// Immediate, awaited variant for intents. Siri can run them with no scene, so
+    /// `ContentView`'s save observer may not exist and a debounced task could be
+    /// suspended with the process; `perform()` awaits this before returning instead.
+    static func refreshAfterSetChange() async {
+        guard !TestHooks.isUITesting, AppIntentsSupport.container != nil else { return }
+        pendingSaveRefresh?.cancel()
+        await reindexAll()
+    }
+
     /// Drops one deleted exercise from the index, immediately.
     ///
     /// Per-item on purpose: `reindexAll()` refreshes rows that still exist but

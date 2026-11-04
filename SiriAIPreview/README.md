@@ -17,7 +17,8 @@ with app skills*.
 | `@Parameter(description:)` on every Siri-facing intent parameter | Yes | Yes — also improves Shortcuts |
 | `ExerciseEntity` exposes favorite, last performed, total sets, heaviest set, most reps set and usual range as `@Property` values | Yes | Yes |
 | One batched `SetEntry` fetch for entity lists (`ExerciseEntity.entities(for:in:)`) | Yes | Yes |
-| `@AppIntent(.tool)` on LogSet, LogLastSetAgain, Start/FinishWorkout, ReviewWorkoutText, Extend/EndRest | **No** — needs the preview SDK | Only with `SIRI_AI_PREVIEW` |
+| Spotlight index refreshed after saves, so Siri's personal bests don't go stale (`ExerciseSpotlightIndex.scheduleRefreshAfterSave` / `refreshAfterSetChange`) | Yes | Yes |
+| `@AppIntent(.tool)` on LogSet, LogLastSetAgain, Start/FinishWorkout, ReviewWorkoutText, ReviewWorkoutFile, Extend/EndRest | **No** — needs the preview SDK | Only with `SIRI_AI_PREVIEW` |
 | `@Property(description:)` on the new entity properties | **No** — needs the preview SDK | Only with `SIRI_AI_PREVIEW` |
 | `Skills.skillsbundle` (`log-workout`, `run-workout-session`, `check-progress`) | Not added to the target | No — see below |
 

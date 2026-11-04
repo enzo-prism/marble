@@ -66,6 +66,9 @@ enum AppIntentsSupport {
         // week stand?" and must never disagree.
         WeeklyGoalWidgetPublisher.publish(modelContext: modelContext)
         await WeeklyGoalReminder.sync(modelContext: modelContext)
+        // The indexed exercises carry personal bests and recency that a
+        // voice-logged set just changed; awaited for the same reason as above.
+        await ExerciseSpotlightIndex.refreshAfterSetChange()
     }
 }
 
@@ -175,6 +178,11 @@ struct ReviewWorkoutTextIntent: AppIntent {
     }
 }
 
+#if SIRI_AI_PREVIEW
+// Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
+// from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
+@AppIntent(.tool)
+#endif
 struct ReviewWorkoutFileIntent: AppIntent {
     static let title: LocalizedStringResource = "Review Workout File"
     static let description = IntentDescription("Opens Marble to review a Hevy, Strong, or Notes workout file before adding it to the journal.")
