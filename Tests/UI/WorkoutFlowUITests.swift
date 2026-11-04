@@ -63,8 +63,7 @@ final class WorkoutFlowUITests: MarbleUITestCase {
 
         forceTap(waitForIdentifier("Workout.Finish"))
 
-        let finish = app.buttons.matching(identifier: "Workout.Finish.Confirm").firstMatch
-        forceTap(finish)
+        confirmFinishWorkout()
         waitForIdentifier("Workout.Start")
         let recent = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'Workout.Recent.'")).firstMatch
         waitFor(recent)
