@@ -31,7 +31,7 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         launchScreenshotApp(initialTab: "add", nowISO8601: "2026-07-15T16:30:00.000Z")
         forceTap(waitForIdentifier("Workout.Open", timeout: 8))
         forceTap(waitForIdentifier("Workout.Finish", timeout: 8))
-        forceTap(waitForIdentifier("Workout.Finish.Confirm", timeout: 8))
+        confirmFinishWorkout()
         app.navigationBars["Workout"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)))
         navigateToTab(.journal)

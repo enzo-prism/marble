@@ -125,7 +125,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             let finish = app.descendants(matching: .any).matching(identifier: "Workout.Finish").firstMatch
             scrollToElement(finish, in: app)
             forceTap(waitForIdentifier("Workout.Finish", timeout: 8))
-            forceTap(waitForIdentifier("Workout.Finish.Confirm"))
+            confirmFinishWorkout()
             let recent = app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier BEGINSWITH 'Workout.Recent.'")).firstMatch
             scrollToElement(recent, in: app)
@@ -445,7 +445,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                     verifiedFooters.insert(label)
                 }
             }
-            let filteredIssues = nonDynamicIssues.filter { issue in
+            var filteredIssues = nonDynamicIssues.filter { issue in
                 guard let element = issue.element else { return false }
                 if issueVisibility[ObjectIdentifier(issue)]?.frame == .zero { return false }
                 if issue.auditType == .contrast, element.elementType == .staticText,
@@ -493,6 +493,10 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 return true
             }
 
+            if name.hasPrefix("WorkoutNotes_"), filteredIssues.contains(where: { $0.auditType == .contrast }) {
+                filteredIssues = try workoutNotesIssuesSurvivingContrastRecheck(filteredIssues, auditName: name)
+            }
+
             if filteredIssues.isEmpty {
                 return
             }
@@ -509,6 +513,87 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 XCTFail(details)
             }
         }
+    }
+
+    /// Keeps a review-screen contrast issue unless the rendered pixels show it
+    /// is a false report.
+    ///
+    /// The audit flags "Your workout" (CI run 41758758936, attempt 1, iOS 26.5)
+    /// and the "Edit Text" toolbar button (every local iOS 27 run), yet each
+    /// attempt's screenshot shows black text on white. Re-running the audit
+    /// does not help: iOS 27 repeats the report. So measure what is drawn.
+    /// For each flagged element that is fully on screen and hittable, take the
+    /// luminance at the 2nd and 98th percentile of the pixels inside its frame
+    /// (darkest text versus lightest background, ignoring antialiasing) and
+    /// clear the issue only if that WCAG contrast ratio is at least 4.5:1, the
+    /// body-text minimum. Low-contrast text such as grey on white measures
+    /// below that and still fails. Non-contrast issues are always kept.
+    @available(iOS 17.0, *)
+    private func workoutNotesIssuesSurvivingContrastRecheck(
+        _ issues: [XCUIAccessibilityAuditIssue], auditName: String
+    ) throws -> [XCUIAccessibilityAuditIssue] {
+        let screenshot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = "\(auditName)_ContrastMeasurement"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        guard let image = screenshot.image.cgImage else { return issues }
+        let window = app.windows.firstMatch.frame
+        guard window.width > 0 else { return issues }
+        let scale = CGFloat(image.width) / window.width
+
+        var notes: [String] = []
+        let kept = issues.filter { issue in
+            guard issue.auditType == .contrast, let element = issue.element,
+                  element.exists, element.isHittable else { return true }
+            let frame = element.frame
+            guard frame.width >= 4, frame.height >= 4, window.contains(frame),
+                  let ratio = measuredContrastRatio(in: image, rect: frame.applying(CGAffineTransform(scaleX: scale, y: scale)))
+            else { return true }
+            let passes = ratio >= 4.5
+            notes.append("\(element.label) (\(element.identifier)): measured \(String(format: "%.1f", ratio)):1, \(passes ? "cleared" : "kept")")
+            return !passes
+        }
+        if !notes.isEmpty {
+            let note = XCTAttachment(string: notes.joined(separator: "\n"))
+            note.name = "Contrast measurement: \(auditName)"
+            note.lifetime = .keepAlways
+            add(note)
+        }
+        return kept
+    }
+
+    /// WCAG contrast ratio between the 2nd and 98th percentile luminance of
+    /// the pixels in `rect` (image pixel coordinates).
+    private func measuredContrastRatio(in image: CGImage, rect: CGRect) -> Double? {
+        let bounds = rect.integral.intersection(CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard !bounds.isNull, bounds.width >= 4, bounds.height >= 4,
+              let crop = image.cropping(to: bounds) else { return nil }
+        let width = crop.width, height = crop.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn: Bool = pixels.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                bytesPerRow: width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            context.draw(crop, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
+        func linear(_ value: UInt8) -> Double {
+            let c = Double(value) / 255
+            return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+        }
+        var luminances: [Double] = []
+        luminances.reserveCapacity(width * height)
+        for index in stride(from: 0, to: pixels.count, by: 4) {
+            luminances.append(0.2126 * linear(pixels[index]) + 0.7152 * linear(pixels[index + 1]) + 0.0722 * linear(pixels[index + 2]))
+        }
+        luminances.sort()
+        let dark = luminances[Int(Double(luminances.count - 1) * 0.02)]
+        let light = luminances[Int(Double(luminances.count - 1) * 0.98)]
+        return (light + 0.05) / (dark + 0.05)
     }
 
     @available(iOS 17.0, *)

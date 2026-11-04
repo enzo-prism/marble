@@ -344,6 +344,24 @@ class MarbleUITestCase: XCTestCase {
         element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
+    /// Taps Finish Workout's confirmation and waits for it to close.
+    ///
+    /// CI run 41758758936 (attempt 2, iPhone Air, XXXL dark) left the popover
+    /// open after `forceTap`: the tap landed while the popover was still
+    /// presenting, so no session finished and the next `Workout.Recent.` lookup
+    /// timed out. Retap only while the confirmation is still on screen, so a
+    /// tap that did register is never repeated.
+    func confirmFinishWorkout(timeout: TimeInterval = 8, file: StaticString = #file, line: UInt = #line) {
+        let confirm = app.descendants(matching: .any).matching(identifier: "Workout.Finish.Confirm").firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: timeout), file: file, line: line)
+        for _ in 0..<3 {
+            guard confirm.exists else { return }
+            tapVisible(confirm)
+            if confirm.waitForNonExistence(timeout: 3) { return }
+        }
+        XCTFail("Finish Workout confirmation is still open after three taps", file: file, line: line)
+    }
+
     func waitForDisappearance(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {
         let start = Date()
         while element.exists && element.isHittable && Date().timeIntervalSince(start) < timeout {

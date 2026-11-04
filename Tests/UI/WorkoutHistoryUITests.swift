@@ -14,7 +14,7 @@ final class WorkoutHistoryUITests: MarbleUITestCase {
             let finish = app.descendants(matching: .any).matching(identifier: "Workout.Finish").firstMatch
             scrollToElement(finish, in: app)
             forceTap(finish)
-            forceTap(waitForIdentifier("Workout.Finish.Confirm"))
+            confirmFinishWorkout()
             let recent = app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier BEGINSWITH 'Workout.Recent.'")).firstMatch
             scrollToElement(recent, in: app)
@@ -54,7 +54,7 @@ final class WorkoutHistoryUITests: MarbleUITestCase {
         navigateToTab(.addWorkout)
         tapBottomAccessory(waitForIdentifier("SessionPill", timeout: 8))
         forceTap(waitForIdentifier("Workout.Finish", timeout: 8))
-        forceTap(waitForIdentifier("Workout.Finish.Confirm"))
+        confirmFinishWorkout()
         let recent = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'Workout.Recent.'")).firstMatch
         waitFor(recent)
