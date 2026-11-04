@@ -134,6 +134,61 @@ final class AppIntentEntityTests: MarbleTestCase {
         XCTAssertEqual(entity.categoryName, ExerciseCategory.power.displayName)
     }
 
+    // MARK: - Properties Siri reads
+
+    func testEntityCarriesPersonalBestsRecencyAndUsualRange() throws {
+        let context = makeIntentContext()
+        let bench = makeExercise(name: "Bench Press", category: .chest, isFavorite: true, in: context)
+        let earlier = now.addingTimeInterval(-3 * 86_400)
+        let later = now.addingTimeInterval(-86_400)
+        logSet(for: bench, at: earlier, weight: 100, reps: 8, in: context)
+        logSet(for: bench, at: later, weight: 120, reps: 3, in: context)
+        try context.save()
+
+        let entity = ExerciseEntity(bench)
+
+        XCTAssertTrue(entity.isFavorite)
+        XCTAssertEqual(entity.totalSets, 2)
+        XCTAssertEqual(entity.lastPerformedAt, later)
+        XCTAssertEqual(entity.heaviestSet, "120 lb × 3")
+        XCTAssertEqual(entity.mostRepsSet, "8 reps at 100 lb")
+        XCTAssertEqual(entity.usualRange, "100–120 lb, 3–8 reps")
+    }
+
+    func testNeverLoggedEntityHasNoBests() throws {
+        let context = makeIntentContext()
+        let squat = makeExercise(name: "Back Squat", category: .quads, in: context)
+        try context.save()
+
+        let entity = ExerciseEntity(squat)
+
+        XCTAssertFalse(entity.isFavorite)
+        XCTAssertEqual(entity.totalSets, 0)
+        XCTAssertNil(entity.lastPerformedAt)
+        XCTAssertNil(entity.heaviestSet)
+        XCTAssertNil(entity.mostRepsSet)
+        XCTAssertNil(entity.usualRange)
+    }
+
+    /// The batched builder (Spotlight reindex, every query) must agree with the
+    /// per-exercise init, and must never leak one exercise's sets into another's.
+    func testBatchedEntitiesMatchPerExerciseInitAndStayScoped() throws {
+        let context = makeIntentContext()
+        let bench = makeExercise(name: "Bench Press", category: .chest, in: context)
+        let row = makeExercise(name: "Barbell Row", category: .back, in: context)
+        logSet(for: bench, at: now.addingTimeInterval(-86_400), weight: 185, reps: 5, in: context)
+        logSet(for: row, at: now.addingTimeInterval(-2 * 86_400), weight: 135, reps: 10, in: context)
+        try context.save()
+
+        let batched = ExerciseEntity.entities(for: [bench, row], in: context)
+        let single = [ExerciseEntity(bench), ExerciseEntity(row)]
+
+        XCTAssertEqual(batched.map(\.id), [bench.id, row.id])
+        XCTAssertEqual(batched.map(\.heaviestSet), single.map(\.heaviestSet))
+        XCTAssertEqual(batched.map(\.totalSets), [1, 1])
+        XCTAssertEqual(batched.map(\.heaviestSet), ["185 lb × 5", "135 lb × 10"])
+    }
+
     // MARK: - Fixtures
 
     private func makeIntentContext() -> ModelContext {
@@ -164,13 +219,19 @@ final class AppIntentEntityTests: MarbleTestCase {
         return exercise
     }
 
-    private func logSet(for exercise: Exercise, at date: Date, in context: ModelContext) {
+    private func logSet(
+        for exercise: Exercise,
+        at date: Date,
+        weight: Double = 100,
+        reps: Int = 5,
+        in context: ModelContext
+    ) {
         let entry = SetEntry(
             exercise: exercise,
             performedAt: date,
-            weight: 100,
+            weight: weight,
             weightUnit: .lb,
-            reps: 5,
+            reps: reps,
             restAfterSeconds: 90,
             createdAt: date,
             updatedAt: date

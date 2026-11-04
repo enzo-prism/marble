@@ -22,6 +22,11 @@ import Foundation
 ///
 /// Repeated taps accumulate because the controller extends from the *current* end date rather
 /// than from now (see `RestActivityController.extendedEnd(from:by:now:)`).
+#if SIRI_AI_PREVIEW
+// Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
+// from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
+@AppIntent(.tool)
+#endif
 struct ExtendRestIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Extend Rest"
     static let description = IntentDescription("Adds 30 seconds to the running rest timer.")
@@ -52,6 +57,11 @@ struct ExtendRestIntent: LiveActivityIntent {
 }
 
 /// Ends the running rest timer immediately, from the Live Activity's "End" button.
+#if SIRI_AI_PREVIEW
+// Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
+// from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
+@AppIntent(.tool)
+#endif
 struct EndRestIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "End Rest"
     static let description = IntentDescription("Ends the running rest timer and dismisses it.")

@@ -85,6 +85,11 @@ struct OpenQuickLogIntent: AppIntent {
     }
 }
 
+#if SIRI_AI_PREVIEW
+// Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
+// from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
+@AppIntent(.tool)
+#endif
 struct LogLastSetAgainIntent: AppIntent, UndoableIntent {
     static let title: LocalizedStringResource = "Log Last Set Again"
     static let description = IntentDescription("Logs another set of your most recent exercise with the same metrics.")
@@ -145,13 +150,21 @@ struct LogLastSetAgainIntent: AppIntent, UndoableIntent {
     }
 }
 
+#if SIRI_AI_PREVIEW
+// Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
+// from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
+@AppIntent(.tool)
+#endif
 struct ReviewWorkoutTextIntent: AppIntent {
     static let title: LocalizedStringResource = "Review Workout Text"
     static let description = IntentDescription("Opens Marble to review a pasted workout before adding it to the journal.")
     static let openAppWhenRun = true
     static let supportedModes: IntentModes = [.foreground(.immediate)]
 
-    @Parameter(title: "Workout text")
+    @Parameter(
+        title: "Workout text",
+        description: "The workout as the lifter wrote or said it, in plain language or gym notation (e.g. \"bench 3x8 at 185, then pull-ups 3x10\"). It can cover several exercises or days. Nothing is logged until the lifter reviews it in Marble."
+    )
     var text: String
 
     @MainActor
@@ -168,7 +181,10 @@ struct ReviewWorkoutFileIntent: AppIntent {
     static let openAppWhenRun = true
     static let supportedModes: IntentModes = [.foreground(.immediate)]
 
-    @Parameter(title: "Workout file")
+    @Parameter(
+        title: "Workout file",
+        description: "A Hevy or Strong CSV export, or a text file of workout notes. Nothing is logged until the lifter reviews it in Marble."
+    )
     var file: IntentFile
 
     @MainActor
