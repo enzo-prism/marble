@@ -528,6 +528,16 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
     /// clear the issue only if that WCAG contrast ratio is at least 4.5:1, the
     /// body-text minimum. Low-contrast text such as grey on white measures
     /// below that and still fails. Non-contrast issues are always kept.
+    ///
+    /// Only the investigated text-only elements are measured. A frame that
+    /// also holds a switch, icon or other control (Include Time, for one) can
+    /// show a passing light/dark pair that is not its text, so every other
+    /// element's contrast report still fails the test.
+    private static let pixelVerifiedContrastElements: [(type: XCUIElement.ElementType, identifier: String, label: String)] = [
+        (.staticText, "", "Your workout"),
+        (.button, "TextEntry.EditText", "Edit Text")
+    ]
+
     @available(iOS 17.0, *)
     private func workoutNotesIssuesSurvivingContrastRecheck(
         _ issues: [XCUIAccessibilityAuditIssue], auditName: String
@@ -545,6 +555,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         var notes: [String] = []
         let kept = issues.filter { issue in
             guard issue.auditType == .contrast, let element = issue.element,
+                  Self.pixelVerifiedContrastElements.contains(where: {
+                      $0.type == element.elementType && $0.identifier == element.identifier && $0.label == element.label
+                  }),
                   element.exists, element.isHittable else { return true }
             let frame = element.frame
             guard frame.width >= 4, frame.height >= 4, window.contains(frame),
