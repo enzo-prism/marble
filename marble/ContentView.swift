@@ -99,6 +99,12 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
             refreshActiveDay()
         }
+        // Keeps the stats Siri and Spotlight read off each exercise current after a
+        // set is logged, edited or deleted — in the app or through an intent, which
+        // share this main context.
+        .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave, object: modelContext)) { _ in
+            ExerciseSpotlightIndex.scheduleRefreshAfterSave()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .marbleOpenQuickLog)) { _ in
             quickLog.open()
         }

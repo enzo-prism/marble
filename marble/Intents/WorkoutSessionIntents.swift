@@ -55,6 +55,11 @@ enum WorkoutSessionIntentSupport {
 // a running workout instead of the intent finishing the moment it opens the app.
 // The 26.2 SDK ships no `LongRunningIntent`, so 2.2 stays `openAppWhenRun` — do not
 // add an `#available` branch for it until the app builds against the 27 SDK.
+#if SIRI_AI_PREVIEW
+// Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
+// from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
+@AppIntent(.tool)
+#endif
 struct StartWorkoutIntent: AppIntent {
     static let title: LocalizedStringResource = "Start Workout"
     static let description = IntentDescription(
@@ -100,6 +105,11 @@ struct StartWorkoutIntent: AppIntent {
 // MARK: - Finish
 
 /// Ends the running workout and files it in history.
+#if SIRI_AI_PREVIEW
+// Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
+// from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
+@AppIntent(.tool)
+#endif
 struct FinishWorkoutIntent: AppIntent {
     static let title: LocalizedStringResource = "Finish Workout"
     static let description = IntentDescription(

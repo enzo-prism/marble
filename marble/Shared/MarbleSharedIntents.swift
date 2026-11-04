@@ -22,13 +22,23 @@ import Foundation
 ///
 /// Repeated taps accumulate because the controller extends from the *current* end date rather
 /// than from now (see `RestActivityController.extendedEnd(from:by:now:)`).
+#if SIRI_AI_PREVIEW
+// Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
+// from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
+@AppIntent(.tool)
+#endif
 struct ExtendRestIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Extend Rest"
     static let description = IntentDescription("Adds 30 seconds to the running rest timer.")
 
     /// The exact ActivityKit card that rendered the button. Without this identity, a button
     /// on an old duplicate can accidentally extend a newer timer after the app relaunches.
-    @Parameter(title: "Activity ID")
+    /// The description matters now that Siri can call this: empty means the current timer,
+    /// and a guessed identifier would make the call a no-op.
+    @Parameter(
+        title: "Activity ID",
+        description: "Internal to the rest timer's Live Activity buttons. Always leave this empty; empty means the current rest timer."
+    )
     var activityID: String?
 
     /// One tap's worth of extra rest. Kept here so the button label and the applied amount
@@ -52,12 +62,20 @@ struct ExtendRestIntent: LiveActivityIntent {
 }
 
 /// Ends the running rest timer immediately, from the Live Activity's "End" button.
+#if SIRI_AI_PREVIEW
+// Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
+// from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
+@AppIntent(.tool)
+#endif
 struct EndRestIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "End Rest"
     static let description = IntentDescription("Ends the running rest timer and dismisses it.")
 
     /// Identifies the card being ended so an obsolete duplicate cannot cancel the current rest.
-    @Parameter(title: "Activity ID")
+    @Parameter(
+        title: "Activity ID",
+        description: "Internal to the rest timer's Live Activity buttons. Always leave this empty; empty means the current rest timer."
+    )
     var activityID: String?
 
     init() {}

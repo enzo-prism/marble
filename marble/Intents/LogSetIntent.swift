@@ -44,6 +44,11 @@ nonisolated enum WeightUnitAppEnum: String, AppEnum, CaseIterable {
 /// bench press in Marble" — the missing reps/weight/unit come from the most recent
 /// set of the *same* exercise, which is the same idea as `LogLastSetAgainIntent`
 /// but scoped to one movement instead of "whatever you did last".
+#if SIRI_AI_PREVIEW
+// Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
+// from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
+@AppIntent(.tool)
+#endif
 struct LogSetIntent: AppIntent, PredictableIntent, UndoableIntent {
     static let title: LocalizedStringResource = "Log a Set of an Exercise"
     static let description = IntentDescription(
@@ -51,18 +56,31 @@ struct LogSetIntent: AppIntent, PredictableIntent, UndoableIntent {
     )
 
 
-    @Parameter(title: "Exercise", requestValueDialog: "Which exercise?")
+    @Parameter(
+        title: "Exercise",
+        description: "The exercise from the lifter's Marble library to log a set of.",
+        requestValueDialog: "Which exercise?"
+    )
     var exercise: ExerciseEntity
 
-    @Parameter(title: "Reps")
+    @Parameter(
+        title: "Reps",
+        description: "How many reps were done. Leave empty to copy the reps from the last set of this exercise."
+    )
     var reps: Int?
 
     /// The weight **as a human says it** — for a `singleDumbbellPair` exercise that
     /// is one dumbbell, exactly like the field in `AddSetView`. See `perform()`.
-    @Parameter(title: "Weight")
+    @Parameter(
+        title: "Weight",
+        description: "The weight lifted, as the lifter says it. For dumbbell-pair exercises this is the weight of ONE dumbbell, not the total. Leave empty to copy the last set's weight."
+    )
     var weight: Double?
 
-    @Parameter(title: "Unit")
+    @Parameter(
+        title: "Unit",
+        description: "Pounds or kilograms. Only set this when the lifter says a unit; otherwise Marble uses the unit this exercise was last logged in."
+    )
     var unit: WeightUnitAppEnum?
 
     static var parameterSummary: some ParameterSummary {
