@@ -587,8 +587,7 @@ struct WorkoutTextEntryView: View {
     }
 
     private var reviewView: some View {
-        VStack(spacing: 0) {
-            List {
+        List {
                 Section {
                     Text(reviewSummary)
                         .font(MarbleTypography.rowTitle)
@@ -721,12 +720,14 @@ struct WorkoutTextEntryView: View {
                     }
                 }
             }
-            .listStyle(.insetGrouped)
-            // Keep the first review heading clear of the navigation scroll edge.
-            .contentMargins(.top, MarbleSpacing.s, for: .scrollContent)
-            .scrollContentBackground(.hidden)
-            .background(Theme.backgroundColor(for: colorScheme))
-            .clipped()
+        .listStyle(.insetGrouped)
+        // Keep the first review heading clear of the navigation scroll edge.
+        .contentMargins(.top, MarbleSpacing.s, for: .scrollContent)
+        .scrollContentBackground(.hidden)
+        .background(Theme.backgroundColor(for: colorScheme))
+        // Match Scan and batch review: inset the Import button so the Date /
+        // Include Time rows can scroll fully above it on 17 Pro.
+        .safeAreaInset(edge: .bottom) {
             if !viewModel.isDrillingInFromBatch {
                 importButton
             }

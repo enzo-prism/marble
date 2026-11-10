@@ -63,10 +63,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                     }
                     if auditControls.allSatisfy({ $0.isHittable }) && notesAuditViewportContains(viewport, bounds) { break }
                     let distance = min(max(viewport.midY - bounds.midY, -viewport.height * 0.4), viewport.height * 0.4)
-                    let start = list.coordinate(withNormalizedOffset: .zero)
-                        .withOffset(CGVector(dx: viewport.maxX - list.frame.minX - 5, dy: viewport.midY - list.frame.minY))
-                    start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
-                                withVelocity: .slow, thenHoldForDuration: 0.3)
+                    dragNotesList(list, in: viewport, distance: distance)
                 }
                 for control in auditControls {
                     // Do not scrollToElement here: that parks the control on the
@@ -85,6 +82,20 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 try runAudit(name: "WorkoutNotes_Timing_\(unresolved ? "Unresolved" : "Review")_\(appearance.envValue)_\(sizeLabel)")
             }
         }
+    }
+
+    /// Drag from the leading edge so the gesture cannot land on Include Time's
+    /// trailing switch (CI 42903920911: 20 right-edge drags left the control
+    /// at y718 against the Import footer).
+    private func dragNotesList(_ list: XCUIElement, in viewport: CGRect, distance: CGFloat) {
+        let start = list.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: 16, dy: viewport.midY - list.frame.minY))
+        start.press(
+            forDuration: 0.1,
+            thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
+            withVelocity: .slow,
+            thenHoldForDuration: 0.3
+        )
     }
 
     private func notesAuditViewportContains(_ viewport: CGRect, _ rect: CGRect) -> Bool {
@@ -672,10 +683,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             let viewport = workoutNotesAuditViewport(list)
             if element.isHittable && notesAuditViewportContains(viewport, element.frame) { break }
             let distance = min(max(viewport.midY - element.frame.midY, -viewport.height * 0.4), viewport.height * 0.4)
-            let start = list.coordinate(withNormalizedOffset: .zero)
-                .withOffset(CGVector(dx: viewport.maxX - list.frame.minX - 5, dy: viewport.midY - list.frame.minY))
-            start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
-                                withVelocity: .slow, thenHoldForDuration: 0.3)
+            dragNotesList(list, in: viewport, distance: distance)
         }
         guard element.isHittable, notesAuditViewportContains(workoutNotesAuditViewport(list), element.frame) else { return false }
         takeScreenshot("\(auditName)_FullyVisible_\(label.hasPrefix("Applied") ? "TimingHelp" : "DefaultsHelp")")
