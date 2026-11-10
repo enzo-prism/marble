@@ -21,4 +21,19 @@ class RunWithTimeoutTest < Minitest::Test
     assert_match(/exceeded 1s and was killed/, stderr)
     assert_operator elapsed, :<, 10
   end
+
+  def test_kills_term_ignoring_descendants_after_the_leader_exits
+    env = { "MARBLE_TIMEOUT_GRACE_SECONDS" => "1" }
+    child = 'python3 -c "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(30)"'
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    _stdout, stderr, status = Open3.capture3(
+      env,
+      "bash", SCRIPT, "1", "bash", "-c", "#{child} & wait"
+    )
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+    refute status.success?
+    assert_equal 124, status.exitstatus
+    assert_match(/exceeded 1s and was killed/, stderr)
+    assert_operator elapsed, :<, 8
+  end
 end
