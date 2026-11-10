@@ -582,14 +582,16 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
     /// below that and still fails. Non-contrast issues are always kept.
     ///
     /// Only the investigated text-only elements are measured. A frame that
-    /// also holds a switch, icon or other control (Include Time, for one) can
-    /// show a passing light/dark pair that is not its text, so every other
-    /// element's contrast report still fails the test.
+    /// also holds a switch, icon or other control can show a passing
+    /// light/dark pair that is not its text, so those reports still fail.
+    /// Include Time's label is a separate 97×20 static text (CI 42913132023);
+    /// do not measure the switch row itself.
     private static let pixelVerifiedContrastElements: [(type: XCUIElement.ElementType, identifier: String, label: String)] = [
         (.staticText, "", "Your workout"),
         (.staticText, "", "Keep every detail"),
         (.staticText, "", "Workout"),
         (.staticText, "", "Exercise"),
+        (.staticText, "", "Include Time"),
         (.button, "TextEntry.EditText", "Edit Text")
     ]
 
