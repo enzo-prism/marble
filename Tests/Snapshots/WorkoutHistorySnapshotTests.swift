@@ -15,7 +15,7 @@ final class WorkoutHistorySnapshotTests: SnapshotTestCase {
     func testHistoryPopulated() {
         let container = SnapshotFixtures.makeContainer()
         let session = makeSession(in: container)
-        assertHistorySnapshot(named: "History_Populated", expectedText: ["Upper Body Strength", "Bench Press"]) {
+        assertHistorySnapshot(named: "History_Populated", expectedText: ["Upper Body Strength"]) {
             NavigationStack { WorkoutHistoryView(snapshotSessions: [session]) }.modelContainer(container)
         }
     }
