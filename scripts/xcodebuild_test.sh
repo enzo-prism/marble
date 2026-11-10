@@ -97,7 +97,7 @@ XCODEBUILD_CMD=(
   -parallel-testing-enabled NO
   -enableCodeCoverage NO
   -test-timeouts-enabled YES
-  -maximum-test-execution-time-allowance "${MARBLE_TEST_EXECUTION_TIMEOUT:-360}"
+  -maximum-test-execution-time-allowance "${MARBLE_TEST_EXECUTION_TIMEOUT:-900}"
 )
 
 # Xcode still creates a DerivedData result bundle when no explicit

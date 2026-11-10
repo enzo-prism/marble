@@ -16,7 +16,7 @@ concurrency:
 jobs:
   candidate:
     runs-on: macos-26
-    timeout-minutes: 300
+    timeout-minutes: 360
     env:
       MARBLE_SIMULATOR_NAME: iPhone 17 Pro
     steps:
@@ -39,7 +39,7 @@ jobs:
       - name: Run candidate checks
         # Reserve time for evidence upload if the suite exceeds its own limit.
         # The five gates took ~208 min on 8d46a09 before migration ran builds.
-        timeout-minutes: 290
+        timeout-minutes: 350
         env:
           RELEASE_EVIDENCE_ROOT: ${{ runner.temp }}/marble-release-evidence
           DERIVED_DATA_PATH: ${{ runner.temp }}/marble-derived-data

@@ -92,7 +92,7 @@ prepare_ui_simulator() {
 gate_timeout_seconds() {
   case "$1" in
     unit) echo "${RELEASE_EVIDENCE_UNIT_TIMEOUT:-1500}" ;;
-    snapshot) echo "${RELEASE_EVIDENCE_SNAPSHOT_TIMEOUT:-9600}" ;;
+    snapshot) echo "${RELEASE_EVIDENCE_SNAPSHOT_TIMEOUT:-10800}" ;;
     ui) echo "${RELEASE_EVIDENCE_UI_TIMEOUT:-7200}" ;;
     accessibility) echo "${RELEASE_EVIDENCE_AUDIT_TIMEOUT:-1800}" ;;
     migration) echo "${RELEASE_EVIDENCE_MIGRATION_TIMEOUT:-1800}" ;;

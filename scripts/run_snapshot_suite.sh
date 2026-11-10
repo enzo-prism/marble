@@ -146,8 +146,13 @@ cleanup_simulator() {
     return 0
   fi
   xcrun simctl terminate "${sim_id}" Prism.marble >/dev/null 2>&1 || true
+}
+
+shutdown_simulator() {
+  if [[ -z "${sim_id}" ]]; then
+    return 0
+  fi
   xcrun simctl shutdown "${sim_id}" >/dev/null 2>&1 || true
-  sleep 2
 }
 
 # Native UIKit search caches its initial font from the process-wide category.
@@ -156,7 +161,9 @@ cleanup_simulator() {
 # Always put the device back to `large` afterwards — content_size survives
 # shutdown/boot on current macos-26 runner images, and a leaked XXXL setting
 # makes the following widget, UI, and audit gates fail as layout regressions.
-trap 'snapshot_exit_status=$?; ensure_content_size large || true; exit "${snapshot_exit_status}"' EXIT
+# Keep the simulator booted between groups; shutdown+boot on every group is
+# why the 160-minute watchdog killed History with three groups left.
+trap 'snapshot_exit_status=$?; ensure_content_size large || true; shutdown_simulator || true; exit "${snapshot_exit_status}"' EXIT
 
 index=0
 for group in "${SNAPSHOT_GROUPS[@]}"; do
