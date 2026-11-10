@@ -92,42 +92,28 @@ func assertHistorySnapshot<V: View>(
                 }
                 root.setOverrideTraitCollection(traits, forChild: host)
                 host.didMove(toParent: root)
-                window.windowLevel = .statusBar + 1
                 window.rootViewController = root
                 window.makeKeyAndVisible()
                 window.frame = CGRect(origin: .zero, size: variant.device.size)
                 root.view.frame = window.bounds
                 host.view.frame = root.view.bounds
-                let coveredWindows = scene.windows.filter { $0 !== window }
-                coveredWindows.forEach { $0.alpha = 0 }
                 defer {
-                    coveredWindows.forEach { $0.alpha = 1 }
                     window.isHidden = true
                     window.rootViewController = nil
-                    window.windowScene = nil
                     previousKeyWindow?.makeKey()
-                    RunLoop.main.run(until: Date().addingTimeInterval(0.05))
                 }
-                // Let nav/search glass finish, then freeze. Disabling animations
-                // before that first appearance captures both title layers at once.
-                UIView.setAnimationsEnabled(true)
-                RunLoop.main.run(until: Date().addingTimeInterval(0.45))
-                UIView.setAnimationsEnabled(false)
-                root.view.layoutIfNeeded()
-                host.view.layoutIfNeeded()
-                CATransaction.flush()
 
                 // Capture only after the mounted hierarchy has produced three
-                // identical, non-ghosted frames.
-                let earliestCapture = Date().addingTimeInterval(0.4)
-                let deadline = Date().addingTimeInterval(6)
+                // identical frames. A fixed delay alone can freeze native glass
+                // controls during their initial search/navigation transition.
+                let earliestCapture = Date().addingTimeInterval(0.5)
+                let deadline = Date().addingTimeInterval(4)
                 let format = UIGraphicsImageRendererFormat()
                 format.scale = 3
                 let renderer = UIGraphicsImageRenderer(size: variant.device.size, format: format)
                 var previousPixels: Data?
                 var identicalFrames = 0
                 var stableImage: UIImage?
-                var lastRecognized = ""
                 repeat {
                     root.view.setNeedsLayout()
                     root.view.layoutIfNeeded()
@@ -136,7 +122,7 @@ func assertHistorySnapshot<V: View>(
                     CATransaction.flush()
                     var rendered = false
                     let candidate = renderer.image { _ in
-                        rendered = root.view.drawHierarchy(in: root.view.bounds, afterScreenUpdates: true)
+                        rendered = window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
                     }
                     guard rendered, let pixels = candidate.pngData() else {
                         identicalFrames = 0
@@ -145,33 +131,29 @@ func assertHistorySnapshot<V: View>(
                     }
                     identicalFrames = pixels == previousPixels ? identicalFrames + 1 : 1
                     previousPixels = pixels
-                    guard Date() >= earliestCapture && identicalFrames >= 3 else { continue }
-                    do {
-                        lastRecognized = try historyRecognizedText(in: candidate)
-                    } catch {
-                        identicalFrames = 0
-                        previousPixels = nil
-                        continue
+                    if Date() >= earliestCapture && identicalFrames >= 3 {
+                        stableImage = candidate
+                        break
                     }
-                    if historyCaptureLooksGhosted(lastRecognized) {
-                        identicalFrames = 0
-                        previousPixels = nil
-                        continue
-                    }
-                    let normalized = normalizeHistoryText(lastRecognized)
-                    guard !normalized.isEmpty,
-                          expectedText.allSatisfy({ normalized.contains(normalizeHistoryText($0)) }) else {
-                        continue
-                    }
-                    stableImage = candidate
-                    break
                 } while Date() < deadline
                 guard let image = stableImage else {
-                    XCTFail(
-                        "History window did not reach three stable rendered frames. OCR: \(lastRecognized)",
-                        file: file,
-                        line: line
-                    )
+                    XCTFail("History window did not reach three stable rendered frames", file: file, line: line)
+                    return
+                }
+                do {
+                    let recognized = try historyRecognizedText(in: image)
+                    let normalized = normalizeHistoryText(recognized)
+                    guard !normalized.isEmpty,
+                          expectedText.allSatisfy({ normalized.contains(normalizeHistoryText($0)) }) else {
+                        let attachment = XCTAttachment(image: image)
+                        attachment.name = "MissingContent_\(activityName)"
+                        attachment.lifetime = .keepAlways
+                        XCTContext.runActivity(named: "Inspect failed History capture") { $0.add(attachment) }
+                        XCTFail("History capture is blank or missing expected text \(expectedText). OCR: \(recognized)", file: file, line: line)
+                        return
+                    }
+                } catch {
+                    XCTFail("History capture OCR failed: \(error)", file: file, line: line)
                     return
                 }
                 let verify = {
@@ -201,11 +183,6 @@ private func historyRecognizedText(in image: UIImage) throws -> String {
 
 private func normalizeHistoryText(_ text: String) -> String {
     text.lowercased().unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }.map(String.init).joined()
-}
-
-private func historyCaptureLooksGhosted(_ text: String) -> Bool {
-    let words = text.split { !$0.isLetter }.map { String($0).lowercased() }.filter { $0.count >= 4 }
-    return zip(words, words.dropFirst()).contains { $0 == $1 }
 }
 
 @MainActor

@@ -13,10 +13,22 @@ import re
 import subprocess
 import sys
 
-PREFERRED_NAMES = (
+UI_PREFERRED_NAMES = (
     "iPhone 17 Pro",
     "iPhone 16 Pro",
     "iPhone 15 Pro",
+    "iPhone 17",
+    "iPhone 16",
+    "iPhone 15",
+)
+
+# History native chrome is recorded against a 15 Pro-class window scene.
+# Current macos-26 iPhone 17 Pro scenes ghost navigation titles in that harness.
+SNAPSHOT_PREFERRED_NAMES = (
+    "iPhone 15 Pro",
+    "iPhone 16 Pro",
+    "iPhone Air",
+    "iPhone 17 Pro",
     "iPhone 17",
     "iPhone 16",
     "iPhone 15",
@@ -45,12 +57,13 @@ def is_available(device: dict) -> bool:
     return device.get("availabilityError") is None
 
 
-def preference_rank(name: str) -> int:
+def preference_rank(name: str, profile: str) -> int:
     lowered = name.strip().lower()
-    for index, preferred in enumerate(PREFERRED_NAMES):
+    preferred_names = SNAPSHOT_PREFERRED_NAMES if profile == "snapshot" else UI_PREFERRED_NAMES
+    for index, preferred in enumerate(preferred_names):
         if lowered == preferred.lower():
             return index
-    if any(token in lowered for token in AVOID_SUBSTRINGS):
+    if profile != "snapshot" and any(token in lowered for token in AVOID_SUBSTRINGS):
         return 1000
     if lowered.endswith("e") and "pro" not in lowered:
         return 900
@@ -61,7 +74,9 @@ def preference_rank(name: str) -> int:
     return 100
 
 
-def collect_iphones(data: dict, runtime: str) -> list[tuple[tuple[int, ...], int, str, str]]:
+def collect_iphones(
+    data: dict, runtime: str, profile: str
+) -> list[tuple[tuple[int, ...], int, str, str]]:
     candidates: list[tuple[tuple[int, ...], int, str, str]] = []
     for device in data.get("devices", {}).get(runtime, []):
         if not is_available(device):
@@ -72,11 +87,11 @@ def collect_iphones(data: dict, runtime: str) -> list[tuple[tuple[int, ...], int
         udid = device.get("udid") or ""
         if not udid:
             continue
-        candidates.append((runtime_version(runtime), preference_rank(name), name, udid))
+        candidates.append((runtime_version(runtime), preference_rank(name, profile), name, udid))
     return candidates
 
 
-def pick_udid(data: dict, preferred_name: str, required_runtime: str) -> str:
+def pick_udid(data: dict, preferred_name: str, required_runtime: str, profile: str) -> str:
     runtimes = list(data.get("devices", {}))
     search_order = [required_runtime] + sorted(
         (runtime for runtime in runtimes if runtime != required_runtime and "iOS-" in runtime),
@@ -85,7 +100,7 @@ def pick_udid(data: dict, preferred_name: str, required_runtime: str) -> str:
     )
     preferred = preferred_name.strip().lower()
     for runtime in search_order:
-        candidates = collect_iphones(data, runtime)
+        candidates = collect_iphones(data, runtime, profile)
         if not candidates:
             continue
         for _version, _rank, name, udid in candidates:
@@ -109,6 +124,7 @@ def main(argv: list[str]) -> int:
     runtime = os.environ.get(
         "MARBLE_SIMULATOR_RUNTIME", "com.apple.CoreSimulator.SimRuntime.iOS-26-5"
     )
+    profile = os.environ.get("MARBLE_SIMULATOR_PROFILE", "ui")
     devices_json = None
     args = argv[1:]
     while args:
@@ -118,14 +134,19 @@ def main(argv: list[str]) -> int:
         elif args[0] == "--runtime" and len(args) >= 2:
             runtime = args[1]
             args = args[2:]
+        elif args[0] == "--profile" and len(args) >= 2:
+            profile = args[1]
+            args = args[2:]
         elif args[0] == "--devices-json" and len(args) >= 2:
             devices_json = args[1]
             args = args[2:]
         else:
             print(f"Unknown argument: {args[0]}", file=sys.stderr)
             return 2
+    if profile == "snapshot" and preferred == "iPhone 17 Pro":
+        preferred = "iPhone 15 Pro"
     data = load_devices(devices_json)
-    sys.stdout.write(pick_udid(data, preferred, runtime))
+    sys.stdout.write(pick_udid(data, preferred, runtime, profile))
     return 0
 
 

@@ -3,13 +3,28 @@ set -euo pipefail
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
+# History native chrome is host-scene specific. The UI-test iPhone 17 Pro
+# ghosts navigation titles on current macos-26 images; snapshots pick a
+# 15 Pro-class (or Air) scene instead of inheriting the UI-test UDID.
+if [[ -z "${MARBLE_SNAPSHOT_SIMULATOR_ID:-}" ]]; then
+  unset MARBLE_SIMULATOR_ID
+  export MARBLE_SIMULATOR_PROFILE=snapshot
+  export MARBLE_SIMULATOR_NAME="${MARBLE_SNAPSHOT_SIMULATOR_NAME:-iPhone 15 Pro}"
+else
+  export MARBLE_SIMULATOR_ID="${MARBLE_SNAPSHOT_SIMULATOR_ID}"
+fi
+
 destination=""
-if destination=$("${ROOT_DIR}/scripts/sim_destination.sh" 2>/dev/null); then
+if destination=$("${ROOT_DIR}/scripts/sim_destination.sh"); then
   :
 fi
 sim_id="${destination#id=}"
 if [[ "${destination}" != id=* ]]; then
   sim_id=""
+fi
+if [[ -n "${sim_id}" ]]; then
+  export MARBLE_SIMULATOR_ID="${sim_id}"
+  echo "Snapshot simulator id=${sim_id}"
 fi
 
 SNAPSHOT_SUITE=${SNAPSHOT_SUITE:-full}

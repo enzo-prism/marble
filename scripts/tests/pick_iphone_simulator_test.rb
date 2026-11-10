@@ -30,11 +30,12 @@ class PickIphoneSimulatorTest < Minitest::Test
     File.write(@json, JSON.generate({ "devices" => { RUNTIME => devices } }))
   end
 
-  def pick(preferred: "iPhone 17 Pro")
+  def pick(preferred: "iPhone 17 Pro", profile: "ui")
     stdout, stderr, status = Open3.capture3(
       "python3", PICKER,
       "--preferred", preferred,
       "--runtime", RUNTIME,
+      "--profile", profile,
       "--devices-json", @json
     )
     assert status.success?, stderr
@@ -59,6 +60,16 @@ class PickIphoneSimulatorTest < Minitest::Test
   def test_returns_empty_when_runtime_has_no_iphones
     File.write(@json, JSON.generate({ "devices" => { RUNTIME => [{ "name" => "iPad Pro", "udid" => "PAD", "isAvailable" => true }] } }))
     assert_equal "", pick
+  end
+
+  def test_snapshot_profile_prefers_air_over_17_pro_when_15_pro_is_missing
+    write_devices(["iPhone Air", "iPhone 17 Pro", "iPhone 17 Pro Max"])
+    assert_equal "UDID-0", pick(preferred: "iPhone 15 Pro", profile: "snapshot")
+  end
+
+  def test_snapshot_profile_ignores_ui_17_pro_name_when_air_is_the_fallback
+    write_devices(["iPhone Air", "iPhone 17 Pro"])
+    assert_equal "UDID-0", pick(preferred: "iPhone 17 Pro", profile: "snapshot")
   end
 
   def test_falls_back_to_newest_ios_runtime_when_preferred_runtime_is_absent
