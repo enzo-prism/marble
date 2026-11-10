@@ -15,7 +15,10 @@ final class WorkoutHistorySnapshotTests: SnapshotTestCase {
     func testHistoryPopulated() {
         let container = SnapshotFixtures.makeContainer()
         let session = makeSession(in: container)
-        assertHistorySnapshot(named: "History_Populated", expectedText: ["Upper Body Strength"]) {
+        // XXXL wraps the title so OCR sees "Upper Body Streng" then "3 sets"
+        // then "th". Require a prefix that stays contiguous, not "Bench Press"
+        // (the list row never draws the exercise name).
+        assertHistorySnapshot(named: "History_Populated", expectedText: ["Upper Body"]) {
             NavigationStack { WorkoutHistoryView(snapshotSessions: [session]) }.modelContainer(container)
         }
     }
@@ -23,7 +26,9 @@ final class WorkoutHistorySnapshotTests: SnapshotTestCase {
     func testSessionDetailPopulated() {
         let container = SnapshotFixtures.makeContainer()
         let session = makeSession(in: container)
-        assertHistorySnapshot(named: "History_Detail", expectedText: ["Bench Press"]) {
+        // XXXL parks set rows below the fold, so "Bench Press" is not in the
+        // first frame. The notes line is.
+        assertHistorySnapshot(named: "History_Detail", expectedText: ["Steady reps"]) {
             NavigationStack { WorkoutSessionDetailView(snapshotSession: session) }.modelContainer(container)
         }
     }
