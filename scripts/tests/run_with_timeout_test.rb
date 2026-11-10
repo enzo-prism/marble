@@ -13,11 +13,12 @@ class RunWithTimeoutTest < Minitest::Test
   end
 
   def test_kills_a_hung_command_with_a_clear_error
+    env = { "MARBLE_TIMEOUT_GRACE_SECONDS" => "1" }
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    stdout, stderr, status = Open3.capture3("bash", SCRIPT, "1", "sleep", "30")
+    stdout, stderr, status = Open3.capture3(env, "bash", SCRIPT, "1", "sleep", "30")
     elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-    refute status.success?
-    assert_equal 124, status.exitstatus
+    refute status.success?, stderr
+    assert_equal 124, status.exitstatus, stderr
     assert_match(/exceeded 1s and was killed/, stderr)
     assert_operator elapsed, :<, 10
   end

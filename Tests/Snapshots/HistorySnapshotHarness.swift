@@ -72,10 +72,15 @@ func assertHistorySnapshot<V: View>(
                     .environment(\.marbleActiveDay, DateHelper.startOfDay(for: SnapshotFixtures.now))
                     .transaction { $0.disablesAnimations = true })
                 let window = HistorySnapshotWindow(scene: scene, size: variant.device.size, insets: variant.device.safeArea)
+                let opaqueBackground: UIColor = style == .dark ? .black : .white
+                window.backgroundColor = opaqueBackground
+                window.isOpaque = true
                 window.overrideUserInterfaceStyle = style
                 window.traitOverrides.preferredContentSizeCategory = category
                 host.overrideUserInterfaceStyle = style
                 host.traitOverrides.preferredContentSizeCategory = category
+                root.view.backgroundColor = opaqueBackground
+                host.view.backgroundColor = opaqueBackground
                 root.addChild(host)
                 root.view.addSubview(host.view)
                 host.view.frame = CGRect(origin: .zero, size: variant.device.size)
@@ -95,13 +100,17 @@ func assertHistorySnapshot<V: View>(
                 defer {
                     window.isHidden = true
                     window.rootViewController = nil
+                    window.windowScene = nil
                     previousKeyWindow?.makeKey()
+                    RunLoop.main.run(until: Date().addingTimeInterval(0.05))
                 }
 
                 // Capture only after the mounted hierarchy has produced three
                 // identical frames. A fixed delay alone can freeze native glass
                 // controls during their initial search/navigation transition.
-                let earliestCapture = Date().addingTimeInterval(0.5)
+                // Opaque windows matter: a transparent snapshot window composites
+                // the previous variant and records doubled titles.
+                let earliestCapture = Date().addingTimeInterval(0.8)
                 let deadline = Date().addingTimeInterval(4)
                 let format = UIGraphicsImageRendererFormat()
                 format.scale = 3
@@ -187,6 +196,7 @@ private final class HistorySnapshotWindow: UIWindow {
         snapshotInsets = insets
         super.init(windowScene: scene)
         frame = CGRect(origin: .zero, size: size)
+        isOpaque = true
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) is unsupported") }
     override var safeAreaInsets: UIEdgeInsets { snapshotInsets }

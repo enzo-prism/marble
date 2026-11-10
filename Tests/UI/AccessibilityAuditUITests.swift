@@ -69,7 +69,11 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                                 withVelocity: .slow, thenHoldForDuration: 0.3)
                 }
                 for control in auditControls {
-                    XCTAssertTrue(control.isHittable)
+                    scrollToElement(control, in: list)
+                    XCTAssertTrue(
+                        control.isHittable,
+                        "\(control.identifier) must be hittable in the notes review viewport"
+                    )
                     XCTAssertTrue(workoutNotesAuditViewport(list).contains(control.frame), "Audit each control fully inside the unobscured List viewport: \(control.identifier)")
                 }
                 try runAudit(name: "WorkoutNotes_Timing_\(unresolved ? "Unresolved" : "Review")_\(appearance.envValue)_\(sizeLabel)")

@@ -28,14 +28,19 @@ def group_alive(group_id: int) -> bool:
     except ProcessLookupError:
         return False
     except OSError:
-        return True
+        # Darwin reports a just-exited leader as EPERM until it is reaped.
+        return process.poll() is None
     return True
 
 
 def kill_group(group_id: int, sig: int) -> None:
     try:
         os.killpg(group_id, sig)
-    except ProcessLookupError:
+    except OSError:
+        pass
+    try:
+        os.kill(group_id, sig)
+    except OSError:
         pass
 
 
@@ -47,18 +52,26 @@ except subprocess.TimeoutExpired:
         % (limit, " ".join(command)),
         file=sys.stderr,
     )
-    kill_group(pgid, signal.SIGTERM)
-    deadline = time.monotonic() + grace
-    while group_alive(pgid) and time.monotonic() < deadline:
-        time.sleep(0.1)
-    # The group leader can exit on SIGTERM while a descendant ignores it and
-    # keeps stdout open. process.wait() would then return immediately and skip
-    # SIGKILL, leaving tee(1) blocked in release_evidence.sh. Always SIGKILL
-    # whoever is still in the session after the grace period.
-    kill_group(pgid, signal.SIGKILL)
     try:
-        process.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        process.wait()
+        kill_group(pgid, signal.SIGTERM)
+        deadline = time.monotonic() + grace
+        while group_alive(pgid) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        # Always SIGKILL remaining session members. The group leader can exit
+        # on SIGTERM while a descendant keeps stdout open; waiting only on the
+        # leader would then skip SIGKILL and block tee(1) in release_evidence.sh.
+        # Darwin can also raise EPERM on a zombie leader — never let that
+        # escape as exit 1 instead of 124.
+        kill_group(pgid, signal.SIGKILL)
+        try:
+            process.kill()
+        except OSError:
+            pass
+        try:
+            process.wait(timeout=5)
+        except Exception:
+            pass
+    except Exception as exc:
+        print("watchdog kill failed: %s" % exc, file=sys.stderr)
     raise SystemExit(124)
 PY
