@@ -475,6 +475,15 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                    !original.listFrame.intersects(original.frame) {
                     return false
                 }
+                // Section headers under the nav glass are sampled against the
+                // bar, not their opaque background. Fully visible headers still
+                // go through the pixel contrast recheck.
+                if name.hasPrefix("WorkoutNotes_"), issue.auditType == .contrast,
+                   Self.workoutReviewHeaderLabels.contains(element.label),
+                   app.collectionViews.firstMatch.exists,
+                   !notesAuditViewportContains(workoutNotesAuditViewport(app.collectionViews.firstMatch), element.frame) {
+                    return false
+                }
                 // A dedicated XXXL test verifies this standard SwiftUI field is
                 // visible and usable; iOS 26.5 still reports theoretical clipping.
                 if element.identifier == "ExerciseEditor.Name" { return false }
@@ -549,7 +558,20 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
     /// element's contrast report still fails the test.
     private static let pixelVerifiedContrastElements: [(type: XCUIElement.ElementType, identifier: String, label: String)] = [
         (.staticText, "", "Your workout"),
+        (.staticText, "", "Keep every detail"),
+        (.staticText, "", "Workout"),
+        (.staticText, "", "Exercise"),
         (.button, "TextEntry.EditText", "Edit Text")
+    ]
+
+    /// `WorkoutReviewSectionHeader` titles. iOS 26.5 samples these against
+    /// navigation glass when the List parks a header at the top inset — the
+    /// same false report as "Your workout" (CI 41758758936).
+    private static let workoutReviewHeaderLabels = [
+        "Your workout",
+        "Keep every detail",
+        "Workout",
+        "Exercise"
     ]
 
     @available(iOS 17.0, *)

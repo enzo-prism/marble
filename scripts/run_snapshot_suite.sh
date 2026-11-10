@@ -185,6 +185,14 @@ for group in "${SNAPSHOT_GROUPS[@]}"; do
       result_path="${ROOT_DIR}/TestResults/MarbleSnapshots_${index}${group_suffix}.xcresult"
     fi
     echo "Running snapshot group: ${group}${group_suffix}"
+    # History a11y must start from a freshly booted scene. Reusing the default-
+    # size process made populated History never produce three identical frames
+    # on macos-26 (CI 42784020124 / Release checks 42784019972). Other groups
+    # keep the simulator booted so the suite still finishes under the watchdog.
+    if [[ "${category}" == a11y ]]; then
+      echo "Rebooting snapshot simulator for History accessibility text size"
+      shutdown_simulator
+    fi
     prepare_simulator
     system_category=large
     if [[ "${category}" == a11y ]]; then

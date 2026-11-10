@@ -94,7 +94,7 @@ gate_timeout_seconds() {
     unit) echo "${RELEASE_EVIDENCE_UNIT_TIMEOUT:-1500}" ;;
     snapshot) echo "${RELEASE_EVIDENCE_SNAPSHOT_TIMEOUT:-10800}" ;;
     ui) echo "${RELEASE_EVIDENCE_UI_TIMEOUT:-7200}" ;;
-    accessibility) echo "${RELEASE_EVIDENCE_AUDIT_TIMEOUT:-1800}" ;;
+    accessibility) echo "${RELEASE_EVIDENCE_AUDIT_TIMEOUT:-2400}" ;;
     migration) echo "${RELEASE_EVIDENCE_MIGRATION_TIMEOUT:-1800}" ;;
     *) echo "${RELEASE_EVIDENCE_GATE_TIMEOUT:-3600}" ;;
   esac
@@ -294,7 +294,9 @@ run_release_evidence() {
         ;;
       accessibility)
         prepare_ui_simulator
-        run_gate "${gate}" env RELEASE_EVIDENCE_CAPTURE_XCRESULT=0 make -C "${ROOT_DIR}" audit
+        # DefaultText walks ~20 screens per appearance. A 15-minute per-test
+        # cap still listed it as failed with no assertion (run 42784019972).
+        run_gate "${gate}" env RELEASE_EVIDENCE_CAPTURE_XCRESULT=0 MARBLE_TEST_EXECUTION_TIMEOUT=1200 make -C "${ROOT_DIR}" audit
         ;;
       migration)
         run_gate "${gate}" make -C "${ROOT_DIR}" migration-release

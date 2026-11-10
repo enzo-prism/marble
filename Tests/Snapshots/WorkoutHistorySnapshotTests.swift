@@ -15,7 +15,7 @@ final class WorkoutHistorySnapshotTests: SnapshotTestCase {
     func testHistoryPopulated() {
         let container = SnapshotFixtures.makeContainer()
         let session = makeSession(in: container)
-        assertHistorySnapshot(named: "History_Populated") {
+        assertHistorySnapshot(named: "History_Populated", expectedText: ["Upper Body Strength", "Bench Press"]) {
             NavigationStack { WorkoutHistoryView(snapshotSessions: [session]) }.modelContainer(container)
         }
     }
@@ -23,7 +23,7 @@ final class WorkoutHistorySnapshotTests: SnapshotTestCase {
     func testSessionDetailPopulated() {
         let container = SnapshotFixtures.makeContainer()
         let session = makeSession(in: container)
-        assertHistorySnapshot(named: "History_Detail") {
+        assertHistorySnapshot(named: "History_Detail", expectedText: ["Bench Press"]) {
             NavigationStack { WorkoutSessionDetailView(snapshotSession: session) }.modelContainer(container)
         }
     }
@@ -33,7 +33,7 @@ final class WorkoutHistorySnapshotTests: SnapshotTestCase {
         let session = WorkoutSession(title: "Recovery", startedAt: SnapshotFixtures.now, endedAt: SnapshotFixtures.now)
         container.mainContext.insert(session)
         try? container.mainContext.save()
-        assertHistorySnapshot(named: "History_DetailEmpty") {
+        assertHistorySnapshot(named: "History_DetailEmpty", expectedText: ["Recovery"]) {
             NavigationStack { WorkoutSessionDetailView(snapshotSession: session) }.modelContainer(container)
         }
     }
