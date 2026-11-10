@@ -118,6 +118,14 @@ prepare_simulator() {
   xcrun simctl bootstatus "${sim_id}" -b >/dev/null 2>&1 || true
 }
 
+ensure_content_size() {
+  local desired="$1"
+  if [[ -z "${sim_id}" ]]; then
+    return 0
+  fi
+  MARBLE_SIMULATOR_ID="${sim_id}" "${ROOT_DIR}/scripts/reset_simulator_ui.sh" "${desired}"
+}
+
 cleanup_simulator() {
   if [[ -z "${sim_id}" ]]; then
     return 0
@@ -130,14 +138,10 @@ cleanup_simulator() {
 # Native UIKit search caches its initial font from the process-wide category.
 # A child hosting-controller override cannot faithfully simulate changing that
 # initial category. Launch History separately for each real simulator text size.
-history_original_content_size=""
-restore_history_content_size() {
-  if [[ -n "${history_original_content_size}" ]]; then
-    xcrun simctl ui "${sim_id}" content_size "${history_original_content_size}"
-    history_original_content_size=""
-  fi
-}
-trap 'snapshot_exit_status=$?; restore_history_content_size || snapshot_exit_status=1; exit "${snapshot_exit_status}"' EXIT
+# Always put the device back to `large` afterwards — content_size survives
+# shutdown/boot on current macos-26 runner images, and a leaked XXXL setting
+# makes the following widget, UI, and audit gates fail as layout regressions.
+trap 'snapshot_exit_status=$?; ensure_content_size large || true; exit "${snapshot_exit_status}"' EXIT
 
 index=0
 for group in "${SNAPSHOT_GROUPS[@]}"; do
@@ -160,18 +164,19 @@ for group in "${SNAPSHOT_GROUPS[@]}"; do
     fi
     echo "Running snapshot group: ${group}${group_suffix}"
     prepare_simulator
-    if [[ -n "${category}" ]]; then
-      history_original_content_size=$(xcrun simctl ui "${sim_id}" content_size)
-      system_category=large
-      [[ "${category}" != a11y ]] || system_category=accessibility-extra-extra-extra-large
-      xcrun simctl ui "${sim_id}" content_size "${system_category}"
+    system_category=large
+    if [[ "${category}" == a11y ]]; then
+      system_category=accessibility-extra-extra-extra-large
     fi
+    ensure_content_size "${system_category}"
     if [[ -n "${category}" ]]; then
-      RESULT_BUNDLE_PATH="${result_path}" "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "MARBLE_HISTORY_SNAPSHOT_CATEGORY=${category}" "$@"
+      RESULT_BUNDLE_PATH="${result_path}" MARBLE_SIMULATOR_CONTENT_SIZE="${system_category}" \
+        "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "MARBLE_HISTORY_SNAPSHOT_CATEGORY=${category}" "$@"
     else
-      RESULT_BUNDLE_PATH="${result_path}" "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "$@"
+      RESULT_BUNDLE_PATH="${result_path}" MARBLE_SIMULATOR_CONTENT_SIZE="${system_category}" \
+        "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "$@"
     fi
-    restore_history_content_size
+    ensure_content_size large
     cleanup_simulator
     index=$((index + 1))
   done

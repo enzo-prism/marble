@@ -22,6 +22,17 @@ DESTINATION=${DESTINATION:-$("${ROOT_DIR}/scripts/sim_destination.sh")}
 DERIVED_DATA_PATH=${DERIVED_DATA_PATH:-"${ROOT_DIR}/DerivedData"}
 mkdir -p "${DERIVED_DATA_PATH}"
 
+if [[ "${DESTINATION}" == id=* ]]; then
+  export MARBLE_SIMULATOR_ID="${MARBLE_SIMULATOR_ID:-${DESTINATION#id=}}"
+  # History snapshots flip the device content size to XXXL. That setting
+  # survives shutdown/boot on current macos-26 images, so every later
+  # xcodebuild must put it back before launching the runner.
+  if [[ "${MARBLE_SKIP_CONTENT_SIZE_RESET:-0}" != "1" ]]; then
+    desired_size="${MARBLE_SIMULATOR_CONTENT_SIZE:-large}"
+    "${ROOT_DIR}/scripts/reset_simulator_ui.sh" "${desired_size}"
+  fi
+fi
+
 RELEASE_EVIDENCE_RUN_DIR=${RELEASE_EVIDENCE_RUN_DIR:-}
 RELEASE_EVIDENCE_SUITE=${RELEASE_EVIDENCE_SUITE:-test}
 RELEASE_EVIDENCE_CAPTURE_XCRESULT=${RELEASE_EVIDENCE_CAPTURE_XCRESULT:-1}
@@ -85,6 +96,8 @@ XCODEBUILD_CMD=(
   -derivedDataPath "$DERIVED_DATA_PATH"
   -parallel-testing-enabled NO
   -enableCodeCoverage NO
+  -test-timeouts-enabled YES
+  -maximum-test-execution-time-allowance "${MARBLE_TEST_EXECUTION_TIMEOUT:-360}"
 )
 
 # Xcode still creates a DerivedData result bundle when no explicit

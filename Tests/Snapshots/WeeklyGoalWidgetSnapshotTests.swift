@@ -121,6 +121,11 @@ final class WeeklyGoalWidgetSnapshotTests: SnapshotTestCase {
                     let traits = UITraitCollection { mutableTraits in
                         mutableTraits.userInterfaceIdiom = .phone
                         mutableTraits.userInterfaceStyle = scheme == .dark ? .dark : .light
+                        // History a11y snapshots change the simulator content
+                        // size. Pin default Dynamic Type and 3x so a leaked
+                        // XXXL device setting cannot retarget these cards.
+                        mutableTraits.preferredContentSizeCategory = .large
+                        mutableTraits.displayScale = 3.0
                     }
 
                     let failure = verifySnapshot(

@@ -24,6 +24,8 @@ jobs:
     # GitHub-hosted macOS 26 image is not yet available to this org.
     runs-on: macos-26
     timeout-minutes: 90
+    env:
+      MARBLE_SIMULATOR_NAME: iPhone 17 Pro
     steps:
       - uses: actions/checkout@v4
         with:
