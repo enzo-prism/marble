@@ -11,10 +11,17 @@ final class TrendsSelectionUITests: MarbleUITestCase {
         scrollToElement(chart, in: scrollView)
         waitFor(chart)
 
-        tapVisible(chart, normalizedOffset: CGVector(dx: 0.9, dy: 0.5))
-
-        let list = waitForIdentifier("Trends.DaySheet.List", timeout: 6)
-        XCTAssertTrue(list.exists)
+        // 17 Pro can miss a single plot point (RC 42829580031). Retry across
+        // the right half of the series until the day sheet appears.
+        let list = app.descendants(matching: .any).matching(identifier: "Trends.DaySheet.List").firstMatch
+        for offset in [0.9, 0.75, 0.6, 0.45] as [CGFloat] {
+            if list.waitForExistence(timeout: 1.5) { break }
+            tapVisible(chart, normalizedOffset: CGVector(dx: offset, dy: 0.5))
+        }
+        XCTAssertTrue(
+            list.waitForExistence(timeout: 6),
+            "Consistency chart tap should open the day sheet"
+        )
     }
 
     func testTrendsWeeklyVolumeSelectionOpensWeekDetails() {

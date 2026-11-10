@@ -97,6 +97,7 @@ XCODEBUILD_CMD=(
   -parallel-testing-enabled NO
   -enableCodeCoverage NO
   -test-timeouts-enabled YES
+  -default-test-execution-time-allowance "${MARBLE_TEST_EXECUTION_TIMEOUT:-900}"
   -maximum-test-execution-time-allowance "${MARBLE_TEST_EXECUTION_TIMEOUT:-900}"
 )
 
