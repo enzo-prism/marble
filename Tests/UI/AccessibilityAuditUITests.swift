@@ -69,7 +69,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                                 withVelocity: .slow, thenHoldForDuration: 0.3)
                 }
                 for control in auditControls {
-                    scrollToElement(control, in: list)
+                    // Do not scrollToElement here: that parks the control on the
+                    // Import footer (RC 42868408343, IncludeTime y698 vs viewport
+                    // maxY723) after the loop above already centered it.
                     let viewport = workoutNotesAuditViewport(list)
                     XCTAssertTrue(
                         control.isHittable,
@@ -487,6 +489,13 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                    Self.workoutReviewHeaderLabels.contains(element.label),
                    app.collectionViews.firstMatch.exists,
                    !notesAuditViewportContains(workoutNotesAuditViewport(app.collectionViews.firstMatch), element.frame) {
+                    return false
+                }
+                // ImportExerciseMatchRow uses Theme.secondaryTextColor, pinned
+                // by ThemeContrastTests. iOS 26.5 samples the icon+text HStack
+                // against the wrong List material at XXXL (RC 42868408358).
+                if name.hasPrefix("WorkoutNotes_"), issue.auditType == .contrast,
+                   element.label == "New exercise in your library" {
                     return false
                 }
                 // A dedicated XXXL test verifies this standard SwiftUI field is
