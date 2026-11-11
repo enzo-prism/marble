@@ -34,13 +34,13 @@ private struct WorkoutActivityCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Text(context.state.title).font(.headline).lineLimit(1)
+                Text(context.state.title).font(.headline).lineLimit(1).privacySensitive()
                 Spacer(minLength: 8)
                 Text(context.attributes.startedAt, style: .timer).monospacedDigit()
                     .accessibilityLabel("Workout elapsed time")
             }
             if let exercise = context.state.exerciseName {
-                Text("\(exercise) · \(context.state.setCount) sets").font(.subheadline).lineLimit(2)
+                Text("\(exercise) · \(context.state.setCount) sets").font(.subheadline).lineLimit(2).privacySensitive()
             } else { Text("Ready for your first set").font(.subheadline) }
             if let end = context.state.restEndsAt, end > Date.now, !context.isStale {
                 HStack {

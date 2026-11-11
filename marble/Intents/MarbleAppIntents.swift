@@ -140,6 +140,7 @@ struct LogLastSetAgainIntent: LiveActivityIntent, UndoableIntent {
 @AppIntent(.tool)
 #endif
 struct ReviewWorkoutTextIntent: AppIntent {
+    static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
     static let title: LocalizedStringResource = "Review Workout Text"
     static let description = IntentDescription("Opens Marble to review a pasted workout before adding it to the journal.")
     static let openAppWhenRun = true
@@ -165,6 +166,7 @@ struct ReviewWorkoutTextIntent: AppIntent {
 @AppIntent(.tool)
 #endif
 struct ReviewWorkoutFileIntent: AppIntent {
+    static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
     static let title: LocalizedStringResource = "Review Workout File"
     static let description = IntentDescription("Opens Marble to review a Hevy, Strong, or Notes workout file before adding it to the journal.")
     static let openAppWhenRun = true

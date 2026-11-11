@@ -58,6 +58,7 @@ enum WorkoutSessionIntentSupport {
 @AppIntent(.tool)
 #endif
 struct StartWorkoutIntent: AppIntent {
+    static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
     static let title: LocalizedStringResource = "Start Workout"
     static let description = IntentDescription(
         "Starts a Marble workout so the sets you log are grouped into one session."
@@ -100,6 +101,7 @@ struct StartWorkoutIntent: AppIntent {
 @AppIntent(.tool)
 #endif
 struct FinishWorkoutIntent: AppIntent {
+    static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
     static let title: LocalizedStringResource = "Finish Workout"
     static let description = IntentDescription(
         "Ends the workout that's currently running and files it in your workout history."

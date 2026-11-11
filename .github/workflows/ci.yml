@@ -22,7 +22,7 @@ jobs:
     # Build with stable Xcode 27.0 and the pinned iOS 27.0 runtime; deployment
     # remains iOS 26.0 with availability checks for newer integrations.
     runs-on: xcode-27
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,6 +39,9 @@ jobs:
 
       - name: Run unit tests
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Unit.xcresult" make unit
+
+      - name: Verify extracted intent authentication
+        run: ruby scripts/verify_intent_authentication.rb "$PWD/DerivedData/Build/Products/Debug-iphonesimulator/marble.app"
 
       - name: Audit workout review, history and recovery
         if: success() || failure()

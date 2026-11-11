@@ -1,6 +1,18 @@
 # Marble Testing
 
-## Current candidate and verified distribution (2026-10-04)
+## Current Apple platform candidate (2026-11-11)
+
+The working candidate is on `feature/apple-platform-workouts`, draft PR 57. Source
+version remains 2.7 (85); no new binary has been uploaded. Current ASC readback is
+public 2.6.1 (84), with pre-existing 2.7 (86) approved and pending developer release.
+Read `RELEASE_HANDOFF.md` and `APPLE_PLATFORM_IMPLEMENTATION.md` for the dated
+candidate state. The historical October checks below do not certify this candidate.
+
+Physical validation uses the isolated `Prism.marble.validation` installation. The
+connected iPhone has Developer Mode/UI automation enabled; unlocked execution and
+optional Health permissions are still required for the remaining acceptance checks.
+
+## Historical hardening candidate and distribution (2026-10-04)
 
 - **Local candidate:** 2.6 (83), still under validation. It has not been uploaded,
   merged to main, or released publicly as part of this hardening work.
@@ -89,8 +101,8 @@ uses the same device unless `SIMULATOR_UDID` is set separately; the runner never
 simulators.
 
 The default gate set is unit, full snapshots, UI flows, accessibility, and shipped-source
-migration. Migration runs both 2.5 (77) and 2.4 (61) sequentially; neither baseline
-may be omitted from production evidence. `MIGRATION_BASE_REF` selects a focused
+migration. Migration runs public 2.6.1 (84), 2.5 (77) and 2.4 (61) sequentially; none of
+these baselines may be omitted from production evidence. `MIGRATION_BASE_REF` selects a focused
 diagnostic run only. Each invocation creates a new, non-overwriting directory under
 `<root>/<full-git-sha>/build-<number>/<run-id>/`. Unit and snapshot suites retain independent
 `.xcresult` bundles. UI and accessibility suites retain complete command logs and exit status
@@ -604,7 +616,7 @@ path when needed; do not point Xcode or these wrappers at the retired PortableSS
 ## Local App Store submission gate
 
 Complete `make release-evidence` on a clean final candidate. The required gates
-are unit, full snapshots, UI, accessibility and migration. Migration covers both
+are unit, full snapshots, UI, accessibility and migration. Migration covers public 2.6.1 (84),
 2.5 (77) and 2.4 (61); a focused override is not complete production coverage.
 Preserve the manifest and exact-source upload receipt, and complete
 [the 2.6 physical-device checklist](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.6.md).
@@ -612,7 +624,7 @@ The verifier checks that all evidence identifies the same final SHA/version/buil
 
 A simulator cannot establish real model behavior, locked-device keychain sharing,
 spoken Siri recognition, physical Apple Health integration or device performance.
-These remain separate hardware checks; currently the phone is unavailable.
+These remain separate hardware checks; follow the dated candidate section for device availability.
 
 ## Archived physical-device acceptance pass for 2.4
 
@@ -876,3 +888,12 @@ the Share extension-to-app review handoff, and paired Watch reconnect/retry/rest
 Watch simulator compilation is not wrist sensor acceptance. Custom Siri AI skill compilation,
 Siri Evaluations and conversational/card acceptance require the separate 27.3 preview
 setup in `SiriAIPreview/README.md`; regular App Intents tests cannot establish those results.
+
+### Extracted authentication metadata
+
+After building, run `ruby scripts/verify_intent_authentication.rb /absolute/path/to/marble.app`.
+The verifier reads Apple's extracted metadata, rather than inferring protection from
+a Swift property declaration. CI checks the simulator bundle and TestFlight checks
+the archive before export. A missing action or implicit/always-allowed policy fails.
+Entity presentation policies belong to the 27.3 preview and do not replace intent-level
+authentication in the stable build. Actual locked-device behavior is a separate check.

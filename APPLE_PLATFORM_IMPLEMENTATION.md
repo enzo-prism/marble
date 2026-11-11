@@ -8,7 +8,7 @@ This branch is an implementation candidate, not a release. No new binary has bee
 | Area | Candidate behavior | Acceptance still required |
 |---|---|---|
 | Shared commands | Log/repeat/start/finish save before rest, donations and indexing; undo cancels only the originating rest; complete units and sprint tenths | Final unit and migration gates |
-| App Intents | Typed set/session results, correction by exact ID, date-filtered workout search, open/share/repeat-review, authenticated private entities, nine App Shortcuts | Final physical system-path run; locked-device behavior |
+| App Intents | Typed set/session results, correction by exact ID, date-filtered workout search, open/share/repeat-review, authenticated data-returning actions, nine App Shortcuts | Final physical system-path run; locked-device behavior |
 | System surfaces | One workout-long Live Activity, integrated rest, exact routes, onscreen exercise/session associations, bounded Spotlight session indexing | Physical lock screen, termination/recovery and accessibility |
 | Apple Health | Retry checkpoints and stable sync IDs; no inferred workout effort; opt-in native strength session with pause/resume/recovery | Physical authorization, save, cleanup and background recovery |
 | Capture | On-device SpeechAnalyzer dictation with editable review; text/file/image Share extension with bounded local OCR and a five-item shared-keychain inbox | Physical speech and cross-process Share handoff |
@@ -21,6 +21,12 @@ The Watch target is a companion controller. It does not yet own a wrist HealthKi
 workout, collect Watch heart-rate sensors or provide a Smart Stack widget. Those are
 separate from the iPhone native session and must not be advertised as delivered.
 The preview scenarios are evaluation inputs, not executed Siri AI evaluations.
+Entity-level presentation authentication is a Siri 27.3 preview capability, not a
+verified stable-SDK privacy gate. Regular intents returning workout information
+explicitly require authentication, verified in Apple's extracted intent metadata
+for the development binary. The upload path verifies the archive metadata again.
+System redaction can hide the Live Activity's
+workout title and exercise label; locked-device acceptance is still required.
 
 ## Verification evidence so far
 
@@ -45,7 +51,9 @@ The preview scenarios are evaluation inputs, not executed Siri AI evaluations.
   overflow; fixed token metadata is cached without caching workout content.
 - Snapshot references are being intentionally updated for the pinned stable Xcode 27.0 /
   iOS 27.0 renderer; final recording and verification must both pass.
-- Release-tooling Ruby checks passed after signing and CI configuration changes.
+- Release-tooling Ruby checks passed after signing, authentication-metadata and CI changes.
+- The migration gate includes the immutable public 2.6.1 (84) source as well as
+  retained 2.5 (77) and 2.4 (61) coverage; the expanded gate must pass before release.
 
 Evidence above is developmental. Production requires clean committed source, the five
 release gates, a device signoff for that exact source/build, and an upload receipt.
@@ -68,7 +76,9 @@ See `RELEASE_HANDOFF.md`, `TESTING.md` and `SiriAIPreview/README.md`.
 ## Invariants
 
 1. Save before timers, system updates and donations.
-2. Preserve explicit units and tenths; never copy a historical measured time as a new performance.
+2. Preserve explicit units and tenths. New timed logs require an explicit duration;
+   they never infer a measured time from history. An explicit Repeat Last Set copies
+   its confirmed source; whole-workout repeats remain editable review drafts.
 3. Bulk/repeated workouts require editable review before commit.
 4. Keep schema V6, existing stable IDs and keychain group order; no App Group.
 5. Use navigation-only glass, monochrome content and accessible leaf controls.

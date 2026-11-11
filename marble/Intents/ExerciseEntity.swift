@@ -19,6 +19,9 @@ import SwiftData
 nonisolated struct ExerciseEntity: AppEntity, IndexedEntity {
     static var typeDisplayRepresentation: TypeDisplayRepresentation { "Exercise" }
     static var defaultQuery: ExerciseQuery { ExerciseQuery() }
+    // Entity presentation authentication is consumed by the 27.3 Siri preview.
+    // Stable-SDK actions returning personal data set their own intent policy.
+    static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
 
     /// Matches `Exercise.id` exactly, so the entity survives round-trips through
     /// saved Shortcuts and the Spotlight index.

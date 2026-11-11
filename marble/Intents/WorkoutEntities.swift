@@ -15,6 +15,8 @@ nonisolated enum DistanceUnitAppEnum: String, AppEnum, CaseIterable {
 }
 
 /// Stable identity for a confirmed set, so follow-up actions never guess from a timestamp.
+/// Entity-level authentication is Siri-preview metadata; regular data-returning
+/// actions must also declare authenticationPolicy on the AppIntent itself.
 nonisolated struct LoggedSetEntity: AppEntity, Transferable {
     static var typeDisplayRepresentation: TypeDisplayRepresentation { "Logged Set" }
     static var defaultQuery: LoggedSetQuery { LoggedSetQuery() }
@@ -130,6 +132,7 @@ nonisolated struct WorkoutSessionEntityQuery: EntityStringQuery {
 }
 
 struct OpenWorkoutSessionIntent: OpenIntent {
+    static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
     static let title: LocalizedStringResource = "Open Workout"
     static let description = IntentDescription("Opens the exact workout in Marble's history.")
     @Parameter(title: "Workout") var target: WorkoutSessionEntity
@@ -139,6 +142,7 @@ struct OpenWorkoutSessionIntent: OpenIntent {
 }
 
 struct OpenExerciseIntent: OpenIntent {
+    static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
     static let title: LocalizedStringResource = "Open Exercise"
     static let description = IntentDescription("Opens this exercise's progress and history in Marble.")
     @Parameter(title: "Exercise") var target: ExerciseEntity
@@ -168,6 +172,7 @@ struct FindWorkoutsIntent: AppIntent {
 @AppIntent(.tool)
 #endif
 struct ReviewRepeatedWorkoutIntent: AppIntent {
+    static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
     static let title: LocalizedStringResource = "Review Repeated Workout"
     static let description = IntentDescription("Opens an editable copy of a completed workout for today. Nothing is saved until reviewed in Marble.")
     static let supportedModes: IntentModes = [.foreground(.immediate)]
