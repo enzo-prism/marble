@@ -13,7 +13,7 @@ This branch is an implementation candidate, not a release. No new binary has bee
 | Apple Health | Retry checkpoints and stable sync IDs; no inferred workout effort; opt-in native strength session with pause/resume/recovery | Physical authorization, save, cleanup and background recovery |
 | Capture | On-device SpeechAnalyzer dictation with editable review; text/file/image Share extension with bounded local OCR and a five-item shared-keychain inbox | Physical speech and cross-process Share handoff |
 | History | Text export from session detail; repeats enter review; imported Health workout zones on iOS 27 | Final UI and accessibility suites |
-| Watch | Focused phone-connected controller: start, repeat last set, rest/skip, finish and refresh; persistent request IDs prevent repeat duplication after lost acknowledgements | Paired simulator/device transport, offline retry and rest alerts |
+| Watch | Focused phone-connected controller: start, repeat last set, rest/skip, finish and refresh; persistent request IDs prevent repeat duplication after lost acknowledgements | Physical Watch transport, offline retry and rest alerts |
 | AI extraction | Live model corpus tests record per-case outcomes and latency attachments | Run on the actual phone with its installed model |
 | Siri AI preview | Updated skill text, scenarios and separate development-only project generator; SDK preflight prevents accidental public packaging | Xcode/iOS 27.3, compiled skills, Siri Evaluations and conversational/card acceptance |
 
@@ -24,14 +24,25 @@ The preview scenarios are evaluation inputs, not executed Siri AI evaluations.
 
 ## Verification evidence so far
 
-- A full intermediate unit run passed 1,077 tests, with eight explicitly gated skips.
-  Source changes after that run require another full pass.
+- The latest full unit run completed 1,090 cases: 1,081 passed and nine explicitly
+  gated cases skipped, with zero failures, after the callback, parser and editor changes.
+  This is developmental evidence; release still needs an exact committed-source run.
 - Physical validation confirmed sprint tenths and start/log/repeat/finish through
   Apple's App Intents system path. The query identity assertion was corrected to compare
   instance IDs, because the framework can omit a returned entity's bundle qualification.
 - Four active-session/navigation checks passed on the connected phone. Final whole-suite
   UI, accessibility, snapshots, migration and device acceptance remain pending.
-- Watch simulator compilation passed. This is not paired transport or physical Watch acceptance.
+- A paired iOS/watchOS 27.0 simulator run exercised start, rest, skip, repeat and finish.
+  Phone-store readback confirmed one completed workout with exactly two sets after one
+  phone save and one Watch repeat. A WatchConnectivity callback actor-isolation crash
+  found during this run was fixed and rechecked. Physical Watch, offline retry and
+  notification/haptic acceptance remain pending.
+- An on-device hybrid-parser evaluation passed 41/43 standard cases and 5/7 prose cases,
+  but failed the unchanged hard-corpus gate at 36/71 (51%; required 60%). Later paced
+  execution was interrupted by the phone relocking and is not a new quality result.
+  Explicit list and weight-first notation fixes are under regression test; the device
+  quality gate must be rerun. Model-service throttling is now distinguished from context
+  overflow; fixed token metadata is cached without caching workout content.
 - Snapshot references are being intentionally updated for the pinned stable Xcode 27.0 /
   iOS 27.0 renderer; final recording and verification must both pass.
 - Release-tooling Ruby checks passed after signing and CI configuration changes.
@@ -71,3 +82,6 @@ See `RELEASE_HANDOFF.md`, `TESTING.md` and `SiriAIPreview/README.md`.
 - [Running workout sessions](https://developer.apple.com/documentation/healthkit/running-workout-sessions)
 - [SpeechAnalyzer introduction](https://developer.apple.com/videos/play/wwdc2025/277/)
 - [Speech asset inventory](https://developer.apple.com/documentation/speech/assetinventory)
+
+- [Foundation Models OS/model revision guidance](https://developer.apple.com/documentation/Updates/FoundationModels)
+- [Model rate-limit recovery](https://developer.apple.com/documentation/foundationmodels/languagemodelerror/ratelimited(_:))

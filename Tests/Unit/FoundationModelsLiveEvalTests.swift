@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 @testable import marble
 
 /// Live evaluation of the on-device model parser against the eval corpora.
@@ -16,6 +17,20 @@ import XCTest
 /// per-case exactness, because model output legitimately varies run to run.
 @MainActor
 final class FoundationModelsLiveEvalTests: MarbleTestCase {
+
+    private var originalIdleTimerDisabled: Bool?
+    override func setUp() {
+        super.setUp()
+        if ProcessInfo.processInfo.environment["MARBLE_FM_EVAL"] == "1" {
+            originalIdleTimerDisabled = UIApplication.shared.isIdleTimerDisabled
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
+    }
+    override func tearDown() {
+        if let originalIdleTimerDisabled { UIApplication.shared.isIdleTimerDisabled = originalIdleTimerDisabled }
+        originalIdleTimerDisabled = nil
+        super.tearDown()
+    }
 
     /// Minimum fraction of all `.all` cases the parse path must satisfy.
     private static let requiredPassRate = 0.8
@@ -48,6 +63,7 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
         var pass: Bool
         var failures: [String]
         var seconds: Double
+        var modelIssue: String?
     }
 
     private func skipUnlessLiveModel() throws {
@@ -63,17 +79,24 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
 
     private func evaluate(_ cases: [WorkoutParseEvalCase], label: String) async -> [CaseResult] {
         var results: [CaseResult] = []
-        for evalCase in cases {
+        print("[FM APP STATE] \(UIApplication.shared.applicationState.rawValue)")
+        for (index, evalCase) in cases.enumerated() {
+            // Independent quality samples should not become a burst-rate-limit
+            // stress test of the OS model service. Keep the quality threshold.
+            if index > 0 { try? await Task.sleep(for: .seconds(3)) }
             // Each case carries the user's preferred unit, as the app does.
             let parser = FoundationModelsWorkoutScanParser(defaultWeightUnit: evalCase.defaultWeightUnit)
+            print("[FM START] \(evalCase.name)")
             let start = Date()
             let draft = await parser.parse(ocrText: evalCase.input, referenceDate: Self.fixedNow)
             let seconds = Date().timeIntervalSince(start)
             let result = WorkoutParseEvalCase.matches(draft, evalCase.expected)
             results.append(CaseResult(
                 name: evalCase.name, tier: evalCase.tier, pass: result.pass,
-                failures: result.failures, seconds: seconds
+                failures: result.failures, seconds: seconds,
+                modelIssue: parser.lastModelIssue.map { String(describing: $0) }
             ))
+            print("[FM END] \(evalCase.name): \(result.pass ? "PASS" : "FAIL"), \(String(format: "%.1f", seconds))s, model issue: \(String(describing: parser.lastModelIssue))")
         }
 
         // Per-case table so a failing run shows exactly where the model fell
@@ -93,7 +116,7 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
             "cases": results.map { result in
                 ["name": result.name, "tier": String(describing: result.tier),
                  "passed": result.pass, "failures": result.failures,
-                 "seconds": result.seconds] as [String: Any]
+                 "seconds": result.seconds, "modelIssue": result.modelIssue ?? "none"] as [String: Any]
             }
         ]
         if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) {

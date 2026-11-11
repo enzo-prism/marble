@@ -480,7 +480,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 // this CTA is intentionally unavailable until text exists. Keep
                 // auditing the same element as soon as it becomes enabled.
                 if issue.auditType == .contrast,
-                   element.identifier == "TextEntry.Preview",
+                   ["TextEntry.Preview", "NotificationEditor.Save"].contains(element.identifier),
                    !element.isEnabled {
                     return false
                 }
@@ -493,8 +493,8 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 return true
             }
 
-            if name.hasPrefix("WorkoutNotes_"), filteredIssues.contains(where: { $0.auditType == .contrast }) {
-                filteredIssues = try workoutNotesIssuesSurvivingContrastRecheck(filteredIssues, auditName: name)
+            if filteredIssues.contains(where: { $0.auditType == .contrast }) {
+                filteredIssues = try issuesSurvivingMeasuredContrastRecheck(filteredIssues, auditName: name)
             }
 
             if filteredIssues.isEmpty {
@@ -535,11 +535,20 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
     /// element's contrast report still fails the test.
     private static let pixelVerifiedContrastElements: [(type: XCUIElement.ElementType, identifier: String, label: String)] = [
         (.staticText, "", "Your workout"),
-        (.button, "TextEntry.EditText", "Edit Text")
+        (.button, "TextEntry.EditText", "Edit Text"),
+        // iOS 27 audit-v2 screenshots: Overview measured 20.65:1 in light
+        // and 16.48:1 in dark; Notification Cancel 20.65:1, Save 12.42:1.
+        // These are text-only native toolbar buttons, without icons. Recheck
+        // actual pixels on every failure; a future low-contrast rendering fails.
+        (.button, "Trends.Details.Overview", "Overview"),
+        // The corresponding Details label measured 20.65:1 in audit-v3.
+        (.button, "Trends.Details.Toggle", "Details"),
+        (.button, "NotificationEditor.Cancel", "Cancel"),
+        (.button, "NotificationEditor.Save", "Save")
     ]
 
     @available(iOS 17.0, *)
-    private func workoutNotesIssuesSurvivingContrastRecheck(
+    private func issuesSurvivingMeasuredContrastRecheck(
         _ issues: [XCUIAccessibilityAuditIssue], auditName: String
     ) throws -> [XCUIAccessibilityAuditIssue] {
         let screenshot = XCUIScreen.main.screenshot()
@@ -555,13 +564,25 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         var notes: [String] = []
         let kept = issues.filter { issue in
             guard issue.auditType == .contrast, let element = issue.element,
-                  Self.pixelVerifiedContrastElements.contains(where: {
-                      $0.type == element.elementType && $0.identifier == element.identifier && $0.label == element.label
-                  }),
                   element.exists, element.isHittable else { return true }
+            let investigated = Self.pixelVerifiedContrastElements.contains {
+                $0.type == element.elementType && $0.identifier == element.identifier && $0.label == element.label
+            }
+            // The same iOS 27 report also affected ExerciseEditor.Cancel after
+            // the earlier surfaces passed. Native plain-text Cancel/Save/Done
+            // controls can be checked by their rendered text, only when the
+            // identified button really belongs to a navigation bar. Icons and
+            // compound controls remain outside this recheck.
+            let nativePlainText = element.elementType == .button && !element.identifier.isEmpty
+                && ["Cancel", "Save", "Done"].contains(element.label)
+                && app.navigationBars.buttons.matching(identifier: element.identifier).firstMatch.exists
+            guard investigated || nativePlainText else { return true }
             let frame = element.frame
-            guard frame.width >= 4, frame.height >= 4, window.contains(frame),
-                  let ratio = measuredContrastRatio(in: image, rect: frame.applying(CGAffineTransform(scaleX: scale, y: scale)))
+            // Exclude the capsule border so a dark decorative edge cannot
+            // supply the measured text contrast of a low-contrast label.
+            let textFrame = nativePlainText ? frame.insetBy(dx: min(8, frame.width / 10), dy: 4) : frame
+            guard textFrame.width >= 4, textFrame.height >= 4, window.contains(textFrame),
+                  let ratio = measuredContrastRatio(in: image, rect: textFrame.applying(CGAffineTransform(scaleX: scale, y: scale)))
             else { return true }
             let passes = ratio >= 4.5
             notes.append("\(element.label) (\(element.identifier)): measured \(String(format: "%.1f", ratio)):1, \(passes ? "cleared" : "kept")")

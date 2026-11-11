@@ -419,14 +419,13 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
         // Two model readings, in order: a rewrite into gym notation that the
         // deterministic parser then parses, and direct structured extraction.
         // Transliteration is the narrower task, so structured extraction runs
-        // only when the rewrite yields no source-grounded content; live
-        // evaluation found no benefit to always generating the larger schema.
+        // only when the rewrite yields no source-grounded content.
         var candidates: [ParsedWorkoutDraft?] = []
         var issues: [ModelIssue] = []
         for (index, pass) in Pass.allCases.enumerated() {
             if Task.isCancelled { return (candidates, nil) }
-            guard await fitsContext(pass, text: ocrText) else {
-                issues.append(.inputTooLong)
+            if let issue = await contextIssue(pass, text: ocrText) {
+                issues.append(issue)
                 continue
             }
             await onStage(.interpreting(pass: index + 1, of: Pass.allCases.count))
@@ -498,22 +497,35 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
     /// overflow known up front costs nothing; one discovered by the call costs
     /// a full prefill. Splitting long pastes is the session segmenter's job.
     @available(iOS 26.0, *)
-    private func fitsContext(_ pass: Pass, text: String) async -> Bool {
+    private func contextIssue(_ pass: Pass, text: String) async -> ModelIssue? {
         let model = Self.transformationModel
         let prompt = pass.prompt(for: text)
         var used = Self.estimatedTokens(prompt) + pass.overheadTokens
         if #available(iOS 26.4, *) {
             do {
-                used = try await model.tokenCount(for: prompt)
-                    + model.tokenCount(for: Instructions(pass.instructions))
-                    + model.tokenCount(for: pass.schema)
+                let key = pass == .rewrite ? "rewrite" : "generate"
+                let overhead: Int
+                if let cached = Self.tokenOverheads.withLock({ $0[key] }) { overhead = cached }
+                else {
+                    overhead = try await model.tokenCount(for: Instructions(pass.instructions))
+                        + model.tokenCount(for: pass.schema)
+                    Self.tokenOverheads.withLock { $0[key] = overhead }
+                }
+                used = try await model.tokenCount(for: prompt) + overhead
             } catch {
-                // Keep the estimate; the call itself will report a real failure.
+                // A throttled metadata request is not evidence of a long note.
+                return Self.classify(error).issue ?? .failed
             }
         }
-        // `contextSize` is back-deployed and reports 4096 before iOS 27.
-        return Self.fitsContext(usedTokens: used, contextSize: model.contextSize)
+        let size = model.contextSize
+        guard size > 0 else { return .unavailable }
+        return Self.fitsContext(usedTokens: used, contextSize: size) ? nil : .inputTooLong
     }
+
+    /// Fixed instructions/schema are the same for every segment. Counting them
+    /// once avoids repeated metadata IPC and avoids exhausting the model service
+    /// during a batch import. No workout content is cached here.
+    private static let tokenOverheads = Mutex<[String: Int]>([:])
 
     @available(iOS 26.0, *)
     private func rewriteOnce(ocrText: String, referenceDate: Date) async throws -> ParsedWorkoutDraft? {

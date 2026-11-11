@@ -865,6 +865,19 @@ nonisolated enum WorkoutDraftArbiter {
             for match in numberTokenRegex?.matches(in: text, range: range) ?? [] {
                 if let value = group(match, 0, in: text).flatMap(Double.init) { counts[value, default: 0] += 1 }
             }
+            // In a load phrase, "with the fifties" names 50-unit dumbbells.
+            // An age or calendar decade is not load evidence.
+            let decades: [String: Double] = ["twenties": 20, "thirties": 30, "forties": 40,
+                "fifties": 50, "sixties": 60, "seventies": 70, "eighties": 80, "nineties": 90]
+            if let expression = try? NSRegularExpression(
+                pattern: #"\b(?:with|using|at)\s+(?:the\s+)?(twenties|thirties|forties|fifties|sixties|seventies|eighties|nineties)\b"#,
+                options: [.caseInsensitive]) {
+                for match in expression.matches(in: text, range: range) {
+                    if let word = group(match, 1, in: text)?.lowercased(), let value = decades[word] {
+                        counts[value, default: 0] += 1
+                    }
+                }
+            }
             let words = text.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init)
             for word in words {
                 if let value = numberWords[word] { counts[value, default: 0] += 1 }

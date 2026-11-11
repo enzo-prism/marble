@@ -57,7 +57,7 @@ final class WorkoutDictation {
             }
             let (stream, continuation) = AsyncStream<AnalyzerInput>.makeStream()
             let bridge = SpeechAudioBridge(converter: converter, format: format, continuation: continuation)
-            input.installTap(onBus: 0, bufferSize: 4096, format: nativeFormat) { buffer, _ in bridge.accept(buffer) }
+            input.installTap(onBus: 0, bufferSize: 4096, format: nativeFormat) { @Sendable buffer, _ in bridge.accept(buffer) }
             let analyzer = SpeechAnalyzer(modules: [transcriber])
             self.engine = engine
             self.analyzer = analyzer
