@@ -30,8 +30,10 @@ workout title and exercise label; locked-device acceptance is still required.
 
 ## Verification evidence so far
 
-- The latest full unit run completed 1,090 cases: 1,081 passed and nine explicitly
-  gated cases skipped, with zero failures, after the callback, parser and editor changes.
+- The latest full unit run completed 1,092 cases: 1,083 passed and nine explicitly
+  gated cases skipped, with zero failures, after the callback, parser, editor,
+  authentication and overnight Health export changes. A subsequent focused run
+  also verified the Health selection predicate against a reopened SQLite store.
   This is developmental evidence; release still needs an exact committed-source run.
 - Physical validation confirmed sprint tenths and start/log/repeat/finish through
   Apple's App Intents system path. The query identity assertion was corrected to compare
@@ -50,7 +52,10 @@ workout title and exercise label; locked-device acceptance is still required.
   quality gate must be rerun. Model-service throttling is now distinguished from context
   overflow; fixed token metadata is cached without caching workout content.
 - Snapshot references are being intentionally updated for the pinned stable Xcode 27.0 /
-  iOS 27.0 renderer; final recording and verification must both pass.
+  iOS 27.0 renderer. Recording uses four disjoint shards, each followed by verification;
+  artifacts include changed references only. Production evidence forces the full suite.
+  The earlier sequential recorder was cancelled after live logs showed only group 13
+  at 75 minutes; its partial artifact is not full acceptance.
 - Release-tooling Ruby checks passed after signing, authentication-metadata and CI changes.
 - The migration gate includes the immutable public 2.6.1 (84) source as well as
   retained 2.5 (77) and 2.4 (61) coverage; the expanded gate must pass before release.

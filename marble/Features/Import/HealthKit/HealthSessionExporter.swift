@@ -69,14 +69,12 @@ final class HealthSessionExporter {
         )
         guard let entries = try? modelContext.fetch(descriptor) else { return }
 
-        let sessionDescriptor = FetchDescriptor<WorkoutSession>(
-            predicate: #Predicate { $0.startedAt >= windowStart && $0.endedAt != nil },
-            sortBy: [SortDescriptor(\.startedAt)]
-        )
-        let sessions = (try? modelContext.fetch(sessionDescriptor)) ?? []
+        // Active membership matters even when the workout began before this
+        // window: its older sets must not become separate legacy-day exports.
+        guard let sessions = try? modelContext.fetch(Self.relevantSessions(since: windowStart)) else { return }
         var exportedSessionIDs = Set(UserDefaults.standard.stringArray(forKey: Self.exportedSessionIDsKey) ?? [])
 
-        for session in sessions where !exportedSessionIDs.contains(session.id.uuidString) {
+        for session in sessions where !session.isActive && !exportedSessionIDs.contains(session.id.uuidString) {
             let manualSets = session.orderedEntries.filter { $0.importedWorkout == nil }
             guard !manualSets.isEmpty else { continue }
             guard await export(sets: manualSets, start: session.startedAt, end: session.endedAt, identifier: "Prism.marble.session.\(session.id.uuidString)") else { continue }
@@ -87,10 +85,7 @@ final class HealthSessionExporter {
         var exportedKeys = UserDefaults.standard.stringArray(forKey: Self.exportedDayKeysKey) ?? []
         let exportedSet = Set(exportedKeys)
 
-        let sessionEntryIDs = Set(sessions.flatMap(\.entries).map(\.id))
-        let legacyDays = Dictionary(grouping: entries.filter {
-            $0.importedWorkout == nil && !sessionEntryIDs.contains($0.id)
-        }) {
+        let legacyDays = Dictionary(grouping: Self.unassignedManualEntries(entries, sessions: sessions)) {
             calendar.startOfDay(for: $0.performedAt)
         }
 
@@ -106,6 +101,19 @@ final class HealthSessionExporter {
             exportedKeys.removeFirst(exportedKeys.count - Self.exportedDayKeyCap)
         }
         UserDefaults.standard.set(exportedKeys, forKey: Self.exportedDayKeysKey)
+    }
+
+    static func relevantSessions(since windowStart: Date) -> FetchDescriptor<WorkoutSession> {
+        let future = Date.distantFuture
+        return FetchDescriptor<WorkoutSession>(
+            predicate: #Predicate { $0.startedAt >= windowStart || ($0.endedAt ?? future) >= windowStart },
+            sortBy: [SortDescriptor(\.startedAt)]
+        )
+    }
+
+    static func unassignedManualEntries(_ entries: [SetEntry], sessions: [WorkoutSession]) -> [SetEntry] {
+        let sessionEntryIDs = Set(sessions.flatMap(\.entries).map(\.id))
+        return entries.filter { $0.importedWorkout == nil && !sessionEntryIDs.contains($0.id) }
     }
 
     /// One session/day → one workout. Unclassified history stays unclassified.

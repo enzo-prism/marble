@@ -22,7 +22,14 @@ concurrency:
 jobs:
   record:
     runs-on: xcode-27
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(inputs.suite == 'full' && '[0,1,2,3]' || '[0]') }}
     timeout-minutes: ${{ inputs.suite == 'full' && 180 || 30 }}
+    env:
+      SNAPSHOT_SHARD_COUNT: ${{ inputs.suite == 'full' && '4' || '1' }}
+      SNAPSHOT_SHARD_INDEX: ${{ matrix.shard }}
     steps:
       - uses: actions/checkout@v4
       - name: Select pinned Xcode
@@ -45,13 +52,24 @@ jobs:
           else
             SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutComposerSnapshotTests make snapshot
           fi
+      - name: Collect changed references
+        if: always()
+        run: |
+          mkdir -p snapshot-review
+          { git diff --name-only --diff-filter=AM -- 'Tests/Snapshots/__Snapshots__/**/*.png'; git ls-files --others --exclude-standard -- 'Tests/Snapshots/__Snapshots__/**/*.png'; } | sort -u > snapshot-review/changed-files.txt
+          while IFS= read -r path; do
+            [[ -n "$path" ]] || continue
+            mkdir -p "snapshot-review/$(dirname "$path")"
+            cp "$path" "snapshot-review/$path"
+          done < snapshot-review/changed-files.txt
+          printf 'source=%s\nshard=%s/%s\n' "$(git rev-parse HEAD)" "$SNAPSHOT_SHARD_INDEX" "$SNAPSHOT_SHARD_COUNT" > snapshot-review/source.txt
       - name: Upload references for review
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.suite == 'full' && 'all-snapshot-references' || 'composer-snapshot-references' }}
+          name: snapshot-references-${{ inputs.suite }}-${{ matrix.shard }}
           path: |
-            Tests/Snapshots/__Snapshots__/**/*.png
+            snapshot-review/
             TestResults/*.xcresult
           if-no-files-found: error
           retention-days: 14
