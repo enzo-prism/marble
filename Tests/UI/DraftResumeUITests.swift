@@ -71,11 +71,16 @@ final class DraftResumeUITests: MarbleUITestCase {
             // Its center is outside the native switch, so tap that child directly.
             let nativeSwitch = includeTime.switches.firstMatch
             waitFor(nativeSwitch)
-            forceTap(nativeSwitch)
-            let enabled = XCTNSPredicateExpectation(
-                predicate: NSPredicate(format: "value == '1'"), object: includeTime
-            )
-            XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 5), .completed)
+            // XXXL on 17 Pro can miss the first tap (CI 42959670326, waiter
+            // timed out with value still 0). Retap while the switch is off.
+            for _ in 0..<3 {
+                guard (includeTime.value as? String) != "1" else { break }
+                forceTap(nativeSwitch)
+                let enabled = XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "value == '1'"), object: includeTime
+                )
+                if XCTWaiter.wait(for: [enabled], timeout: 4) == .completed { break }
+            }
             XCTAssertEqual(includeTime.value as? String, "1")
             // Inspect the switch while its lazy row is visible. Revealing the
             // full picker can legitimately scroll that row out of the tree.

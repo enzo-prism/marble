@@ -83,9 +83,21 @@ prepare_ui_simulator() {
   # deterministic ready state before launching a UI test runner.
   xcrun simctl boot "${simulator_id}" >/dev/null 2>&1 || true
   xcrun simctl bootstatus "${simulator_id}" -b
+  MARBLE_SIMULATOR_ID="${simulator_id}" "${ROOT_DIR}/scripts/reset_simulator_ui.sh" large
   xcrun simctl terminate "${simulator_id}" Prism.marbleUITests.xctrunner >/dev/null 2>&1 || true
   xcrun simctl terminate "${simulator_id}" Prism.marble >/dev/null 2>&1 || true
   sleep 2
+}
+
+gate_timeout_seconds() {
+  case "$1" in
+    unit) echo "${RELEASE_EVIDENCE_UNIT_TIMEOUT:-1500}" ;;
+    snapshot) echo "${RELEASE_EVIDENCE_SNAPSHOT_TIMEOUT:-10800}" ;;
+    ui) echo "${RELEASE_EVIDENCE_UI_TIMEOUT:-7200}" ;;
+    accessibility) echo "${RELEASE_EVIDENCE_AUDIT_TIMEOUT:-2400}" ;;
+    migration) echo "${RELEASE_EVIDENCE_MIGRATION_TIMEOUT:-1800}" ;;
+    *) echo "${RELEASE_EVIDENCE_GATE_TIMEOUT:-3600}" ;;
+  esac
 }
 
 run_gate() {
@@ -100,12 +112,18 @@ run_gate() {
   printf -v command_text '%q ' "$@"
   command_text=${command_text% }
 
+  local timeout_seconds
+  timeout_seconds=$(gate_timeout_seconds "${gate}")
   echo "==> ${gate}: ${command_text}"
+  echo "==> ${gate} watchdog: ${timeout_seconds}s"
   set +e
-  "$@" 2>&1 | tee "${log_path}"
+  "${ROOT_DIR}/scripts/run_with_timeout.sh" "${timeout_seconds}" "$@" 2>&1 | tee "${log_path}"
   pipeline_status=("${PIPESTATUS[@]}")
   set -e
   exit_code=${pipeline_status[0]}
+  if (( exit_code == 124 )); then
+    printf '%s\n' "Gate ${gate} exceeded ${timeout_seconds}s and was killed." | tee -a "${log_path}" >&2
+  fi
   completed_at=$(iso8601_now)
 
   if (( exit_code == 0 )); then
@@ -276,7 +294,9 @@ run_release_evidence() {
         ;;
       accessibility)
         prepare_ui_simulator
-        run_gate "${gate}" env RELEASE_EVIDENCE_CAPTURE_XCRESULT=0 make -C "${ROOT_DIR}" audit
+        # DefaultText walks ~20 screens per appearance. A 15-minute per-test
+        # cap still listed it as failed with no assertion (run 42784019972).
+        run_gate "${gate}" env RELEASE_EVIDENCE_CAPTURE_XCRESULT=0 MARBLE_TEST_EXECUTION_TIMEOUT=1200 make -C "${ROOT_DIR}" audit
         ;;
       migration)
         run_gate "${gate}" make -C "${ROOT_DIR}" migration-release

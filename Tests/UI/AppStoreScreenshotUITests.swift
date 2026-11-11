@@ -30,6 +30,8 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
     func test12HistoryAndRepeat() {
         launchScreenshotApp(initialTab: "add", nowISO8601: "2026-07-15T16:30:00.000Z")
         forceTap(waitForIdentifier("Workout.Open", timeout: 8))
+        let finish = app.descendants(matching: .any).matching(identifier: "Workout.Finish").firstMatch
+        scrollToElement(finish, in: app)
         forceTap(waitForIdentifier("Workout.Finish", timeout: 8))
         confirmFinishWorkout()
         app.navigationBars["Workout"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
@@ -38,10 +40,12 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         forceTap(waitForIdentifier("Journal.WorkoutHistory", timeout: 8))
         let session = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'History.Session.'")).firstMatch
+        scrollToElement(session, in: app)
         waitFor(session, timeout: 10)
         takeScreenshot("12-workout-history")
         forceTap(session)
         let repeatButton = waitForIdentifier("History.Repeat", timeout: 8)
+        scrollToElement(repeatButton, in: app)
         XCTAssertTrue(repeatButton.isEnabled)
         forceTap(repeatButton)
         _ = waitForIdentifier("TextEntry.Title", timeout: 8)

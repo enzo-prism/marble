@@ -23,7 +23,9 @@ jobs:
     # the matching iOS 26 simulator runtime. Switch to a self-hosted runner if the
     # GitHub-hosted macOS 26 image is not yet available to this org.
     runs-on: macos-26
-    timeout-minutes: 90
+    timeout-minutes: 120
+    env:
+      MARBLE_SIMULATOR_NAME: iPhone 17 Pro
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,7 +62,7 @@ jobs:
 
       - name: Verify History and Composer snapshots
         if: success() || failure()
-        run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests,MarbleSnapshotTests/WorkoutComposerSnapshotTests make snapshot
+        run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutComposerSnapshotTests,MarbleSnapshotTests/WorkoutHistorySnapshotTests make snapshot
 
       - name: Verify release tooling
         if: success() || failure()

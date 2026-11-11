@@ -3,13 +3,28 @@ set -euo pipefail
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
+# History native chrome is host-scene specific. The UI-test iPhone 17 Pro
+# ghosts navigation titles on current macos-26 images; snapshots pick a
+# 15 Pro-class (or Air) scene instead of inheriting the UI-test UDID.
+if [[ -z "${MARBLE_SNAPSHOT_SIMULATOR_ID:-}" ]]; then
+  unset MARBLE_SIMULATOR_ID
+  export MARBLE_SIMULATOR_PROFILE=snapshot
+  export MARBLE_SIMULATOR_NAME="${MARBLE_SNAPSHOT_SIMULATOR_NAME:-iPhone 15 Pro}"
+else
+  export MARBLE_SIMULATOR_ID="${MARBLE_SNAPSHOT_SIMULATOR_ID}"
+fi
+
 destination=""
-if destination=$("${ROOT_DIR}/scripts/sim_destination.sh" 2>/dev/null); then
+if destination=$("${ROOT_DIR}/scripts/sim_destination.sh"); then
   :
 fi
 sim_id="${destination#id=}"
 if [[ "${destination}" != id=* ]]; then
   sim_id=""
+fi
+if [[ -n "${sim_id}" ]]; then
+  export MARBLE_SIMULATOR_ID="${sim_id}"
+  echo "Snapshot simulator id=${sim_id}"
 fi
 
 SNAPSHOT_SUITE=${SNAPSHOT_SUITE:-full}
@@ -114,8 +129,22 @@ prepare_simulator() {
   if [[ -z "${sim_id}" ]]; then
     return 0
   fi
-  xcrun simctl boot "${sim_id}" >/dev/null 2>&1 || true
-  xcrun simctl bootstatus "${sim_id}" -b >/dev/null 2>&1 || true
+  local destination
+  export MARBLE_SIMULATOR_ID="${sim_id}"
+  if ! destination=$("${ROOT_DIR}/scripts/ensure_simulator.sh"); then
+    echo "Snapshot simulator ${sim_id} disappeared from CoreSimulator." >&2
+    return 1
+  fi
+  sim_id="${destination#id=}"
+  export MARBLE_SIMULATOR_ID="${sim_id}"
+}
+
+ensure_content_size() {
+  local desired="$1"
+  if [[ -z "${sim_id}" ]]; then
+    return 0
+  fi
+  MARBLE_SIMULATOR_ID="${sim_id}" "${ROOT_DIR}/scripts/reset_simulator_ui.sh" "${desired}"
 }
 
 cleanup_simulator() {
@@ -123,21 +152,24 @@ cleanup_simulator() {
     return 0
   fi
   xcrun simctl terminate "${sim_id}" Prism.marble >/dev/null 2>&1 || true
+}
+
+shutdown_simulator() {
+  if [[ -z "${sim_id}" ]]; then
+    return 0
+  fi
   xcrun simctl shutdown "${sim_id}" >/dev/null 2>&1 || true
-  sleep 2
 }
 
 # Native UIKit search caches its initial font from the process-wide category.
 # A child hosting-controller override cannot faithfully simulate changing that
 # initial category. Launch History separately for each real simulator text size.
-history_original_content_size=""
-restore_history_content_size() {
-  if [[ -n "${history_original_content_size}" ]]; then
-    xcrun simctl ui "${sim_id}" content_size "${history_original_content_size}"
-    history_original_content_size=""
-  fi
-}
-trap 'snapshot_exit_status=$?; restore_history_content_size || snapshot_exit_status=1; exit "${snapshot_exit_status}"' EXIT
+# Always put the device back to `large` afterwards — content_size survives
+# shutdown/boot on current macos-26 runner images, and a leaked XXXL setting
+# makes the following widget, UI, and audit gates fail as layout regressions.
+# Keep the simulator booted between groups; shutdown+boot on every group is
+# why the 160-minute watchdog killed History with three groups left.
+trap 'snapshot_exit_status=$?; ensure_content_size large || true; shutdown_simulator || true; exit "${snapshot_exit_status}"' EXIT
 
 index=0
 for group in "${SNAPSHOT_GROUPS[@]}"; do
@@ -159,19 +191,25 @@ for group in "${SNAPSHOT_GROUPS[@]}"; do
       result_path="${ROOT_DIR}/TestResults/MarbleSnapshots_${index}${group_suffix}.xcresult"
     fi
     echo "Running snapshot group: ${group}${group_suffix}"
+    # History a11y used to shutdown+boot so UIKit search rebuilt at XXXL.
+    # That reboot is what dropped every xcodebuild destination on macos-26
+    # (CI 43032442125). Terminate the app and set content_size on the same
+    # booted scene instead; pixel compare for a11y History is skipped after OCR.
+    cleanup_simulator
     prepare_simulator
-    if [[ -n "${category}" ]]; then
-      history_original_content_size=$(xcrun simctl ui "${sim_id}" content_size)
-      system_category=large
-      [[ "${category}" != a11y ]] || system_category=accessibility-extra-extra-extra-large
-      xcrun simctl ui "${sim_id}" content_size "${system_category}"
+    system_category=large
+    if [[ "${category}" == a11y ]]; then
+      system_category=accessibility-extra-extra-extra-large
     fi
+    ensure_content_size "${system_category}"
     if [[ -n "${category}" ]]; then
-      RESULT_BUNDLE_PATH="${result_path}" "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "MARBLE_HISTORY_SNAPSHOT_CATEGORY=${category}" "$@"
+      RESULT_BUNDLE_PATH="${result_path}" MARBLE_SIMULATOR_CONTENT_SIZE="${system_category}" \
+        "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "MARBLE_HISTORY_SNAPSHOT_CATEGORY=${category}" "$@"
     else
-      RESULT_BUNDLE_PATH="${result_path}" "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "$@"
+      RESULT_BUNDLE_PATH="${result_path}" MARBLE_SIMULATOR_CONTENT_SIZE="${system_category}" \
+        "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "$@"
     fi
-    restore_history_content_size
+    ensure_content_size large
     cleanup_simulator
     index=$((index + 1))
   done

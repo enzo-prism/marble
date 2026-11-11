@@ -18,9 +18,28 @@ else
   exit 1
 fi
 
-DESTINATION=${DESTINATION:-$("${ROOT_DIR}/scripts/sim_destination.sh")}
 DERIVED_DATA_PATH=${DERIVED_DATA_PATH:-"${ROOT_DIR}/DerivedData"}
 mkdir -p "${DERIVED_DATA_PATH}"
+
+refresh_simulator_destination() {
+  if [[ -n "${DESTINATION:-}" && "${DESTINATION}" != id=* ]]; then
+    return 0
+  fi
+  if [[ "${DESTINATION:-}" == id=* ]]; then
+    export MARBLE_SIMULATOR_ID="${MARBLE_SIMULATOR_ID:-${DESTINATION#id=}}"
+  fi
+  DESTINATION=$("${ROOT_DIR}/scripts/ensure_simulator.sh")
+  export MARBLE_SIMULATOR_ID="${DESTINATION#id=}"
+  # History snapshots flip the device content size to XXXL. That setting
+  # survives shutdown/boot on current macos-26 images, so every later
+  # xcodebuild must put it back before launching the runner.
+  if [[ "${MARBLE_SKIP_CONTENT_SIZE_RESET:-0}" != "1" ]]; then
+    desired_size="${MARBLE_SIMULATOR_CONTENT_SIZE:-large}"
+    "${ROOT_DIR}/scripts/reset_simulator_ui.sh" "${desired_size}"
+  fi
+}
+
+refresh_simulator_destination
 
 RELEASE_EVIDENCE_RUN_DIR=${RELEASE_EVIDENCE_RUN_DIR:-}
 RELEASE_EVIDENCE_SUITE=${RELEASE_EVIDENCE_SUITE:-test}
@@ -76,24 +95,15 @@ verify_release_evidence_candidate() {
 
 verify_release_evidence_candidate
 
-XCODEBUILD_CMD=(
-  xcodebuild test
-  "${PROJECT_ARGS[@]}"
-  -scheme "$SCHEME"
-  -destination "$DESTINATION"
-  -configuration Debug
-  -derivedDataPath "$DERIVED_DATA_PATH"
-  -parallel-testing-enabled NO
-  -enableCodeCoverage NO
-)
-
 # Xcode still creates a DerivedData result bundle when no explicit
 # -resultBundlePath is supplied. For long release-evidence UI suites, prevent
 # post-test sysdiagnose collection from turning an otherwise-green run into a
 # multi-gigabyte ENOSPC failure. Unit and snapshot evidence continue to retain
 # their explicit xcresult bundles.
 if [[ -n "${RELEASE_EVIDENCE_RUN_DIR}" && "${RELEASE_EVIDENCE_CAPTURE_XCRESULT}" == "0" ]]; then
-  XCODEBUILD_CMD+=(-collect-test-diagnostics never)
+  RESULT_BUNDLE_COLLECT_NEVER=1
+else
+  RESULT_BUNDLE_COLLECT_NEVER=0
 fi
 
 # An explicitly empty path keeps focused reruns low-artifact when Xcode result
@@ -109,32 +119,78 @@ if [[ -n "$RESULT_BUNDLE_PATH" ]]; then
     fi
     rm -rf "${RESULT_BUNDLE_PATH}"
   fi
-  XCODEBUILD_CMD+=(-resultBundlePath "$RESULT_BUNDLE_PATH")
   echo "Result bundle: ${RESULT_BUNDLE_PATH}"
 fi
 
-XCODEBUILD_CMD+=("$@")
+build_xcodebuild_cmd() {
+  XCODEBUILD_CMD=(
+    xcodebuild test
+    "${PROJECT_ARGS[@]}"
+    -scheme "$SCHEME"
+    -destination "$DESTINATION"
+    -configuration Debug
+    -derivedDataPath "$DERIVED_DATA_PATH"
+    -parallel-testing-enabled NO
+    -enableCodeCoverage NO
+    -test-timeouts-enabled YES
+    -default-test-execution-time-allowance "${MARBLE_TEST_EXECUTION_TIMEOUT:-900}"
+    -maximum-test-execution-time-allowance "${MARBLE_TEST_EXECUTION_TIMEOUT:-900}"
+  )
+  if [[ "${RESULT_BUNDLE_COLLECT_NEVER}" == "1" ]]; then
+    XCODEBUILD_CMD+=(-collect-test-diagnostics never)
+  fi
+  if [[ -n "$RESULT_BUNDLE_PATH" ]]; then
+    XCODEBUILD_CMD+=(-resultBundlePath "$RESULT_BUNDLE_PATH")
+  fi
+  XCODEBUILD_CMD+=("$@")
+}
 
-echo "Running: ${XCODEBUILD_CMD[*]}"
+run_xcodebuild() {
+  echo "Running: ${XCODEBUILD_CMD[*]}"
+  test_status=0
+  : >"${xcodebuild_log}"
+  if command -v xcbeautify >/dev/null 2>&1; then
+    set +e
+    set -o pipefail
+    "${XCODEBUILD_CMD[@]}" 2>&1 | tee "${xcodebuild_log}" | xcbeautify
+    pipeline_status=("${PIPESTATUS[@]}")
+    set -e
+    if (( pipeline_status[0] != 0 )); then
+      test_status=${pipeline_status[0]}
+    elif (( pipeline_status[2] != 0 )); then
+      test_status=${pipeline_status[2]}
+    fi
+  else
+    set +e
+    "${XCODEBUILD_CMD[@]}" 2>&1 | tee "${xcodebuild_log}"
+    pipeline_status=("${PIPESTATUS[@]}")
+    set -e
+    test_status=${pipeline_status[0]}
+  fi
+}
+
+xcodebuild_log=$(mktemp)
+trap 'rm -f "${xcodebuild_log}"' EXIT
 
 test_status=0
-if command -v xcbeautify >/dev/null 2>&1; then
-  set +e
-  set -o pipefail
-  "${XCODEBUILD_CMD[@]}" | xcbeautify
-  pipeline_status=("${PIPESTATUS[@]}")
-  set -e
-  if (( pipeline_status[0] != 0 )); then
-    test_status=${pipeline_status[0]}
-  elif (( pipeline_status[1] != 0 )); then
-    test_status=${pipeline_status[1]}
+attempt=1
+while true; do
+  build_xcodebuild_cmd "$@"
+  run_xcodebuild
+  if (( test_status == 0 )); then
+    break
   fi
-else
-  set +e
-  "${XCODEBUILD_CMD[@]}"
-  test_status=$?
-  set -e
-fi
+  if (( attempt >= 2 )) || ! grep -q "Unable to find a device matching the provided destination specifier" "${xcodebuild_log}"; then
+    break
+  fi
+  echo "xcodebuild lost every simulator destination; waiting for CoreSimulator and retrying once." >&2
+  if [[ -n "${RESULT_BUNDLE_PATH:-}" ]]; then
+    rm -rf "${RESULT_BUNDLE_PATH}"
+  fi
+  unset DESTINATION
+  refresh_simulator_destination
+  attempt=$((attempt + 1))
+done
 
 if ! verify_release_evidence_candidate; then
   exit 86
