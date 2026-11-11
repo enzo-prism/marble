@@ -15,7 +15,7 @@ This branch is an implementation candidate, not a release. No new binary has bee
 | History | Text export from session detail; repeats enter review; imported Health workout zones on iOS 27 | Final UI and accessibility suites |
 | Watch | Focused phone-connected controller: start, repeat last set, rest/skip, finish and refresh; persistent request IDs prevent repeat duplication after lost acknowledgements | Physical Watch transport, offline retry and rest alerts |
 | AI extraction | Live model corpus tests record per-case outcomes and latency attachments | Run on the actual phone with its installed model |
-| Progress Details | Semantic metric colors, stable category colors, matching volume symbols/legend, adaptive Increase Contrast, neutral surfaces and preserved data/Audio Graphs | Final visual matrix, accessibility audit and UI checks |
+| Progress Details | Semantic metric colors, stable category colors, matching volume symbols/legend, wrapping category values, proper weekly bar intervals, adaptive Increase Contrast, neutral surfaces and preserved data/Audio Graphs | Final visual matrix, accessibility audit and UI checks |
 | Siri AI preview | Updated skill text, scenarios and separate development-only project generator; SDK preflight prevents accidental public packaging | Xcode/iOS 27.3, compiled skills, Siri Evaluations and conversational/card acceptance |
 
 The Watch target is a companion controller. It does not yet own a wrist HealthKit

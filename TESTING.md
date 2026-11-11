@@ -19,6 +19,10 @@ shapes, categorical charts keep direct labels/values, and Audio Graphs remain.
 `testTrendsDetails` and `testTrendsCategoryCharts` extend the small-width/regular,
 light/dark/default/largest-text snapshot matrix. Record references intentionally
 and inspect them before accepting them; contrast tests do not replace `make audit`.
+The volume-tooltip fixture renders the production chart component directly, so
+the bars, matching symbols/legend and selected values are actually in frame.
+Category labels and values wrap above their bars. At accessibility sizes, the
+weekly date range wraps below the plot instead of crowding axis tick labels.
 
 ## Historical hardening candidate and distribution (2026-10-04)
 

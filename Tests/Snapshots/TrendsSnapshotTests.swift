@@ -153,10 +153,13 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         let context = ModelContext(container)
         SnapshotFixtures.seedPopulated(in: context)
 
-        let weekStart = TrendsDateHelper.startOfWeek(for: SnapshotFixtures.now)
-        let view = TrendsView(initialSelectedWeekStart: weekStart, prioritizesInitialDetail: true)
-            .modelContainer(container)
-            .environment(QuickLogCoordinator())
+        let entries = (try? context.fetch(FetchDescriptor<SetEntry>())) ?? []
+        let derived = TrendsDerivedData.build(
+            entries: entries, supplementEntries: [], historyEntries: entries,
+            selectedExercise: nil, selectedSupplementType: nil, range: .thirtyDays,
+            now: SnapshotFixtures.now
+        )
+        let view = TrendsVolumeChartFixture(derived: derived)
         assertSnapshot(view, named: "Trends_VolumeTooltip")
     }
 
@@ -174,6 +177,30 @@ final class TrendsSnapshotTests: SnapshotTestCase {
             .modelContainer(container)
             .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_SupplementsTooltip")
+    }
+}
+
+private struct TrendsVolumeChartFixture: View {
+    let derived: TrendsDerivedData
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var isScrubbing = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                Text("Weekly Volume").font(MarbleTypography.sectionTitle)
+                TrendsWeeklyVolumeChart(
+                    derived: derived,
+                    selectedSummary: derived.weeklySummaries.last,
+                    chartHeight: dynamicTypeSize.isAccessibilitySize ? 220 : 180,
+                    isScrubbingChart: $isScrubbing,
+                    onSelectWeek: { _ in }, onViewSets: { _ in }, onClearSelection: {}
+                )
+            }
+            .padding(MarbleLayout.pagePadding)
+        }
+        .background(Theme.backgroundColor(for: colorScheme))
     }
 }
 

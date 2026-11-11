@@ -172,6 +172,77 @@ enum TrendsLegendSymbol {
     case triangle
 }
 
+/// Direct labels live above each bar rather than outside the plot. Long values
+/// and accessibility text can wrap without colliding with neighboring marks.
+/// The section supplies the same Audio Graph descriptor as its other charts.
+struct TrendsCategoryBar: View {
+    let title: String
+    let valueText: String
+    let accessibilityValue: String
+    let value: Double
+    let maximum: Double
+    let accent: Color
+    var guideBand: ClosedRange<Double>? = nil
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
+                    categoryLabel.fixedSize()
+                    Spacer(minLength: MarbleSpacing.s)
+                    metricLabel.fixedSize()
+                }
+                VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                    categoryLabel
+                    metricLabel
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            GeometryReader { proxy in
+                let domainMaximum = max(maximum, 1)
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Theme.surfaceColor(for: colorScheme))
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(TrendsPalette.barGradient(accent))
+                        .frame(width: proxy.size.width * min(max(value / domainMaximum, 0), 1))
+                    if let guideBand {
+                        Path { path in
+                            for bound in [guideBand.lowerBound, guideBand.upperBound] {
+                                let x = proxy.size.width * min(max(bound / domainMaximum, 0), 1)
+                                path.move(to: CGPoint(x: x, y: 0))
+                                path.addLine(to: CGPoint(x: x, y: proxy.size.height))
+                            }
+                        }
+                        .stroke(Theme.primaryTextColor(for: colorScheme).opacity(0.55),
+                                style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                    }
+                }
+            }
+            .frame(height: 14)
+            .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(accessibilityValue)
+    }
+
+    private var categoryLabel: some View {
+        Text(title)
+            .font(MarbleTypography.rowMeta)
+            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+    }
+
+    private var metricLabel: some View {
+        Text(valueText)
+            .font(MarbleTypography.smallLabel)
+            .monospacedDigit()
+            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+    }
+}
+
 /// Selection marker: a soft halo around a solid accent core, ringed with the
 /// page background so it pops off the line.
 struct TrendsSelectionDot: View {

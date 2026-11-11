@@ -14,6 +14,7 @@ release gates. The pre-existing approved 2.7 (86) does not contain these changes
 - Control your iPhone workout from Apple Watch: start, repeat the last confirmed set, rest, skip rest and finish.
 - Optionally track a live strength workout in Apple Health. Historical exports avoid inferred session effort ratings.
 - More faithful reading of explicit rep ladders and weight lists.
+- Clearer Progress Details with colored charts, metric cues, readable category values and accessible legends.
 
 ## What to Test draft
 
@@ -41,6 +42,9 @@ import acceptance examples in `testflight/2.7-candidate.md` as regression covera
 9. Paste explicit lists such as `Shoulder Press 4 sets 12 10 8 8 at 50 55 60 60`.
    Every set must retain its own reps/load. A mismatched list must stay unresolved.
 10. Check VoiceOver, light/dark appearance and the largest text sizes on the changed screens.
+11. In Progress → Details, compare the colored metrics, weekly volume series and category
+    bars. Check light/dark and Increase Contrast. Labels, symbols and exact values must
+    remain readable with Differentiate Without Color and the largest text size.
 
 ## App Review notes draft
 

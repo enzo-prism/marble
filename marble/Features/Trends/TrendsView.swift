@@ -768,7 +768,7 @@ struct TrendsContentView: View {
                 title: "Best Week",
                 value: bestWeek.map { "\($0.setCount)" } ?? "-",
                 detail: bestWeek.map { TrendsDateHelper.weekLabel(start: $0.weekStart, end: $0.weekEnd) } ?? "No week yet",
-                accent: TrendsPalette.volumeWeighted.color(for: colorScheme)
+                accent: TrendsPalette.personalRecord.color(for: colorScheme)
             )
         ]
         if supplementLogs > 0 {
@@ -939,175 +939,16 @@ struct TrendsContentView: View {
         }
     }
 
-    private func volumeLegendItems(_ series: [VolumeSeries]) -> some View {
-        ForEach(series, id: \.self) { item in
-            TrendsLegendChip(label: item.label, color: item.color(for: colorScheme), symbol: item.legendSymbol)
-        }
-    }
-
     private func volumeChart(derived: TrendsDerivedData) -> some View {
-        let data = derived.volumeData
-        let summaries = derived.weeklySummaries
-        let selectedSummary = selectedWeeklySummary(in: derived)
-        let tooltipSummary = selectedSummary
-        let prSummary = derived.weeklyPRSummary
-        let dataRange: ClosedRange<Date>? = {
-            guard let start = summaries.first?.weekStart,
-                  let end = summaries.last?.weekStart else {
-                return nil
-            }
-            return start ... end
-        }()
-        let chartDomain = paddedDateDomain(dataRange, component: .day, value: 4)
-
-        let volumeAccent = TrendsPalette.volumeWeighted.color(for: colorScheme)
-        let presentSeries = VolumeSeries.allCases.filter { series in
-            data.contains { $0.series == series }
-        }
-
-        return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            Chart {
-                ForEach(data) { item in
-                    BarMark(
-                        x: .value("Week", item.weekStart),
-                        y: .value("Value", item.value)
-                    )
-                    .foregroundStyle(TrendsPalette.barGradient(item.series.color(for: colorScheme)))
-                    .position(by: .value("Series", item.series.label))
-                    .cornerRadius(item.series.cornerRadius)
-                    .annotation(position: .top, spacing: 2) {
-                        TrendsLegendGlyph(color: item.series.color(for: colorScheme), symbol: item.series.legendSymbol)
-                            .accessibilityHidden(true)
-                    }
-                    .accessibilityHidden(true)
-                }
-
-                if let prSummary, prSummary.totalVolumeScore > 0 {
-                    PointMark(
-                        x: .value("PR Week", prSummary.weekStart),
-                        y: .value("Value", prSummary.maxSeriesValue)
-                    )
-                    .symbol {
-                        TrendsPRDot()
-                    }
-                    .accessibilityHidden(true)
-                }
-
-                if let selectedSummary {
-                    RuleMark(x: .value("Selected Week", selectedSummary.weekStart))
-                        .foregroundStyle(volumeAccent.opacity(0.35))
-                        .lineStyle(StrokeStyle(lineWidth: 1.5))
-
-                    PointMark(
-                        x: .value("Selected Week", selectedSummary.weekStart),
-                        y: .value("Value", selectedSummary.maxSeriesValue)
-                    )
-                    .symbol {
-                        TrendsSelectionDot(accent: volumeAccent)
-                    }
-                    .accessibilityHidden(true)
-                }
-            }
-            .frame(height: chartHeight)
-            .chartDateDomain(chartDomain)
-            .chartLegend(.hidden)
-            .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 3)) { _ in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                    AxisValueLabel {
-                        if let doubleValue = value.as(Double.self) {
-                            Text(Formatters.compactNumberText(doubleValue))
-                        }
-                    }
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                }
-            }
-            .chartPlotStyle { plot in
-                plot
-                    .background(Theme.surfaceColor(for: colorScheme))
-                    .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
-                    .padding(.trailing, MarbleSpacing.xs)
-            }
-            .chartOverlay { proxy in
-                GeometryReader { geometry in
-                    if let plotFrameAnchor = proxy.plotFrame {
-                        let plotFrame = geometry[plotFrameAnchor]
-                        TrendsChartOverlay(
-                            plotSize: plotFrame.size,
-                            proxy: proxy,
-                            dataRange: dataRange,
-                            accessibilityIdentifier: "Trends.VolumeChart",
-                            accessibilityLabel: "Weekly volume chart",
-                            accessibilityValue: derived.volumeAccessibilityValue,
-                            audioGraph: TrendsDateSeriesAudioGraph(
-                                title: "Weekly volume",
-                                summary: derived.volumeAccessibilityValue,
-                                valueAxisName: "Volume",
-                                valueUnit: nil,
-                                series: presentSeries.map { series in
-                                    .init(
-                                        name: series.label,
-                                        points: data.filter { $0.series == series }.map {
-                                            .init(
-                                                date: $0.weekStart,
-                                                value: $0.value,
-                                                valueText: Formatters.compactNumberText($0.value)
-                                            )
-                                        }
-                                    )
-                                }
-                            ),
-                            isScrubbing: $isScrubbingChart
-                        ) { date in
-                            selectWeekStart(date)
-                        }
-                        .position(x: plotFrame.midX, y: plotFrame.midY)
-                    }
-                }
-            }
-
-            if !presentSeries.isEmpty {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: MarbleSpacing.s) { volumeLegendItems(presentSeries) }
-                        .fixedSize(horizontal: true, vertical: false)
-                    VStack(alignment: .leading, spacing: MarbleSpacing.xs) { volumeLegendItems(presentSeries) }
-                }
-                .padding(.top, MarbleSpacing.xxxs)
-            }
-
-            if let tooltipSummary {
-                let label = TrendsDateHelper.weekLabel(start: tooltipSummary.weekStart, end: tooltipSummary.weekEnd)
-                TrendTooltipView(
-                    title: label,
-                    valueText: tooltipSummary.valueText,
-                    summaryText: tooltipSummary.summaryText,
-                    showsPR: tooltipSummary.totalVolumeScore == derived.weeklyPRTotal && derived.weeklyPRTotal > 0,
-                    viewSetsLabel: "View sets",
-                    viewSetsAccessibilityLabel: "View sets for week of \(label)",
-                    viewSetsIdentifier: "Trends.VolumeTooltip.ViewSets",
-                    onViewSets: {
-                        sheetDestination = .week(tooltipSummary.weekStart)
-                    },
-                    onClear: {
-                        selectedWeekStart = nil
-                    }
-                )
-                .accessibilityIdentifier("Trends.VolumeTooltip")
-            }
-        }
+        TrendsWeeklyVolumeChart(
+            derived: derived,
+            selectedSummary: selectedWeeklySummary(in: derived),
+            chartHeight: chartHeight,
+            isScrubbingChart: $isScrubbingChart,
+            onSelectWeek: selectWeekStart,
+            onViewSets: { sheetDestination = .week($0) },
+            onClearSelection: { selectedWeekStart = nil }
+        )
     }
 
     private func supplementsSection(derived: TrendsDerivedData) -> some View {
@@ -1514,7 +1355,7 @@ struct TrendsContentView: View {
     }
 }
 
-private extension View {
+extension View {
     @ViewBuilder
     func chartDateDomain(_ domain: ClosedRange<Date>?) -> some View {
         if let domain {
