@@ -48,6 +48,7 @@ struct ImportDateSection: View {
             }
 
             Toggle("Include Time", isOn: $includeTime.animation(reduceMotion ? nil : .default))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .tint(Theme.dividerColor(for: colorScheme))
                 .accessibilityIdentifier("\(idPrefix).IncludeTime")
 

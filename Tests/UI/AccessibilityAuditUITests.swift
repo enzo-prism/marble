@@ -625,7 +625,11 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                   Self.pixelVerifiedContrastElements.contains(where: {
                       $0.type == element.elementType && $0.identifier == element.identifier && $0.label == element.label
                   }),
-                  element.exists, element.isHittable else { return true }
+                  element.exists else { return true }
+            // Include Time's label is a separate static text; the switch is
+            // the hittable control (CI 42925943228).
+            let canMeasure = element.isHittable || element.label == "Include Time"
+            guard canMeasure else { return true }
             let frame = element.frame
             guard frame.width >= 4, frame.height >= 4, window.contains(frame),
                   let ratio = measuredContrastRatio(in: image, rect: frame.applying(CGAffineTransform(scaleX: scale, y: scale)))
