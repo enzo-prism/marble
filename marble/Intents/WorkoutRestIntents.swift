@@ -6,6 +6,7 @@ import SwiftData
 @AppIntent(.tool)
 #endif
 struct StartRestIntent: LiveActivityIntent {
+    static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
     static let title: LocalizedStringResource = "Start Rest"
     static let description = IntentDescription("Starts a rest timer for the current exercise without logging a set.")
     @Parameter(title: "Seconds", description: "The requested rest duration in seconds, from 1 to 3600.", default: 90)

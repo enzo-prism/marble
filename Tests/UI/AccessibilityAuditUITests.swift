@@ -35,7 +35,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 let preview = app.buttons["TextEntry.Preview"]
                 scrollToElement(preview, in: app)
                 forceTap(preview)
-                waitForIdentifier("TextEntry.ReviewSummary", timeout: 10)
+                // Parsing runs off the main actor; heavily shared CI hosts can
+                // take longer than the ordinary UI-element wait to schedule it.
+                waitForIdentifier("TextEntry.ReviewSummary", timeout: 60)
                 if unresolved {
                     let detail = app.descendants(matching: .any).matching(identifier: "TextEntry.Unparsed.Line.0").firstMatch
                     scrollToElement(detail, in: app.collectionViews.firstMatch)
@@ -536,6 +538,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
     private static let pixelVerifiedContrastElements: [(type: XCUIElement.ElementType, identifier: String, label: String)] = [
         (.staticText, "", "Your workout"),
         (.button, "TextEntry.EditText", "Edit Text"),
+        (.staticText, "TextEntry.Section.Exercise", "Exercise"),
         // iOS 27 audit-v2 screenshots: Overview measured 20.65:1 in light
         // and 16.48:1 in dark; Notification Cancel 20.65:1, Save 12.42:1.
         // These are text-only native toolbar buttons, without icons. Recheck
@@ -564,7 +567,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         var notes: [String] = []
         let kept = issues.filter { issue in
             guard issue.auditType == .contrast, let element = issue.element,
-                  element.exists, element.isHittable else { return true }
+                  element.exists else { return true }
             let investigated = Self.pixelVerifiedContrastElements.contains {
                 $0.type == element.elementType && $0.identifier == element.identifier && $0.label == element.label
             }
@@ -576,14 +579,40 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             let nativePlainText = element.elementType == .button && !element.identifier.isEmpty
                 && ["Cancel", "Save", "Done"].contains(element.label)
                 && app.navigationBars.buttons.matching(identifier: element.identifier).firstMatch.exists
-            guard investigated || nativePlainText else { return true }
+            // Audit callbacks retain nodes while the footer verification above
+            // scrolls the List. Reposition only these text-only review components
+            // before measuring; never sample the navigation bar at an old row frame.
+            let reviewSummary = nameHasReviewPrefix(auditName) && element.elementType == .staticText
+                && element.identifier.hasPrefix("TextEntry.ExerciseSummary.")
+            guard investigated || nativePlainText || reviewSummary else { return true }
+            if nameHasReviewPrefix(auditName), element.elementType == .staticText {
+                let list = app.collectionViews.firstMatch
+                for _ in 0..<12 {
+                    guard element.exists, list.exists else { return true }
+                    let viewport = workoutNotesAuditViewport(list)
+                    if element.isHittable && viewport.contains(element.frame) { break }
+                    let distance = min(max(viewport.midY - element.frame.midY, -viewport.height * 0.4), viewport.height * 0.4)
+                    let start = list.coordinate(withNormalizedOffset: .zero)
+                        .withOffset(CGVector(dx: viewport.maxX - list.frame.minX - 5, dy: viewport.midY - list.frame.minY))
+                    start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
+                                withVelocity: .slow, thenHoldForDuration: 0.3)
+                }
+                guard element.isHittable, workoutNotesAuditViewport(list).contains(element.frame) else { return true }
+            }
+            guard element.isHittable else { return true }
             let frame = element.frame
             // Exclude the capsule border so a dark decorative edge cannot
             // supply the measured text contrast of a low-contrast label.
             let textFrame = nativePlainText ? frame.insetBy(dx: min(8, frame.width / 10), dy: 4) : frame
-            guard textFrame.width >= 4, textFrame.height >= 4, window.contains(textFrame),
-                  let ratio = measuredContrastRatio(in: image, rect: textFrame.applying(CGAffineTransform(scaleX: scale, y: scale)))
+            let currentScreenshot = XCUIScreen.main.screenshot()
+            guard let currentImage = UIImage(data: currentScreenshot.pngRepresentation)?.cgImage,
+                  textFrame.width >= 4, textFrame.height >= 4, window.contains(textFrame),
+                  let ratio = measuredContrastRatio(in: currentImage, rect: textFrame.applying(CGAffineTransform(scaleX: scale, y: scale)))
             else { return true }
+            let evidence = XCTAttachment(screenshot: currentScreenshot)
+            evidence.name = "\(auditName)_Measured_\(element.identifier.isEmpty ? element.label : element.identifier)"
+            evidence.lifetime = .keepAlways
+            add(evidence)
             let passes = ratio >= 4.5
             notes.append("\(element.label) (\(element.identifier)): measured \(String(format: "%.1f", ratio)):1, \(passes ? "cleared" : "kept")")
             return !passes
@@ -596,6 +625,8 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         }
         return kept
     }
+
+    private func nameHasReviewPrefix(_ name: String) -> Bool { name.hasPrefix("WorkoutNotes_") }
 
     /// WCAG contrast ratio between the 2nd and 98th percentile luminance of
     /// the pixels in `rect` (image pixel coordinates).

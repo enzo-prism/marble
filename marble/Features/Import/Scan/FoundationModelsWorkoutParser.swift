@@ -56,12 +56,11 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
         case cancelled
         case unknown
 
-        /// Guardrail and refusal verdicts on benign gym text are intermittent
-        /// (the same input passes in a fresh session), and rate limits and
-        /// concurrent-request errors clear on their own.
+        /// A fresh session can resolve transient verdicts or an overlapping
+        /// request. Rate limits require a later retry, not another immediate call.
         var isRetryable: Bool {
             switch self {
-            case .guardrailViolation, .refusal, .rateLimited, .concurrentRequests: true
+            case .guardrailViolation, .refusal, .concurrentRequests: true
             default: false
             }
         }
@@ -108,6 +107,9 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
     /// parser share it). Read it after `parse` returns; with concurrent parses
     /// on one parser, the last to finish wins.
     var lastModelIssue: ModelIssue? { report.issue }
+    #if DEBUG
+    var lastModelCandidates: [ParsedWorkoutDraft] { report.candidates }
+    #endif
 
     /// True only when the on-device model is ready to use right now.
     static var isAvailable: Bool {
@@ -185,6 +187,11 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
         }
         #endif
         report.issue = issue
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["MARBLE_FM_EVAL"] == "1" {
+            report.candidates = candidates.compactMap { $0 }
+        }
+        #endif
 
         await onStage(.finalizing)
         return WorkoutDraftArbiter.choose(
@@ -426,6 +433,7 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
             if Task.isCancelled { return (candidates, nil) }
             if let issue = await contextIssue(pass, text: ocrText) {
                 issues.append(issue)
+                if issue != .inputTooLong { return (candidates, issue) }
                 continue
             }
             await onStage(.interpreting(pass: index + 1, of: Pass.allCases.count))
@@ -444,6 +452,7 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
                 return (candidates, nil)
             case .failed(let failure):
                 if let issue = failure.issue { issues.append(issue) }
+                if failure == .rateLimited { return (candidates, .failed) }
                 if failure.tripsCircuitBreaker {
                     // Don't pay the same failure on the next pass, the next
                     // session of a batch paste, or the next parse for a while.
@@ -488,8 +497,29 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
             // Every failure falls through to the deterministic parser via the
             // arbiter. A new session is required after a context overflow
             // (TN3193); each attempt builds its own session, so that holds.
-            return .failed(Self.classify(error))
+            return .failed(await recordFailure(error))
         }
+    }
+
+    private func recordFailure(_ error: any Error) async -> ModelFailure {
+        let failure = Self.classify(error)
+        if failure == .rateLimited {
+            await breaker.postpone(until: Self.retryDateAfterRateLimit(error))
+        }
+        return failure
+    }
+
+    /// Honor the OS reset date; otherwise use a short shared pause. Parsing
+    /// stays responsive by returning the notation result instead of sleeping.
+    static func retryDateAfterRateLimit(_ error: any Error, now: Date = Date()) -> Date {
+        #if canImport(FoundationModels) && compiler(>=6.4)
+        if #available(iOS 27.0, *), let modelError = error as? LanguageModelError,
+           case .rateLimited(let details) = modelError,
+           let date = details.resetDate, date.timeIntervalSince1970.isFinite {
+            return max(date, now.addingTimeInterval(5))
+        }
+        #endif
+        return now.addingTimeInterval(30)
     }
 
     /// Counts (iOS 26.4+) or estimates the prompt, instructions, and schema
@@ -514,7 +544,7 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
                 used = try await model.tokenCount(for: prompt) + overhead
             } catch {
                 // A throttled metadata request is not evidence of a long note.
-                return Self.classify(error).issue ?? .failed
+                return (await recordFailure(error)).issue ?? .failed
             }
         }
         let size = model.contextSize
@@ -581,9 +611,8 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
     static func classify(_ error: any Error) -> ModelFailure {
         if error is CancellationError { return .cancelled }
         #if canImport(FoundationModels)
-        // The iOS 27 error types exist only in the iOS 27 SDK (Xcode 27, Swift
-        // 6.4). Release archives are pinned to Xcode 26.x, where naming them
-        // fails to compile regardless of `#available`, so gate on the compiler.
+        // The iOS 27 error types exist only in the iOS 27 SDK (Swift 6.4).
+        // Keep the compiler guard for source compatibility with older SDKs.
         #if compiler(>=6.4)
         if #available(iOS 27.0, *) {
             if let error = error as? LanguageModelError {
@@ -660,6 +689,10 @@ actor ModelCircuitBreaker {
         openUntil = now().addingTimeInterval(coolDown)
     }
 
+    func postpone(until date: Date) {
+        openUntil = max(openUntil ?? date, date)
+    }
+
     func reset() {
         openUntil = nil
     }
@@ -675,6 +708,13 @@ private nonisolated final class IssueReport: Sendable {
         get { state.withLock { $0 } }
         set { state.withLock { $0 = newValue } }
     }
+    #if DEBUG
+    private let draftState = Mutex<[ParsedWorkoutDraft]>([])
+    var candidates: [ParsedWorkoutDraft] {
+        get { draftState.withLock { $0 } }
+        set { draftState.withLock { $0 = newValue } }
+    }
+    #endif
 }
 
 #if canImport(FoundationModels)

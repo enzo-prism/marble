@@ -7,7 +7,7 @@ module MarbleIntentAuthentication
   REQUIRED_ACTIONS = %w[
     LogSetIntent LogLastSetAgainIntent CorrectLoggedSetIntent FindWorkoutsIntent
     StartWorkoutIntent FinishWorkoutIntent OpenWorkoutSessionIntent OpenExerciseIntent
-    ReviewRepeatedWorkoutIntent ReviewWorkoutTextIntent ReviewWorkoutFileIntent
+    ReviewRepeatedWorkoutIntent ReviewWorkoutTextIntent ReviewWorkoutFileIntent StartRestIntent
   ].freeze
 
   def self.verify(metadata)

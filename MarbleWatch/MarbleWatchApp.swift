@@ -130,7 +130,7 @@ struct WatchWorkoutView: View {
                         HStack {
                             if let start = snapshot.startedAt { Text(start, style: .timer).monospacedDigit() }
                             Spacer(minLength: 4)
-                            Text("\(snapshot.setCount) sets")
+                            Text(snapshot.setCount == 1 ? "1 set" : "\(snapshot.setCount) sets")
                         }.font(.caption)
                         if let exercise = snapshot.exerciseName {
                             Text(exercise).font(.caption).fixedSize(horizontal: false, vertical: true)

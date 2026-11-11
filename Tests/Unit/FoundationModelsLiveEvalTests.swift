@@ -55,6 +55,13 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
         assertRate(results, atLeast: Self.requiredHardPassRate, label: "hard corpus")
     }
 
+    func testLiveDiagnosticsForIncompleteMovements() async throws {
+        try skipUnlessLiveModel()
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["MARBLE_FM_DIAGNOSTICS"] == "1", "Separate opt-in diagnostic run; not a quality gate")
+        let identifiers = ["A1 ", "A3 ", "A4 ", "A6 ", "A8 ", "C3 ", "D3 ", "E3 "]
+        _ = await evaluate(WorkoutParseEvalCase.hard.filter { item in identifiers.contains { item.name.hasPrefix($0) } }, label: "diagnostic subset")
+    }
+
     // MARK: - Helpers
 
     private struct CaseResult {
@@ -83,7 +90,7 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
         for (index, evalCase) in cases.enumerated() {
             // Independent quality samples should not become a burst-rate-limit
             // stress test of the OS model service. Keep the quality threshold.
-            if index > 0 { try? await Task.sleep(for: .seconds(3)) }
+            if index > 0 { try? await Task.sleep(for: .seconds(5)) }
             // Each case carries the user's preferred unit, as the app does.
             let parser = FoundationModelsWorkoutScanParser(defaultWeightUnit: evalCase.defaultWeightUnit)
             print("[FM START] \(evalCase.name)")
@@ -91,6 +98,21 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
             let draft = await parser.parse(ocrText: evalCase.input, referenceDate: Self.fixedNow)
             let seconds = Date().timeIntervalSince(start)
             let result = WorkoutParseEvalCase.matches(draft, evalCase.expected)
+            #if DEBUG
+            if !result.pass {
+                let raw = parser.lastModelCandidates
+                let grounded = raw.map {
+                    WorkoutDraftArbiter.choose(deterministic: .init(), model: $0, sourceText: evalCase.input,
+                                              defaultWeightUnit: evalCase.defaultWeightUnit)
+                }
+                if let data = try? JSONEncoder().encode(["raw": raw, "grounded": grounded, "final": [draft]]) {
+                    let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+                    attachment.name = "FoundationModels-Failure-\(evalCase.name.prefix(2)).json"
+                    attachment.lifetime = .keepAlways
+                    add(attachment)
+                }
+            }
+            #endif
             results.append(CaseResult(
                 name: evalCase.name, tier: evalCase.tier, pass: result.pass,
                 failures: result.failures, seconds: seconds,

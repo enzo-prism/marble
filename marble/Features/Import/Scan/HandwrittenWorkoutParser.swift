@@ -563,6 +563,14 @@ nonisolated enum HandwrittenWorkoutParser {
                 .init(weight: loads.isEmpty ? nil : loads[index], weightUnit: resolvedUnit, reps: Int(reps[index]))
             }))
         }
+        // A restated total is a checksum, never an extra set. Claim a mismatch
+        // as unresolved so the permissive count parser cannot discard it.
+        if let g = groups(#"(\d+)\s+"# + movement + #"\s+total\s*,?\s*(\d+)\s+sets?\s+of\s+(\d+)(?:\s+reps?)?"#) {
+            guard let total = Int(g[0]), let count = Int(g[2]), let reps = Int(g[3]),
+                  (2...maximumExpandedSets).contains(count), (1...10000).contains(reps),
+                  total == count * reps else { return .init(exercise: nil) }
+            return result(name: g[1], reps: Array(repeating: Double(reps), count: count))
+        }
         // "Shoulder press 4 sets 12 10 8 8 at 50 55 60 60 [kg]".
         if let g = groups(movement + #"\s+(\d+)\s+sets?\s+"# + numberList + #"\s+(?:at|@)\s+"# + numberList + #"\s*"# + unit) {
             return result(name: g[0], reps: numbers(g[2]), loads: numbers(g[3]), count: Int(g[1]), unitText: g[4])

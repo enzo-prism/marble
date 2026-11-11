@@ -625,6 +625,7 @@ struct WorkoutTextEntryView: View {
                         Text(exerciseReviewSummary(exercise))
                             .font(MarbleTypography.rowMeta)
                             .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("TextEntry.ExerciseSummary.\(exercise.id.uuidString)")
                     }
                 } header: {
                     WorkoutReviewSectionHeader(title: "Your workout")
@@ -1223,6 +1224,7 @@ private struct TextEntryExerciseSection: View {
                 : AnyLayout(HStackLayout(spacing: MarbleSpacing.s))
             layout {
                 WorkoutReviewSectionHeader(title: "Exercise")
+                    .accessibilityIdentifier("TextEntry.Section.Exercise")
                 if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                 HStack(spacing: MarbleSpacing.s) {
                     Button { onMove(-1) } label: {

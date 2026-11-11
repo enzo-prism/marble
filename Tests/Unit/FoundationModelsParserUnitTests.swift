@@ -77,11 +77,11 @@ final class FoundationModelsParserUnitTests: MarbleTestCase {
 
     private typealias Failure = Parser.ModelFailure
 
-    func testOnlyTransientFailuresRetry() {
-        let retryable: [Failure] = [.guardrailViolation, .refusal, .rateLimited, .concurrentRequests]
+    func testOnlyFreshSessionFailuresRetryImmediately() {
+        let retryable: [Failure] = [.guardrailViolation, .refusal, .concurrentRequests]
         let final: [Failure] = [
             .contextWindowExceeded, .unsupportedLanguage, .unsupportedGuide, .assetsUnavailable,
-            .decodingFailure, .timeout, .cancelled, .unknown,
+            .decodingFailure, .timeout, .cancelled, .unknown, .rateLimited,
         ]
         for failure in retryable { XCTAssertTrue(failure.isRetryable, "\(failure)") }
         for failure in final { XCTAssertFalse(failure.isRetryable, "\(failure)") }
@@ -144,6 +144,33 @@ final class FoundationModelsParserUnitTests: MarbleTestCase {
 
     private final class Clock: @unchecked Sendable {
         var now = Date(timeIntervalSince1970: 1_000_000)
+    }
+
+    func testRateLimitPauseDoesNotShortenAnExistingCooldown() async {
+        let clock = Clock()
+        let breaker = ModelCircuitBreaker(coolDown: 600, now: { clock.now })
+        await breaker.trip()
+        await breaker.postpone(until: clock.now.addingTimeInterval(30))
+        clock.now.addTimeInterval(31)
+        let allowedEarly = await breaker.allowsRequests()
+        XCTAssertFalse(allowedEarly)
+        clock.now.addTimeInterval(570)
+        let allowedAfter = await breaker.allowsRequests()
+        XCTAssertTrue(allowedAfter)
+    }
+
+    func testRateLimitUsesOSResetDateAndBoundedFallback() throws {
+        let legacy = LanguageModelSession.GenerationError.rateLimited(.init(debugDescription: "test"))
+        XCTAssertEqual(Parser.retryDateAfterRateLimit(legacy, now: now), now.addingTimeInterval(30))
+        #if compiler(>=6.4)
+        if #available(iOS 27.0, *) {
+            let future = now.addingTimeInterval(90)
+            let error = LanguageModelError.rateLimited(.init(resetDate: future, debugDescription: "test"))
+            XCTAssertEqual(Parser.retryDateAfterRateLimit(error, now: now), future)
+            let elapsed = LanguageModelError.rateLimited(.init(resetDate: now.addingTimeInterval(-1), debugDescription: "test"))
+            XCTAssertEqual(Parser.retryDateAfterRateLimit(elapsed, now: now), now.addingTimeInterval(5))
+        }
+        #endif
     }
 
     func testBreakerCoolsDownThenReopens() async {

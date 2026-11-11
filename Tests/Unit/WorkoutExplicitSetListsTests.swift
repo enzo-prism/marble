@@ -74,4 +74,23 @@ final class WorkoutExplicitSetListsTests: MarbleTestCase {
         XCTAssertEqual(ordinary.draft.totalSetCount, 3)
         XCTAssertTrue(ordinary.draft.exercises[0].sets.allSatisfy { $0.weight == 225 && $0.reps == 5 })
     }
+
+    func testRestatedTotalReconcilesWithCompletedSets() {
+        for source in ["100 Push Ups total, 5 sets of 20", "60 Air Squats total 3 sets of 20 reps"] {
+            let result = parse(source)
+            XCTAssertTrue(result.droppedLines.isEmpty, source)
+            XCTAssertFalse(result.draft.exercises[0].name.first?.isNumber ?? true)
+            XCTAssertTrue(result.draft.exercises[0].sets.allSatisfy { $0.reps == 20 && $0.weight == nil })
+            XCTAssertEqual(result.draft.totalSetCount, source.hasPrefix("100") ? 5 : 3)
+        }
+    }
+
+    func testInconsistentOrExcessiveRestatedTotalStaysUnresolved() {
+        for source in ["90 Push Ups total, 5 sets of 20", "100 Push Ups total, 0 sets of 20",
+                       "100 Push Ups total, 5 sets of 0", "100 Push Ups total, 999999 sets of 20"] {
+            let result = parse(source)
+            XCTAssertFalse(result.draft.hasContent, source)
+            XCTAssertEqual(result.droppedLines, [source])
+        }
+    }
 }

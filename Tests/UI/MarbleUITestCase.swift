@@ -87,6 +87,9 @@ class MarbleUITestCase: XCTestCase {
         app.launchEnvironment["MARBLE_UI_TESTING"] = "1"
         app.launchEnvironment["MARBLE_DRAFT_NAMESPACE"] = draftNamespace
         app.launchEnvironment["MARBLE_DISABLE_ANIMATIONS"] = "1"
+        if ProcessInfo.processInfo.environment["MARBLE_DEVICE_KEEP_AWAKE"] == "1" {
+            app.launchEnvironment["MARBLE_DEVICE_KEEP_AWAKE"] = "1"
+        }
         if resetDB {
             app.launchEnvironment["MARBLE_RESET_DB"] = "1"
         }

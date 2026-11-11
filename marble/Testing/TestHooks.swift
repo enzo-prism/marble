@@ -89,8 +89,14 @@ nonisolated enum TestHooks {
         isUITesting && !usesPersistentIntentTestStore
     }
 
-    static func applyGlobalSettings() {
+    @MainActor static func applyGlobalSettings() {
         #if DEBUG
+        if Bundle.main.object(forInfoDictionaryKey: "MarbleBundleSuffix") as? String == ".validation",
+           environmentFlag("MARBLE_DEVICE_KEEP_AWAKE") {
+            // Temporary foreground assertion for explicitly opted-in device
+            // validation. Ending/backgrounding this app restores normal lock behavior.
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
         if isUITesting, Bundle.main.object(forInfoDictionaryKey: "MarbleBundleSuffix") as? String == ".validation" {
             // Each explicit UI launch begins in memory. Only the test-only
             // preparation intent opts into its separate persistent fixture store.
