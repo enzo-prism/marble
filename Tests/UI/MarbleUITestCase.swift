@@ -111,37 +111,43 @@ class MarbleUITestCase: XCTestCase {
         switch tab {
         case .journal:
             tapTabBarItem(.journal)
-            if app.buttons["Log.Mode.Menu"].waitForExistence(timeout: 4) {
-                forceTap(app.buttons["Log.Mode.Menu"])
-            }
-            let setsMode = app.descendants(matching: .any)
-                .matching(identifier: "Log.Mode.Sets")
-                .firstMatch
-            if setsMode.waitForExistence(timeout: 6) {
-                setsMode.tap()
+            // Fresh launches already land on Sets. A whole-app `.any` query for
+            // Log.Mode.Sets then `.tap()` times out evaluating the populated
+            // journal tree (RC 43069141971).
+            if journalListExists(timeout: 2) {
                 return
             }
-            let labeled = app.segmentedControls.buttons["Sets"]
-            if labeled.waitForExistence(timeout: 4) {
-                labeled.tap()
-            }
-        case .calendar, .supplements:
+            selectLogMode(identifier: "Log.Mode.Sets", label: "Sets")
+        case .calendar:
             tapTabBarItem(.journal)
-            if app.buttons["Log.Mode.Menu"].waitForExistence(timeout: 4) {
-                forceTap(app.buttons["Log.Mode.Menu"])
-            }
-            let modeIdentifier = tab == .calendar ? "Tab.Calendar" : "Tab.Supplements"
-            let mode = app.descendants(matching: .any).matching(identifier: modeIdentifier).firstMatch
-            if mode.waitForExistence(timeout: 6) {
-                forceTap(mode)
-                return
-            }
-            let labeled = app.segmentedControls.buttons[tab.rawValue]
-            if labeled.waitForExistence(timeout: 4) {
-                forceTap(labeled)
-            }
-        default:
+            selectLogMode(identifier: "Tab.Calendar", label: "Calendar")
+        case .supplements:
+            tapTabBarItem(.journal)
+            selectLogMode(identifier: "Tab.Supplements", label: "Supplements")
+        case .addWorkout, .trends:
             tapTabBarItem(tab)
+        }
+    }
+
+    private func journalListExists(timeout: TimeInterval) -> Bool {
+        app.collectionViews["Journal.List"].waitForExistence(timeout: timeout)
+            || app.tables["Journal.List"].waitForExistence(timeout: timeout)
+            || app.otherElements["Journal.List"].waitForExistence(timeout: timeout)
+    }
+
+    private func selectLogMode(identifier: String, label: String) {
+        let menu = app.buttons["Log.Mode.Menu"]
+        if menu.waitForExistence(timeout: 1) {
+            forceTap(menu)
+        }
+        let button = app.buttons.matching(identifier: identifier).firstMatch
+        if button.waitForExistence(timeout: 6) {
+            forceTap(button)
+            return
+        }
+        let labeled = app.segmentedControls.buttons[label]
+        if labeled.waitForExistence(timeout: 4) {
+            forceTap(labeled)
         }
     }
 
