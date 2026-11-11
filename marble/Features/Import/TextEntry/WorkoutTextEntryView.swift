@@ -627,10 +627,8 @@ struct WorkoutTextEntryView: View {
                 }
 
                 Section {
-                    TextField("Workout title", text: $viewModel.draft.title, axis: .vertical)
+                    TextField("Workout title", text: $viewModel.draft.title)
                         .font(MarbleTypography.rowTitle)
-                        .lineLimit(1...4)
-                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("TextEntry.Title")
                 } header: {
                     WorkoutReviewSectionHeader(title: "Workout")

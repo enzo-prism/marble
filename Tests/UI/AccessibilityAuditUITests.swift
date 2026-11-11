@@ -591,6 +591,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         (.staticText, "", "Workout"),
         (.staticText, "", "Exercise"),
         (.staticText, "", "Include Time"),
+        (.staticText, "", "Date"),
         (.button, "TextEntry.EditText", "Edit Text")
     ]
 
@@ -626,8 +627,11 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                   }),
                   element.exists else { return true }
             // Include Time's label is a separate static text; the switch is
-            // the hittable control (CI 42925943228).
-            let canMeasure = element.isHittable || element.label == "Include Time"
+            // the hittable control (CI 42925943228). "Date" is the same class
+            // (CI 42999035622, 36×20 label beside the picker).
+            let canMeasure = element.isHittable
+                || element.label == "Include Time"
+                || element.label == "Date"
             guard canMeasure else { return true }
             let frame = element.frame
             guard frame.width >= 4, frame.height >= 4, window.contains(frame),
