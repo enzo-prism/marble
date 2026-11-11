@@ -437,12 +437,14 @@ tracked in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
   The container **self-recovers** from a failed migration without overwriting older recovery
   copies.
 - **Design system** (`marble/Theme/`, `marble/Components/`) — the monochrome "Marble" brand
-  with Liquid Glass confined to navigation surfaces.
+  with Liquid Glass confined to navigation surfaces. Progress Details uses semantic
+  chart/metric color, paired with labels and symbols, with light/dark and Increase
+  Contrast variants; all calculations and analytical detail remain available.
 - **Import** (`marble/Features/Import/`) — a small `WorkoutImportProvider` abstraction over
   Apple Health, Garmin (via Health), and Strava (official OAuth). Full design + rationale in
   [`INTEGRATIONS.md`](INTEGRATIONS.md).
 - **Live Activity** (`marble/Features/RestTimer/` + `MarbleWidgets/`) — the app starts one
-  rest-timer activity at a time; the widget extension renders the Lock Screen / Dynamic
+  workout-long activity with integrated rest; the widget extension renders the Lock Screen / Dynamic
   Island UI. Release archive/export signing now covers `Prism.marble.MarbleWidgets`.
 - Privacy manifest at `marble/PrivacyInfo.xcprivacy`.
 

@@ -83,6 +83,30 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         assertSnapshot(view, named: "Trends_DailyHighlights")
     }
 
+    func testTrendsDetails() {
+        SharedDefaults.suite.set(false, forKey: SharedDefaults.Key.dailyHighlightsEnabled)
+        let container = SnapshotFixtures.makeContainer()
+        SnapshotFixtures.seedPopulated(in: ModelContext(container))
+        let view = TrendsView(prioritizesInitialDetail: true)
+            .modelContainer(container)
+            .environment(QuickLogCoordinator())
+        assertSnapshot(view, named: "Trends_Details")
+    }
+
+    func testTrendsCategoryCharts() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedPopulated(in: context)
+        let entries = (try? context.fetch(FetchDescriptor<SetEntry>())) ?? []
+        let groups: [LifterCoaching.MuscleGroupCoverage] = [
+            .init(category: .chest, setsPerWeek: 12, directSets: 12, indirectSets: 0, lastTrainedDaysAgo: 0, band: .inRange),
+            .init(category: .back, setsPerWeek: 8, directSets: 8, indirectSets: 0, lastTrainedDaysAgo: 2, band: .below),
+            .init(category: .quads, setsPerWeek: 16, directSets: 16, indirectSets: 0, lastTrainedDaysAgo: 1, band: .inRange)
+        ]
+        assertSnapshot(TrendsCategoryChartsFixture(groups: groups, buckets: []), named: "Trends_MuscleGroups")
+        assertSnapshot(TrendsCategoryChartsFixture(groups: [], buckets: LifterAnalytics.repRangeDistribution(entries: entries)), named: "Trends_RepRanges")
+    }
+
     func testTrendsFilteredExercise() {
         let container = SnapshotFixtures.makeContainer()
         let context = ModelContext(container)
@@ -150,6 +174,28 @@ final class TrendsSnapshotTests: SnapshotTestCase {
             .modelContainer(container)
             .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_SupplementsTooltip")
+    }
+}
+
+private struct TrendsCategoryChartsFixture: View {
+    let groups: [LifterCoaching.MuscleGroupCoverage]
+    let buckets: [LifterAnalytics.RepRangeBucket]
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxl) {
+                ProgressDetailHeading(section: .training)
+                if !groups.isEmpty {
+                    MuscleGroupSectionView(groups: groups, accessibilityValue: "Three muscle groups")
+                }
+                if !buckets.isEmpty {
+                    RepRangeSectionView(buckets: buckets)
+                }
+            }
+            .padding(MarbleLayout.pagePadding)
+        }
+        .background(Theme.backgroundColor(for: colorScheme))
     }
 }
 

@@ -192,7 +192,7 @@ struct TrendsContentView: View {
                             let hasSetData = !derived.filteredEntries.isEmpty
                             let hasSupplementData = !derived.filteredSupplementEntries.isEmpty
 
-                            ProgressDetailHeading(title: "Summary")
+                            ProgressDetailHeading(section: .summary)
 
                             rangePicker
 
@@ -228,7 +228,7 @@ struct TrendsContentView: View {
                                 )
                                 .accessibilityIdentifier("Trends.EmptyState")
                             } else {
-                                ProgressDetailHeading(title: "Training")
+                                ProgressDetailHeading(section: .training)
 
                                 if let liftBests = derived.liftBests {
                                     LiftBestsHighlightView(bests: liftBests)
@@ -329,7 +329,7 @@ struct TrendsContentView: View {
                                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                                 }
 
-                                ProgressDetailHeading(title: "Body & Habits")
+                                ProgressDetailHeading(section: .bodyAndHabits)
 
                                 // Outside the hasSetData guard on purpose: a user with
                                 // no sets in range can still be invited to weigh in.
@@ -342,7 +342,7 @@ struct TrendsContentView: View {
                                 supplementsSection(derived: derived)
 
                                 if hasSetData {
-                                    ProgressDetailHeading(title: "Milestones")
+                                    ProgressDetailHeading(section: .milestones)
                                 }
 
                                 if hasSetData, !derived.prEvents.isEmpty {
@@ -939,6 +939,12 @@ struct TrendsContentView: View {
         }
     }
 
+    private func volumeLegendItems(_ series: [VolumeSeries]) -> some View {
+        ForEach(series, id: \.self) { item in
+            TrendsLegendChip(label: item.label, color: item.color(for: colorScheme), symbol: item.legendSymbol)
+        }
+    }
+
     private func volumeChart(derived: TrendsDerivedData) -> some View {
         let data = derived.volumeData
         let summaries = derived.weeklySummaries
@@ -969,6 +975,10 @@ struct TrendsContentView: View {
                     .foregroundStyle(TrendsPalette.barGradient(item.series.color(for: colorScheme)))
                     .position(by: .value("Series", item.series.label))
                     .cornerRadius(item.series.cornerRadius)
+                    .annotation(position: .top, spacing: 2) {
+                        TrendsLegendGlyph(color: item.series.color(for: colorScheme), symbol: item.series.legendSymbol)
+                            .accessibilityHidden(true)
+                    }
                     .accessibilityHidden(true)
                 }
 
@@ -1070,14 +1080,10 @@ struct TrendsContentView: View {
             }
 
             if !presentSeries.isEmpty {
-                HStack(spacing: MarbleSpacing.s) {
-                    ForEach(presentSeries, id: \.self) { series in
-                        TrendsLegendChip(
-                            label: series.label,
-                            color: series.color(for: colorScheme),
-                            symbol: series.legendSymbol
-                        )
-                    }
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: MarbleSpacing.s) { volumeLegendItems(presentSeries) }
+                        .fixedSize(horizontal: true, vertical: false)
+                    VStack(alignment: .leading, spacing: MarbleSpacing.xs) { volumeLegendItems(presentSeries) }
                 }
                 .padding(.top, MarbleSpacing.xxxs)
             }
@@ -1618,7 +1624,7 @@ private struct TrendSummaryMetricView: View {
 
             Text(item.value)
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(item.accent ?? Theme.primaryTextColor(for: colorScheme))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -1649,7 +1655,7 @@ private struct TrendSummaryMetricView: View {
 
             Text(item.value)
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .foregroundStyle(item.accent ?? Theme.primaryTextColor(for: colorScheme))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -1789,7 +1795,7 @@ enum VolumeSeries: String, CaseIterable {
     }
 
     /// Shape cues keep grouped bars and their legend distinguishable without
-    /// depending on gray shade alone.
+    /// depending on color alone.
     var legendSymbol: TrendsLegendSymbol {
         switch self {
         case .weighted: .circle

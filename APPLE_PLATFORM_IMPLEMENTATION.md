@@ -15,6 +15,7 @@ This branch is an implementation candidate, not a release. No new binary has bee
 | History | Text export from session detail; repeats enter review; imported Health workout zones on iOS 27 | Final UI and accessibility suites |
 | Watch | Focused phone-connected controller: start, repeat last set, rest/skip, finish and refresh; persistent request IDs prevent repeat duplication after lost acknowledgements | Physical Watch transport, offline retry and rest alerts |
 | AI extraction | Live model corpus tests record per-case outcomes and latency attachments | Run on the actual phone with its installed model |
+| Progress Details | Semantic metric colors, stable category colors, matching volume symbols/legend, adaptive Increase Contrast, neutral surfaces and preserved data/Audio Graphs | Final visual matrix, accessibility audit and UI checks |
 | Siri AI preview | Updated skill text, scenarios and separate development-only project generator; SDK preflight prevents accidental public packaging | Xcode/iOS 27.3, compiled skills, Siri Evaluations and conversational/card acceptance |
 
 The Watch target is a companion controller. It does not yet own a wrist HealthKit
@@ -30,10 +31,12 @@ workout title and exercise label; locked-device acceptance is still required.
 
 ## Verification evidence so far
 
-- The latest full unit run completed 1,092 cases: 1,083 passed and nine explicitly
+- The latest full unit run completed 1,099 cases: 1,089 passed and ten explicitly
   gated cases skipped, with zero failures, after the callback, parser, editor,
-  authentication and overnight Health export changes. A subsequent focused run
-  also verified the Health selection predicate against a reopened SQLite store.
+  authentication, overnight Health export, model backoff and Progress Details changes.
+  It includes the reopened SQLite selection predicate and analytic text/mark contrast
+  across light, dark and Increase Contrast. Consistent totals restated as sets now
+  reconcile without adding an extra effort; inconsistent totals remain unresolved.
   This is developmental evidence; release still needs an exact committed-source run.
 - Physical validation confirmed sprint tenths and start/log/repeat/finish through
   Apple's App Intents system path. The query identity assertion was corrected to compare
@@ -47,10 +50,12 @@ workout title and exercise label; locked-device acceptance is still required.
   notification/haptic acceptance remain pending.
 - An on-device hybrid-parser evaluation passed 41/43 standard cases and 5/7 prose cases,
   but failed the unchanged hard-corpus gate at 36/71 (51%; required 60%). Later paced
-  execution was interrupted by the phone relocking and is not a new quality result.
-  Explicit list and weight-first notation fixes are under regression test; the device
-  quality gate must be rerun. Model-service throttling is now distinguished from context
-  overflow; fixed token metadata is cached without caching workout content.
+  execution was interrupted by the phone relocking and is not a quality result. A later
+  completed run reached 42/71 (59%) and still failed; it encountered model throttling
+  near the end. The threshold remains unchanged. Explicit lists, weight-first notation
+  and restated totals have regression coverage; the physical quality gate must be rerun.
+  Throttling is distinguished from context overflow and respects Apple's reset deadline
+  with a bounded fallback backoff. Fixed token metadata is cached without workout content.
 - Snapshot references are being intentionally updated for the pinned stable Xcode 27.0 /
   iOS 27.0 renderer. Recording uses four disjoint shards, each followed by verification;
   artifacts include changed references only. Production evidence forces the full suite.
@@ -86,7 +91,9 @@ See `RELEASE_HANDOFF.md`, `TESTING.md` and `SiriAIPreview/README.md`.
    its confirmed source; whole-workout repeats remain editable review drafts.
 3. Bulk/repeated workouts require editable review before commit.
 4. Keep schema V6, existing stable IDs and keychain group order; no App Group.
-5. Use navigation-only glass, monochrome content and accessible leaf controls.
+5. Use navigation-only glass and accessible leaf controls. The owner approved semantic
+   color for Progress Details and analytical drilldowns on 2026-11-11; keep neutral
+   surfaces, stable meanings, labels/shapes and adaptive contrast.
 6. Preserve users' data during device validation; repair only explicitly identified test records
    through SwiftData, after checking identity, timestamp and emptiness.
 
@@ -100,3 +107,5 @@ See `RELEASE_HANDOFF.md`, `TESTING.md` and `SiriAIPreview/README.md`.
 
 - [Foundation Models OS/model revision guidance](https://developer.apple.com/documentation/Updates/FoundationModels)
 - [Model rate-limit recovery](https://developer.apple.com/documentation/foundationmodels/languagemodelerror/ratelimited(_:))
+- [Chart design and accessibility](https://developer.apple.com/design/human-interface-guidelines/charts)
+- [Color, appearance and inclusive design](https://developer.apple.com/design/human-interface-guidelines/color)

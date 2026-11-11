@@ -2,7 +2,11 @@
 
 ## Goals
 - Maintain best-in-class mobile UX for fast logging.
-- Preserve the “Marble” brand: pure white/black backgrounds, grey accents only.
+- Preserve the “Marble” brand: pure white/black backgrounds and neutral navigation.
+  **Owner-approved exception (2026-11-11):** Progress Details charts, analytical
+  drilldowns and metric cues use semantic color to distinguish dense data. Keep
+  labels/shapes, stable category mappings, light/dark contrast and neutral surfaces.
+  The Add/Log UI and Progress overview retain the monochrome treatment.
 - Keep Liquid Glass limited to navigation surfaces (tab bars, toolbars, sheets). Avoid glass-on-glass. Keep content layer solid.
 
 ## Apple design + dev standards (strict)

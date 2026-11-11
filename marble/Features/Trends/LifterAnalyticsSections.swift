@@ -158,7 +158,6 @@ struct MuscleGroupSectionView: View {
     }
 
     private var chart: some View {
-        let accent = TrendsPalette.volumeWeighted.color(for: colorScheme)
         let band = LifterCoaching.weeklySetBand
         let maxValue = max(groups.map(\.setsPerWeek).max() ?? 1, band.upperBound)
         // Horizontal bars on purpose: orientation distinguishes the category
@@ -169,7 +168,7 @@ struct MuscleGroupSectionView: View {
                     x: .value("Sets per week", group.setsPerWeek),
                     y: .value("Muscle Group", group.category.displayName)
                 )
-                .foregroundStyle(TrendsPalette.barGradient(accent))
+                .foregroundStyle(TrendsPalette.barGradient(TrendsPalette.muscleGroup(group.category).color(for: colorScheme)))
                 .cornerRadius(3)
                 .annotation(position: .trailing, alignment: .leading, spacing: MarbleSpacing.xxs) {
                     Text(annotationText(for: group))
@@ -261,13 +260,12 @@ struct RepRangeSectionView: View {
     }
 
     private var chart: some View {
-        let accent = TrendsPalette.volumeReps.color(for: colorScheme)
         return Chart(buckets) { bucket in
             BarMark(
                 x: .value("Sets", bucket.setCount),
                 y: .value("Range", bucket.kind.displayName)
             )
-            .foregroundStyle(TrendsPalette.barGradient(accent))
+            .foregroundStyle(TrendsPalette.barGradient(TrendsPalette.repRange(bucket.kind).color(for: colorScheme)))
             .cornerRadius(3)
             .annotation(position: .trailing, alignment: .leading, spacing: MarbleSpacing.xxs) {
                 Text(annotationText(for: bucket))

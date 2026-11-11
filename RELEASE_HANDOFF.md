@@ -24,6 +24,14 @@
   differs; use the verified CI signing path or appropriate local profile overrides.
 - Physical validation is isolated as `Prism.marble.validation` with separate keychain
   groups. Developer Mode and UI automation are enabled on the connected iOS 27.2 phone.
+- An exact, empty developer-test session in the production container was removed through
+  SwiftData after UUID/date/emptiness checks; device readback verified every other user
+  row and store identity unchanged. Temporary SQLite inspection copies were purged.
+  The installed production binary is temporarily a baseline development 2.7 (86),
+  preserving its container/keychain. Restore it through the verified next TestFlight
+  build; never uninstall. New features remain in the isolated Validation app.
+- The owner additionally approved color for Progress Details and analytical drilldowns.
+  Keep the monochrome overview/navigation and preserve labels, data and accessibility.
 - No final exact-source device signoff, final five-gate manifest, new upload receipt,
   TestFlight upload or App Review submission exists for this candidate yet.
 - Siri AI custom skills remain a 27.3 developer preview, separate from public App Shortcuts.

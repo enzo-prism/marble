@@ -12,6 +12,14 @@ Physical validation uses the isolated `Prism.marble.validation` installation. Th
 connected iPhone has Developer Mode/UI automation enabled; unlocked execution and
 optional Health permissions are still required for the remaining acceptance checks.
 
+Progress Details color checks cover every semantic accent against the actual page
+and chart surfaces in light/dark and Increase Contrast: text requires 4.5:1 and
+the least opaque bar gradient requires 3:1. Volume marks repeat their legend's
+shapes, categorical charts keep direct labels/values, and Audio Graphs remain.
+`testTrendsDetails` and `testTrendsCategoryCharts` extend the small-width/regular,
+light/dark/default/largest-text snapshot matrix. Record references intentionally
+and inspect them before accepting them; contrast tests do not replace `make audit`.
+
 ## Historical hardening candidate and distribution (2026-10-04)
 
 - **Local candidate:** 2.6 (83), still under validation. It has not been uploaded,
@@ -78,7 +86,7 @@ production remains 2.3 build 56.
 ## Durable release-gate evidence
 
 PR CI includes navigation smoke tests. The nightly/manual Release checks workflow runs
-all five gates with Xcode 26.6 (17F113) and iOS 26.5. Production requires matching clean-source
+all five gates with Xcode 27.0 (27A266a) and iOS 27.0. Production requires matching clean-source
 evidence, an upload receipt binding the ASC build to that source, and explicit physical-iPhone
 signoff; simulator success and an internal TestFlight upload are not device signoff.
 
