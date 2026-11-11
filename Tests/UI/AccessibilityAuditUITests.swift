@@ -493,6 +493,13 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                     if !notesAuditViewportContains(workoutNotesAuditViewport(list), frame) {
                         return false
                     }
+                    // Timing_Review_light parked "Sprints · 2 sets · 50 m each"
+                    // at nav.maxY 116 (CI 42949304743). Same glass-boundary
+                    // false positive as section headers.
+                    let navigationBar = app.navigationBars.firstMatch
+                    if navigationBar.exists, frame.minY < navigationBar.frame.maxY + 8 {
+                        return false
+                    }
                 }
                 // ImportExerciseMatchRow uses Theme.secondaryTextColor, pinned
                 // by ThemeContrastTests. iOS 26.5 samples the icon+text HStack
