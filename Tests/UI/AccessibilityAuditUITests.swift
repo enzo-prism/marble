@@ -592,6 +592,8 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         (.staticText, "", "Exercise"),
         (.staticText, "", "Include Time"),
         (.staticText, "", "Date"),
+        (.staticText, "", "Applied to every set unless a set has its own date & time."),
+        (.staticText, "TextEntry.ModelIssue", "Apple Intelligence couldn't read this right now, so only gym notation was read."),
         (.button, "TextEntry.EditText", "Edit Text")
     ]
 
@@ -622,16 +624,21 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         var notes: [String] = []
         let kept = issues.filter { issue in
             guard issue.auditType == .contrast, let element = issue.element,
-                  Self.pixelVerifiedContrastElements.contains(where: {
-                      $0.type == element.elementType && $0.identifier == element.identifier && $0.label == element.label
-                  }),
-                  element.exists else { return true }
+                  element.exists,
+                  element.identifier == "TextEntry.ModelIssue"
+                    || Self.pixelVerifiedContrastElements.contains(where: {
+                        $0.type == element.elementType && $0.identifier == element.identifier && $0.label == element.label
+                    }) else { return true }
             // Include Time's label is a separate static text; the switch is
             // the hittable control (CI 42925943228). "Date" is the same class
-            // (CI 42999035622, 36×20 label beside the picker).
+            // (CI 42999035622, 36×20 label beside the picker). List footers
+            // and the model-issue caption are type 48 static text that iOS 26
+            // samples against grouped List material (RC 43032442049).
             let canMeasure = element.isHittable
                 || element.label == "Include Time"
                 || element.label == "Date"
+                || element.identifier == "TextEntry.ModelIssue"
+                || element.label == "Applied to every set unless a set has its own date & time."
             guard canMeasure else { return true }
             let frame = element.frame
             guard frame.width >= 4, frame.height >= 4, window.contains(frame),

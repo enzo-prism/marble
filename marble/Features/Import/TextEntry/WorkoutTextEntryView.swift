@@ -617,6 +617,7 @@ struct WorkoutTextEntryView: View {
                         VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
                             if let note = viewModel.modelIssueNote {
                                 Text(note)
+                                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                                     .accessibilityIdentifier("TextEntry.ModelIssue")
                             }
                             Text("These lines need a closer look. Edit and retry, or keep them in workout notes before saving.")
