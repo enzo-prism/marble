@@ -1,9 +1,16 @@
-name: Record Composer snapshots
+name: Record snapshots
 
 # Deliberate baseline maintenance on the same toolchain as release checks.
 # Download and review the artifact before committing any changed reference.
 on:
   workflow_dispatch:
+    inputs:
+      suite:
+        description: 'References to record and then verify'
+        type: choice
+        options: [composer, full]
+        default: composer
+        required: true
 
 permissions:
   contents: read
@@ -15,26 +22,36 @@ concurrency:
 jobs:
   record:
     runs-on: xcode-27
-    timeout-minutes: 30
+    timeout-minutes: ${{ inputs.suite == 'full' && 180 || 30 }}
     steps:
       - uses: actions/checkout@v4
       - name: Select pinned Xcode
         run: bash scripts/select_ci_xcode.sh
-      - name: Record Composer references
+      - name: Record references
         env:
-          SNAPSHOT_GROUPS_OVERRIDE: MarbleSnapshotTests/WorkoutComposerSnapshotTests
-        run: make snapshot-record
-      - name: Verify recorded Composer references
+          SNAPSHOT_SCOPE: ${{ inputs.suite }}
+        run: |
+          if [[ "$SNAPSHOT_SCOPE" == "full" ]]; then
+            make snapshot-record
+          else
+            SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutComposerSnapshotTests make snapshot-record
+          fi
+      - name: Verify recorded references
         env:
-          SNAPSHOT_GROUPS_OVERRIDE: MarbleSnapshotTests/WorkoutComposerSnapshotTests
-        run: make snapshot
+          SNAPSHOT_SCOPE: ${{ inputs.suite }}
+        run: |
+          if [[ "$SNAPSHOT_SCOPE" == "full" ]]; then
+            make snapshot
+          else
+            SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutComposerSnapshotTests make snapshot
+          fi
       - name: Upload references for review
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: composer-snapshot-references
+          name: ${{ inputs.suite == 'full' && 'all-snapshot-references' || 'composer-snapshot-references' }}
           path: |
-            Tests/Snapshots/__Snapshots__/WorkoutComposerSnapshotTests/*.png
+            Tests/Snapshots/__Snapshots__/**/*.png
             TestResults/*.xcresult
           if-no-files-found: error
           retention-days: 14
