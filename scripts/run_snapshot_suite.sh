@@ -129,8 +129,14 @@ prepare_simulator() {
   if [[ -z "${sim_id}" ]]; then
     return 0
   fi
-  xcrun simctl boot "${sim_id}" >/dev/null 2>&1 || true
-  xcrun simctl bootstatus "${sim_id}" -b >/dev/null 2>&1 || true
+  local destination
+  export MARBLE_SIMULATOR_ID="${sim_id}"
+  if ! destination=$("${ROOT_DIR}/scripts/ensure_simulator.sh"); then
+    echo "Snapshot simulator ${sim_id} disappeared from CoreSimulator." >&2
+    return 1
+  fi
+  sim_id="${destination#id=}"
+  export MARBLE_SIMULATOR_ID="${sim_id}"
 }
 
 ensure_content_size() {
@@ -185,14 +191,11 @@ for group in "${SNAPSHOT_GROUPS[@]}"; do
       result_path="${ROOT_DIR}/TestResults/MarbleSnapshots_${index}${group_suffix}.xcresult"
     fi
     echo "Running snapshot group: ${group}${group_suffix}"
-    # History a11y must start from a freshly booted scene. Reusing the default-
-    # size process made populated History never produce three identical frames
-    # on macos-26 (CI 42784020124 / Release checks 42784019972). Other groups
-    # keep the simulator booted so the suite still finishes under the watchdog.
-    if [[ "${category}" == a11y ]]; then
-      echo "Rebooting snapshot simulator for History accessibility text size"
-      shutdown_simulator
-    fi
+    # History a11y used to shutdown+boot so UIKit search rebuilt at XXXL.
+    # That reboot is what dropped every xcodebuild destination on macos-26
+    # (CI 43032442125). Terminate the app and set content_size on the same
+    # booted scene instead; pixel compare for a11y History is skipped after OCR.
+    cleanup_simulator
     prepare_simulator
     system_category=large
     if [[ "${category}" == a11y ]]; then

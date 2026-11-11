@@ -62,7 +62,7 @@ jobs:
 
       - name: Verify History and Composer snapshots
         if: success() || failure()
-        run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests,MarbleSnapshotTests/WorkoutComposerSnapshotTests make snapshot
+        run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutComposerSnapshotTests,MarbleSnapshotTests/WorkoutHistorySnapshotTests make snapshot
 
       - name: Verify release tooling
         if: success() || failure()
