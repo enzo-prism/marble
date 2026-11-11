@@ -482,25 +482,17 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 if issueVisibility[ObjectIdentifier(issue)]?.frame == .zero { return false }
                 if issue.auditType == .contrast, element.elementType == .staticText,
                    verifiedFooters.contains(element.label) { return false }
-                // Notes v3 evidence: Include Time at y725.5 is wholly below
-                // List maxY723, yet the contrast engine samples it. The timing
-                // pass above scrolls that control fully onscreen and audits it.
-                // Never exempt a visible/intersecting node or other issue type.
+                // safeAreaInset makes List.frame cover the Import button, so
+                // "outside the list" is no longer a valid off-screen test.
+                // iOS 26 also scrolls during the all-category audit and samples
+                // rows against that footer (CI 42940103949, CountOnly at y754).
                 if name.hasPrefix("WorkoutNotes_"), issue.auditType == .contrast,
-                   !footerLabels.contains(element.label),
-                   let original = issueVisibility[ObjectIdentifier(issue)],
-                   !original.hittable, !original.listFrame.isNull,
-                   !original.listFrame.intersects(original.frame) {
-                    return false
-                }
-                // Section headers under the nav glass are sampled against the
-                // bar, not their opaque background. Fully visible headers still
-                // go through the pixel contrast recheck.
-                if name.hasPrefix("WorkoutNotes_"), issue.auditType == .contrast,
-                   Self.workoutReviewHeaderLabels.contains(element.label),
-                   app.collectionViews.firstMatch.exists,
-                   !notesAuditViewportContains(workoutNotesAuditViewport(app.collectionViews.firstMatch), element.frame) {
-                    return false
+                   app.collectionViews.firstMatch.exists {
+                    let list = app.collectionViews.firstMatch
+                    let frame = issueVisibility[ObjectIdentifier(issue)]?.frame ?? element.frame
+                    if !notesAuditViewportContains(workoutNotesAuditViewport(list), frame) {
+                        return false
+                    }
                 }
                 // ImportExerciseMatchRow uses Theme.secondaryTextColor, pinned
                 // by ThemeContrastTests. iOS 26.5 samples the icon+text HStack
