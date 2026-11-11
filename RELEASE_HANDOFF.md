@@ -1,6 +1,35 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-10-30.**
+**App Store Connect state refreshed: 2026-11-11.**
+
+## Apple platform candidate in progress (2026-11-11)
+
+- Fresh ASC readback: **2.6.1 (84) is public**; **2.7 (86) is approved,
+  `PENDING_DEVELOPER_RELEASE`**, manual release. Version ID
+  `e65d1f38-6c84-4096-ba1b-5d7436f0f575`; build ID
+  `9430c497-7e8e-4235-b121-c319e463bdd4` is `VALID` and internally testing.
+- `origin/main` baseline is `e1e1275c5822692a172904d554af255ee2653e33`.
+  New work is on `feature/apple-platform-workouts`, not yet uploaded or merged.
+  Build 86 does not contain the new platform features. The older sections below are history.
+- Owner explicitly authorized implementation, documentation, main/prod, TestFlight and
+  App Store submission on 2026-11-11. Continue through the existing evidence gates;
+  this authorization does not substitute for passing checks.
+- Working version is still 2.7 (85). Recheck ASC's next build before creating a clean
+  release branch. Do not reuse 85/86 or silently replace an approved binary.
+- Candidate details and remaining acceptance: `APPLE_PLATFORM_IMPLEMENTATION.md`.
+  Stable CI now pins Xcode 27.0 (27A266a) and iOS 27.0. Deployment stays iOS 26.0.
+- New Share and Watch App Store profiles are registered and mapped in export options:
+  `Marble Share App Store` (`3HPT4NGH4P`) and `Marble Watch App Store` (`KSLXXWP9SN`).
+  They use existing CI distribution certificate `9M47KCWLU8`. Local distribution identity
+  differs; use the verified CI signing path or appropriate local profile overrides.
+- Physical validation is isolated as `Prism.marble.validation` with separate keychain
+  groups. Developer Mode and UI automation are enabled on the connected iOS 27.2 phone.
+- No final exact-source device signoff, final five-gate manifest, new upload receipt,
+  TestFlight upload or App Review submission exists for this candidate yet.
+- Siri AI custom skills remain a 27.3 developer preview, separate from public App Shortcuts.
+  Never package the preview bundle into the public archive or claim executed conversational
+  evaluations from scenario fixtures alone.
+
 External state can change outside git, so always re-run the **Live state checks** before acting.
 
 ## 2.7 (build 85) on internal TestFlight (2026-10-30)

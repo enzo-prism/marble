@@ -11,8 +11,8 @@
 	     snapshot, which always names its group explicitly. -->
 	<key>keychain-access-groups</key>
 	<array>
-		<string>$(AppIdentifierPrefix)Prism.marble</string>
-		<string>$(AppIdentifierPrefix)Prism.marble.shared</string>
+		<string>$(AppIdentifierPrefix)Prism.marble$(MARBLE_BUNDLE_SUFFIX)</string>
+		<string>$(AppIdentifierPrefix)Prism.marble$(MARBLE_BUNDLE_SUFFIX).shared</string>
 	</array>
 </dict>
 </plist>

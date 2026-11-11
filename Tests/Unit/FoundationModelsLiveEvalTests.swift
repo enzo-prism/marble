@@ -86,6 +86,22 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
                 print("        \(failure)")
             }
         }
+        let report: [String: Any] = [
+            "label": label,
+            "recordedAt": ISO8601DateFormatter().string(from: Date()),
+            "modelAvailable": FoundationModelsWorkoutScanParser.isAvailable,
+            "cases": results.map { result in
+                ["name": result.name, "tier": String(describing: result.tier),
+                 "passed": result.pass, "failures": result.failures,
+                 "seconds": result.seconds] as [String: Any]
+            }
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) {
+            let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+            attachment.name = "FoundationModels-\(label)-metrics.json"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
         let latencies = results.map(\.seconds).sorted()
         if !latencies.isEmpty {
             let mean = latencies.reduce(0, +) / Double(latencies.count)

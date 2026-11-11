@@ -839,3 +839,40 @@ under **Known gaps / next up**.
 Still open:
 - No automated coverage of the Live Activity's system presentation (device-only).
 - Strava's OAuth round trip is unverified end to end; it ships unconfigured.
+
+## Apple platform validation (2026-11-11 candidate)
+
+Use stable Xcode 27.0 (27A266a) with the iOS/watchOS 27.0 runtimes. Deployment
+remains iOS 26.0. Snapshot baselines were intentionally moved to this renderer;
+recording alone is not a passing snapshot verification. Run the complete `make test`,
+`make ui`, `make audit` and migration gates on the final committed candidate.
+
+Physical automation must target **Prism.marble.validation**, never the installed
+production journal. Pass `MARBLE_BUNDLE_SUFFIX=.validation` and the matching manual
+development profiles for app, widgets, Share, Watch and UI runner. Both XCUIApplication
+and AppIntentsTesting use the same explicit validation bundle ID. Never fall back to
+the production identifier when target metadata is missing. The prepare intent requires
+the validation suffix and uses its own persistent store, because the system may relaunch
+the app between invocations. Release builds contain neither fixture nor repair intents.
+
+Opt-in physical checks (prepend `TEST_RUNNER_` when invoking xcodebuild):
+
+- `MARBLE_SYSTEM_INTENTS=1`: `AppIntentSystemPathUITests` validates typed set/session
+  results, sprint tenths, repeat identity, finish and subsequent entity queries. Returned
+  entity identifiers may omit bundle qualification; compare their instance IDs.
+- `MARBLE_NATIVE_HEALTH_ACCEPTANCE=1`: `NativeWorkoutDeviceUITests` requests Health
+  consent through Settings and checks start/pause/resume/save. Cleanup targets only its
+  recorded validation session and exact source/sync ID; never delete by a broad date range.
+- `SharedWorkoutInboxDeviceTests`: signed shared-keychain capacity, concurrency, reopening
+  and exact-row deletion. Requires an empty validation inbox and removes only its own IDs.
+- `MARBLE_FM_EVAL=1`: `FoundationModelsLiveEvalTests` runs the actual installed model and
+  attaches per-case pass/failure and latency JSON. An unavailable-model skip is not a pass.
+- `MARBLE_SPEECH_ACCEPTANCE=1`: `SpeechTranscriberDeviceTests` transcribes a synthetic
+  bundled workout using installed local speech assets. This does not establish microphone
+  capture acceptance; separately verify the Record/Stop/Use Text and permission-denial UI.
+
+Also verify native Health background/recovery, physical Lock Screen/Live Activity controls,
+the Share extension-to-app review handoff, and paired Watch reconnect/retry/rest alerts.
+Watch simulator compilation is not wrist sensor acceptance. Custom Siri AI skill compilation,
+Siri Evaluations and conversational/card acceptance require the separate 27.3 preview
+setup in `SiriAIPreview/README.md`; regular App Intents tests cannot establish those results.

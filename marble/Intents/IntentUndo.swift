@@ -63,6 +63,7 @@ enum IntentUndo {
             // `WorkoutSession.entries` is a one-way `.nullify` relationship with
             // no inverse on `SetEntry`, so deleting the row is what drops it out
             // of the session it was appended to.
+            let changedExerciseID = entry.exercise.id
             context.delete(entry)
 
             if let goalSnapshotID {
@@ -84,10 +85,11 @@ enum IntentUndo {
             }
 
             guard context.saveOrRollback() else { return }
+            RestActivityController.shared.cancelRest(startedBy: entryID)
 
             // The undone set has to leave the widget and the weekly-goal nudge
             // too, for the same reason logging it had to reach them.
-            Task { await AppIntentsSupport.refreshSystemSurfaces(modelContext: context) }
+            Task { await AppIntentsSupport.refreshSystemSurfaces(modelContext: context, changedExerciseIDs: [changedExerciseID]) }
         }
     }
 }

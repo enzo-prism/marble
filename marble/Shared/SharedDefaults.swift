@@ -119,7 +119,10 @@ nonisolated enum SharedKeychain {
     /// The team prefix is hardcoded here because `$(AppIdentifierPrefix)` is a
     /// build-time plist expansion — it is substituted into the entitlements
     /// file by the build system and is never visible to Swift source.
-    static let accessGroup = "L49MKXGVM4.Prism.marble.shared"
+    static var accessGroup: String {
+        let suffix = Bundle.main.object(forInfoDictionaryKey: "MarbleBundleSuffix") as? String ?? ""
+        return "L49MKXGVM4.Prism.marble\(suffix).shared"
+    }
 
     /// `kSecAttrService` — one service per shared payload.
     static let service = "marble.widget.weeklyGoalSnapshot"
@@ -211,4 +214,11 @@ nonisolated enum SharedKeychain {
     static func removeSnapshot() {
         _ = SecItemDelete(identityQuery() as CFDictionary)
     }
+}
+
+/// Validation installs use a different bundle and scheme, preserving the user's
+/// App Store database, credentials and deep-link routing during device tests.
+nonisolated enum MarbleURLs {
+    static var scheme: String { Bundle.main.object(forInfoDictionaryKey: "MarbleURLScheme") as? String ?? "marble" }
+    static func url(_ path: String) -> URL { URL(string: "\(scheme)://\(path)")! }
 }

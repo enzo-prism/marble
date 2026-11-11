@@ -40,12 +40,20 @@ enum MarbleTab: String, CaseIterable {
 }
 
 class MarbleUITestCase: XCTestCase {
+    static var targetBundleIdentifier: String {
+        #if targetEnvironment(simulator)
+        "Prism.marble"
+        #else
+        "Prism.marble.validation"
+        #endif
+    }
     var app: XCUIApplication!
     private let draftNamespace = UUID().uuidString
 
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
     }
 
     override func tearDown() {
@@ -75,7 +83,7 @@ class MarbleUITestCase: XCTestCase {
         if app != nil {
             app.terminate()
         }
-        app = XCUIApplication()
+        app = XCUIApplication(bundleIdentifier: Self.targetBundleIdentifier)
         app.launchEnvironment["MARBLE_UI_TESTING"] = "1"
         app.launchEnvironment["MARBLE_DRAFT_NAMESPACE"] = draftNamespace
         app.launchEnvironment["MARBLE_DISABLE_ANIMATIONS"] = "1"
@@ -105,6 +113,10 @@ class MarbleUITestCase: XCTestCase {
             app.launchEnvironment[key] = value
         }
         app.launch()
+        // Physical devices can retain the orientation of the preceding app.
+        // These flows use a deterministic portrait viewport; landscape tests
+        // explicitly rotate after launch.
+        XCUIDevice.shared.orientation = .portrait
     }
 
     func navigateToTab(_ tab: MarbleTab) {

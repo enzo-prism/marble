@@ -225,7 +225,10 @@ final class RestActivityController {
 
     /// The rest period currently counting down, or `nil` when idle. Drives the
     /// in-app rest pill; cleared on cancel, replacement, and scheduled expiry.
-    private(set) var activeRest: ActiveRest?
+    private(set) var activeRest: ActiveRest? {
+        didSet { if activeRest == nil { sourceEntryID = nil } }
+    }
+    @ObservationIgnored private var sourceEntryID: UUID?
 
     @ObservationIgnored private let liveActivities: any RestLiveActivityClient
     @ObservationIgnored private let restEndAlerts: any RestEndAlertClient
@@ -250,11 +253,9 @@ final class RestActivityController {
     /// Convenience for the logging call sites: pulls the exercise name and rest from a
     /// just-saved `SetEntry`.
     func startRest(for entry: SetEntry) {
-        startRest(
-            exerciseName: entry.exercise.name,
-            restSeconds: entry.restAfterSeconds,
-            now: AppEnvironment.now
-        )
+        if startRest(exerciseName: entry.exercise.name, restSeconds: entry.restAfterSeconds, now: AppEnvironment.now) {
+            sourceEntryID = entry.id
+        }
     }
 
     /// Starts (or replaces) a rest timer counting down `restSeconds`.
@@ -262,14 +263,24 @@ final class RestActivityController {
         startRest(exerciseName: exerciseName, restSeconds: restSeconds, now: AppEnvironment.now)
     }
 
-    func startRest(exerciseName: String, restSeconds: Int, now: Date) {
-        guard Self.shouldStart(restSeconds: restSeconds), Self.isRestSurfaceEnabled else { return }
+    @discardableResult
+    func startRest(exerciseName: String, restSeconds: Int, now: Date) -> Bool {
+        guard Self.shouldStart(restSeconds: restSeconds), Self.isRestSurfaceEnabled else { return false }
+        sourceEntryID = nil
         let endsAt = Self.restEndDate(restSeconds: restSeconds, now: now)
         beginRestSession(exerciseName: exerciseName, endsAt: endsAt)
         // Scheduled outside the Live Activity path on purpose: the backgrounded-completion
         // alert must still fire when Live Activities are disabled and only the pill runs.
         restEndAlerts.scheduleAlert(exerciseName: exerciseName, endsAt: endsAt)
-        replaceLiveActivity(startedAt: now)
+        if WorkoutActivityController.hasRunningWorkout {
+            endLiveActivities(liveActivities.snapshots().map(\.id))
+            Task { await WorkoutActivityController.refresh() }
+        } else { replaceLiveActivity(startedAt: now) }
+        return true
+    }
+
+    func cancelRest(startedBy entryID: UUID) {
+        if sourceEntryID == entryID { cancelRest() }
     }
 
     /// Sets the in-app rest state (the tab-bar pill) and schedules its auto-clear.
@@ -320,6 +331,7 @@ final class RestActivityController {
         // mid-rest at the original end. Re-adding the fixed identifier replaces it wholesale.
         restEndAlerts.scheduleAlert(exerciseName: activeRest.exerciseName, endsAt: endsAt)
         updateLiveActivity(endsAt: endsAt)
+        Task { await WorkoutActivityController.refresh() }
     }
 
     /// Ends the current rest timer immediately (e.g. the user logs the next set
@@ -347,6 +359,7 @@ final class RestActivityController {
         // rest that no longer exists.
         restEndAlerts.cancelAlert()
         endLiveActivities(liveActivities.snapshots().map(\.id))
+        Task { await WorkoutActivityController.refresh() }
     }
 
     /// Clears a rest that expired while the auto-end task couldn't run (the app
@@ -473,6 +486,7 @@ final class RestActivityController {
         // request keeps the notification center clean and can never double-alert.
         restEndAlerts.cancelAlert()
         endLiveActivities(liveActivities.snapshots().map(\.id))
+        Task { await WorkoutActivityController.refresh() }
     }
 
     private func adopt(

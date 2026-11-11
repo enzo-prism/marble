@@ -1,4 +1,6 @@
+import AppIntents
 import SwiftUI
+import AppIntents
 import SwiftData
 import UIKit
 import Combine
@@ -86,12 +88,7 @@ struct AddSetView: View {
     /// `nil` when the user has never expressed a preference (everyone who
     /// upgraded from 2.1 without onboarding), which keeps the historical `.lb`
     /// default intact.
-    static var preferredWeightUnit: WeightUnit? {
-        guard let raw = SharedDefaults.suite.string(forKey: SharedDefaults.Key.preferredWeightUnit) else {
-            return nil
-        }
-        return WeightUnit(rawValue: raw)
-    }
+    static var preferredWeightUnit: WeightUnit? { WorkoutCommands.preferredWeightUnit }
 
     /// Which unit a fresh set starts in.
     ///
@@ -104,9 +101,7 @@ struct AddSetView: View {
         preference: WeightUnit?,
         lastEntryUnit: WeightUnit?
     ) -> WeightUnit {
-        if let lastEntryUnit { return lastEntryUnit }
-        if let preference { return preference }
-        return .lb
+        WorkoutCommands.initialWeightUnit(preference: preference, lastEntryUnit: lastEntryUnit)
     }
 
     var body: some View {
@@ -474,6 +469,11 @@ struct AddSetView: View {
                         .accessibilityIdentifier("AddSet.Save")
                     }
                 }
+            }
+            .userActivity("Prism.marble.loggingExercise", isActive: selectedExerciseID != nil) { activity in
+                guard let id = selectedExerciseID, let exercise = fetchExercise(id: id) else { return }
+                activity.title = exercise.name
+                activity.appEntityIdentifier = EntityIdentifier(for: ExerciseEntity(exercise))
             }
             .onChange(of: selectedExerciseID) { _, newValue in
                 guard let newValue else {
@@ -1182,26 +1182,9 @@ struct AddSetView: View {
             )
         }()
 
-        modelContext.insert(entry)
-        if let sprintGoalSnapshot { modelContext.insert(sprintGoalSnapshot) }
-        if let sprintRepDetail { modelContext.insert(sprintRepDetail) }
-        if let variant = activeVariant, let variantID = variant.id {
-            // Stamp the plan as most-recently-used and re-mirror the legacy
-            // prescription so every pre-variant surface stays truthful.
-            let descriptor = FetchDescriptor<SprintVariant>(predicate: #Predicate { $0.id == variantID })
-            if let liveVariant = (try? modelContext.fetch(descriptor))?.first {
-                liveVariant.lastUsedAt = now
-            }
-            SprintVariant.syncLegacyPrescription(for: exercise.id, in: modelContext)
-        }
-        activeSession?.append(entry, at: now)
-        do {
-            try modelContext.save()
-        } catch {
-            #if DEBUG
-            print("Save set failed: \(error)")
-            #endif
-            modelContext.rollback()
+        guard WorkoutCommands.commit(entry, session: activeSession,
+            snapshot: sprintGoalSnapshot, detail: sprintRepDetail,
+            variantID: activeVariant?.id, in: modelContext) else {
             showSaveError = true
             return
         }
@@ -1220,7 +1203,7 @@ struct AddSetView: View {
                 outcome: variant.target.outcome(forTenths: tenths)
             ))
         }
-        RestActivityController.shared.startRest(for: entry)
+        WorkoutCommands.donateLoggedExercise(entry)
         if shouldContinue {
             continueAfterSaving(entry, exercise: exercise)
             sprintTimeTenths = nil

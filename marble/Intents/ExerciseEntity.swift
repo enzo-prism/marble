@@ -23,8 +23,8 @@ nonisolated struct ExerciseEntity: AppEntity, IndexedEntity {
     /// Matches `Exercise.id` exactly, so the entity survives round-trips through
     /// saved Shortcuts and the Spotlight index.
     let id: UUID
-    let name: String
-    let categoryName: String
+    @Property(title: "Name") nonisolated(unsafe) var name: String
+    @Property(title: "Category") nonisolated(unsafe) var categoryName: String
 
     // ── Properties Siri can read ────────────────────────────────────────────
     // These are what let Siri answer "what's my bench PR?" or "when did I last
@@ -139,7 +139,9 @@ extension ExerciseEntity {
     /// exercise would scale with library size on every cold launch.
     @MainActor
     static func entities(for exercises: [Exercise], in context: ModelContext) -> [ExerciseEntity] {
-        let all = (try? context.fetch(FetchDescriptor<SetEntry>())) ?? []
+        let ids = exercises.map(\.id)
+        guard !ids.isEmpty else { return [] }
+        let all = (try? context.fetch(FetchDescriptor<SetEntry>(predicate: #Predicate { ids.contains($0.exercise.id) }))) ?? []
         let byExercise = Dictionary(grouping: all) { $0.exercise.id }
         return exercises.map { ExerciseEntity($0, history: byExercise[$0.id] ?? []) }
     }
@@ -323,14 +325,8 @@ nonisolated struct ExerciseQuery: EntityStringQuery {
 /// pass straight into `LogSetIntent`. Indexing is idempotent — re-running it
 /// refreshes existing items rather than duplicating them.
 ///
-/// Rebuild-after-corruption: App Intents has no `IndexedEntityQuery`
-/// (`reindexAllEntities()` / `reindexEntities(for:)`) in this SDK — the
-/// iOS 26.5 `AppIntents.swiftinterface` declares no such protocol — so there
-/// is nothing for `ExerciseQuery` to conform to. Recovery therefore stays
-/// `reindexAll()` on every cold launch (`ContentView`'s `.task`), which at
-/// this library's scale rebuilds the whole index anyway. CoreSpotlight's
-/// delegate-level rebuild hooks exist but are item-based, not entity-based,
-/// and are deliberately not mixed in here.
+/// iOS 27 also requests reindexing through `IndexedEntityQuery` below; cold-launch
+/// refresh remains the compatible recovery path on iOS 26.
 @MainActor
 enum ExerciseSpotlightIndex {
     /// The one client index every call below goes through. Named because
@@ -358,7 +354,7 @@ enum ExerciseSpotlightIndex {
     static func reindexAll() async {
         // Indexing perturbs nothing visible, but it does mutate global system state
         // — keep it out of the UI-test harness like every other ambient surface.
-        guard !TestHooks.isUITesting else { return }
+        guard !TestHooks.isUITesting, !TestHooks.isXCTestProcess else { return }
 
         guard let context = try? AppIntentsSupport.resolvedContainer().mainContext else { return }
         let descriptor = FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)])
@@ -410,16 +406,17 @@ enum ExerciseSpotlightIndex {
         pendingSaveRefresh = Task {
             do { try await Task.sleep(for: .seconds(2)) } catch { return }
             await reindexAll()
+            await WorkoutSessionSpotlightIndex.refresh()
         }
     }
 
     /// Immediate, awaited variant for intents. Siri can run them with no scene, so
     /// `ContentView`'s save observer may not exist and a debounced task could be
     /// suspended with the process; `perform()` awaits this before returning instead.
-    static func refreshAfterSetChange() async {
-        guard !TestHooks.isUITesting, AppIntentsSupport.container != nil else { return }
+    static func refreshAfterSetChange(identifiers: [UUID]) async {
+        guard !TestHooks.isUITesting, !TestHooks.isXCTestProcess, AppIntentsSupport.container != nil else { return }
         pendingSaveRefresh?.cancel()
-        await reindexAll()
+        if let entities = try? await ExerciseQuery().entities(for: identifiers) { await indexEntities(entities) }
     }
 
     /// Drops one deleted exercise from the index, immediately.
@@ -430,7 +427,7 @@ enum ExerciseSpotlightIndex {
     /// defect this closes. Failures are swallowed for the same reason as
     /// above: Spotlight hygiene must never block the delete itself.
     static func remove(exerciseID: UUID) async {
-        guard !TestHooks.isUITesting else { return }
+        guard !TestHooks.isUITesting, !TestHooks.isXCTestProcess else { return }
 
         await deleteEntity(exerciseID: exerciseID)
     }
@@ -452,6 +449,7 @@ enum ExerciseSpotlightIndex {
     /// Spotlight can't keep surfacing rows that no longer exist.
     static func removeAll() async {
         await deleteAllEntities()
+        await WorkoutSessionSpotlightIndex.removeAll()
     }
 
     private nonisolated static func deleteAllEntities() async {
@@ -462,5 +460,16 @@ enum ExerciseSpotlightIndex {
             print("Spotlight de-indexing failed: \(error)")
             #endif
         }
+    }
+}
+
+@available(iOS 27.0, *)
+extension ExerciseQuery: IndexedEntityQuery {
+    func reindexEntities(for identifiers: [UUID], indexDescription: CSSearchableIndexDescription) async throws {
+        let entities = try await entities(for: identifiers)
+        try await CSSearchableIndex(name: "ExerciseEntities").indexAppEntities(entities)
+    }
+    func reindexAllEntities(indexDescription: CSSearchableIndexDescription) async throws {
+        await ExerciseSpotlightIndex.reindexAll()
     }
 }

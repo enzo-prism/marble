@@ -65,7 +65,7 @@ Rules:
   - Only if explicitly requested; check availability, use sessions, honor context limits, and prefer on-device privacy.
 
 ## Setup
-- Required: **Xcode 26.x with an iOS 26.x platform installed** (the code uses iOS 26 APIs —
+- Required: **Xcode 27.0 (27A266a) with an iOS 27.0 platform installed** (the code uses iOS 26 APIs —
   older Xcode cannot build this project). The app target **deploys to iOS 26.0** as of build 49
   (it was 26.2 through build 48, which locked out every device on 26.0/26.1 for no reason:
   only one API in the whole codebase needed a newer OS — `tabViewBottomAccessory(isEnabled:)`,
@@ -160,6 +160,18 @@ Use these commands (preferred):
 - `marble/Testing/` (`TestHooks`), `marble/PrivacyInfo.xcprivacy`.
 - `Tests/` — `Unit/`, `Snapshots/`, `UI/`, `TestSupport/`.
 - `.github/workflows/ci.yml` — runs `make unit` on PRs and `main`/`release/**` pushes.
+
+## Apple platform candidate (2026-11-11)
+
+- Read `APPLE_PLATFORM_IMPLEMENTATION.md` for implemented behavior and pending acceptance.
+- Physical tests must use `Prism.marble.validation` with matching isolated profiles,
+  URL scheme and keychain groups. Never infer/fall back to the production bundle ID.
+- The debug persistent App Intents fixture store is validation-only. Release builds
+  exclude test/repair intents. Preserve the user's real journal and Health history.
+- Share/Watch have explicit target membership. Share uses the existing shared keychain;
+  no App Group. The Watch target currently controls the phone and does not own sensors.
+- Siri AI preview resources remain outside public targets. SDK 27.3 compilation and
+  actual conversational evaluations are required before marking that work accepted.
 
 ## Current state + gotchas (read first)
 - **`RELEASE_HANDOFF.md` is the dated source of truth for release/version/signing state.**
@@ -262,7 +274,7 @@ Prefer the repo-level `asc` wiring over ad hoc commands.
   export with *"requires a provisioning profile with the HealthKit feature"*.
 - Prefer `make asc-version` over raw `asc xcode version view`, because this project uses generated Info.plists and the helper prints a reliable `MARKETING_VERSION` fallback
 - `make asc-archive` already bakes in the required `generic/platform=iOS` destination for this project
-- The app target deploys to iOS `26.0` and needs an installed iOS 26.x simulator runtime. If `xcodebuild`/`asc` reports “no destinations”, install that platform/runtime from Xcode > Settings > Components before debugging further.
+- The app target deploys to iOS `26.0` and uses the pinned iOS 27.0 simulator runtime. If `xcodebuild`/`asc` reports “no destinations”, install that platform/runtime from Xcode > Settings > Components before debugging further.
 
 See `ASC.md` for the fuller Marble-specific command reference.
 

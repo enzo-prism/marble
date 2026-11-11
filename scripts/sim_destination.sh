@@ -6,8 +6,8 @@ if [[ -n "${MARBLE_SIMULATOR_ID:-}" ]]; then
   exit 0
 fi
 
-preferred_name="${MARBLE_SIMULATOR_NAME:-iPhone 15 Pro}"
-preferred_runtime="${MARBLE_SIMULATOR_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-26-5}"
+preferred_name="${MARBLE_SIMULATOR_NAME:-iPhone 17}"
+preferred_runtime="${MARBLE_SIMULATOR_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-27-0}"
 
 destination_id=$(python3 - "$preferred_name" "$preferred_runtime" <<'PY'
 import json

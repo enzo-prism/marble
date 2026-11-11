@@ -43,7 +43,11 @@ enum PersistenceController {
     }
 
     static var storeURL: URL {
-        URL.applicationSupportDirectory.appendingPathComponent("Marble", isDirectory: true)
+        if TestHooks.usesPersistentIntentTestStore {
+            return URL.applicationSupportDirectory.appendingPathComponent("MarbleValidationIntents", isDirectory: true)
+                .appendingPathComponent("Marble.store")
+        }
+        return URL.applicationSupportDirectory.appendingPathComponent("Marble", isDirectory: true)
             .appendingPathComponent("Marble.store")
     }
 

@@ -50,11 +50,8 @@ enum WorkoutSessionIntentSupport {
 
 /// Starts a workout session so subsequently logged sets group together.
 ///
-// TODO(iOS 27): adopt `LongRunningIntent` here, with the session's progress surfaced
-// as a Live Activity for the whole life of the workout, so the system can represent
-// a running workout instead of the intent finishing the moment it opens the app.
-// The 26.2 SDK ships no `LongRunningIntent`, so 2.2 stays `openAppWhenRun` — do not
-// add an `#available` branch for it until the app builds against the 27 SDK.
+// A genuine workout is represented by ActivityKit and optional HealthKit tracking;
+// LongRunningIntent is reserved for computational work, not an idle session.
 #if SIRI_AI_PREVIEW
 // Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
 // from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
@@ -69,27 +66,19 @@ struct StartWorkoutIntent: AppIntent {
 
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<WorkoutSessionEntity> {
         let context = try AppIntentsSupport.resolvedContainer().mainContext
 
         // Returning the existing session — rather than inserting a second one — is
         // the whole point of this guard. A duplicate would strand the older session.
         if let existing = WorkoutSessionIntentSupport.activeSession(in: context) {
-            return .result(dialog: "\(existing.title) is already running. New sets will keep going into it.")
+            return .result(value: WorkoutSessionEntity(existing), dialog: "\(existing.title) is already running. New sets will keep going into it.")
         }
 
-        let now = AppEnvironment.now
-        let session = WorkoutSession(
-            title: WorkoutSessionIntentSupport.suggestedTitle(in: context, now: now),
-            startedAt: now,
-            createdAt: now,
-            updatedAt: now
-        )
-        context.insert(session)
-
-        guard context.saveOrRollback() else {
-            return .result(dialog: "Marble couldn't start the workout.")
+        guard let session = WorkoutCommands.start(in: context) else {
+            throw WorkoutIntentFailure(message: "Marble couldn't start the workout.")
         }
+        await NativeWorkoutController.shared.start(for: session)
 
         // A bare session moves none of the weekly numbers (they count
         // `SetEntry` days), but every intent that writes to the store leaves
@@ -98,7 +87,7 @@ struct StartWorkoutIntent: AppIntent {
         // age toward the staleness cliff while the app never foregrounds.
         await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
 
-        return .result(dialog: "Started \(session.title).")
+        return .result(value: WorkoutSessionEntity(session), dialog: "Started \(session.title).")
     }
 }
 
@@ -118,22 +107,23 @@ struct FinishWorkoutIntent: AppIntent {
 
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<WorkoutSessionEntity> {
         let context = try AppIntentsSupport.resolvedContainer().mainContext
 
         guard let session = WorkoutSessionIntentSupport.activeSession(in: context) else {
-            return .result(dialog: "No workout is running right now.")
+            throw WorkoutIntentFailure(message: "No workout is running right now.")
         }
 
-        let now = AppEnvironment.now
         // Capture before saving so the summary can't be affected by the save path.
         let title = session.title
         let setCount = session.entries.count
 
-        session.finish(at: now)
-        guard context.saveOrRollback() else {
-            return .result(dialog: "Marble couldn't finish the workout.")
+        guard WorkoutCommands.finish(session, in: context) else {
+            throw WorkoutIntentFailure(message: "Marble couldn't finish the workout.")
         }
+
+        await NativeWorkoutController.shared.finish()
+        await HealthSessionExporter.shared.exportIfEnabled(from: context)
 
         // Same cleanup as the Workout tab's Finish button: a rest timer outliving
         // its session leaves a pill counting down over nothing.
@@ -150,6 +140,6 @@ struct FinishWorkoutIntent: AppIntent {
 
         let setsText = setCount == 1 ? "1 set" : "\(setCount) sets"
         let durationText = DateHelper.formattedDuration(seconds: Int(session.duration.rounded()))
-        return .result(dialog: "Finished \(title) — \(setsText) in \(durationText).")
+        return .result(value: WorkoutSessionEntity(session), dialog: "Finished \(title) — \(setsText) in \(durationText).")
     }
 }

@@ -94,10 +94,10 @@ struct WeeklyGoalWidgetContent: View {
             WeeklyGoalInlineView(state: state)
         case .systemMedium:
             WeeklyGoalMediumView(state: state)
-                .widgetURL(URL(string: "marble://trends"))
+                .widgetURL(MarbleURLs.url("trends"))
         default:
             WeeklyGoalSmallView(state: state)
-                .widgetURL(URL(string: "marble://trends"))
+                .widgetURL(MarbleURLs.url("trends"))
         }
     }
 }
@@ -263,7 +263,7 @@ struct WeeklyGoalInlineView: View {
 /// else here — the capsule fill alone marks it as the tappable part.
 struct WeeklyGoalQuickLogLink: View {
     var body: some View {
-        if let url = URL(string: "marble://quicklog") {
+        if case let url = MarbleURLs.url("quicklog") {
             Link(destination: url) {
                 Label("Log set", systemImage: "plus")
                     .font(.caption.weight(.semibold))

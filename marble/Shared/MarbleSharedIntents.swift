@@ -22,11 +22,6 @@ import Foundation
 ///
 /// Repeated taps accumulate because the controller extends from the *current* end date rather
 /// than from now (see `RestActivityController.extendedEnd(from:by:now:)`).
-#if SIRI_AI_PREVIEW
-// Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
-// from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
-@AppIntent(.tool)
-#endif
 struct ExtendRestIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Extend Rest"
     static let description = IntentDescription("Adds 30 seconds to the running rest timer.")
@@ -54,19 +49,16 @@ struct ExtendRestIntent: LiveActivityIntent {
     @MainActor
     func perform() async throws -> some IntentResult {
         #if !WIDGET_EXTENSION
+        await WorkoutActivityController.recoverRest()
         RestActivityController.shared.extend(by: Self.extensionSeconds, activityID: activityID)
         await RestActivityController.shared.waitForPendingLiveActivityOperation()
+        await WorkoutActivityController.refresh()
         #endif
         return .result()
     }
 }
 
 /// Ends the running rest timer immediately, from the Live Activity's "End" button.
-#if SIRI_AI_PREVIEW
-// Siri AI Developer Preview: exposes this intent to Siri as a tool it can call
-// from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
-@AppIntent(.tool)
-#endif
 struct EndRestIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "End Rest"
     static let description = IntentDescription("Ends the running rest timer and dismisses it.")
@@ -89,6 +81,7 @@ struct EndRestIntent: LiveActivityIntent {
         #if !WIDGET_EXTENSION
         RestActivityController.shared.cancelRest(activityID: activityID)
         await RestActivityController.shared.waitForPendingLiveActivityOperation()
+        await WorkoutActivityController.refresh()
         #endif
         return .result()
     }
@@ -112,6 +105,6 @@ struct OpenQuickLogControlIntent: AppIntent {
         // `openAppWhenRun` foregrounded Marble but the logger never presented.
         // Route through the same `marble://quicklog` deep link the medium
         // widget uses; `ContentView.onOpenURL` opens the sheet.
-        .result(opensIntent: OpenURLIntent(URL(string: "marble://quicklog")!))
+        .result(opensIntent: OpenURLIntent(MarbleURLs.url("quicklog")))
     }
 }

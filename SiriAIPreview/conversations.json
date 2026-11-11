@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "purpose": "Acceptance scenarios for SiriEvaluations on the 27.3 developer preview. This manifest is test data, not a claim of execution.",
+  "minimumSDK": "27.3",
+  "distribution": ["development", "internal-testflight"],
+  "scenarios": [
+    {"name":"strength-and-correction","turns":["Start my workout in Marble","Log bench press 185 pounds for 5","Make that 190 pounds","Same again","Finish my workout"],"assertions":["One active session","Correction targets returned set identity","Two sets, each 190 lb and 5 reps","No duplicate sessions or sets","Finish ends rest"]},
+    {"name":"dumbbell-input","turns":["Log dumbbell press with the 40 pound dumbbells for 8 reps in Marble"],"assertions":["Input 40 per dumbbell","Pair storage converts once","Confirmation uses input weight"]},
+    {"name":"precise-sprint","turns":["Log a 50 meter sprint in 7.4 seconds in Marble"],"assertions":["Distance 50 meters","Duration 74 tenths","Typed returned duration 7.4"]},
+    {"name":"missing-measured-time","turns":["Log another sprint in Marble"],"assertions":["Ask for actual time","No new row until supplied","Never copy a previous measured performance"]},
+    {"name":"bulk-review","turns":["In Marble I did squats 5x5 at 225 pounds and three sets of ten pull-ups"],"assertions":["Foreground editable review","No writes before confirmation","Preserve every stated count and unit"]},
+    {"name":"rest","turns":["Start a 90 second rest in Marble","Add a minute","Skip rest"],"assertions":["Resolve current rest in code","Adjust once by 60 seconds","No public internal activity ID"]},
+    {"name":"history","turns":["Find Tuesday's leg workout in Marble","Open that workout","Repeat it for review"],"assertions":["Return actual matching entities","Open exact stable ID","Review repeated draft before saving"]},
+    {"name":"authentication-and-errors","turns":["Show my workouts in Marble"],"assertions":["Honor device authentication policy","Deleted entities produce an unavailable state","No private body metrics or notes in results"]}
+  ]
+}

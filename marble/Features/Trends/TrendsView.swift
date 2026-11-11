@@ -514,6 +514,7 @@ struct TrendsContentView: View {
                 Button(action: showOverview) {
                     Text("Overview")
                         .font(MarbleTypography.button)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                         .frame(minHeight: MarbleLayout.minimumTouchTarget)
                         .contentShape(Rectangle())
                 }

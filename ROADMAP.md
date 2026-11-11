@@ -1,5 +1,11 @@
 # Marble — H2 2026 Implementation Plan (written 2026-07-20)
 
+> **2026-11-11 candidate update:** A focused phone-connected Watch controller and iPhone
+> native Health session are now implemented on the Apple platform feature branch. The
+> older “Watch not built” entries below describe their original dates. Wrist-owned
+> HealthKit sessions, sensors and Smart Stack remain separate unfinished work. See
+> `APPLE_PLATFORM_IMPLEMENTATION.md` for current evidence and release status.
+
 ## September 5 update — Add Workout fidelity
 
 Owner testing found that count-only drills were rejected and explicit sprint counts

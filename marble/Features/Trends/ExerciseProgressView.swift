@@ -1,3 +1,4 @@
+import AppIntents
 import Charts
 import SwiftData
 import SwiftUI
@@ -44,6 +45,10 @@ struct ExerciseProgressView: View {
             }
             .scrollDisabled(isScrubbingChart)
             .background(Theme.backgroundColor(for: colorScheme))
+            .userActivity("Prism.marble.viewingExercise") { activity in
+                activity.title = exercise.name
+                activity.appEntityIdentifier = EntityIdentifier(for: ExerciseEntity(exercise))
+            }
             .navigationTitle("Progress")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarGlassBackground()

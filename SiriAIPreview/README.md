@@ -1,90 +1,80 @@
-# Siri AI Developer Preview spike
+# Siri AI developer preview
 
-Apple opened Siri AI to every developer on 2026-11-03 ("Siri AI is now open to all
-developers", developer.apple.com/news/?id=gdk2umrf). Before that, the new Siri could only act
-on apps that fit an app schema domain. There is no fitness domain, so Marble had nothing but
-its fixed App Shortcut phrases. The preview lets any app expose **custom** intents
-("tools") and entities, plus Markdown **app skills** that explain how they fit together.
+Verified against Apple's documentation on November 11, 2026. Marble's public
+configuration builds with stable Xcode 27.0 and deploys to iOS 26. Preview custom
+tools require Xcode/iOS 27.3 and supported Apple Intelligence hardware.
 
-Docs: `developer.apple.com/documentation/appintents/siri-ai-developer-preview`, and its two
-articles *Bringing custom actions and content to Siri* and *Orchestrating complex actions
-with app skills*.
+Apple makes this preview available to development-signed installations and internal
+TestFlight testers. External TestFlight and App Store installations do not receive
+it. Do not describe these experimental capabilities as a public shipped feature.
 
-## What is on this branch
+Sources:
+- [Preview availability](https://developer.apple.com/documentation/appintents/siri-ai-developer-preview)
+- [Custom tools and entities](https://developer.apple.com/documentation/appintents/bringing-custom-actions-and-content-to-siri)
+- [Compiled app skills](https://developer.apple.com/documentation/appintents/orchestrating-complex-actions-with-app-skills)
+- [Siri evaluations](https://developer.apple.com/documentation/sirievaluations)
+- [App Intents system-path testing](https://developer.apple.com/documentation/appintentstesting)
 
-| Change | Builds on Xcode 27.0? | Ships in a normal build? |
-|---|---|---|
-| `@Parameter(description:)` on every Siri-facing intent parameter | Yes | Yes — also improves Shortcuts |
-| `ExerciseEntity` exposes favorite, last performed, total sets, heaviest set, most reps set and usual range as `@Property` values | Yes | Yes |
-| One batched `SetEntry` fetch for entity lists (`ExerciseEntity.entities(for:in:)`) | Yes | Yes |
-| Spotlight index refreshed after saves, so Siri's personal bests don't go stale (`ExerciseSpotlightIndex.scheduleRefreshAfterSave` / `refreshAfterSetChange`) | Yes | Yes |
-| `@AppIntent(.tool)` on LogSet, LogLastSetAgain, Start/FinishWorkout, ReviewWorkoutText, ReviewWorkoutFile, Extend/EndRest | **No** — needs the preview SDK | Only with `SIRI_AI_PREVIEW` |
-| `@Property(description:)` on the new entity properties | **No** — needs the preview SDK | Only with `SIRI_AI_PREVIEW` |
-| `Skills.skillsbundle` (`log-workout`, `run-workout-session`, `check-progress`) | Not added to the target | No — see below |
+## Normal configuration
 
-Everything preview-only sits behind the `SIRI_AI_PREVIEW` compilation condition, which is
-**not** set in `project.pbxproj`. Release archives from Xcode 27.0 are unaffected.
+The release configuration does not define `SIRI_AI_PREVIEW` or include the skills
+bundle. The normal App Intents expose complete set metrics, typed confirmed sets,
+precise duration, corrections by stable set ID, actual workout lookup/open/repeat
+review, and rest start/adjust/skip. Successful live logging shares persistence,
+session attachment and rest policy with the UI. Repetition preserves sprint detail.
 
-## Building the preview variant
+A workout-long ActivityKit card represents the real journal workout. Optional
+HealthKit tracking owns genuine live sensor collection. `LongRunningIntent` is for
+active computational work with progress; it is not a workout lifecycle mechanism.
 
-Needs Xcode 27.3 beta, and an Apple Intelligence device on iOS/iPadOS 27.3 beta set to a
-supported language (English, French, Japanese, Korean, Portuguese, Spanish). Siri AI does
-not run in the Simulator.
+## Reproducible development configuration
 
-1. Build with the flag:
-   ```bash
-   xcodebuild -project marble.xcodeproj -scheme marble -destination 'generic/platform=iOS' \
-     SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) SIRI_AI_PREVIEW' build
-   ```
-   Or add `SIRI_AI_PREVIEW` to the app target's Debug *Active Compilation Conditions* locally.
-   Don't commit that.
-2. Add the skills bundle: drag `SiriAIPreview/Skills.skillsbundle` into the `marble` target
-   in Xcode 27.3, or create one with File › New › File from Template › Skills Bundle and copy
-   the three `Skills/<name>/SKILL.md` folders in. Make sure it is in the app target's Copy
-   Bundle Resources phase. It deliberately lives outside `marble/` because that group is
-   filesystem-synchronized: putting it there would copy the uncompiled Markdown into every
-   Xcode 27.0 build.
-3. Run from Xcode on the device, or upload to **internal** TestFlight (test group A).
-   The preview does not reach external testers or App Store users.
-4. Run Xcode's Siri Integration Advisor and fix what it reports. The first thing to check
-   is whether `@AppIntent(.tool)` coexists with the `PredictableIntent` / `UndoableIntent`
-   / `LiveActivityIntent` conformances these intents already have.
+`build_preview.rb` creates an ignored `.MarbleSiriPreview.xcodeproj` alongside the
+normal project. It enables preview annotations only in Debug, adds exactly one
+skills bundle to the app resources, validates Apple's restricted skill format,
+and requires build-log evidence of skill compilation. It refuses Xcode/SDKs older
+than 27.3 and does not archive, upload or submit a public binary.
 
-## Requests to try
+With a supported Xcode selected and a physical iOS 27.3+ device:
 
-App in the foreground, or a rest timer Live Activity running (Siri needs no app name in
-either case):
+```sh
+BUNDLE_GEMFILE=SiriAIPreview/Gemfile bundle install
+BUNDLE_GEMFILE=SiriAIPreview/Gemfile bundle exec ruby SiriAIPreview/build_preview.rb \
+  DEVICE_UDID /absolute/path/to/preview-derived-data \
+  CODE_SIGN_STYLE=Manual \
+  MARBLE_BUNDLE_SUFFIX=.validation \
+  MARBLE_DEVELOPMENT_PROFILE='Marble Validation Development 2026-11-11' \
+  MARBLE_WIDGET_DEVELOPMENT_PROFILE='Marble Validation Widgets Development 2026-11-11' \
+  MARBLE_SHARE_DEVELOPMENT_PROFILE='Marble Validation Share Development 2026-11-11' \
+  MARBLE_WATCH_DEVELOPMENT_PROFILE='Marble Validation Watch Development 2026-11-11'
+```
 
-- "Log bench 185 for 5" · "same again" · "8 reps at 40 on dumbbell press" (must log 40 per
-  dumbbell, not 80)
-- "I did squats 5x5 at 225, then three sets of pull-ups" (must open review, not log)
-- "Add 30 seconds" · "skip rest" · "I'm done"
+Use the matching profiles for the actual device. Check the generated project's
+resource type in Xcode if a changed beta no longer recognizes the bundle. A raw
+copy of SKILL.md files is not evidence that Apple compiled or indexed app skills.
 
-With the app in the background (name Marble in the request):
+## Acceptance
 
-- "What's my bench PR in Marble?" · "When did I last squat in Marble?" · "What do I usually
-  curl in Marble?"
+`conversations.json` specifies the conversational corpus and exact data assertions.
+It is scenario data, not a completed SiriEvaluations run. The installed Xcode 27.0
+has no SiriEvaluations framework and the connected iPhone runs iOS 27.2, so preview
+compilation, Integration Advisor, generable draft/card APIs, and scripted Siri
+conversations remain unverified. Do not infer acceptance from normal compilation.
 
-## Open questions before App Store submission (opens spring 2027)
+Before enabling the preview for internal distribution:
 
-- **Privacy copy.** Marble promises nothing leaves the device. Apple's post says Siri AI is
-  at least partly server-side, so entity properties Siri reads (PRs, dates) may be processed
-  by Apple. The App Store text, onboarding and `PrivacyInfo.xcprivacy` need review. Body
-  metrics should stay out of Siri, or use `authenticationPolicy: .requiresAuthentication`,
-  if they are ever exposed.
-- **Availability.** Not in the EU on iOS, not for users under 13, daily usage limits. Siri
-  must stay an extra; every flow keeps working in-app.
-- Apple Intelligence group labs: Nov 4, 9–10 a.m. PT and Nov 5, 6–7 p.m. PT.
+1. Build with the actual 27.3 SDK and verify compiled skills in the resulting app.
+2. Run Integration Advisor, including tool conformance interactions with
+   `PredictableIntent`, `UndoableIntent` and `LiveActivityIntent`.
+3. Implement/run the scenario corpus through the installed beta's SiriEvaluations
+   API. Check the saved journal after every turn, including failure/ambiguity cases.
+4. Run each scenario repeatedly, with the app foregrounded, backgrounded with its
+   name in the request, and with its workout Live Activity active.
+5. Verify explicit authentication, unit conversion, tenths precision, corrections,
+   deleted entities, and zero writes before a bulk workout's editable review.
+6. Review privacy wording: on-device workout parsing and dictation are local;
+   Siri is an Apple system service and may process the exposed data using Apple's
+   infrastructure. Avoid extending Marble's local-processing promise to Siri.
 
-## Next steps, not started here
-
-1. `LongRunningIntent` for `StartWorkoutIntent` with a workout-long Live Activity. The API is
-   already in the iOS 27.0 SDK, and it extends the "no app name needed" window from rest
-   periods to the whole workout (see the TODO in `WorkoutSessionIntents.swift`).
-2. Distance and duration parameters on `LogSetIntent`, so sprints can be logged by voice.
-3. A `WorkoutSessionEntity` (indexed, `Transferable`) for "what did I do last leg day?",
-   "repeat Tuesday's workout" and "send my workout to my coach".
-4. A `@AppEntity(.generable)` workout draft so Siri can fill multi-exercise requests
-   directly, routed into the existing review screen.
-5. Onscreen context on Add Set, exercise detail and session detail ("log another of this").
-6. `SiriEvaluations` scripted conversations in CI for the requests above.
+App skills guide selection and conversation. Bounds, persistence, stable identity,
+unit conversion and review requirements belong in code and tests.

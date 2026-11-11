@@ -3,6 +3,15 @@
 A local-only workout + supplements journal for iOS, built with SwiftUI and SwiftData — and
 a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
+## Apple platform candidate
+
+The current implementation adds richer Siri/Shortcuts actions, a workout-long Live
+Activity, opt-in native Health tracking, on-device dictation, a Share extension inbox,
+and a phone-connected Watch controller. It is undergoing release acceptance; these
+changes are not yet the public binary. See
+[implementation and acceptance status](APPLE_PLATFORM_IMPLEMENTATION.md).
+Custom Siri AI skills remain a separate iOS 27.3 developer preview.
+
 ## What it is
 
 September 5 Add Workout improvements and their fidelity contract are documented in
@@ -76,7 +85,7 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
   the app (iOS 26 bottom accessory, with an End button), while a WidgetKit Live Activity
   mirrors it on the Lock Screen / Dynamic Island.
 
-Everything is stored on-device. Nothing is tracked or sent to a server (there is no server).
+Marble stores the journal locally and runs workout parsing and in-app dictation on device. Marble has no account or application server. Siri, Apple Health, optional Strava integration, and user-initiated sharing follow the privacy settings of Apple and the apps the person chooses.
 
 ## Current distribution (readback 2026-10-30)
 

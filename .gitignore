@@ -27,3 +27,8 @@ marketing/**/snapshots/
 # Local scratch: verification screenshots, PR drafts, throwaway notes.
 # Durable findings belong in WORKFLOW_PAPERCUTS.md, not here.
 work/
+
+# Generated development-only Siri project
+.MarbleSiriPreview.xcodeproj/
+SiriAIPreview/.bundle/
+SiriAIPreview/vendor/

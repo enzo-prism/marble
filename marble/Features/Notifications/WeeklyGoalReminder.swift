@@ -61,7 +61,7 @@ enum WeeklyGoalReminder {
     @MainActor
     static func sync(modelContext: ModelContext, now suppliedNow: Date? = nil) async {
         let now = suppliedNow ?? AppEnvironment.now
-        guard !TestHooks.isUITesting else { return }
+        guard !TestHooks.isUITesting, !TestHooks.isXCTestProcess else { return }
         guard SharedDefaults.suite.object(forKey: enabledDefaultsKey) as? Bool ?? true else {
             removePending()
             return
