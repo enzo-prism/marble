@@ -7,6 +7,8 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         let identifier: String
         let label: String
         let frame: CGRect
+        let reviewMatchIdentifier: String?
+        let reviewTimingSwitchIdentifier: String?
     }
 
     func testExerciseEditorAccessibilityAudit_DefaultText() throws {
@@ -388,16 +390,11 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         var issueVisibility: [ObjectIdentifier: (frame: CGRect, hittable: Bool, listFrame: CGRect)] = [:]
         var issueIdentities: [ObjectIdentifier: AuditElementIdentity] = [:]
         // iOS 26's all-category audit can scroll this List while sampling contrast.
-        // Preserve which exact footer labels started outside the visible viewport.
+        // Recheck each flagged footer: the runtime can move a label that started visible.
         let footerLabels = [
             "Applied to every set unless a set has its own date & time.",
             "Blank RPE saves as 8. Blank rest uses the exercise default."
         ]
-        let clippedFooters = name.hasPrefix("WorkoutNotes_") ? footerLabels.filter { label in
-            let element = app.staticTexts[label]
-            let list = app.collectionViews.firstMatch
-            return element.exists && list.exists && !workoutNotesAuditViewport(list).contains(element.frame)
-        } : []
         do {
             // This runtime cannot run the dynamicType audit at XXXL. Keep all
             // other categories (including textClipped) running in both themes.
@@ -417,9 +414,22 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                         // One atomic snapshot keeps the identity/frame together
                         // while the system audit samples and scrolls a lazy List.
                         if let element = issue.element, let snapshot = try? element.snapshot() {
+                            // Bind repeated menu guidance to its exact exercise row.
+                            // The label itself is noninteractive; its native Menu
+                            // owns hit testing even when the text is fully drawn.
+                            let parents = snapshot.label == "New exercise in your library"
+                                ? self.app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "TextEntry.Exercise.Match."))
+                                    .allElementsBoundByIndex.filter { $0.exists && $0.frame.contains(snapshot.frame) }
+                                : []
                             issueIdentities[ObjectIdentifier(issue)] = AuditElementIdentity(
                                 type: snapshot.elementType, identifier: snapshot.identifier,
-                                label: snapshot.label, frame: snapshot.frame
+                                label: snapshot.label, frame: snapshot.frame,
+                                reviewMatchIdentifier: parents.count == 1 ? parents[0].identifier : nil,
+                                reviewTimingSwitchIdentifier: snapshot.elementType == .staticText
+                                    && snapshot.label == "Include Time"
+                                    && self.app.switches["TextEntry.IncludeTime"].exists
+                                    && self.app.switches["TextEntry.IncludeTime"].frame.contains(snapshot.frame)
+                                    ? "TextEntry.IncludeTime" : nil
                             )
                             let list = self.app.collectionViews.firstMatch
                             issueVisibility[ObjectIdentifier(issue)] = (
@@ -461,8 +471,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             }
 
             var verifiedFooters = Set<String>()
-            for label in clippedFooters where nonDynamicIssues.contains(where: {
-                $0.auditType == .contrast && $0.element?.elementType == .staticText && $0.element?.label == label
+            for label in footerLabels where name.hasPrefix("WorkoutNotes_") && nonDynamicIssues.contains(where: {
+                let identity = issueIdentities[ObjectIdentifier($0)]
+                return $0.auditType == .contrast && identity?.type == .staticText && identity?.label == label
             }) {
                 if try verifyWorkoutFooterContrast(label: label, auditName: name) {
                     verifiedFooters.insert(label)
@@ -598,15 +609,22 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                   let identity = identities[ObjectIdentifier(issue)] else { return true }
             // Footer verification can invalidate the framework's retained AX
             // node. Resolve its original identity against the current hierarchy.
+            let reviewFooter = nameHasReviewPrefix(auditName) && identity.type == .staticText
+                && ["Applied to every set unless a set has its own date & time.",
+                    "Blank RPE saves as 8. Blank rest uses the exercise default."].contains(identity.label)
+            let reviewControl = identity.reviewMatchIdentifier.map { app.buttons[$0] }
+                ?? identity.reviewTimingSwitchIdentifier.map { app.switches[$0] }
             let element: XCUIElement
-            if identity.identifier.isEmpty {
+            if let reviewControl {
+                element = reviewControl.staticTexts.matching(NSPredicate(format: "label == %@", identity.label)).firstMatch
+            } else if identity.identifier.isEmpty {
                 let matches = app.descendants(matching: identity.type)
                     .matching(NSPredicate(format: "label == %@", identity.label))
                 // "Weight and reps" occurs in both the summary and its tile.
                 // Measure the flagged occurrence, never an arbitrary first label.
                 if let exact = matches.allElementsBoundByIndex.first(where: { $0.exists && $0.frame == identity.frame }) {
                     element = exact
-                } else if matches.count == 1 {
+                } else if matches.count == 1 || reviewFooter {
                     element = matches.firstMatch
                 } else { return true }
             } else {
@@ -637,31 +655,45 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 && ["How You Track It", "Two Dumbbells", "Weight and reps"].contains(identity.label)
             let reviewLibraryGuidance = nameHasReviewPrefix(auditName) && identity.type == .staticText
                 && identity.label == "New exercise in your library"
-            guard investigated || nativePlainText || reviewSummary || editorPlainText || reviewLibraryGuidance else { return true }
+            let reviewTimingLabel = nameHasReviewPrefix(auditName) && identity.type == .staticText
+                && identity.label == "Include Time"
+            guard investigated || nativePlainText || reviewSummary || editorPlainText || reviewLibraryGuidance || reviewFooter || reviewTimingLabel else { return true }
+            if (reviewLibraryGuidance || reviewTimingLabel) && reviewControl == nil { return true }
+            let hitTarget = reviewControl ?? element
             if nameHasReviewPrefix(auditName), identity.type == .staticText {
                 let list = app.collectionViews.firstMatch
                 for _ in 0..<12 {
                     guard list.exists else { return true }
                     let viewport = workoutNotesAuditViewport(list)
                     if !element.exists {
-                        // These rows precede the footer just checked. Reveal
-                        // them again before asking a lazy List for their frame.
+                        // Summary/menu rows precede the timing footer; footer
+                        // labels follow it. Reveal the correct side of the List.
                         let start = list.coordinate(withNormalizedOffset: .zero)
-                            .withOffset(CGVector(dx: viewport.maxX - list.frame.minX - 5, dy: viewport.minY - list.frame.minY + 20))
-                        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: viewport.height * 0.5)),
+                            .withOffset(CGVector(dx: viewport.maxX - list.frame.minX - 5, dy: viewport.midY - list.frame.minY))
+                        let direction: CGFloat = reviewFooter ? -1 : 1
+                        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: direction * viewport.height * 0.4)),
                                     withVelocity: .slow, thenHoldForDuration: 0.3)
                         continue
                     }
-                    if element.isHittable && viewport.contains(element.frame) { break }
+                    if hitTarget.isHittable && viewport.contains(element.frame) { break }
                     let distance = min(max(viewport.midY - element.frame.midY, -viewport.height * 0.4), viewport.height * 0.4)
                     let start = list.coordinate(withNormalizedOffset: .zero)
                         .withOffset(CGVector(dx: viewport.maxX - list.frame.minX - 5, dy: viewport.midY - list.frame.minY))
                     start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
                                 withVelocity: .slow, thenHoldForDuration: 0.3)
                 }
-                guard element.exists, element.isHittable, workoutNotesAuditViewport(list).contains(element.frame) else { return true }
+                guard element.exists, hitTarget.isHittable, workoutNotesAuditViewport(list).contains(element.frame) else { return true }
             }
-            guard element.exists, element.label == identity.label, element.isHittable else { return true }
+            guard element.exists, element.label == identity.label, hitTarget.isHittable else { return true }
+            if reviewLibraryGuidance || reviewFooter || reviewTimingLabel {
+                // Isolate the text child, never the switch thumb/menu icon.
+                let padding: CGFloat = reviewFooter ? 0 : 1
+                let drawnFrame = element.frame.insetBy(dx: -padding, dy: -padding)
+                guard workoutNotesAuditViewport(app.collectionViews.firstMatch).contains(drawnFrame),
+                      reviewControl.map({ $0.frame.contains(drawnFrame) }) ?? true,
+                      (try? isFullTitleDrawn(in: element, title: identity.label, minimumMargin: 0, padding: padding)) == true
+                else { return true }
+            }
             let frame = element.frame
             // Exclude the capsule border so a dark decorative edge cannot
             // supply the measured text contrast of a low-contrast label.

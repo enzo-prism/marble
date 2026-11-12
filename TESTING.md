@@ -32,6 +32,14 @@ History retains its four-second deadline and matching system-text-size partition
 The 64 Composer references were intentionally refreshed and separately verified;
 this harness correction does not alter app behavior or the 0.98 pixel precision.
 
+Review-label contrast rechecks bind repeated guidance to its exact exercise menu
+and timing text to the identified switch. Measure the text child, excluding icons
+and switch thumbs; require a hittable parent, the complete text inside the viewport,
+full OCR and at least 4.5:1 contrast. A one-point margin captures native glyph overhang
+from actual screen pixels while retaining the one-pixel OCR estimation tolerance.
+Recheck flagged footer text even when it started visible before the audit scrolled.
+Ambiguous identities and unknown, clipped or low-contrast text remain failures.
+
 ## Historical hardening candidate and distribution (2026-10-04)
 
 - **Local candidate:** 2.6 (83), still under validation. It has not been uploaded,

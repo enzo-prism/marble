@@ -164,6 +164,22 @@ workout title and exercise label; locked-device acceptance is still required.
   visually inspected and verified in a separate non-recording run (seven cases).
   No Progress reference changed. The interrupted full attempt is incomplete; all
   five gates must run again against the clean committed candidate.
+- The next clean-source run (`e752889`) passed the complete snapshot matrix:
+  45 groups, 65 executed cases and zero failures, including all Progress and
+  Composer references. Unit and all three migrations also passed. Accessibility
+  retained two review-label contrast reports; the UI gate was intentionally stopped
+  after 51 passing cases to correct their verification. This is not a full release pass.
+- Captures showed native review labels sampled as the audit scrolled the List.
+  Rechecks now bind repeated library guidance to its exact menu and Include Time
+  text to its identified switch. They require the parent to be hittable, the text
+  fully inside the unobscured viewport and parent, complete OCR and measured 4.5:1
+  contrast using only the text child's pixels. A one-point capture margin includes
+  native glyph overhang without relaxing the existing one-pixel OCR bounds tolerance.
+  Flagged timing footers are rechecked even if they started visible. Unknown,
+  ambiguous, clipped or low-contrast reports still fail. The default review audit
+  passed in 117 seconds, and the largest-text review audit passed all four states
+  in 131 seconds. These changes affect verification only; app behavior is unchanged.
+  Regenerate all five gates on the corrected committed source before release.
 - Release-tooling Ruby checks passed after signing, authentication-metadata and CI changes.
 - The migration gate includes the immutable public 2.6.1 (84) source as well as
   retained 2.5 (77) and 2.4 (61) coverage. All three passed against `6deb220`, preserving

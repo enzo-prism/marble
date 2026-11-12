@@ -222,8 +222,20 @@ class MarbleUITestCase: XCTestCase {
         return try isFullTitleDrawn(in: text, title: text.label, minimumMargin: 0)
     }
 
-    private func isFullTitleDrawn(in element: XCUIElement, title: String, minimumMargin: CGFloat = 0.01) throws -> Bool {
-        guard let image = element.screenshot().image.cgImage else { return false }
+    func isFullTitleDrawn(in element: XCUIElement, title: String, minimumMargin: CGFloat = 0.01, padding: CGFloat = 0) throws -> Bool {
+        let image: CGImage
+        if padding > 0 {
+            // Native text bounds can exclude subpixel glyph overhang. Capture
+            // surrounding rendered pixels; do not relax OCR's bounds tolerance.
+            let frame = element.frame.insetBy(dx: -padding, dy: -padding)
+            guard app.frame.contains(frame), let screen = XCUIScreen.main.screenshot().image.cgImage else { return false }
+            let scale = CGFloat(screen.width) / app.frame.width
+            guard let crop = screen.cropping(to: frame.applying(CGAffineTransform(scaleX: scale, y: scale))) else { return false }
+            image = crop
+        } else {
+            guard let crop = element.screenshot().image.cgImage else { return false }
+            image = crop
+        }
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.recognitionLanguages = ["en-US"]
@@ -236,7 +248,7 @@ class MarbleUITestCase: XCTestCase {
         evidence.name = "Rendered text \(element.identifier)"
         evidence.lifetime = .keepAlways
         add(evidence)
-        let crop = XCTAttachment(image: element.screenshot().image)
+        let crop = XCTAttachment(image: UIImage(cgImage: image))
         crop.name = "Rendered bounds \(element.identifier)"
         crop.lifetime = .keepAlways
         add(crop)

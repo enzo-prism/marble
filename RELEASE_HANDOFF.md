@@ -48,8 +48,12 @@
   meet unchanged standard/prose/hard thresholds after an initial Apple asset-service
   failure, retained in the evidence. Composer native-window capture now verifies all
   seven cases and 64 intentionally refreshed references; Progress references are intact.
-  The interrupted complete run does not certify release. Freeze the corrected source
-  and rerun all five gates locally before merge/upload.
+  `e752889` passed the full 45-group/65-case snapshot matrix, unit and migrations.
+  Its audit retained two review-label sampling reports; UI was stopped after 51
+  passes to correct verification. Rechecks now bind the exact parent control and
+  require full text OCR plus 4.5:1 rendered contrast. Focused default/largest review
+  audits pass. The interrupted run does not certify release; rerun all five gates
+  on the corrected committed source before merge/upload.
 - No final exact-source device signoff, final five-gate manifest, new upload receipt,
   TestFlight upload or App Review submission exists for this candidate yet.
 - Siri AI custom skills remain a 27.3 developer preview, separate from public App Shortcuts.
