@@ -43,12 +43,21 @@ final class WatchWorkoutCoordinator: NSObject, WCSessionDelegate {
                 return response(true, "Logged \(entry.exercise.name)")
             }
         }
-        // A lost finish acknowledgement retries the same request ID against a
-        // session that is already saved. Treat that as success before expiry
-        // so the Watch can drop the pending ID.
+        // A lost start/finish acknowledgement retries the same request ID
+        // against work that is already saved. Treat that as success before
+        // expiry so the Watch can drop the pending ID.
+        if request.action == .start {
+            let id = request.id
+            if let _ = try? context.fetch(FetchDescriptor<WorkoutSession>(predicate: #Predicate { $0.id == id })).first {
+                return response(true, "Workout request already saved")
+            }
+        }
         if request.action == .finish, let sessionID = request.sessionID {
             if let existing = try? context.fetch(FetchDescriptor<WorkoutSession>(predicate: #Predicate { $0.id == sessionID })).first,
                existing.endedAt != nil {
+                await finishCompanionSurfaces(from: context)
+                await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
+                publish()
                 return response(true, "Workout already finished")
             }
         }
@@ -57,10 +66,6 @@ final class WatchWorkoutCoordinator: NSObject, WCSessionDelegate {
         }
         let session = WorkoutSessionIntentSupport.activeSession(in: context)
         if request.action == .start {
-            let id = request.id
-            if let _ = try? context.fetch(FetchDescriptor<WorkoutSession>(predicate: #Predicate { $0.id == id })).first {
-                return response(true, "Workout request already saved")
-            }
             guard session == nil else { return response(true, "Workout already running") }
             guard let created = WorkoutCommands.start(in: context, requestID: request.id) else {
                 return response(false, "Couldn't start workout", retryable: true)
@@ -86,14 +91,20 @@ final class WatchWorkoutCoordinator: NSObject, WCSessionDelegate {
                 guard WorkoutCommands.finish(session, in: context) else {
                     return response(false, "Couldn't finish workout", retryable: true)
                 }
-                await NativeWorkoutController.shared.finish()
-                await HealthSessionExporter.shared.exportIfEnabled(from: context)
+                await finishCompanionSurfaces(from: context)
             case .start, .refresh: break
             }
         }
         await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
         publish()
         return response(true, request.action == .repeatSet ? "Set saved" : "Updated")
+    }
+
+    /// Native Health finish and export are themselves idempotent, so a finish
+    /// retry after the journal row is saved still runs them.
+    private func finishCompanionSurfaces(from context: ModelContext) async {
+        await NativeWorkoutController.shared.finish()
+        await HealthSessionExporter.shared.exportIfEnabled(from: context)
     }
 
     private nonisolated struct Reply: @unchecked Sendable { let send: (Data) -> Void }

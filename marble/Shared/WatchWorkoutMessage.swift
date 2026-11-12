@@ -35,15 +35,9 @@ nonisolated struct WatchWorkoutResponse: Codable, Sendable {
         self.retryable = retryable
     }
 
-    /// Drop the preserved Watch request ID only after a confirmed save or a
-    /// failure that cannot succeed if the same request is sent again.
+    /// `retryable == true` always keeps the ID, even if `succeeded` is also set.
     var shouldClearPendingRequest: Bool {
-        succeeded || !(retryable ?? false)
-    }
-
-    /// Undecodable and transport failures are transient: keep the request ID.
-    static func shouldClearPendingRequest(for decoded: WatchWorkoutResponse?) -> Bool {
-        decoded?.shouldClearPendingRequest ?? false
+        retryable != true
     }
 
     enum CodingKeys: String, CodingKey { case succeeded, message, snapshot, retryable }
@@ -62,5 +56,18 @@ nonisolated struct WatchWorkoutResponse: Codable, Sendable {
         try container.encode(message, forKey: .message)
         try container.encodeIfPresent(snapshot, forKey: .snapshot)
         try container.encodeIfPresent(retryable, forKey: .retryable)
+    }
+}
+
+/// The Watch reply handler must call this before dropping a preserved request ID.
+nonisolated enum WatchPendingRequestPolicy {
+    static func shouldClearPendingRequest(
+        action: WatchWorkoutRequest.Action,
+        pendingID: UUID?,
+        requestID: UUID,
+        response: WatchWorkoutResponse?
+    ) -> Bool {
+        guard action != .refresh, pendingID == requestID else { return false }
+        return response?.shouldClearPendingRequest ?? false
     }
 }

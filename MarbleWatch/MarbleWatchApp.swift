@@ -72,15 +72,21 @@ final class WatchWorkoutConnection: NSObject, WCSessionDelegate {
             Task { @MainActor in
                 guard let self else { return }
                 let isCurrentTransmission = self.completeTransmission(expectedGeneration)
-                guard let result = try? JSONDecoder().decode(WatchWorkoutResponse.self, from: data) else {
-                    if isCurrentTransmission { self.message = "No confirmation received. Retry to check." }
-                    return
+                let result = try? JSONDecoder().decode(WatchWorkoutResponse.self, from: data)
+                if result == nil, isCurrentTransmission {
+                    self.message = "No confirmation received. Retry to check."
                 }
                 let confirmsPendingRequest = request.action != .refresh && self.pendingRequest?.id == request.id
-                if confirmsPendingRequest, WatchWorkoutResponse.shouldClearPendingRequest(for: result) {
+                if WatchPendingRequestPolicy.shouldClearPendingRequest(
+                    action: request.action,
+                    pendingID: self.pendingRequest?.id,
+                    requestID: request.id,
+                    response: result
+                ) {
                     self.pendingRequest = nil
                     UserDefaults.standard.removeObject(forKey: "marble.watch.pendingRequest")
                 }
+                guard let result else { return }
                 if let snapshot = result.snapshot { self.receive(snapshot) }
                 if isCurrentTransmission || confirmsPendingRequest {
                     self.message = result.message

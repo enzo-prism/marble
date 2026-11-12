@@ -23,6 +23,8 @@ nonisolated enum SharedWorkoutInbox {
     }
     static let maximumBytes = 65_536
     static let maximumItems = 5
+    /// Host retries of the same share are collapsed only inside this window.
+    static let retryWindow: TimeInterval = 600
     private static let service = "marble.sharedWorkoutInbox"
     private static var baseQuery: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
@@ -54,8 +56,10 @@ nonisolated enum SharedWorkoutInbox {
         try records().map(\.item).sorted { $0.createdAt < $1.createdAt }
     }
 
-    /// Content-addressed identity so a host retry of the same share cannot
-    /// enqueue a second inbox item.
+    /// Identity for an item still sitting in the inbox. A host retry of the
+    /// same share within `retryWindow` reuses that row. The key is SHA-256 of
+    /// trim-only text: leading and trailing whitespace are ignored, interior
+    /// whitespace and case are significant.
     static func dedupeKey(for text: String) -> String {
         SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
@@ -69,24 +73,45 @@ nonisolated enum SharedWorkoutInbox {
         text: String,
         existing: [Item],
         id: UUID = UUID(),
-        createdAt: Date = Date()
+        createdAt: Date? = nil,
+        now: Date = Date()
     ) throws -> PreparedSave {
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { throw InboxError.empty }
         guard cleaned.utf8.count <= maximumBytes else { throw InboxError.tooLarge }
         let key = dedupeKey(for: cleaned)
-        if let match = existing.first(where: { dedupeKey(for: $0.text) == key }) {
+        let timestamp = createdAt ?? now
+        if let match = existing.first(where: {
+            dedupeKey(for: $0.text) == key && abs($0.createdAt.timeIntervalSince(now)) < retryWindow
+        }) {
             return .reuse(match)
         }
         guard existing.count < maximumItems else { throw InboxError.full }
-        return .insert(Item(id: id, createdAt: createdAt, text: cleaned))
+        return .insert(Item(id: id, createdAt: timestamp, text: cleaned))
     }
 
-    /// Share extensions must complete or cancel immediately after the write.
+    /// After a write, keep the earliest in-window row with this hash and drop
+    /// later duplicates from a double Post.
+    static func reconcile(inserted: Item, among items: [Item], now: Date) -> (keeper: Item, extras: [Item]) {
+        let key = dedupeKey(for: inserted.text)
+        let matches = items.filter {
+            dedupeKey(for: $0.text) == key && abs($0.createdAt.timeIntervalSince(now)) < retryWindow
+        }
+        .sorted { lhs, rhs in
+            if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
+        let keeper = matches.first ?? inserted
+        let extras = matches.filter { $0.id != keeper.id }
+        return (keeper, extras)
+    }
+
+    /// Share extensions must complete after a successful write. Failures show
+    /// an error, then cancel when the user acknowledges it.
     enum SharePosting {
         enum Disposition {
             case completeRequest
-            case cancelRequest(Error)
+            case presentErrorThenCancel(Error)
         }
 
         static func disposition(saving: () throws -> Void) -> Disposition {
@@ -94,17 +119,45 @@ nonisolated enum SharedWorkoutInbox {
                 try saving()
                 return .completeRequest
             } catch {
-                return .cancelRequest(error)
+                return .presentErrorThenCancel(error)
+            }
+        }
+
+        final class CompletionGuard: @unchecked Sendable {
+            private var finished = false
+            func completeIfNeeded(_ work: () -> Void) -> Bool {
+                guard !finished else { return false }
+                finished = true
+                work()
+                return true
+            }
+        }
+
+        static func performPost(
+            saving: () throws -> Void,
+            complete: () -> Void,
+            presentError: (String, @escaping () -> Void) -> Void,
+            cancel: @escaping (Error) -> Void,
+            completion: CompletionGuard
+        ) {
+            switch disposition(saving: saving) {
+            case .completeRequest:
+                _ = completion.completeIfNeeded(complete)
+            case .presentErrorThenCancel(let error):
+                presentError(error.localizedDescription, { cancel(error) })
             }
         }
     }
 
-    @discardableResult
-    static func save(text: String) throws -> Item {
-        switch try prepareSave(text: text, existing: try items()) {
-        case .reuse(let item):
-            return item
-        case .insert(let item):
+    nonisolated protocol Storage {
+        func load() throws -> [Item]
+        func insert(_ item: Item) throws
+        func delete(id: UUID) throws
+    }
+
+    struct KeychainStore: Storage {
+        func load() throws -> [Item] { try SharedWorkoutInbox.items() }
+        func insert(_ item: Item) throws {
             let data = try JSONEncoder().encode(item)
             // Five add-only slots make the capacity atomic across extension processes.
             // A slot is never updated or overwritten, even when two hosts share at once.
@@ -114,10 +167,31 @@ nonisolated enum SharedWorkoutInbox {
                 query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
                 query[kSecValueData as String] = data
                 let status = SecItemAdd(query as CFDictionary, nil)
-                if status == errSecSuccess { return item }
+                if status == errSecSuccess { return }
                 if status != errSecDuplicateItem { throw InboxError.unavailable }
             }
             throw InboxError.full
+        }
+        func delete(id: UUID) throws { try SharedWorkoutInbox.remove(id: id) }
+    }
+
+    final class MemoryStore: Storage, @unchecked Sendable {
+        nonisolated(unsafe) var items: [Item] = []
+        nonisolated func load() throws -> [Item] { items }
+        nonisolated func insert(_ item: Item) throws { items.append(item) }
+        nonisolated func delete(id: UUID) throws { items.removeAll { $0.id == id } }
+    }
+
+    @discardableResult
+    static func save(text: String, now: Date = Date(), using storage: any Storage = KeychainStore()) throws -> Item {
+        switch try prepareSave(text: text, existing: try storage.load(), createdAt: now, now: now) {
+        case .reuse(let item):
+            return item
+        case .insert(let item):
+            try storage.insert(item)
+            let (keeper, extras) = reconcile(inserted: item, among: try storage.load(), now: now)
+            for extra in extras { try storage.delete(id: extra.id) }
+            return keeper
         }
     }
 
