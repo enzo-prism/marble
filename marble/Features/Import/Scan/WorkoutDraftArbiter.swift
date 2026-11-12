@@ -266,14 +266,24 @@ nonisolated enum WorkoutDraftArbiter {
                   context.grounds(exerciseName: proposed.trimmedName),
                   let source = sourceSpan(for: proposed.name, in: sourceText),
                   !requiresIntentReview(source.text) else { return nil }
-            let exercise = fillingKnownOmissions(proposed, source: source.text)
-            let local = numberTokens(in: source.text)
+            var exercise = fillingKnownOmissions(proposed, source: source.text)
+            let local = SourceContext(source.text, defaultWeightUnit: context.defaultWeightUnit)
+            // A model can emit the right load with the wrong unit. An explicit
+            // unit attached to that exact number is authoritative; this labels
+            // the stated value and never converts it. Ambiguous occurrences
+            // with both units are left for the existing grounding/review path.
+            for index in exercise.sets.indices {
+                guard let weight = exercise.sets[index].weight,
+                      let units = local.writtenUnits[weight], units.count == 1,
+                      let unit = units.first else { continue }
+                exercise.sets[index].weightUnit = unit
+            }
             let values = numericValues(in: ParsedWorkoutDraft(exercises: [exercise]))
             let faithful = agreesWithKnownMetrics(exercise, source: source.text)
-                && values.exact.allSatisfy { local.contains($0) }
+                && values.exact.allSatisfy { local.tokens.contains($0) }
                 && values.seconds.allSatisfy { value in
                     let variants: Set<Double> = [value, value / 60, value / 3600]
-                    return !variants.isDisjoint(with: local)
+                    return !variants.isDisjoint(with: local.tokens)
                 }
             return faithful ? exercise : nil
         }
@@ -864,6 +874,19 @@ nonisolated enum WorkoutDraftArbiter {
             let range = NSRange(text.startIndex..., in: text)
             for match in numberTokenRegex?.matches(in: text, range: range) ?? [] {
                 if let value = group(match, 0, in: text).flatMap(Double.init) { counts[value, default: 0] += 1 }
+            }
+            // In a load phrase, "with the fifties" names 50-unit dumbbells.
+            // An age or calendar decade is not load evidence.
+            let decades: [String: Double] = ["twenties": 20, "thirties": 30, "forties": 40,
+                "fifties": 50, "sixties": 60, "seventies": 70, "eighties": 80, "nineties": 90]
+            if let expression = try? NSRegularExpression(
+                pattern: #"\b(?:with|using|at)\s+(?:the\s+)?(twenties|thirties|forties|fifties|sixties|seventies|eighties|nineties)\b"#,
+                options: [.caseInsensitive]) {
+                for match in expression.matches(in: text, range: range) {
+                    if let word = group(match, 1, in: text)?.lowercased(), let value = decades[word] {
+                        counts[value, default: 0] += 1
+                    }
+                }
             }
             let words = text.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init)
             for word in words {

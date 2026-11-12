@@ -16,3 +16,8 @@ Answer from the exercise's properties in Marble; don't log anything.
 - If the exercise has no sets logged, say Marble has no history for it yet.
 - These are records the lifter logged themselves, not estimates. Don't convert them
   into one-rep-max estimates or compare them with other people.
+
+For a past workout, use find workouts with the person's title/date. Use the returned
+workout entity to open the exact workout or review a repeated workout. Repetition
+opens an editable draft; it is not confirmation that any sets were saved. Sharing
+uses the actual workout's text representation and happens only when requested.

@@ -64,6 +64,59 @@ final class ThemeContrastTests: MarbleTestCase {
         )
     }
 
+    func testAnalyticsAccentsRemainLegibleInBothAppearancesAndContrastSettings() {
+        let accents: [(String, TrendsChartAccent)] = [
+            ("Consistency", TrendsPalette.consistency),
+            ("Weighted volume", TrendsPalette.volumeWeighted),
+            ("Reps", TrendsPalette.volumeReps),
+            ("Duration", TrendsPalette.volumeDuration),
+            ("Supplements", TrendsPalette.supplements),
+            ("Personal records", TrendsPalette.personalRecord),
+            ("Strength", TrendsPalette.strength),
+            ("Effort", TrendsPalette.effort),
+            ("Bodyweight", TrendsPalette.bodyweight)
+        ]
+        for scheme in [ColorScheme.light, .dark] {
+            for (name, accent) in accents {
+                var previousRatio: Double = 0
+                for contrast in [UIAccessibilityContrast.normal, .high] {
+                    let traits = UITraitCollection(mutations: { $0.accessibilityContrast = contrast })
+                    let ink = rgb(accent.color(for: scheme), traits: traits)
+                    let backgrounds = [Theme.backgroundColor(for: scheme), Theme.surfaceColor(for: scheme)]
+                    for background in backgrounds {
+                        let paper = rgb(background, traits: traits)
+                        let ratio = rgbContrast(ink, paper)
+                        XCTAssertGreaterThanOrEqual(ratio, 4.5, "\(name), \(scheme), \(contrast): metric text")
+                        // The least opaque end of the chart's actual gradient.
+                        let bar = zip(ink, paper).map { $0 * 0.84 + $1 * 0.16 }
+                        XCTAssertGreaterThanOrEqual(rgbContrast(bar, paper), 3, "\(name): chart marks")
+                    }
+                    let ratio = rgbContrast(ink, rgb(Theme.backgroundColor(for: scheme), traits: traits))
+                    if contrast == .high {
+                        XCTAssertGreaterThan(ratio, previousRatio, "Increase Contrast must strengthen \(name)")
+                    }
+                    previousRatio = ratio
+                }
+            }
+        }
+    }
+
+    private func rgb(_ color: Color, traits: UITraitCollection) -> [Double] {
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        XCTAssertTrue(UIColor(color).resolvedColor(with: traits).getRed(&red, green: &green, blue: &blue, alpha: &alpha))
+        return [Double(red), Double(green), Double(blue)]
+    }
+
+    private func rgbContrast(_ first: [Double], _ second: [Double]) -> Double {
+        func luminance(_ components: [Double]) -> Double {
+            zip(components, [0.2126, 0.7152, 0.0722]).reduce(0) {
+                $0 + relativeLuminance($1.0) * $1.1
+            }
+        }
+        let a = luminance(first), b = luminance(second)
+        return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+    }
+
     private func assertGray(_ color: UIColor, equals expected: Double) {
         var white: CGFloat = 0
         var alpha: CGFloat = 0

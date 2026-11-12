@@ -28,6 +28,9 @@ struct WorkoutTextEntryView: View {
     /// prompt; refreshed when the sheet appears and when the app foregrounds.
     @State private var clipboardHasText = false
     @State private var showingFileImporter = false
+    @State private var showingDictation = false
+    @State private var showingSharedInbox = false
+    @State private var sharedWorkoutCount = 0
     @State private var showingPlan = false
     @State private var showingSettings = false
     @State private var showingIncomingTextChoice = false
@@ -100,6 +103,12 @@ struct WorkoutTextEntryView: View {
                 .navigationBarGlassBackground()
                 .toolbar { toolbarContent }
                 .safeAreaInset(edge: .top) {
+                    if presentation == .primaryTab && sharedWorkoutCount > 0 {
+                        Button("Shared Workouts (\(sharedWorkoutCount))", systemImage: "tray") { showingSharedInbox = true }
+                            .buttonStyle(MarbleActionButtonStyle())
+                            .accessibilityIdentifier("WorkoutEntry.SharedInbox")
+                            .padding(.horizontal)
+                    }
                     if presentation == .primaryTab && hasSavedSheetDraft {
                         Button("Resume Saved Import", systemImage: "square.and.pencil") {
                             showingSavedSheetDraft = true
@@ -237,6 +246,17 @@ struct WorkoutTextEntryView: View {
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()
         }
+        .task { sharedWorkoutCount = (try? SharedWorkoutInbox.items().count) ?? 0 }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { sharedWorkoutCount = (try? SharedWorkoutInbox.items().count) ?? 0 }
+        }
+        .sheet(isPresented: $showingSharedInbox, onDismiss: { sharedWorkoutCount = (try? SharedWorkoutInbox.items().count) ?? 0 }) { SharedWorkoutInboxView() }
+        .sheet(isPresented: $showingDictation) {
+            WorkoutDictationSheet { text in
+                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                viewModel.ingestPastedText(text)
+            }
+        }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
                 .presentationDetents([.large])
@@ -373,6 +393,12 @@ struct WorkoutTextEntryView: View {
                     .tint(Theme.primaryTextColor(for: colorScheme))
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("TextEntry.ChooseFile")
+                    Button("Dictate Workout", systemImage: "mic") { showingDictation = true }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.bordered)
+                        .tint(Theme.primaryTextColor(for: colorScheme))
+                        .frame(minWidth: 44, minHeight: 44)
+                        .accessibilityIdentifier("TextEntry.Dictate")
                     Spacer()
                     if clipboardHasText {
                         PasteButton(payloadType: String.self) { strings in
@@ -418,7 +444,8 @@ struct WorkoutTextEntryView: View {
                     systemImage: "lock.fill"
                 )
                 .font(MarbleTypography.caption)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .fixedSize(horizontal: false, vertical: true)
 
                 if let message = viewModel.errorMessage {
                     Text(message)
@@ -598,6 +625,7 @@ struct WorkoutTextEntryView: View {
                         Text(exerciseReviewSummary(exercise))
                             .font(MarbleTypography.rowMeta)
                             .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("TextEntry.ExerciseSummary.\(exercise.id.uuidString)")
                     }
                 } header: {
                     WorkoutReviewSectionHeader(title: "Your workout")
@@ -895,6 +923,8 @@ struct WorkoutTextEntryView: View {
 
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button("Shared Workouts", systemImage: "tray") { showingSharedInbox = true }
+                        .accessibilityIdentifier("WorkoutEntry.SharedInbox.Menu")
                     Button {
                         showingPlan = true
                     } label: {
@@ -1194,6 +1224,7 @@ private struct TextEntryExerciseSection: View {
                 : AnyLayout(HStackLayout(spacing: MarbleSpacing.s))
             layout {
                 WorkoutReviewSectionHeader(title: "Exercise")
+                    .accessibilityIdentifier("TextEntry.Section.Exercise")
                 if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                 HStack(spacing: MarbleSpacing.s) {
                     Button { onMove(-1) } label: {

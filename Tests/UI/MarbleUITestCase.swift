@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import Vision
 
 enum MarbleAppearance {
     case light
@@ -40,12 +41,21 @@ enum MarbleTab: String, CaseIterable {
 }
 
 class MarbleUITestCase: XCTestCase {
+    static var targetBundleIdentifier: String {
+        #if targetEnvironment(simulator)
+        ProcessInfo.processInfo.environment["MARBLE_SIMULATOR_VALIDATION"] == "1"
+            ? "Prism.marble.validation" : "Prism.marble"
+        #else
+        "Prism.marble.validation"
+        #endif
+    }
     var app: XCUIApplication!
     private let draftNamespace = UUID().uuidString
 
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
     }
 
     override func tearDown() {
@@ -75,10 +85,13 @@ class MarbleUITestCase: XCTestCase {
         if app != nil {
             app.terminate()
         }
-        app = XCUIApplication()
+        app = XCUIApplication(bundleIdentifier: Self.targetBundleIdentifier)
         app.launchEnvironment["MARBLE_UI_TESTING"] = "1"
         app.launchEnvironment["MARBLE_DRAFT_NAMESPACE"] = draftNamespace
         app.launchEnvironment["MARBLE_DISABLE_ANIMATIONS"] = "1"
+        if ProcessInfo.processInfo.environment["MARBLE_DEVICE_KEEP_AWAKE"] == "1" {
+            app.launchEnvironment["MARBLE_DEVICE_KEEP_AWAKE"] = "1"
+        }
         if resetDB {
             app.launchEnvironment["MARBLE_RESET_DB"] = "1"
         }
@@ -105,6 +118,10 @@ class MarbleUITestCase: XCTestCase {
             app.launchEnvironment[key] = value
         }
         app.launch()
+        // Physical devices can retain the orientation of the preceding app.
+        // These flows use a deterministic portrait viewport; landscape tests
+        // explicitly rotate after launch.
+        XCUIDevice.shared.orientation = .portrait
     }
 
     func navigateToTab(_ tab: MarbleTab) {
@@ -176,6 +193,79 @@ class MarbleUITestCase: XCTestCase {
         // coordinate, clamped to the portion not covered by navigation/tab
         // chrome, instead of trusting a stale accessibility activation point.
         tapVisible(element)
+    }
+
+    func isNativeToolbarTitleFullyDrawn(identifier: String, title: String) throws -> Bool {
+        let button = app.navigationBars.buttons.matching(identifier: identifier).firstMatch
+        guard button.exists, button.isHittable, button.label == title,
+              app.navigationBars.allElementsBoundByIndex.contains(where: { $0.frame.contains(button.frame) }) else { return false }
+        return try isFullTitleDrawn(in: button, title: title)
+    }
+
+    func isAddSetHistoryHeadingFullyDrawn() throws -> Bool {
+        let heading = app.staticTexts["AddSet.LastTimeHeading"]
+        guard app.navigationBars["Log Set"].exists,
+              heading.exists, heading.label == "Last time", heading.isHittable,
+              unobscuredFrame().contains(heading.frame) else { return false }
+        return try isFullTitleDrawn(in: heading, title: "Last time")
+    }
+
+    func isAddSetHistoryTextFullyDrawn(identifier: String) throws -> Bool {
+        guard ["AddSet.LastTime.Value.Weight", "AddSet.LastTime.Value.Rest", "AddSet.LastTime.LoggedAt"].contains(identifier),
+              app.navigationBars["Log Set"].exists else { return false }
+        let text = app.staticTexts[identifier]
+        let card = app.descendants(matching: .any).matching(identifier: "AddSet.LastTime").firstMatch
+        guard text.exists, text.isHittable, card.exists, !text.label.isEmpty,
+              card.frame.insetBy(dx: -1, dy: -1).contains(text.frame),
+              unobscuredFrame().contains(text.frame) else { return false }
+        // Intrinsic Text frames need no artificial padding around their glyphs.
+        return try isFullTitleDrawn(in: text, title: text.label, minimumMargin: 0)
+    }
+
+    func isFullTitleDrawn(in element: XCUIElement, title: String, minimumMargin: CGFloat = 0.01, padding: CGFloat = 0) throws -> Bool {
+        let image: CGImage
+        if padding > 0 {
+            // Native text bounds can exclude subpixel glyph overhang. Capture
+            // surrounding rendered pixels; do not relax OCR's bounds tolerance.
+            let frame = element.frame.insetBy(dx: -padding, dy: -padding)
+            guard app.frame.contains(frame), let screen = XCUIScreen.main.screenshot().image.cgImage else { return false }
+            let scale = CGFloat(screen.width) / app.frame.width
+            guard let crop = screen.cropping(to: frame.applying(CGAffineTransform(scaleX: scale, y: scale))) else { return false }
+            image = crop
+        } else {
+            guard let crop = element.screenshot().image.cgImage else { return false }
+            image = crop
+        }
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.recognitionLanguages = ["en-US"]
+        request.usesLanguageCorrection = false
+        try VNImageRequestHandler(cgImage: image).perform([request])
+        let observations = (request.results ?? []).sorted { $0.boundingBox.maxY > $1.boundingBox.maxY }
+        let evidence = XCTAttachment(string: "Expected: \(title)\n" + observations.map {
+            "\($0.topCandidates(3).map(\.string)) bounds: \($0.boundingBox)"
+        }.joined(separator: "\n"))
+        evidence.name = "Rendered text \(element.identifier)"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+        let crop = XCTAttachment(image: UIImage(cgImage: image))
+        crop.name = "Rendered bounds \(element.identifier)"
+        crop.lifetime = .keepAlways
+        add(crop)
+        let recognized = observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+        // OCR may join the narrow no-break space before AM, or split a wrapped
+        // line. Require every letter, digit and punctuation mark; ignore spacing.
+        let normalized: (String) -> String = { String($0.filter { !$0.isWhitespace }) }
+        guard normalized(recognized) == normalized(title), !observations.isEmpty else { return false }
+        // Vision's estimated rectangle can extend a fraction of a pixel beyond
+        // its input (185 lb measured x=-0.001511 in a 468px crop). Account for at
+        // most one pixel of estimation error while still requiring the full text.
+        let pixelTolerance = 1 / CGFloat(max(image.width, image.height))
+        return observations.allSatisfy { observation in
+            let bounds = observation.boundingBox
+            return bounds.minX >= minimumMargin - pixelTolerance && bounds.minY >= minimumMargin - pixelTolerance
+                && bounds.maxX <= 1 - minimumMargin + pixelTolerance && bounds.maxY <= 1 - minimumMargin + pixelTolerance
+        }
     }
 
     func tapVisible(

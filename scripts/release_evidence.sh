@@ -268,7 +268,7 @@ run_release_evidence() {
         run_gate "${gate}" make -C "${ROOT_DIR}" unit
         ;;
       snapshot)
-        run_gate "${gate}" env SNAPSHOT_SUITE=full SNAPSHOT_GROUPS_OVERRIDE= RECORD_SNAPSHOTS= SNAPSHOT_TESTING_RECORD= make -C "${ROOT_DIR}" snapshot
+        run_gate "${gate}" env SNAPSHOT_SUITE=full SNAPSHOT_GROUPS_OVERRIDE= SNAPSHOT_SHARD_COUNT=1 SNAPSHOT_SHARD_INDEX=0 SNAPSHOT_LIST_ONLY=0 RECORD_SNAPSHOTS= SNAPSHOT_TESTING_RECORD= make -C "${ROOT_DIR}" snapshot
         ;;
       ui)
         prepare_ui_simulator

@@ -3,6 +3,7 @@ import SwiftData
 
 @main
 struct MarbleApp: App {
+    @UIApplicationDelegateAdaptor(MarbleApplicationDelegate.self) private var applicationDelegate
     @State private var modelContainer: ModelContainer?
     @State private var storageFailure: PersistenceOpenFailure?
 
@@ -39,7 +40,13 @@ struct MarbleApp: App {
         // Registers the container with `AppDependencyManager` (what the intents
         // inject through `@Dependency`) as well as with `AppIntentsSupport`'s own
         // accessor, which the Spotlight index and entity queries use.
-        if let opened { AppIntentsSupport.register(container: opened) }
+        if let opened {
+            AppIntentsSupport.register(container: opened)
+            #if DEBUG
+            DebugDeviceRepair.applyIfRequested(in: opened.mainContext)
+            #endif
+        }
+        WatchWorkoutCoordinator.shared.activate()
         if let opened, TestHooks.isUITesting || TestHooks.seedDemoFixtures {
             // UI tests and demo recordings rely on fixtures existing before the first frame.
             Self.seed(container: opened)

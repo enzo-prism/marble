@@ -1,6 +1,46 @@
 # Marble Testing
 
-## Current candidate and verified distribution (2026-10-04)
+## Current Apple platform candidate (2026-11-12)
+
+The working candidate is 2.7 (87) on `release/apple-platform-2.7-87`, incorporated
+in draft PR 57. All five final gates run on this Mac; no new binary has been uploaded. Current ASC readback is
+public 2.6.1 (84), with pre-existing 2.7 (86) approved and pending developer release.
+Read `RELEASE_HANDOFF.md` and `APPLE_PLATFORM_IMPLEMENTATION.md` for the dated
+candidate state. The historical October checks below do not certify this candidate.
+
+The owner stopped further iPhone automation. Run all remaining automated tests on
+this Mac Studio's simulators. Historical physical validation used the isolated
+`Prism.marble.validation` installation; do not start more automated phone checks.
+Physical-only behavior remains unverified until the owner checks the final binary.
+
+Progress Details color checks cover every semantic accent against the actual page
+and chart surfaces in light/dark and Increase Contrast: text requires 4.5:1 and
+the least opaque bar gradient requires 3:1. Volume marks repeat their legend's
+shapes, categorical charts keep direct labels/values, and Audio Graphs remain.
+`testTrendsDetails` and `testTrendsCategoryCharts` extend the small-width/regular,
+light/dark/default/largest-text snapshot matrix. Record references intentionally
+and inspect them before accepting them; contrast tests do not replace `make audit`.
+The volume-tooltip fixture renders the production chart component directly, so
+the bars, matching symbols/legend and selected values are actually in frame.
+Category labels and values wrap above their bars. At accessibility sizes, the
+weekly date range wraps below the plot instead of crowding axis tick labels.
+
+Composer snapshots use an appeared native window, correct safe areas and three
+identical rendered frames. Add/Live Preview also require OCR of the native title
+and review action. Composer permits ten seconds for controls to settle, while
+History retains its four-second deadline and matching system-text-size partitions.
+The 64 Composer references were intentionally refreshed and separately verified;
+this harness correction does not alter app behavior or the 0.98 pixel precision.
+
+Review-label contrast rechecks bind repeated guidance to its exact exercise menu
+and timing text to the identified switch. Measure the text child, excluding icons
+and switch thumbs; require a hittable parent, the complete text inside the viewport,
+full OCR and at least 4.5:1 contrast. A one-point margin captures native glyph overhang
+from actual screen pixels while retaining the one-pixel OCR estimation tolerance.
+Recheck flagged footer text even when it started visible before the audit scrolled.
+Ambiguous identities and unknown, clipped or low-contrast text remain failures.
+
+## Historical hardening candidate and distribution (2026-10-04)
 
 - **Local candidate:** 2.6 (83), still under validation. It has not been uploaded,
   merged to main, or released publicly as part of this hardening work.
@@ -66,7 +106,7 @@ production remains 2.3 build 56.
 ## Durable release-gate evidence
 
 PR CI includes navigation smoke tests. The nightly/manual Release checks workflow runs
-all five gates with Xcode 26.6 (17F113) and iOS 26.5. Production requires matching clean-source
+all five gates with Xcode 27.0 (27A266a) and iOS 27.0. Production requires matching clean-source
 evidence, an upload receipt binding the ASC build to that source, and explicit physical-iPhone
 signoff; simulator success and an internal TestFlight upload are not device signoff.
 
@@ -89,8 +129,8 @@ uses the same device unless `SIMULATOR_UDID` is set separately; the runner never
 simulators.
 
 The default gate set is unit, full snapshots, UI flows, accessibility, and shipped-source
-migration. Migration runs both 2.5 (77) and 2.4 (61) sequentially; neither baseline
-may be omitted from production evidence. `MIGRATION_BASE_REF` selects a focused
+migration. Migration runs public 2.6.1 (84), 2.5 (77) and 2.4 (61) sequentially; none of
+these baselines may be omitted from production evidence. `MIGRATION_BASE_REF` selects a focused
 diagnostic run only. Each invocation creates a new, non-overwriting directory under
 `<root>/<full-git-sha>/build-<number>/<run-id>/`. Unit and snapshot suites retain independent
 `.xcresult` bundles. UI and accessibility suites retain complete command logs and exit status
@@ -570,9 +610,11 @@ for workflow testing, but it is not full release proof.
   after a full-suite run; it has always passed unchanged on retry.
 - Feature-verification pass on the Apple Health / Watch / Garmin import path and the AI
   photo-scan pipeline. The real Vision OCR step is proven by
-  `WorkoutTextRecognizerIntegrationTests`; the FoundationModels LLM parser is availability-
-  gated and falls back to the deterministic parser off-device. Real Watch/Garmin Health data,
-  the on-device LLM, and handwriting-OCR accuracy remain **device-only**.
+  `WorkoutTextRecognizerIntegrationTests`; the Foundation Models parser is availability-
+  gated and falls back when the model is unavailable. The Mac's iOS 27.2 simulator
+  can execute the actual model once ready, as verified in this candidate's corpus runs.
+  Real Watch/Garmin sensor data and physical handwriting-capture accuracy remain
+  device checks; simulator model latency does not establish iPhone performance.
 - `make verify-widget-plist` confirms `MarbleWidgets/Info.plist` exists before unit/test runs.
 
 ## Continuous integration
@@ -604,15 +646,18 @@ path when needed; do not point Xcode or these wrappers at the retired PortableSS
 ## Local App Store submission gate
 
 Complete `make release-evidence` on a clean final candidate. The required gates
-are unit, full snapshots, UI, accessibility and migration. Migration covers both
+are unit, full snapshots, UI, accessibility and migration. Migration covers public 2.6.1 (84),
 2.5 (77) and 2.4 (61); a focused override is not complete production coverage.
 Preserve the manifest and exact-source upload receipt, and complete
 [the 2.6 physical-device checklist](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.6.md).
 The verifier checks that all evidence identifies the same final SHA/version/build.
 
-A simulator cannot establish real model behavior, locked-device keychain sharing,
-spoken Siri recognition, physical Apple Health integration or device performance.
-These remain separate hardware checks; currently the phone is unavailable.
+A ready simulator can exercise the Mac's actual Foundation Models model. The local
+iOS 27.2 simulator on macOS 27.2.1 has produced real responses; modelNotReady during
+initial setup is not quality acceptance. Mac model results do not establish iPhone
+latency, locked-device keychain sharing, spoken Siri recognition, physical Apple
+Health integration or device performance. The owner has stopped further iPhone
+automation; remaining automated checks run on this Mac Studio's simulators.
 
 ## Archived physical-device acceptance pass for 2.4
 
@@ -839,3 +884,68 @@ under **Known gaps / next up**.
 Still open:
 - No automated coverage of the Live Activity's system presentation (device-only).
 - Strava's OAuth round trip is unverified end to end; it ships unconfigured.
+
+## Apple platform validation (2026-11-11 candidate)
+
+Use stable Xcode 27.0 (27A266a) with the iOS/watchOS 27.0 runtimes. Deployment
+remains iOS 26.0. Snapshot baselines were intentionally moved to this renderer;
+recording alone is not a passing snapshot verification. Run the complete `make test`,
+`make ui`, `make audit` and migration gates on the final committed candidate.
+
+The owner has stopped physical automation; the configuration below documents prior
+checks and simulator-capable probes, not authorization to restart phone tests.
+Physical automation, if separately authorized later, must target **Prism.marble.validation**, never the installed
+production journal. Pass `MARBLE_BUNDLE_SUFFIX=.validation` and the matching manual
+development profiles for app, widgets, Share, Watch and UI runner. Both XCUIApplication
+and AppIntentsTesting use the same explicit validation bundle ID. Never fall back to
+the production identifier when target metadata is missing. The prepare intent requires
+the validation suffix and uses its own persistent store, because the system may relaunch
+the app between invocations. Release builds contain neither fixture nor repair intents.
+
+Opt-in platform checks (prepend `TEST_RUNNER_` when invoking xcodebuild):
+
+- `MARBLE_SYSTEM_INTENTS=1`: `AppIntentSystemPathUITests` validates typed set/session
+  results, sprint tenths, repeat identity, finish and subsequent entity queries. Returned
+  entity identifiers may omit bundle qualification; compare their instance IDs.
+- `MARBLE_NATIVE_HEALTH_ACCEPTANCE=1`: `NativeWorkoutDeviceUITests` requests Health
+  consent through Settings and checks start/pause/resume, background/return and save.
+  It also runs in the isolated simulator. The iOS 27 consent sheet requires selecting
+  the workout-writing switch before Allow becomes enabled. Cleanup targets only its
+  recorded validation session and exact source/sync ID; never delete by a broad date range.
+- `SharedWorkoutInboxDeviceTests`: native keychain capacity, concurrency, reopening
+  and exact-row deletion. Requires an empty validation inbox and removes only its own IDs.
+  Simulator success does not prove physical access-group enforcement.
+- `MARBLE_FM_EVAL=1`: `FoundationModelsLiveEvalTests` runs the actual installed model and
+  attaches per-case pass/failure and latency JSON. An unavailable-model skip is not a pass.
+- `MARBLE_SIMULATOR_VALIDATION=1`: points only simulator UI tests at
+  `Prism.marble.validation`; build with `MARBLE_BUNDLE_SUFFIX=.validation` as well.
+  This enables isolated simulator probes of the system-intent test service. The
+  physical UI-test target stays hardcoded to Validation, with no production fallback.
+- `MARBLE_SPEECH_ACCEPTANCE=1`: `SpeechTranscriberDeviceTests` transcribes a synthetic
+  bundled workout using installed local speech assets. This file-only check can run on
+  Simulator; unsupported local speech models are an explicit skip. Physical runs still
+  require the isolated Validation bundle. This does not establish microphone
+  capture acceptance; separately verify the Record/Stop/Use Text and permission-denial UI.
+- `MARBLE_MICROPHONE_ACCEPTANCE=1`: `WorkoutDictationDeviceUITests` checks live
+  Record/Stop/Use Text in the isolated app. At `MARBLE_MICROPHONE_READY`, play the
+  bundled `Tests/Unit/Fixtures/WorkoutDictation.aiff` near the phone within twelve
+  seconds. The check expects Bench Press in the editable result, clears its own draft
+  and never saves a workout. Run in a quiet room; no transcript is explicitly logged
+  or attached. Failure diagnostics can include the visible UI.
+- `MARBLE_DEVICE_KEEP_AWAKE=1`: keeps only the foreground Validation app awake during
+  long checks. Terminating it releases the assertion; production builds ignore the flag.
+
+Also verify native Health background/recovery, physical Lock Screen/Live Activity controls,
+the Share extension-to-app review handoff, and paired Watch reconnect/retry/rest alerts.
+Watch simulator compilation is not wrist sensor acceptance. Custom Siri AI skill compilation,
+Siri Evaluations and conversational/card acceptance require the separate 27.3 preview
+setup in `SiriAIPreview/README.md`; regular App Intents tests cannot establish those results.
+
+### Extracted authentication metadata
+
+After building, run `ruby scripts/verify_intent_authentication.rb /absolute/path/to/marble.app`.
+The verifier reads Apple's extracted metadata, rather than inferring protection from
+a Swift property declaration. CI checks the simulator bundle and TestFlight checks
+the archive before export. A missing action or implicit/always-allowed policy fails.
+Entity presentation policies belong to the 27.3 preview and do not replace intent-level
+authentication in the stable build. Actual locked-device behavior is a separate check.

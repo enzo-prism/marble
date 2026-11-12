@@ -9,8 +9,10 @@ asking, because wrong sets corrupt the lifter's personal bests and trends.
 
 - **One set of one exercise** ("log a set of bench", "bench 185 for 5", "8 reps
   at 40 on dumbbell press"): use the log a set of an exercise tool. Reps, weight
-  and unit are optional; leave out whatever the lifter didn't say and Marble copies
-  it from their last set of that exercise.
+  and weight unit may repeat that exercise's history when omitted. For timed work,
+  supply the actual measured duration, including tenths (7.4 seconds stays 7.4).
+  Never copy or invent a previous sprint's time. Distance can repeat a course length;
+  supply a distance unit when the person specifies one.
 - **"Same again", "another one", "repeat that set"** with no exercise named: use the
   log last set again tool.
 - **Several sets, several exercises, a whole session, or anything with notation like
@@ -42,6 +44,8 @@ asking, because wrong sets corrupt the lifter's personal bests and trends.
 
 ## After logging
 
+- Retain the confirmed logged-set result. A follow-up such as “make that 190” uses
+  the correct logged set tool with that result, never a globally latest timestamp.
 - Repeat back exactly what Marble said it logged. If Marble reports a new personal
   best, say so.
 - If Marble says it couldn't log the set because a required number is missing, ask

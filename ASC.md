@@ -6,7 +6,8 @@ instead of re-discovering the release setup.
 
 ## Current Baseline
 
-- Installed CLI checked on 2026-10-04: `asc 5.8.0` (also pinned in release workflows)
+- Local CLI checked on 2026-11-11: `asc 6.5.3` (commit `130e750`). Release workflows
+  continue to pin `5.8.0`; verify command help on the machine executing each action.
 - Install source: standalone binary at `/Users/enzo/.local/bin/asc` (not Homebrew-managed)
 - Public CLI docs: https://docs.asccli.sh/
 - CLI project: https://github.com/rorkai/App-Store-Connect-CLI
@@ -16,6 +17,12 @@ instead of re-discovering the release setup.
 Use `asc --help` and `asc <command> --help` as the source of truth. The CLI
 docs explicitly recommend this because command surfaces move faster than
 project-local notes.
+
+The November candidate is not uploaded. Current public distribution is 2.6.1 (84),
+and pre-existing 2.7 (86) is approved pending manual release. Use
+`RELEASE_HANDOFF.md` for candidate/evidence state. Staging's `--metadata-dir` must
+point to the `AppStore/metadata` root, with `app-info` and `version` children,
+rather than `AppStore/metadata/version/<version>`.
 
 ## Marble Defaults
 

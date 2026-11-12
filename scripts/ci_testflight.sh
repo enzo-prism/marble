@@ -79,6 +79,9 @@ notes_path="$ROOT/AppStore/TESTFLIGHT_NOTES_${marketing}.txt"
 echo "=== archive ==="
 make asc-archive
 
+echo "=== extracted intent authentication ==="
+ruby scripts/verify_intent_authentication.rb "${ASC_ARCHIVE_PATH:-${ROOT}/.asc/artifacts/marble.xcarchive}/Products/Applications/marble.app"
+
 echo "=== export ==="
 ASC_EXPORT_OPTIONS="$EXPORT_OPTIONS" make asc-export
 

@@ -35,10 +35,29 @@ func assertHistorySnapshot<V: View>(
         XCTFail("Unknown History snapshot category: \(partition)", file: file, line: line)
         return
     }
+    assertMountedSnapshot(named: name, variants: variants, expectedText: expectedText,
+                          requiresMatchingSystemTextSize: true,
+                          file: file, testName: testName, line: line, content: content)
+}
+
+/// Native TextEditor, navigation and safe-area controls need an appeared window
+/// and stable rendered frames. Reuse the established History capture lifecycle.
+@MainActor
+func assertMountedSnapshot<V: View>(
+    named name: String,
+    variants: [SnapshotVariant],
+    expectedText: [String] = [],
+    requiresMatchingSystemTextSize: Bool = false,
+    settlingTimeout: TimeInterval = 4,
+    file: StaticString = #filePath,
+    testName: String = #function,
+    line: UInt = #line,
+    @ViewBuilder content: () -> V
+) {
     for variant in variants {
         let expectedCategory: UIContentSizeCategory = variant.sizeCategory.isAccessibilityCategory
             ? .accessibilityExtraExtraExtraLarge : .large
-        guard UIApplication.shared.preferredContentSizeCategory == expectedCategory else {
+        guard !requiresMatchingSystemTextSize || UIApplication.shared.preferredContentSizeCategory == expectedCategory else {
             XCTFail("History native search requires a matching system text size. Run make snapshot; the runner launches each category separately.", file: file, line: line)
             return
         }
@@ -102,12 +121,13 @@ func assertHistorySnapshot<V: View>(
                 // identical frames. A fixed delay alone can freeze native glass
                 // controls during their initial search/navigation transition.
                 let earliestCapture = Date().addingTimeInterval(0.5)
-                let deadline = Date().addingTimeInterval(4)
+                let deadline = Date().addingTimeInterval(settlingTimeout)
                 let format = UIGraphicsImageRendererFormat()
                 format.scale = 3
                 let renderer = UIGraphicsImageRenderer(size: variant.device.size, format: format)
                 var previousPixels: Data?
                 var identicalFrames = 0
+                var renderedFrames = 0
                 var stableImage: UIImage?
                 repeat {
                     root.view.setNeedsLayout()
@@ -124,6 +144,7 @@ func assertHistorySnapshot<V: View>(
                         previousPixels = nil
                         continue
                     }
+                    renderedFrames += 1
                     identicalFrames = pixels == previousPixels ? identicalFrames + 1 : 1
                     previousPixels = pixels
                     if Date() >= earliestCapture && identicalFrames >= 3 {
@@ -132,7 +153,7 @@ func assertHistorySnapshot<V: View>(
                     }
                 } while Date() < deadline
                 guard let image = stableImage else {
-                    XCTFail("History window did not reach three stable rendered frames", file: file, line: line)
+                    XCTFail("Mounted window did not reach three stable rendered frames (\(renderedFrames) captures, streak \(identicalFrames))", file: file, line: line)
                     return
                 }
                 do {

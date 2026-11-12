@@ -4,8 +4,8 @@ import Foundation
 ///
 /// The notation parser never says "I'm unsure": it either drops a line (which the
 /// callers already treat as "ask the model") or it claims the line — and some of
-/// its claims are confidently wrong. "Bench 225x5x3" becomes 225 sets at 3 lb;
-/// "bench 3x8 185, incline db 3x10 60s" becomes one exercise at 3 lb; "Ran a mile
+/// its claims can be confidently wrong. For example,
+/// "bench 3x8 185, incline db 3x10 60s" can become one exercise at 3 lb; "Ran a mile
 /// in 8 minutes then 3 sets of 20 pushups" becomes an exercise named "Ran a mile
 /// in". None of those drop a line, so a dropped-lines gate alone skips the model
 /// exactly when it is needed.

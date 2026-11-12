@@ -1,0 +1,14 @@
+{
+  "capture_date": "2026-11-11",
+  "platform": "watchOS 27.0",
+  "device": "Apple Watch Series 12 (46mm) simulator",
+  "width": 416,
+  "height": 496,
+  "file": "01-active-workout.png",
+  "sha256": "897d86efcb2586cbd37e7ab66388501537cc644d8334c7dabee78e42b8a3a6f5",
+  "watch_source_commit": "dcdee46e0d2f3c9d5232895cd2dd7daa0502e444",
+  "watch_source_sha256": "0a1ff36cb52d27726584d750c04968b03732aac34dffc27c5310818a376ce281",
+  "fixture": "Isolated simulated Legs workout, four sets, Squat; no owner journal data",
+  "editing": "Native simctl screenshot; no cropping, compositing, recoloring or status-icon removal",
+  "upload_status": "Prepared only; not uploaded"
+}

@@ -3,9 +3,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# App Store 2.5 build 77. This is the build-77 source commit immediately
-# preceding its 2026-09-12 upload; CI also records this exact source.
-BASE_REF="${MIGRATION_BASE_REF:-80396c19481739184aaca00e5f175512b7a92ded}"
+# Public App Store 2.6.1 build 84, immutable v2.6.1-84 release source.
+BASE_REF="${MIGRATION_BASE_REF:-080d83445ef5c91b64da0559b88177b0857a8dc9}"
 SIMULATOR_UDID="${SIMULATOR_UDID:-}"
 RUN_ROOT="${MIGRATION_RUN_ROOT:-$ROOT_DIR/work}"
 if [[ -n "${RELEASE_EVIDENCE_RUN_DIR:-}" && -z "${MIGRATION_RUN_ROOT:-}" ]]; then
@@ -109,6 +108,7 @@ done
 base_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$BASE_APP/Info.plist")"
 base_build="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$BASE_APP/Info.plist")"
 case "$BASE_REF" in
+    080d83445ef5c91b64da0559b88177b0857a8dc9) expected_identity="2.6.1 (84)" ;;
     80396c19481739184aaca00e5f175512b7a92ded) expected_identity="2.5 (77)" ;;
     9e8346f6cad4683991a78fbaf223baaf01e9f068) expected_identity="2.4 (61)" ;;
     *) expected_identity="$base_version ($base_build)" ;;

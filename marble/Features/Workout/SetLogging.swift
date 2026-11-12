@@ -10,13 +10,8 @@ enum SetLogging {
         into session: WorkoutSession?,
         in context: ModelContext
     ) -> SetEntry? {
-        let date = AppEnvironment.now
-        let duplicate = entry.duplicated(at: date)
-        context.insert(duplicate)
-        copySprintMetadata(from: entry, to: duplicate, in: context)
-        session?.append(duplicate, at: date)
-        guard context.saveOrRollback() else { return nil }
-        RestActivityController.shared.startRest(for: duplicate)
+        guard let duplicate = WorkoutCommands.repeatSet(entry, into: session, in: context) else { return nil }
+        WorkoutCommands.donateLoggedExercise(duplicate)
         return duplicate
     }
 

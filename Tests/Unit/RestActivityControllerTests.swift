@@ -7,6 +7,26 @@ import XCTest
 /// timer runs.
 @MainActor
 final class RestActivityControllerTests: XCTestCase {
+    func testUndoCancelsOnlyTheRestStartedByThatSet() {
+        let client = FakeRestLiveActivityClient()
+        let controller = RestActivityController(liveActivities: client)
+        let exercise = Exercise(name: "Bench", category: .chest, metrics: .weightAndRepsRequired, defaultRestSeconds: 90)
+        let entry = SetEntry(exercise: exercise, performedAt: AppEnvironment.now, restAfterSeconds: 90)
+        controller.startRest(for: entry)
+        XCTAssertNotNil(controller.activeRest)
+        controller.cancelRest(startedBy: UUID())
+        XCTAssertNotNil(controller.activeRest)
+        controller.extend(by: 30)
+        controller.cancelRest(startedBy: entry.id)
+        XCTAssertNil(controller.activeRest)
+
+        controller.startRest(for: entry)
+        controller.startRest(exerciseName: "Manual rest", restSeconds: 60)
+        controller.cancelRest(startedBy: entry.id)
+        XCTAssertEqual(controller.activeRest?.exerciseName, "Manual rest")
+        controller.cancelRest()
+    }
+
     func testStartsOnlyWhenRestIsPositive() {
         XCTAssertTrue(RestActivityController.shouldStart(restSeconds: 90))
         XCTAssertTrue(RestActivityController.shouldStart(restSeconds: 1))

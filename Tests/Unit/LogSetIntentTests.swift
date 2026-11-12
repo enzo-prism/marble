@@ -167,12 +167,15 @@ final class LogSetIntentTests: MarbleTestCase {
 
     // MARK: - Refusing to write a bad row
 
-    func testNoHistoryAndNoValuesReturnsDialogWithoutInserting() async throws {
+    func testNoHistoryAndNoValuesReportsErrorWithoutInserting() async throws {
         let context = makeIntentContext()
         let bench = makeExercise(name: "Bench Press", category: .chest, in: context)
         try context.save()
 
-        _ = try await perform(exercise: bench)
+        do {
+            _ = try await perform(exercise: bench)
+            XCTFail("Invalid log should report a system-visible error")
+        } catch { XCTAssertFalse(error.localizedDescription.isEmpty) }
 
         XCTAssertEqual(
             try count(SetEntry.self, in: context),
@@ -187,7 +190,10 @@ final class LogSetIntentTests: MarbleTestCase {
         try context.save()
 
         // Reps supplied, weight missing, and weight is required for this exercise.
-        _ = try await perform(exercise: bench, reps: 5)
+        do {
+            _ = try await perform(exercise: bench, reps: 5)
+            XCTFail("Invalid log should report a system-visible error")
+        } catch { XCTAssertFalse(error.localizedDescription.isEmpty) }
 
         XCTAssertEqual(try count(SetEntry.self, in: context), 0)
     }
@@ -199,7 +205,10 @@ final class LogSetIntentTests: MarbleTestCase {
         let ghost = ExerciseEntity(id: UUID(), name: "Ghost Press", categoryName: "Chest")
         let intent = LogSetIntent()
         intent.exercise = ghost
-        _ = try await intent.perform()
+        do {
+            _ = try await intent.perform()
+            XCTFail("Invalid log should report a system-visible error")
+        } catch { XCTAssertFalse(error.localizedDescription.isEmpty) }
 
         XCTAssertEqual(try count(SetEntry.self, in: context), 0)
     }
@@ -251,7 +260,7 @@ final class LogSetIntentTests: MarbleTestCase {
         context.insert(prescription)
         try context.save()
 
-        _ = try await perform(exercise: sprint)
+        _ = try await perform(exercise: sprint, durationSeconds: 8)
 
         let logged = try newestEntry(for: sprint, in: context)
         let loggedID = logged.id
@@ -264,7 +273,7 @@ final class LogSetIntentTests: MarbleTestCase {
         XCTAssertEqual(snapshot.repetitionCount, 6)
         XCTAssertEqual(snapshot.targetLowerSeconds, 7)
         XCTAssertEqual(snapshot.targetUpperSeconds, 8)
-        // Distance and duration are inherited so the rep is scoreable at all.
+        // Course length can repeat; the measured performance is supplied explicitly.
         XCTAssertEqual(logged.distance, 60)
         XCTAssertEqual(logged.durationSeconds, 8)
     }
@@ -344,7 +353,10 @@ final class LogSetIntentTests: MarbleTestCase {
         let bench = makeExercise(name: "Bench Press", category: .chest, in: context)
         try context.save()
 
-        _ = try await perform(exercise: bench)
+        do {
+            _ = try await perform(exercise: bench)
+            XCTFail("Invalid log should report a system-visible error")
+        } catch { XCTAssertFalse(error.localizedDescription.isEmpty) }
 
         XCTAssertTrue(publishedStates.isEmpty, "No row was written, so nothing may be published.")
     }
@@ -373,13 +385,15 @@ final class LogSetIntentTests: MarbleTestCase {
         exercise: Exercise,
         reps: Int? = nil,
         weight: Double? = nil,
-        unit: WeightUnit? = nil
+        unit: WeightUnit? = nil,
+        durationSeconds: Double? = nil
     ) async throws -> Bool {
         let intent = LogSetIntent()
         intent.exercise = ExerciseEntity(exercise)
         intent.reps = reps
         intent.weight = weight
         intent.unit = unit.map(WeightUnitAppEnum.init)
+        intent.durationSeconds = durationSeconds
         _ = try await intent.perform()
         return true
     }

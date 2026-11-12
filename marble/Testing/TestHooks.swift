@@ -67,6 +67,7 @@ nonisolated enum TestHooks {
     }
 
     static var resetDatabase: Bool {
+        guard !usesPersistentIntentTestStore else { return false }
         guard isUITesting || environmentFlag("MARBLE_RESET_DB") else { return false }
         #if DEBUG
         return true
@@ -75,11 +76,33 @@ nonisolated enum TestHooks {
         #endif
     }
 
-    static var useInMemoryStore: Bool {
-        isUITesting
+    static var usesPersistentIntentTestStore: Bool {
+        #if DEBUG
+        return Bundle.main.object(forInfoDictionaryKey: "MarbleBundleSuffix") as? String == ".validation"
+            && UserDefaults.standard.bool(forKey: "marble.validation.persistentIntentStore")
+        #else
+        return false
+        #endif
     }
 
-    static func applyGlobalSettings() {
+    static var useInMemoryStore: Bool {
+        isUITesting && !usesPersistentIntentTestStore
+    }
+
+    @MainActor static func applyGlobalSettings() {
+        #if DEBUG
+        if Bundle.main.object(forInfoDictionaryKey: "MarbleBundleSuffix") as? String == ".validation",
+           environmentFlag("MARBLE_DEVICE_KEEP_AWAKE") {
+            // Temporary foreground assertion for explicitly opted-in device
+            // validation. Ending/backgrounding this app restores normal lock behavior.
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
+        if isUITesting, Bundle.main.object(forInfoDictionaryKey: "MarbleBundleSuffix") as? String == ".validation" {
+            // Each explicit UI launch begins in memory. Only the test-only
+            // preparation intent opts into its separate persistent fixture store.
+            UserDefaults.standard.set(false, forKey: "marble.validation.persistentIntentStore")
+        }
+        #endif
         if disableAnimations {
             UIView.setAnimationsEnabled(false)
         }

@@ -7,22 +7,36 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2F1D1C3BC13DEEB6ADA271CC /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 684948D6A2863DED15AF9494 /* Foundation.framework */; };
+		37CE2FD9F9BD3D53D48AD405 /* WatchWorkoutMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BF30F908E5B9F5674F911EB /* WatchWorkoutMessage.swift */; };
+		42A7D1BF356F41B3AAACF4D6 /* NotificationDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48A19B4DA77D43FAB3006051 /* NotificationDelivery.swift */; };
+		3A8757C1D8F8F18F9C536963 /* SharedDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFB99A2F5EFBAA7D8FD6517F /* SharedDefaults.swift */; };
+		3FF7D9EED863B2490D7522A2 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6BA8DE0AFCB6ED3882CC719E /* PrivacyInfo.xcprivacy */; };
 		655F3804965718365A630E6A /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = F6861D087885DB9D6C488F42 /* SnapshotTesting */; };
+		79CCF37FCDBD1456928400E5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1744696B398FD2BBB4BFAE50 /* PrivacyInfo.xcprivacy */; };
+		7FC7EF1FC49FF728FEDAFED3 /* MarbleWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8DA11EF3CB1A5375EAA204C /* MarbleWatchApp.swift */; };
+		AB80554F68C9C18182B76E10 /* MarbleShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5BE8DBC882BF6406B57688A4 /* MarbleShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BEEFC0DE0000000000000001 /* MarbleWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000004 /* MarbleWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BEEFC0DE0000000000000002 /* RestTimerAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000005 /* RestTimerAttributes.swift */; };
 		BEEFC0DE0000000000000021 /* SharedDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000020 /* SharedDefaults.swift */; };
 		BEEFC0DE0000000000000023 /* WeeklyGoalWidgetState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000022 /* WeeklyGoalWidgetState.swift */; };
 		BEEFC0DE0000000000000025 /* MarbleSharedIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000024 /* MarbleSharedIntents.swift */; };
 		BEEFC0DE0000000000000027 /* WeeklyGoalWidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000026 /* WeeklyGoalWidgetViews.swift */; };
-		BEEFC0DE0000000000000002 /* RestTimerAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEFC0DE0000000000000005 /* RestTimerAttributes.swift */; };
+		C497370E8A3F1DB25B76BDF3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FFAFE8C63EA9AB50E1E7B7A4 /* Foundation.framework */; };
+		D6D2E6A91AD6EB9D78F718BA /* SharedWorkoutInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F8EC5FF6F8406069ACCAD09 /* SharedWorkoutInbox.swift */; };
+		DA2E118B20514E996407F5A6 /* WorkoutActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B046FB467F5205C97D8C11D3 /* WorkoutActivityAttributes.swift */; };
+		E822C759A0C4A9EACA24A93C /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23ADAF70D89AEE7548F50DFE /* ShareViewController.swift */; };
+		EBEBBD13499279E30287A6FA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A328F83890EC0CD14A016ACD /* Assets.xcassets */; };
+		FA01C8576575941890B77F24 /* MarbleWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = F1F8D0FC9DA7D9A3CAD36B3A /* MarbleWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		BEEFC0DE0000000000000003 /* PBXContainerItemProxy */ = {
+		228BB9A6CAEAA884671FE44D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C6B1ED5B2F154BA20044510C /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = BEEFC0DE000000000000000C;
-			remoteInfo = MarbleWidgets;
+			remoteGlobalIDString = 4CDB6FAEEC575D04D6A8C02A;
+			remoteInfo = MarbleWatch;
 		};
 		2E2F03CB1C4F458D88DD1B4A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -38,6 +52,20 @@
 			remoteGlobalIDString = C6B1ED622F154BA20044510C;
 			remoteInfo = marble;
 		};
+		B3FE6BD7A5A19CB7E4AC3111 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C6B1ED5B2F154BA20044510C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2F3321ADE642D55048996599;
+			remoteInfo = MarbleShare;
+		};
+		BEEFC0DE0000000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C6B1ED5B2F154BA20044510C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BEEFC0DE000000000000000C;
+			remoteInfo = MarbleWidgets;
+		};
 		D71EDBE5D78D81B76E765385 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C6B1ED5B2F154BA20044510C /* Project object */;
@@ -47,19 +75,69 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		2A03941D4727FCCB0B2D1E8A /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				FA01C8576575941890B77F24 /* MarbleWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BEEFC0DE0000000000000008 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BEEFC0DE0000000000000001 /* MarbleWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C9883B945770931847194E33 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AB80554F68C9C18182B76E10 /* MarbleShare.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		0F8EC5FF6F8406069ACCAD09 /* SharedWorkoutInbox.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SharedWorkoutInbox.swift; path = marble/Shared/SharedWorkoutInbox.swift; sourceTree = "<group>"; };
+		1744696B398FD2BBB4BFAE50 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		1D50B9A33DB313DD2AF37454 /* MarbleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarbleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		23ADAF70D89AEE7548F50DFE /* ShareViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		3BF30F908E5B9F5674F911EB /* WatchWorkoutMessage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WatchWorkoutMessage.swift; path = marble/Shared/WatchWorkoutMessage.swift; sourceTree = "<group>"; };
+		48A19B4DA77D43FAB3006051 /* NotificationDelivery.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NotificationDelivery.swift; path = marble/Shared/NotificationDelivery.swift; sourceTree = "<group>"; };
+		5BE8DBC882BF6406B57688A4 /* MarbleShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MarbleShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		67315268D5C8382FDD67694F /* MarbleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarbleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		684948D6A2863DED15AF9494 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		6BA8DE0AFCB6ED3882CC719E /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		9C71F1F727C76D935495558D /* MarbleSnapshotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MarbleSnapshotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		A4A3A702FB2046FF990AE054 /* Tests/MarbleTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xctestplan; path = Tests/MarbleTests.xctestplan; sourceTree = "<group>"; };
+		A328F83890EC0CD14A016ACD /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A4A3A702FB2046FF990AE054 /* MarbleTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xctestplan; path = Tests/MarbleTests.xctestplan; sourceTree = "<group>"; };
+		B046FB467F5205C97D8C11D3 /* WorkoutActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WorkoutActivityAttributes.swift; path = marble/Shared/WorkoutActivityAttributes.swift; sourceTree = "<group>"; };
 		BEEFC0DE0000000000000004 /* MarbleWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MarbleWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BEEFC0DE0000000000000005 /* RestTimerAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RestTimerAttributes.swift; path = marble/Features/RestTimer/RestTimerAttributes.swift; sourceTree = "<group>"; };
 		BEEFC0DE0000000000000020 /* SharedDefaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedDefaults.swift; path = marble/Shared/SharedDefaults.swift; sourceTree = "<group>"; };
 		BEEFC0DE0000000000000022 /* WeeklyGoalWidgetState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WeeklyGoalWidgetState.swift; path = marble/Shared/WeeklyGoalWidgetState.swift; sourceTree = "<group>"; };
 		BEEFC0DE0000000000000024 /* MarbleSharedIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MarbleSharedIntents.swift; path = marble/Shared/MarbleSharedIntents.swift; sourceTree = "<group>"; };
 		BEEFC0DE0000000000000026 /* WeeklyGoalWidgetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WeeklyGoalWidgetViews.swift; path = marble/Shared/WeeklyGoalWidgetViews.swift; sourceTree = "<group>"; };
-		BEEFC0DE0000000000000005 /* RestTimerAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RestTimerAttributes.swift; path = marble/Features/RestTimer/RestTimerAttributes.swift; sourceTree = "<group>"; };
-		C25C6D1EACFE4BE39F3E2D08 /* Tests/MarbleSnapshotRecord.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xctestplan; path = Tests/MarbleSnapshotRecord.xctestplan; sourceTree = "<group>"; };
+		C25C6D1EACFE4BE39F3E2D08 /* MarbleSnapshotRecord.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xctestplan; path = Tests/MarbleSnapshotRecord.xctestplan; sourceTree = "<group>"; };
 		C6B1ED632F154BA20044510C /* marble.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = marble.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E8DA11EF3CB1A5375EAA204C /* MarbleWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MarbleWatchApp.swift; sourceTree = "<group>"; };
+		EFB99A2F5EFBAA7D8FD6517F /* SharedDefaults.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SharedDefaults.swift; path = marble/Shared/SharedDefaults.swift; sourceTree = "<group>"; };
+		F1F8D0FC9DA7D9A3CAD36B3A /* MarbleWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarbleWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFAFE8C63EA9AB50E1E7B7A4 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS11.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -77,22 +155,16 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		00A7CA843BE3D834C6DF6331 /* Tests/Snapshots */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = Tests/Snapshots;
 			sourceTree = "<group>";
 		};
 		5A2C1B9F0D2E4A8F9C9B12A3 /* Tests/TestSupport */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = Tests/TestSupport;
-			sourceTree = "<group>";
-		};
-		C3D3B69F08E7F0DEEF7AD6BE /* Tests/UI */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Tests/UI;
-			sourceTree = "<group>";
-		};
-		C6B1ED652F154BA20044510C /* marble */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = marble;
 			sourceTree = "<group>";
 		};
 		BEEFC0DE0000000000000006 /* MarbleWidgets */ = {
@@ -103,28 +175,46 @@
 			path = MarbleWidgets;
 			sourceTree = "<group>";
 		};
+		C3D3B69F08E7F0DEEF7AD6BE /* Tests/UI */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			path = Tests/UI;
+			sourceTree = "<group>";
+		};
+		C6B1ED652F154BA20044510C /* marble */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			path = marble;
+			sourceTree = "<group>";
+		};
 		F1B614DE8CBDA726994018D0 /* Tests/Unit */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = Tests/Unit;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		BEEFC0DE0000000000000008 /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
+/* Begin PBXFrameworksBuildPhase section */
+		38033BD4938013F5855C8BE8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
 			files = (
-				BEEFC0DE0000000000000001 /* MarbleWidgets.appex in Embed Foundation Extensions */,
+				2F1D1C3BC13DEEB6ADA271CC /* Foundation.framework in Frameworks */,
 			);
-			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-/* End PBXCopyFilesBuildPhase section */
-
-/* Begin PBXFrameworksBuildPhase section */
+		52A7A627ED4E73597C6E4CDF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C497370E8A3F1DB25B76BDF3 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6BCB3CF695221DEF1CDD94D3 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -140,14 +230,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C6B1ED602F154BA20044510C /* Frameworks */ = {
+		BEEFC0DE0000000000000009 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		BEEFC0DE0000000000000009 /* Frameworks */ = {
+		C6B1ED602F154BA20044510C /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -164,17 +254,81 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		15F99B2C42BE9A769B5DB4F3 /* Watch Shared Sources */ = {
+			isa = PBXGroup;
+			children = (
+				3BF30F908E5B9F5674F911EB /* WatchWorkoutMessage.swift */,
+				48A19B4DA77D43FAB3006051 /* NotificationDelivery.swift */,
+			);
+			name = "Watch Shared Sources";
+			sourceTree = "<group>";
+		};
+		32339EFEE6227C485206E223 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				94869BC3A7942A6487EB52B5 /* iOS */,
+				49D4F7A30041E34B434023F7 /* watchOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		49D4F7A30041E34B434023F7 /* watchOS */ = {
+			isa = PBXGroup;
+			children = (
+				FFAFE8C63EA9AB50E1E7B7A4 /* Foundation.framework */,
+			);
+			name = watchOS;
+			sourceTree = "<group>";
+		};
+		50FB93EAC497E399CCF1D0A0 /* Share Shared Sources */ = {
+			isa = PBXGroup;
+			children = (
+				EFB99A2F5EFBAA7D8FD6517F /* SharedDefaults.swift */,
+				0F8EC5FF6F8406069ACCAD09 /* SharedWorkoutInbox.swift */,
+			);
+			name = "Share Shared Sources";
+			sourceTree = "<group>";
+		};
+		70C62C6078FEA5D1C21D6FDC /* MarbleWatch */ = {
+			isa = PBXGroup;
+			children = (
+				E8DA11EF3CB1A5375EAA204C /* MarbleWatchApp.swift */,
+				A328F83890EC0CD14A016ACD /* Assets.xcassets */,
+				6BA8DE0AFCB6ED3882CC719E /* PrivacyInfo.xcprivacy */,
+			);
+			name = MarbleWatch;
+			path = MarbleWatch;
+			sourceTree = "<group>";
+		};
 		85E03B7D41EDB0B0B0607996 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
-				A4A3A702FB2046FF990AE054 /* Tests/MarbleTests.xctestplan */,
-				C25C6D1EACFE4BE39F3E2D08 /* Tests/MarbleSnapshotRecord.xctestplan */,
+				A4A3A702FB2046FF990AE054 /* MarbleTests.xctestplan */,
+				C25C6D1EACFE4BE39F3E2D08 /* MarbleSnapshotRecord.xctestplan */,
 				F1B614DE8CBDA726994018D0 /* Tests/Unit */,
 				5A2C1B9F0D2E4A8F9C9B12A3 /* Tests/TestSupport */,
 				00A7CA843BE3D834C6DF6331 /* Tests/Snapshots */,
 				C3D3B69F08E7F0DEEF7AD6BE /* Tests/UI */,
 			);
 			name = Tests;
+			sourceTree = "<group>";
+		};
+		94869BC3A7942A6487EB52B5 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				684948D6A2863DED15AF9494 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		A8D51DF1D11EBFA7B591B0C6 /* MarbleShare */ = {
+			isa = PBXGroup;
+			children = (
+				23ADAF70D89AEE7548F50DFE /* ShareViewController.swift */,
+				1744696B398FD2BBB4BFAE50 /* PrivacyInfo.xcprivacy */,
+			);
+			name = MarbleShare;
+			path = MarbleShare;
 			sourceTree = "<group>";
 		};
 		C6B1ED5A2F154BA20044510C = {
@@ -189,6 +343,11 @@
 				BEEFC0DE0000000000000020 /* SharedDefaults.swift */,
 				85E03B7D41EDB0B0B0607996 /* Tests */,
 				C6B1ED642F154BA20044510C /* Products */,
+				32339EFEE6227C485206E223 /* Frameworks */,
+				A8D51DF1D11EBFA7B591B0C6 /* MarbleShare */,
+				50FB93EAC497E399CCF1D0A0 /* Share Shared Sources */,
+				70C62C6078FEA5D1C21D6FDC /* MarbleWatch */,
+				15F99B2C42BE9A769B5DB4F3 /* Watch Shared Sources */,
 			);
 			sourceTree = "<group>";
 		};
@@ -200,6 +359,8 @@
 				1D50B9A33DB313DD2AF37454 /* MarbleTests.xctest */,
 				9C71F1F727C76D935495558D /* MarbleSnapshotTests.xctest */,
 				67315268D5C8382FDD67694F /* MarbleUITests.xctest */,
+				5BE8DBC882BF6406B57688A4 /* MarbleShare.appex */,
+				F1F8D0FC9DA7D9A3CAD36B3A /* MarbleWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -207,6 +368,40 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		2F3321ADE642D55048996599 /* MarbleShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 001BCD400A51BFFCBB63956F /* Build configuration list for PBXNativeTarget "MarbleShare" */;
+			buildPhases = (
+				167C70EC86771CC3F83020B6 /* Sources */,
+				38033BD4938013F5855C8BE8 /* Frameworks */,
+				4034F53C3C7E024C45959313 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MarbleShare;
+			productName = MarbleShare;
+			productReference = 5BE8DBC882BF6406B57688A4 /* MarbleShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		4CDB6FAEEC575D04D6A8C02A /* MarbleWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CD49D591DBF49C971792D1C4 /* Build configuration list for PBXNativeTarget "MarbleWatch" */;
+			buildPhases = (
+				1B7276D44E42B6E835532A35 /* Sources */,
+				52A7A627ED4E73597C6E4CDF /* Frameworks */,
+				C06758EE467DF52B4EF81541 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MarbleWatch;
+			productName = MarbleWatch;
+			productReference = F1F8D0FC9DA7D9A3CAD36B3A /* MarbleWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 		87F6472B2133AAAC04A2CB47 /* MarbleUITests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E1ACAC3E3B4763C0B3AA4A98 /* Build configuration list for PBXNativeTarget "MarbleUITests" */;
@@ -252,30 +447,6 @@
 			productReference = 9C71F1F727C76D935495558D /* MarbleSnapshotTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		C6B1ED622F154BA20044510C /* marble */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = C6B1ED6E2F154BA20044510C /* Build configuration list for PBXNativeTarget "marble" */;
-			buildPhases = (
-				C6B1ED5F2F154BA20044510C /* Sources */,
-				C6B1ED602F154BA20044510C /* Frameworks */,
-				C6B1ED612F154BA20044510C /* Resources */,
-				BEEFC0DE0000000000000008 /* Embed Foundation Extensions */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				BEEFC0DE000000000000000D /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				C6B1ED652F154BA20044510C /* marble */,
-			);
-			name = marble;
-			packageProductDependencies = (
-			);
-			productName = marble;
-			productReference = C6B1ED632F154BA20044510C /* marble.app */;
-			productType = "com.apple.product-type.application";
-		};
 		BEEFC0DE000000000000000C /* MarbleWidgets */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = BEEFC0DE0000000000000010 /* Build configuration list for PBXNativeTarget "MarbleWidgets" */;
@@ -292,11 +463,35 @@
 				BEEFC0DE0000000000000006 /* MarbleWidgets */,
 			);
 			name = MarbleWidgets;
-			packageProductDependencies = (
-			);
 			productName = MarbleWidgets;
 			productReference = BEEFC0DE0000000000000004 /* MarbleWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
+		};
+		C6B1ED622F154BA20044510C /* marble */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C6B1ED6E2F154BA20044510C /* Build configuration list for PBXNativeTarget "marble" */;
+			buildPhases = (
+				C6B1ED5F2F154BA20044510C /* Sources */,
+				C6B1ED602F154BA20044510C /* Frameworks */,
+				C6B1ED612F154BA20044510C /* Resources */,
+				BEEFC0DE0000000000000008 /* Embed Foundation Extensions */,
+				C9883B945770931847194E33 /* Embed App Extensions */,
+				2A03941D4727FCCB0B2D1E8A /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BEEFC0DE000000000000000D /* PBXTargetDependency */,
+				E3BB275198152605266223D0 /* PBXTargetDependency */,
+				865FBB7DE4BBE7ECC16AFE14 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				C6B1ED652F154BA20044510C /* marble */,
+			);
+			name = marble;
+			productName = marble;
+			productReference = C6B1ED632F154BA20044510C /* marble.app */;
+			productType = "com.apple.product-type.application";
 		};
 		DEE1918E7F7B015FADDF5581 /* MarbleTests */ = {
 			isa = PBXNativeTarget;
@@ -369,11 +564,21 @@
 				DEE1918E7F7B015FADDF5581 /* MarbleTests */,
 				977B49B601BE1C7BC99F3064 /* MarbleSnapshotTests */,
 				87F6472B2133AAAC04A2CB47 /* MarbleUITests */,
+				2F3321ADE642D55048996599 /* MarbleShare */,
+				4CDB6FAEEC575D04D6A8C02A /* MarbleWatch */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		4034F53C3C7E024C45959313 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				79CCF37FCDBD1456928400E5 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9C19F456EA419CDE59E2986A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -395,14 +600,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C6B1ED612F154BA20044510C /* Resources */ = {
+		BEEFC0DE000000000000000A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		BEEFC0DE000000000000000A /* Resources */ = {
+		C06758EE467DF52B4EF81541 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBEBBD13499279E30287A6FA /* Assets.xcassets in Resources */,
+				3FF7D9EED863B2490D7522A2 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C6B1ED612F154BA20044510C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -412,6 +626,26 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		167C70EC86771CC3F83020B6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E822C759A0C4A9EACA24A93C /* ShareViewController.swift in Sources */,
+				3A8757C1D8F8F18F9C536963 /* SharedDefaults.swift in Sources */,
+				D6D2E6A91AD6EB9D78F718BA /* SharedWorkoutInbox.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1B7276D44E42B6E835532A35 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7FC7EF1FC49FF728FEDAFED3 /* MarbleWatchApp.swift in Sources */,
+				37CE2FD9F9BD3D53D48AD405 /* WatchWorkoutMessage.swift in Sources */,
+				42A7D1BF356F41B3AAACF4D6 /* NotificationDelivery.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6A88A49422419EFCC2C1FE69 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -426,22 +660,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C6B1ED5F2F154BA20044510C /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		BEEFC0DE000000000000000B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				BEEFC0DE0000000000000002 /* RestTimerAttributes.swift in Sources */,
+				DA2E118B20514E996407F5A6 /* WorkoutActivityAttributes.swift in Sources */,
 				BEEFC0DE0000000000000025 /* MarbleSharedIntents.swift in Sources */,
 				BEEFC0DE0000000000000023 /* WeeklyGoalWidgetState.swift in Sources */,
 				BEEFC0DE0000000000000027 /* WeeklyGoalWidgetViews.swift in Sources */,
 				BEEFC0DE0000000000000021 /* SharedDefaults.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C6B1ED5F2F154BA20044510C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -460,6 +695,12 @@
 			target = C6B1ED622F154BA20044510C /* marble */;
 			targetProxy = 99B1188D077DF4B51A74D18D /* PBXContainerItemProxy */;
 		};
+		865FBB7DE4BBE7ECC16AFE14 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = MarbleWatch;
+			target = 4CDB6FAEEC575D04D6A8C02A /* MarbleWatch */;
+			targetProxy = 228BB9A6CAEAA884671FE44D /* PBXContainerItemProxy */;
+		};
 		AEC41B7F5BE03EC6BE62CFA8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C6B1ED622F154BA20044510C /* marble */;
@@ -470,6 +711,12 @@
 			target = BEEFC0DE000000000000000C /* MarbleWidgets */;
 			targetProxy = BEEFC0DE0000000000000003 /* PBXContainerItemProxy */;
 		};
+		E3BB275198152605266223D0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = MarbleShare;
+			target = 2F3321ADE642D55048996599 /* MarbleShare */;
+			targetProxy = B3FE6BD7A5A19CB7E4AC3111 /* PBXContainerItemProxy */;
+		};
 		F1DEF6E43F683832F1063AAA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C6B1ED622F154BA20044510C /* marble */;
@@ -478,6 +725,32 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		0C3CE9B342207E44D6C415C8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "Apple Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 87;
+				DEVELOPMENT_TEAM = L49MKXGVM4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MarbleWatch/Info.plist;
+				MARKETING_VERSION = 2.7;
+				PRODUCT_BUNDLE_IDENTIFIER = "Prism.marble$(MARBLE_BUNDLE_SUFFIX).watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "Marble Watch App Store";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
 		3B0870E21EE1E108AFEAF036 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -538,6 +811,57 @@
 			};
 			name = Release;
 		};
+		961D1D3F3DA49491364F59DA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = MarbleShare/MarbleShare.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 87;
+				DEVELOPMENT_TEAM = L49MKXGVM4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MarbleShare/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 2.7;
+				PRODUCT_BUNDLE_IDENTIFIER = "Prism.marble$(MARBLE_BUNDLE_SUFFIX).MarbleShare";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "Marble Share App Store";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		9B12AA4D298A1E95F1594E77 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = MarbleShare/MarbleShare.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 87;
+				DEVELOPMENT_TEAM = L49MKXGVM4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MarbleShare/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 2.7;
+				PRODUCT_BUNDLE_IDENTIFIER = "Prism.marble$(MARBLE_BUNDLE_SUFFIX).MarbleShare";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "$(MARBLE_SHARE_DEVELOPMENT_PROFILE)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		A23D1DD937DF9C0C8D938691 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -545,14 +869,84 @@
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				PRODUCT_BUNDLE_IDENTIFIER = Prism.marbleUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = "Prism.marble$(MARBLE_BUNDLE_SUFFIX)UITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "$(MARBLE_UITEST_DEVELOPMENT_PROFILE)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = marble;
 			};
 			name = Debug;
+		};
+		BEEFC0DE000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_ENTITLEMENTS = MarbleWidgets/MarbleWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 87;
+				DEVELOPMENT_TEAM = L49MKXGVM4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MarbleWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.7;
+				PRODUCT_BUNDLE_IDENTIFIER = "Prism.marble$(MARBLE_BUNDLE_SUFFIX).MarbleWidgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "$(MARBLE_WIDGET_DEVELOPMENT_PROFILE)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG WIDGET_EXTENSION $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		BEEFC0DE000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_ENTITLEMENTS = MarbleWidgets/MarbleWidgets.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 87;
+				DEVELOPMENT_TEAM = L49MKXGVM4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MarbleWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.7;
+				PRODUCT_BUNDLE_IDENTIFIER = "Prism.marble$(MARBLE_BUNDLE_SUFFIX).MarbleWidgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "Prism marble MarbleWidgets App Store build 48 2026-07-24";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "WIDGET_EXTENSION $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
 		};
 		C6B1ED6C2F154BA20044510C /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -680,14 +1074,19 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = marble.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 85;
+				CURRENT_PROJECT_VERSION = 87;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AppInfo.plist;
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Marble uses the camera to scan a handwritten workout so it can be read on-device and added to your journal.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Marble reads workouts and body measurements for your journal and trends. Optional live workouts read available heart rate to show during training.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Marble saves completed workouts to Apple Health when you enable live strength tracking or session export. Your individual sets stay in Marble.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Marble uses the microphone to transcribe a workout on your device. You review the text before saving.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -699,12 +1098,9 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 2.7;
-				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble;
-				CODE_SIGN_ENTITLEMENTS = marble.entitlements;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Marble uses the camera to scan a handwritten workout so it can be read on-device and added to your journal.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Marble reads your workouts and body measurements, such as weight and body fat, from Apple Health to add them to your journal and trends.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Marble saves your completed training sessions to Apple Health as strength workouts, with their effort score, so they count toward your Training Load.";
+				PRODUCT_BUNDLE_IDENTIFIER = "Prism.marble$(MARBLE_BUNDLE_SUFFIX)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "$(MARBLE_DEVELOPMENT_PROFILE)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -721,15 +1117,20 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = marble.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 85;
+				CURRENT_PROJECT_VERSION = 87;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AppInfo.plist;
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Marble uses the camera to scan a handwritten workout so it can be read on-device and added to your journal.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Marble reads workouts and body measurements for your journal and trends. Optional live workouts read available heart rate to show during training.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Marble saves completed workouts to Apple Health when you enable live strength tracking or session export. Your individual sets stay in Marble.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Marble uses the microphone to transcribe a workout on your device. You review the text before saving.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -741,11 +1142,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 2.7;
-				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble;
-				CODE_SIGN_ENTITLEMENTS = marble.entitlements;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Marble uses the camera to scan a handwritten workout so it can be read on-device and added to your journal.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Marble reads your workouts and body measurements, such as weight and body fat, from Apple Health to add them to your journal and trends.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Marble saves your completed training sessions to Apple Health as strength workouts, with their effort score, so they count toward your Training Load.";
+				PRODUCT_BUNDLE_IDENTIFIER = "Prism.marble$(MARBLE_BUNDLE_SUFFIX)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "Prism marble App Store build 48 2026-07-24";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -759,73 +1156,30 @@
 			};
 			name = Release;
 		};
-		BEEFC0DE000000000000000E /* Debug */ = {
+		E1EBBED2521B1186DBEF8DDB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = MarbleWidgets/MarbleWidgets.entitlements;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 85;
+				CURRENT_PROJECT_VERSION = 87;
 				DEVELOPMENT_TEAM = L49MKXGVM4;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = MarbleWidgets/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
+				INFOPLIST_FILE = MarbleWatch/Info.plist;
 				MARKETING_VERSION = 2.7;
-				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble.MarbleWidgets;
+				PRODUCT_BUNDLE_IDENTIFIER = "Prism.marble$(MARBLE_BUNDLE_SUFFIX).watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "$(MARBLE_WATCH_DEVELOPMENT_PROFILE)";
+				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG WIDGET_EXTENSION $(inherited)";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VERSIONING_SYSTEM = "apple-generic";
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Debug;
-		};
-		BEEFC0DE000000000000000F /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = MarbleWidgets/MarbleWidgets.entitlements;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
-				CODE_SIGN_IDENTITY = "Apple Distribution";
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 85;
-				DEVELOPMENT_TEAM = L49MKXGVM4;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = MarbleWidgets/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 2.7;
-				PRODUCT_BUNDLE_IDENTIFIER = Prism.marble.MarbleWidgets;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "Prism marble MarbleWidgets App Store build 48 2026-07-24";
-				SKIP_INSTALL = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "WIDGET_EXTENSION $(inherited)";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VERSIONING_SYSTEM = "apple-generic";
-			};
-			name = Release;
 		};
 		F36FACE0E868369E35880E52 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -874,6 +1228,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		001BCD400A51BFFCBB63956F /* Build configuration list for PBXNativeTarget "MarbleShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				961D1D3F3DA49491364F59DA /* Release */,
+				9B12AA4D298A1E95F1594E77 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		094788CC2EF0F8DE553A1929 /* Build configuration list for PBXNativeTarget "MarbleTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -888,6 +1251,15 @@
 			buildConfigurations = (
 				F36FACE0E868369E35880E52 /* Debug */,
 				4624DB0B73D5A6B25C9999D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BEEFC0DE0000000000000010 /* Build configuration list for PBXNativeTarget "MarbleWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BEEFC0DE000000000000000E /* Debug */,
+				BEEFC0DE000000000000000F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -910,11 +1282,11 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		BEEFC0DE0000000000000010 /* Build configuration list for PBXNativeTarget "MarbleWidgets" */ = {
+		CD49D591DBF49C971792D1C4 /* Build configuration list for PBXNativeTarget "MarbleWatch" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				BEEFC0DE000000000000000E /* Debug */,
-				BEEFC0DE000000000000000F /* Release */,
+				0C3CE9B342207E44D6C415C8 /* Release */,
+				E1EBBED2521B1186DBEF8DDB /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

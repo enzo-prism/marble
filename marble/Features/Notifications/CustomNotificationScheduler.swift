@@ -109,8 +109,9 @@ struct CustomNotificationScheduler {
     }
 }
 
-private struct UserNotificationSchedulingClient: CustomNotificationSchedulingClient {
+private final class UserNotificationSchedulingClient: CustomNotificationSchedulingClient {
     private let center = UNUserNotificationCenter.current()
+    private var pendingRemoval: Task<Void, Never>?
 
     func authorizationStatus() async -> CustomNotificationAuthorizationStatus {
         let settings = await center.notificationSettings()
@@ -131,6 +132,7 @@ private struct UserNotificationSchedulingClient: CustomNotificationSchedulingCli
     }
 
     func add(_ request: CustomNotificationScheduleRequest) async throws {
+        await pendingRemoval?.value
         let content = UNMutableNotificationContent()
         content.title = request.title
         content.body = request.body
@@ -148,7 +150,11 @@ private struct UserNotificationSchedulingClient: CustomNotificationSchedulingCli
     }
 
     func removePendingRequests(withIdentifiers identifiers: [String]) {
-        center.removePendingNotificationRequests(withIdentifiers: identifiers)
+        let previous = pendingRemoval
+        pendingRemoval = Task {
+            await previous?.value
+            await NotificationDelivery.removePending(identifiers: identifiers)
+        }
     }
 }
 

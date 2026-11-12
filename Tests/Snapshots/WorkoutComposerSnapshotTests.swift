@@ -5,6 +5,22 @@ import XCTest
 
 @MainActor
 final class WorkoutComposerSnapshotTests: SnapshotTestCase {
+    // TextEditor, native navigation chrome and safe-area actions need a real
+    // window hierarchy; layer-only capture can omit that chrome entirely.
+    private func assertComposerSnapshot<V: View>(
+        _ view: V,
+        named name: String,
+        variants: [SnapshotVariant] = SnapshotMatrix.variants,
+        expectedText: [String] = [],
+        file: StaticString = #filePath,
+        testName: String = #function,
+        line: UInt = #line
+    ) {
+        assertMountedSnapshot(named: name, variants: variants, expectedText: expectedText,
+                              settlingTimeout: 10,
+                              file: file, testName: testName, line: line) { view }
+    }
+
     private final class DraftStore: WorkoutEntryDraftStoring {
         var value: WorkoutEntryDraft?
         func load() throws -> WorkoutEntryDraft? { value }
@@ -18,14 +34,16 @@ final class WorkoutComposerSnapshotTests: SnapshotTestCase {
         SnapshotFixtures.seedBase(in: context)
         let viewModel = WorkoutTextEntryViewModel(parser: HeuristicWorkoutScanParser())
 
-        assertSnapshot(
-            composer(viewModel: viewModel, container: container),
-            named: "WorkoutComposer_Empty"
-        )
-        assertSnapshot(
+        assertComposerSnapshot(
             composer(viewModel: viewModel, container: container),
             named: "WorkoutComposer_Empty",
-            variants: SnapshotMatrix.regularWidthVariants
+            expectedText: ["Add Workout", "Review Workout"]
+        )
+        assertComposerSnapshot(
+            composer(viewModel: viewModel, container: container),
+            named: "WorkoutComposer_Empty",
+            variants: SnapshotMatrix.regularWidthVariants,
+            expectedText: ["Add Workout", "Review Workout"]
         )
     }
 
@@ -37,9 +55,10 @@ final class WorkoutComposerSnapshotTests: SnapshotTestCase {
         viewModel.text = "Bench Press 3x8 @ 185 lb\nFelt strong today"
         viewModel.updateLivePreview()
 
-        assertSnapshot(
+        assertComposerSnapshot(
             composer(viewModel: viewModel, container: container),
-            named: "WorkoutComposer_LivePreview"
+            named: "WorkoutComposer_LivePreview",
+            expectedText: ["Add Workout", "Review Workout"]
         )
     }
 
@@ -51,7 +70,7 @@ final class WorkoutComposerSnapshotTests: SnapshotTestCase {
         viewModel.text = "Push day\nBench Press 3x8 @ 185 lb rest 90s\nPlank 3x45s"
         await viewModel.preview(in: context)
 
-        assertSnapshot(
+        assertComposerSnapshot(
             composer(viewModel: viewModel, container: container),
             named: "WorkoutComposer_Review"
         )
@@ -64,7 +83,7 @@ final class WorkoutComposerSnapshotTests: SnapshotTestCase {
         let viewModel = WorkoutTextEntryViewModel(parser: HeuristicWorkoutScanParser())
         viewModel.text = "Bench Press 3x8 @ 185 lb\nround 2 of 3 felt easy"
         await viewModel.preview(in: context)
-        assertSnapshot(composer(viewModel: viewModel, container: container), named: "WorkoutComposer_NotesNeedReview")
+        assertComposerSnapshot(composer(viewModel: viewModel, container: container), named: "WorkoutComposer_NotesNeedReview")
     }
 
     func testWorkoutComposerCountOnlyAndDistanceReview() {
@@ -78,7 +97,7 @@ final class WorkoutComposerSnapshotTests: SnapshotTestCase {
                 ParsedExerciseDraft(name: "Sprints", sets: [ParsedSetDraft(distance: 50), ParsedSetDraft(distance: 50)])
             ]
         ))
-        assertSnapshot(composer(viewModel: viewModel, container: container), named: "WorkoutComposer_CountOnlyAndDistanceReview")
+        assertComposerSnapshot(composer(viewModel: viewModel, container: container), named: "WorkoutComposer_CountOnlyAndDistanceReview")
     }
 
     func testWorkoutComposerRecoveredReview() throws {
@@ -97,7 +116,7 @@ final class WorkoutComposerSnapshotTests: SnapshotTestCase {
         let recovered = WorkoutTextEntryViewModel(parser: HeuristicWorkoutScanParser(), draftStore: store)
         XCTAssertTrue(recovered.hasRestoredDraft)
         XCTAssertEqual(recovered.phase, .review)
-        assertSnapshot(
+        assertComposerSnapshot(
             composer(viewModel: recovered, container: container),
             named: "WorkoutComposer_RecoveredReview"
         )
@@ -125,7 +144,7 @@ final class WorkoutComposerSnapshotTests: SnapshotTestCase {
         XCTAssertTrue(recovered.draft.exercises[0].metricsProfile.usesWeight)
         recovered.draft.exercises[0].sets[0].weight = 195
         XCTAssertEqual(recovered.draft.exercises[0].sets[0].id, original.draft.exercises[0].sets[0].id)
-        assertSnapshot(
+        assertComposerSnapshot(
             composer(viewModel: recovered, container: container),
             named: "WorkoutComposer_CorrectedWeightAfterRecovery"
         )

@@ -11,9 +11,9 @@ run at a time.
 - "I'm done", "end my workout", "finish up": use the finish workout tool and read back
   the set count and duration Marble reports. If no workout is running, say so; don't
   start one just to finish it.
-- During rest, "add 30 seconds" or "more rest" uses the extend rest tool; each call
-  adds 30 seconds, so "add a minute" is two calls. "Skip rest", "end rest" or "I'm
-  ready" uses the end rest tool.
+- “Start a 90-second rest” uses start rest with duration 90. During rest, “add a
+  minute” uses adjust rest once with 60 seconds. “Skip rest”, “end rest” or “I'm
+  ready” uses skip rest. Do not fill button-specific internal activity identifiers.
 - While a workout or rest timer is live, short phrases like "8 reps at 190" or "same
   again" are set logs for the current workout — handle them with the logging tools,
   not as questions.

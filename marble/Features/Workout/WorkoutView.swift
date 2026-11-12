@@ -4,6 +4,7 @@ import SwiftUI
 struct WorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(QuickLogCoordinator.self) private var quickLog
 
     @Query(WorkoutSessionQueries.active)
@@ -126,7 +127,7 @@ struct WorkoutView: View {
             )
             .modelContext(modelContext)
             .environment(quickLog)
-            .presentationDetents([.medium, .large], selection: quickLogDetent)
+            .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large], selection: quickLogDetent)
             .presentationContentInteraction(.scrolls)
             .presentationDragIndicator(.visible)
             .sheetGlassBackground()
@@ -174,7 +175,7 @@ struct WorkoutView: View {
 
     private var quickLogDetent: Binding<PresentationDetent> {
         Binding(
-            get: { quickLog.sheetDetent },
+            get: { dynamicTypeSize.isAccessibilitySize ? .large : quickLog.sheetDetent },
             set: { quickLog.sheetDetent = $0 }
         )
     }
@@ -216,12 +217,13 @@ struct WorkoutView: View {
 
     @discardableResult
     private func startWorkout() -> WorkoutSession? {
-        let now = AppEnvironment.now
-        let session = WorkoutSession(title: suggestedTitle, startedAt: now, createdAt: now, updatedAt: now)
-        modelContext.insert(session)
-        guard modelContext.saveOrRollback() else {
+        guard let session = WorkoutCommands.start(in: modelContext, title: suggestedTitle) else {
             errorMessage = "Marble couldn't start the workout."
             return nil
+        }
+        Task {
+            await NativeWorkoutController.shared.start(for: session)
+            await WorkoutActivityController.refresh()
         }
         MarbleHaptics.success()
         return session
@@ -260,12 +262,16 @@ struct WorkoutView: View {
 
     private func finishWorkout() {
         guard let activeSession else { return }
-        activeSession.finish()
-        guard modelContext.saveOrRollback() else {
+        guard WorkoutCommands.finish(activeSession, in: modelContext) else {
             errorMessage = "Marble couldn't finish the workout."
             return
         }
         RestActivityController.shared.cancelRest()
+        Task {
+            await NativeWorkoutController.shared.finish()
+            await HealthSessionExporter.shared.exportIfEnabled(from: modelContext)
+            await WorkoutActivityController.refresh()
+        }
         MarbleHaptics.success()
         if !activeSession.entries.isEmpty {
             ReviewPrompt.consider(after: .finishedWorkout)
@@ -312,6 +318,31 @@ private struct ActiveWorkoutSection: View {
                         .background(Capsule().fill(Theme.primaryTextColor(for: colorScheme)))
                 }
 
+                if NativeWorkoutController.shared.isRunning {
+                    HStack {
+                        if let heartRate = NativeWorkoutController.shared.heartRate {
+                            Text("\(Int(heartRate.rounded())) bpm")
+                                .monospacedDigit()
+                                .privacySensitive()
+                                .accessibilityLabel("Heart rate, \(Int(heartRate.rounded())) beats per minute")
+                        } else {
+                            Text("Health tracking")
+                        }
+                        Spacer()
+                        Button(NativeWorkoutController.shared.isPaused ? "Resume" : "Pause") {
+                            if NativeWorkoutController.shared.isPaused { NativeWorkoutController.shared.resume() }
+                            else { NativeWorkoutController.shared.pause() }
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("Workout.Health.PauseResume")
+                    }
+                    .font(.callout)
+                }
+                if let message = NativeWorkoutController.shared.lastError {
+                    Text(message).font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 HStack(spacing: MarbleSpacing.xs) {
                     addSetButton
                     Button("Finish", systemImage: "checkmark", action: onFinish)
@@ -345,6 +376,7 @@ private struct ActiveWorkoutSection: View {
                         SetRowView(entry: entry, accessibilityIdentifier: "Workout.Set.\(entry.id.uuidString)")
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("Workout.Set.\(entry.id.uuidString)")
                     .accessibilityHint("Logs the same weight and reps again")
                 }
             }

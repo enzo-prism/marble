@@ -14,6 +14,10 @@
 		<string>Prism marble App Store build 48 2026-07-24</string>
 		<key>Prism.marble.MarbleWidgets</key>
 		<string>Prism marble MarbleWidgets App Store build 48 2026-07-24</string>
+		<key>Prism.marble.MarbleShare</key>
+		<string>Marble Share App Store</string>
+		<key>Prism.marble.watchkitapp</key>
+		<string>Marble Watch App Store</string>
 	</dict>
 	<key>signingCertificate</key>
 	<string>Apple Distribution</string>

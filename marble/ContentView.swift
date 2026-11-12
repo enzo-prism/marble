@@ -7,6 +7,7 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.undoManager) private var undoManager
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @Query(filter: #Predicate<WorkoutSession> { $0.endedAt == nil }, sort: \WorkoutSession.startedAt, order: .reverse)
     private var activeSessions: [WorkoutSession]
@@ -17,6 +18,11 @@ struct ContentView: View {
     @State private var persistenceIssues = PersistenceIssueCenter.shared
     @State private var showingOnboarding = false
     @State private var showingActiveWorkout = false
+    @State private var systemDestination: SystemDestination?
+    private struct SystemDestination: Identifiable {
+        let id: UUID
+        let kind: String
+    }
     @Namespace private var logSetZoom
 
     private let restTimer = RestActivityController.shared
@@ -78,6 +84,11 @@ struct ContentView: View {
                 // inventory so an expired or duplicated Lock Screen timer cannot survive a
                 // suspension/relaunch, and recover the one valid timer if it still exists.
                 restTimer.reconcileLiveActivities()
+                Task {
+                    await NativeWorkoutController.shared.recover()
+            await WorkoutActivityController.recoverRest()
+                    await WorkoutActivityController.refresh()
+                }
                 // Pull any workouts that landed in Apple Health while we were
                 // away (no-op unless the user enabled auto-import).
                 Task { await HealthAutoImportService.shared.syncIfEnabled(into: modelContext) }
@@ -104,6 +115,7 @@ struct ContentView: View {
         // share this main context.
         .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave, object: modelContext)) { _ in
             ExerciseSpotlightIndex.scheduleRefreshAfterSave()
+            Task { await WorkoutActivityController.refresh() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .marbleOpenQuickLog)) { _ in
             quickLog.open()
@@ -116,7 +128,14 @@ struct ContentView: View {
             // Widget URLs are delivered straight to the owning app, so the
             // scheme needs no Info.plist registration — but we still check it
             // before acting on a host.
-            guard url.scheme == "marble" else { return }
+            guard url.scheme == MarbleURLs.scheme else { return }
+            if let host = url.host, ["session", "exercise", "repeat"].contains(host),
+               let id = UUID(uuidString: url.lastPathComponent) {
+                showingActiveWorkout = false
+                quickLog.isPresentingAddSet = false
+                systemDestination = SystemDestination(id: id, kind: host)
+                return
+            }
             // The medium widget's quick-log affordance lands on the same
             // coordinator the `.marbleOpenQuickLog` notification above does.
             if url.host == "quicklog" {
@@ -157,8 +176,9 @@ struct ContentView: View {
                 .modelContext(modelContext)
                 .environment(quickLog)
                 .navigationTransition(.zoom(sourceID: "log-set", in: logSetZoom))
-                .presentationDetents([.medium, .large], selection: Binding(
-                    get: { quickLog.sheetDetent },
+                // Large type needs room below the exercise search toolbar.
+                .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large], selection: Binding(
+                    get: { dynamicTypeSize.isAccessibilitySize ? .large : quickLog.sheetDetent },
                     set: { quickLog.sheetDetent = $0 }
                 ))
                 .presentationContentInteraction(.scrolls)
@@ -173,6 +193,22 @@ struct ContentView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .sheetGlassBackground()
+        }
+        .sheet(item: $systemDestination) { destination in
+            NavigationStack {
+                if destination.kind == "exercise", let exercise = fetchExercise(id: destination.id) {
+                    ExerciseProgressView(exercise: exercise)
+                } else if let session = fetchWorkoutSession(id: destination.id) {
+                    if destination.kind == "repeat" {
+                        WorkoutSessionDetailView(session: session, startsRepeatReview: true)
+                    } else {
+                        WorkoutSessionDetailView(session: session)
+                    }
+                } else {
+                    ContentUnavailableView("Item unavailable", systemImage: "exclamationmark.circle", description: Text("This item may have been deleted from Marble."))
+                }
+            }
+            .presentationDetents([.large])
         }
         .fullScreenCover(isPresented: $showingOnboarding) {
             OnboardingView {
@@ -195,6 +231,9 @@ struct ContentView: View {
             // same ActivityKit recovery here as well. This also cleans piles created by older
             // builds the first time the fixed app opens.
             restTimer.reconcileLiveActivities()
+            await NativeWorkoutController.shared.recover()
+            await WorkoutActivityController.recoverRest()
+            await WorkoutActivityController.refresh()
             // Routes the system undo gestures (shake, three-finger swipe)
             // through SwiftData's change tracking.
             modelContext.undoManager = undoManager
@@ -205,7 +244,10 @@ struct ContentView: View {
             // longer races the seeding task in `marbleApp`.
             // Puts the exercise library in Spotlight's semantic index, which is
             // how the rebuilt Siri reaches app content.
-            Task { await ExerciseSpotlightIndex.reindexAll() }
+            Task {
+                await ExerciseSpotlightIndex.reindexAll()
+                await WorkoutSessionSpotlightIndex.refresh()
+            }
             let onboarding = OnboardingGate.currentDecision()
             if onboarding.marksCompleteSilently {
                 OnboardingGate.markComplete()

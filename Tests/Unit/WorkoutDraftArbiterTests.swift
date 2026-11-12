@@ -303,12 +303,19 @@ final class WorkoutDraftArbiterTests: MarbleTestCase {
         XCTAssertFalse(result.hasContent)
     }
 
-    func testExplicitWeightUnitCannotBeRewritten() {
+    func testExplicitWeightUnitCannotBeRewritten() throws {
         let result = WorkoutDraftArbiter.choose(
             deterministic: .init(), model: draft(exercises: [exercise("Bench", sets: [.init(weight: 60, weightUnit: .lb, reps: 8)])]),
             sourceText: "Bench 60kg x 8"
         )
-        XCTAssertFalse(result.hasContent)
+        // The written kg unit is now recovered rather than discarding the
+        // movement. The model must not turn 60 kg into 60 lb or convert 60.
+        let bench = try XCTUnwrap(result.exercises.first)
+        XCTAssertEqual(result.exercises.count, 1)
+        XCTAssertEqual(bench.sets.count, 1)
+        XCTAssertEqual(bench.sets[0].weight, 60)
+        XCTAssertEqual(bench.sets[0].weightUnit, .kg)
+        XCTAssertEqual(bench.sets[0].reps, 8)
     }
 
     func testSkippedModelMovementIsNotImported() {
@@ -812,6 +819,52 @@ final class WorkoutDraftArbiterTests: MarbleTestCase {
             sourceText: "All weights #\nBench 3x8 @ 80\nDips 3x10 @ 20", defaultWeightUnit: .kg
         )
         XCTAssertEqual(header.exercises[1].sets[0].weightUnit, .lb)
+    }
+
+    func testWrittenMixedUnitsOverrideWrongModelUnitWithoutConvertingLoads() throws {
+        let model = draft(exercises: [
+            exercise("Hip Thrusts", sets: benchSets(count: 4, weight: 100, unit: .lb, reps: 10)),
+            exercise("Calf Raises", sets: benchSets(count: 3, weight: 90, unit: .lb, reps: 15))
+        ])
+        let chosen = WorkoutDraftArbiter.choose(
+            deterministic: draft(exercises: []), model: model,
+            sourceText: "hip thrusts 4 sets of 10 at 100 kilos and calf raises 3 sets of 15 at 90 pounds"
+        )
+        let hip = try XCTUnwrap(chosen.exercises.first { $0.name == "Hip Thrusts" })
+        let calf = try XCTUnwrap(chosen.exercises.first { $0.name == "Calf Raises" })
+        XCTAssertEqual(hip.sets.map(\.weight), [100, 100, 100, 100])
+        XCTAssertTrue(hip.sets.allSatisfy { $0.weightUnit == .kg })
+        XCTAssertEqual(calf.sets.map(\.weight), [90, 90, 90])
+        XCTAssertTrue(calf.sets.allSatisfy { $0.weightUnit == .lb })
+    }
+
+    func testSameNumericLoadUsesEachMovementsOwnWrittenUnit() throws {
+        let model = draft(exercises: [
+            exercise("Hip Thrusts", sets: benchSets(count: 4, weight: 100, unit: .lb, reps: 10)),
+            exercise("Calf Raises", sets: benchSets(count: 3, weight: 100, unit: .kg, reps: 15))
+        ])
+        let chosen = WorkoutDraftArbiter.choose(
+            deterministic: draft(exercises: []), model: model,
+            sourceText: "Hip Thrusts 4x10 @ 100kg; Calf Raises 3x15 @ 100lb"
+        )
+        let hip = try XCTUnwrap(chosen.exercises.first { $0.name == "Hip Thrusts" })
+        let calf = try XCTUnwrap(chosen.exercises.first { $0.name == "Calf Raises" })
+        XCTAssertTrue(hip.sets.allSatisfy { $0.weightUnit == .kg && $0.weight == 100 })
+        XCTAssertTrue(calf.sets.allSatisfy { $0.weightUnit == .lb && $0.weight == 100 })
+    }
+
+    func testSameMovementCanStateTheSameNumberInBothUnits() throws {
+        let model = draft(exercises: [exercise("Bench", sets: [
+            set(weight: 100, unit: .kg, reps: 5),
+            set(weight: 100, unit: .lb, reps: 5)
+        ])])
+        let chosen = WorkoutDraftArbiter.choose(
+            deterministic: draft(exercises: []), model: model,
+            sourceText: "Bench 100kgx5 100lbx5"
+        )
+        let bench = try XCTUnwrap(chosen.exercises.first)
+        XCTAssertEqual(bench.sets.map(\.weight), [100, 100])
+        XCTAssertEqual(bench.sets.map(\.weightUnit), [.kg, .lb])
     }
 
     func testCompactUnitBeforeMultiplicationIsExplicit() throws {
