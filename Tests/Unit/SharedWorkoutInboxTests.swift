@@ -117,6 +117,8 @@ final class SharedWorkoutInboxTests: XCTestCase {
             return XCTFail("599s is still inside the retry window")
         }
         XCTAssertEqual(kept, original)
+        XCTAssertTrue(SharedWorkoutInbox.isWithinRetryWindow(original.createdAt, relativeTo: inside))
+        XCTAssertFalse(SharedWorkoutInbox.isWithinRetryWindow(original.createdAt, relativeTo: atBoundary))
         let result = try SharedWorkoutInbox.prepareSave(
             text: original.text, existing: [original], createdAt: atBoundary, now: atBoundary
         )
@@ -124,6 +126,17 @@ final class SharedWorkoutInboxTests: XCTestCase {
             return XCTFail("Exactly 600s must insert a new inbox item")
         }
         XCTAssertNotEqual(item.id, original.id)
+    }
+
+    func testSavingTheSameTextAtRetryWindowBoundaryInsertsASecondItem() throws {
+        let store = SharedWorkoutInbox.MemoryStore()
+        let now = Date()
+        let first = try SharedWorkoutInbox.save(text: "Bench 5x5", now: now, using: store)
+        let second = try SharedWorkoutInbox.save(
+            text: "Bench 5x5", now: now.addingTimeInterval(SharedWorkoutInbox.retryWindow), using: store
+        )
+        XCTAssertEqual(store.items.count, 2)
+        XCTAssertNotEqual(first.id, second.id)
     }
 
     func testReconcileBreaksEqualTimestampTiesByID() throws {

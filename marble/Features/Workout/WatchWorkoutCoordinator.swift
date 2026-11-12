@@ -5,7 +5,11 @@ import SwiftData
 @MainActor
 final class WatchWorkoutCoordinator: NSObject, WCSessionDelegate {
     static let shared = WatchWorkoutCoordinator()
+    #if DEBUG
     var nativeWorkout: any NativeWorkoutFinishing = NativeWorkoutController.shared
+    #else
+    private(set) var nativeWorkout: any NativeWorkoutFinishing = NativeWorkoutController.shared
+    #endif
     private var activated = false
     func activate() {
         guard !activated, !TestHooks.isUITesting, !TestHooks.isXCTestProcess, WCSession.isSupported() else { return }

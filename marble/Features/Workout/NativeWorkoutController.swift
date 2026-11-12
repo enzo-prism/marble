@@ -114,10 +114,12 @@ final class NativeWorkoutController: NSObject, NativeWorkoutFinishing, HKWorkout
 
     /// Ends live Health tracking only when it belongs to this journal workout.
     /// A lost-ack finish retry must not stop a newer session's Health workout.
+    /// The first guard covers a live in-memory session for another workout
+    /// (XCTest cannot hold one). The second re-checks after recover().
     func finish(for journalID: UUID) async {
         await startTask?.value
+        guard Self.shouldFinish(journalID: journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
         if session == nil {
-            guard Self.shouldFinish(journalID: journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
             await recover()
         }
         guard Self.shouldFinish(journalID: journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
@@ -134,11 +136,15 @@ final class NativeWorkoutController: NSObject, NativeWorkoutFinishing, HKWorkout
         tracks(journalID, liveSessionID: liveSessionID)
     }
 
+    #if DEBUG
     /// Counts attempts to stop the in-memory Health session, including no-ops.
     @ObservationIgnored var finishCurrentSessionCalls = 0
+    #endif
 
     private func finishCurrentSession() async {
+        #if DEBUG
         finishCurrentSessionCalls += 1
+        #endif
         guard let session else { return }
         if session.state == .ended { clearSession(); return }
         await withCheckedContinuation { continuation in
