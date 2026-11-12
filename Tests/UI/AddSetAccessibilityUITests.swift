@@ -23,6 +23,14 @@ final class AddSetAccessibilityUITests: MarbleUITestCase {
                       "The full Last time heading must be drawn inside its bounds at XXXL.")
         takeScreenshot("AddSet_A11y_HistoryHeading")
 
+        for identifier in ["AddSet.LastTime.Value.Weight", "AddSet.LastTime.Value.Rest", "AddSet.LastTime.LoggedAt"] {
+            let text = app.staticTexts[identifier]
+            scrollToElement(text, in: addSetListContainer(), maxSwipes: 20)
+            XCTAssertTrue(try isAddSetHistoryTextFullyDrawn(identifier: identifier),
+                          "The complete \(identifier) text must be drawn inside its bounds at XXXL.")
+            takeScreenshot("AddSet_A11y_\(identifier)")
+        }
+
         let saveAndNext = app.buttons["AddSet.SaveAndNext"]
         let toolbarSave = app.navigationBars.buttons["AddSet.Save"]
 

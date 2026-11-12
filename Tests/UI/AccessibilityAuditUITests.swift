@@ -510,7 +510,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 if shouldIgnoreVerifiedWorkoutTextClipping(issue) {
                     return false
                 }
-                if shouldIgnoreVerifiedAddSetToolbarClipping(issue) {
+                if shouldIgnoreVerifiedAddSetClipping(issue, identity: issueIdentities[ObjectIdentifier(issue)]) {
                     return false
                 }
                 if shouldIgnoreVerifiedExercisePickerTextClipping(issue) {
@@ -882,8 +882,17 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
     }
 
     @available(iOS 17.0, *)
-    private func shouldIgnoreVerifiedAddSetToolbarClipping(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
-        if issue.auditType == .textClipped, issue.element?.label == "Last time" {
+    private func shouldIgnoreVerifiedAddSetClipping(_ issue: XCUIAccessibilityAuditIssue, identity: AuditElementIdentity?) -> Bool {
+        if issue.auditType == .textClipped, let identity, identity.type == .staticText {
+            for identifier in ["AddSet.LastTime.Value.Weight", "AddSet.LastTime.Value.Rest", "AddSet.LastTime.LoggedAt"] {
+                let text = app.staticTexts[identifier]
+                if text.exists, text.label == identity.label,
+                   text.frame.insetBy(dx: -1, dy: -1).contains(identity.frame),
+                   identity.frame.insetBy(dx: -1, dy: -1).contains(text.frame),
+                   (try? isAddSetHistoryTextFullyDrawn(identifier: identifier)) == true { return true }
+            }
+        }
+        if issue.auditType == .textClipped, identity?.type == .staticText, identity?.label == "Last time" {
             // A default-size virtual SwiftUI node repeats this theoretical
             // report after explicit vertical sizing. Require a fresh full-word
             // render, with the same check exercised at XXXL by the AddSet test.

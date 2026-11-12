@@ -75,9 +75,13 @@ workout title and exercise label; locked-device acceptance is still required.
   the editor and both Notes audits pass. Known plain labels measure 8.46–21:1 at the
   unchanged 4.5:1 threshold. Follow-up default audits identified history text sizing;
   card values/timestamps and section headings now explicitly retain their full height.
-  The native Cancel/Save titles and Last time heading pass full-word rendered-pixel OCR
-  within their bounds at XXXL; Cancel also dismisses the sheet. A theoretical report
-  for those exact elements is cleared only when the same fresh render check passes.
+  The required XXXL logging test passed checks of the complete native Cancel/Save titles,
+  Last time heading, weight, rest and wrapped timestamp through rendered-pixel OCR;
+  Cancel also dismisses the sheet. A theoretical report for those exact elements is
+  cleared only when the same fresh render check passes. Card reports must match the
+  captured issue's type, text and frame, avoiding another occurrence of the same value.
+  OCR ignores whitespace, preserves every other character and allows at most one pixel
+  of Vision bounding-box estimation error; the element must remain fully in view.
   All eight Add Set/history snapshot cases passed without reference changes after the
   card sizing fix. Final full accessibility/snapshot acceptance remains required.
 - A simulator background watchdog captured synchronous notification removal waiting
@@ -138,6 +142,17 @@ workout title and exercise label; locked-device acceptance is still required.
   matrix before being interrupted to correct the source-unit bug. It is incomplete
   development evidence, not a passing release manifest. Run all five gates again on
   the clean final source/version/build.
+- The first clean build-87 run passed all 1,110 unit cases (1,104 passes, six opt-in
+  skips), including the four 5,000/20,000-set SQLite checks. It was stopped after the
+  accessibility gate retained the history-card reports described above; it is not a
+  complete release manifest. Regenerate every gate after the render-check changes.
+- A build-87 supplemental run with Xcode/iOS 27.2 passed the native system-intent,
+  keychain and Health checks and the hard model corpus at 45/71. Its standard/prose
+  run reached 40/43 and 4/7 and failed the prose threshold after an Apple model-catalog
+  asset-service failure in one prose case. That failed attempt is retained, not counted
+  as quality acceptance. The final model evaluation must use the pinned shipping
+  Xcode 27.0 toolchain against the ready 27.2 simulator, separately from the matching-SDK
+  AppIntentsTesting service probes. No threshold is lowered.
 - Release-tooling Ruby checks passed after signing, authentication-metadata and CI changes.
 - The migration gate includes the immutable public 2.6.1 (84) source as well as
   retained 2.5 (77) and 2.4 (61) coverage. All three passed against `6deb220`, preserving

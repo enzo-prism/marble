@@ -1595,6 +1595,7 @@ struct LastTimeCardView: View {
                         .font(MarbleTypography.rowMeta)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("AddSet.LastTime.LoggedAt")
                 }
             } else if let emptyText = content.emptyText {
                 Text(emptyText)
@@ -1638,6 +1639,7 @@ struct LastTimeCardView: View {
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .monospacedDigit()
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("AddSet.LastTime.Value.\(metric.label)")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

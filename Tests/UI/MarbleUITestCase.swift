@@ -204,24 +204,55 @@ class MarbleUITestCase: XCTestCase {
 
     func isAddSetHistoryHeadingFullyDrawn() throws -> Bool {
         let heading = app.staticTexts["AddSet.LastTimeHeading"]
-        guard app.buttons["AddSet.ExercisePicker"].exists,
+        guard app.navigationBars["Log Set"].exists,
               heading.exists, heading.label == "Last time", heading.isHittable,
               unobscuredFrame().contains(heading.frame) else { return false }
         return try isFullTitleDrawn(in: heading, title: "Last time")
     }
 
-    private func isFullTitleDrawn(in element: XCUIElement, title: String) throws -> Bool {
+    func isAddSetHistoryTextFullyDrawn(identifier: String) throws -> Bool {
+        guard ["AddSet.LastTime.Value.Weight", "AddSet.LastTime.Value.Rest", "AddSet.LastTime.LoggedAt"].contains(identifier),
+              app.navigationBars["Log Set"].exists else { return false }
+        let text = app.staticTexts[identifier]
+        let card = app.descendants(matching: .any).matching(identifier: "AddSet.LastTime").firstMatch
+        guard text.exists, text.isHittable, card.exists, !text.label.isEmpty,
+              card.frame.insetBy(dx: -1, dy: -1).contains(text.frame),
+              unobscuredFrame().contains(text.frame) else { return false }
+        // Intrinsic Text frames need no artificial padding around their glyphs.
+        return try isFullTitleDrawn(in: text, title: text.label, minimumMargin: 0)
+    }
+
+    private func isFullTitleDrawn(in element: XCUIElement, title: String, minimumMargin: CGFloat = 0.01) throws -> Bool {
         guard let image = element.screenshot().image.cgImage else { return false }
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.recognitionLanguages = ["en-US"]
         request.usesLanguageCorrection = false
         try VNImageRequestHandler(cgImage: image).perform([request])
-        return (request.results ?? []).contains { observation in
+        let observations = (request.results ?? []).sorted { $0.boundingBox.maxY > $1.boundingBox.maxY }
+        let evidence = XCTAttachment(string: "Expected: \(title)\n" + observations.map {
+            "\($0.topCandidates(3).map(\.string)) bounds: \($0.boundingBox)"
+        }.joined(separator: "\n"))
+        evidence.name = "Rendered text \(element.identifier)"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+        let crop = XCTAttachment(image: element.screenshot().image)
+        crop.name = "Rendered bounds \(element.identifier)"
+        crop.lifetime = .keepAlways
+        add(crop)
+        let recognized = observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+        // OCR may join the narrow no-break space before AM, or split a wrapped
+        // line. Require every letter, digit and punctuation mark; ignore spacing.
+        let normalized: (String) -> String = { String($0.filter { !$0.isWhitespace }) }
+        guard normalized(recognized) == normalized(title), !observations.isEmpty else { return false }
+        // Vision's estimated rectangle can extend a fraction of a pixel beyond
+        // its input (185 lb measured x=-0.001511 in a 468px crop). Account for at
+        // most one pixel of estimation error while still requiring the full text.
+        let pixelTolerance = 1 / CGFloat(max(image.width, image.height))
+        return observations.allSatisfy { observation in
             let bounds = observation.boundingBox
-            return observation.topCandidates(1).first?.string == title
-                && bounds.minX > 0.01 && bounds.minY > 0.01
-                && bounds.maxX < 0.99 && bounds.maxY < 0.99
+            return bounds.minX >= minimumMargin - pixelTolerance && bounds.minY >= minimumMargin - pixelTolerance
+                && bounds.maxX <= 1 - minimumMargin + pixelTolerance && bounds.maxY <= 1 - minimumMargin + pixelTolerance
         }
     }
 
