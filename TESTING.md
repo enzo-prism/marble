@@ -894,6 +894,14 @@ Opt-in physical checks (prepend `TEST_RUNNER_` when invoking xcodebuild):
 - `MARBLE_SPEECH_ACCEPTANCE=1`: `SpeechTranscriberDeviceTests` transcribes a synthetic
   bundled workout using installed local speech assets. This does not establish microphone
   capture acceptance; separately verify the Record/Stop/Use Text and permission-denial UI.
+- `MARBLE_MICROPHONE_ACCEPTANCE=1`: `WorkoutDictationDeviceUITests` checks live
+  Record/Stop/Use Text in the isolated app. At `MARBLE_MICROPHONE_READY`, play the
+  bundled `Tests/Unit/Fixtures/WorkoutDictation.aiff` near the phone within twelve
+  seconds. The check expects Bench Press in the editable result, clears its own draft
+  and never saves a workout. Run in a quiet room; no transcript is explicitly logged
+  or attached. Failure diagnostics can include the visible UI.
+- `MARBLE_DEVICE_KEEP_AWAKE=1`: keeps only the foreground Validation app awake during
+  long checks. Terminating it releases the assertion; production builds ignore the flag.
 
 Also verify native Health background/recovery, physical Lock Screen/Live Activity controls,
 the Share extension-to-app review handoff, and paired Watch reconnect/retry/rest alerts.

@@ -7,6 +7,7 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.undoManager) private var undoManager
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @Query(filter: #Predicate<WorkoutSession> { $0.endedAt == nil }, sort: \WorkoutSession.startedAt, order: .reverse)
     private var activeSessions: [WorkoutSession]
@@ -175,8 +176,9 @@ struct ContentView: View {
                 .modelContext(modelContext)
                 .environment(quickLog)
                 .navigationTransition(.zoom(sourceID: "log-set", in: logSetZoom))
-                .presentationDetents([.medium, .large], selection: Binding(
-                    get: { quickLog.sheetDetent },
+                // Large type needs room below the exercise search toolbar.
+                .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large], selection: Binding(
+                    get: { dynamicTypeSize.isAccessibilitySize ? .large : quickLog.sheetDetent },
                     set: { quickLog.sheetDetent = $0 }
                 ))
                 .presentationContentInteraction(.scrolls)

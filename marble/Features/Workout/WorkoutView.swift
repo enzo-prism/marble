@@ -4,6 +4,7 @@ import SwiftUI
 struct WorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(QuickLogCoordinator.self) private var quickLog
 
     @Query(WorkoutSessionQueries.active)
@@ -126,7 +127,7 @@ struct WorkoutView: View {
             )
             .modelContext(modelContext)
             .environment(quickLog)
-            .presentationDetents([.medium, .large], selection: quickLogDetent)
+            .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large], selection: quickLogDetent)
             .presentationContentInteraction(.scrolls)
             .presentationDragIndicator(.visible)
             .sheetGlassBackground()
@@ -174,7 +175,7 @@ struct WorkoutView: View {
 
     private var quickLogDetent: Binding<PresentationDetent> {
         Binding(
-            get: { quickLog.sheetDetent },
+            get: { dynamicTypeSize.isAccessibilitySize ? .large : quickLog.sheetDetent },
             set: { quickLog.sheetDetent = $0 }
         )
     }

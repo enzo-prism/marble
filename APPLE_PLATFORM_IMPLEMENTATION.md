@@ -47,6 +47,11 @@ workout title and exercise label; locked-device acceptance is still required.
   checks. Audio-session configuration/activation runs away from the UI actor; stale
   Stop/Cancel work cannot deactivate a newer recording. Actual microphone acceptance
   still requires the connected phone.
+- Log sheets use full height at accessibility text sizes, including the exercise picker
+  and active-workout logger. Both largest-text exercise-library flows passed after the
+  change. The focused onboarding rerun passed both preference/completion flows and the
+  updated privacy-copy capture. A gated physical microphone UI check is compiled but
+  has not yet run; it uses the synthetic fixture and clears its own draft without saving.
 - Physical validation confirmed sprint tenths and start/log/repeat/finish through
   Apple's App Intents system path. The query identity assertion was corrected to compare
   instance IDs, because the framework can omit a returned entity's bundle qualification.
