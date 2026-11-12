@@ -32,6 +32,10 @@
   build; never uninstall. New features remain in the isolated Validation app.
 - The owner additionally approved color for Progress Details and analytical drilldowns.
   Keep the monochrome overview/navigation and preserve labels, data and accessibility.
+- The local Progress matrix now has 96 intentionally recorded/verified references after
+  category wrapping and weekly bar-layout fixes. Recorder run `43117948757` uses earlier
+  source `0c00762`; exclude **all `TrendsSnapshotTests` references** from its artifacts
+  when adopting the remaining renderer updates. The local Progress references are newer.
 - No final exact-source device signoff, final five-gate manifest, new upload receipt,
   TestFlight upload or App Review submission exists for this candidate yet.
 - Siri AI custom skills remain a 27.3 developer preview, separate from public App Shortcuts.

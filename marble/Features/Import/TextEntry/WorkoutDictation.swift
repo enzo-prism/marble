@@ -3,6 +3,7 @@ import Foundation
 import Observation
 import Speech
 import SwiftUI
+import UIKit
 
 /// Push-to-talk capture only. Final text enters the existing editable review pipeline.
 @MainActor
@@ -18,31 +19,48 @@ final class WorkoutDictation {
     @ObservationIgnored private var analysisTask: Task<Void, Never>?
     @ObservationIgnored private var resultTask: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
+    private let requestRecordPermission: @MainActor () async -> Bool
+    private let audioSession = WorkoutDictationAudioSession()
+
+    init(requestRecordPermission: @escaping @MainActor () async -> Bool = {
+        await AVAudioApplication.requestRecordPermission()
+    }) {
+        self.requestRecordPermission = requestRecordPermission
+    }
 
     func start() async {
-        guard !isPreparing, !isRecording else { return }
+        guard !isPreparing, !isRecording, !Task.isCancelled else { return }
         generation += 1
         let expected = generation
         isPreparing = true
         errorMessage = nil
-        defer { isPreparing = false }
-        guard await AVAudioApplication.requestRecordPermission() else {
+        defer { if generation == expected { isPreparing = false } }
+        let permissionGranted = await requestRecordPermission()
+        guard expected == generation, !Task.isCancelled else { return }
+        guard permissionGranted else {
             errorMessage = "Microphone access is off. Enable it for Marble in Settings, or type your workout."
             return
         }
-        guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: .current) else {
+        let locale = await SpeechTranscriber.supportedLocale(equivalentTo: .current)
+        guard expected == generation, !Task.isCancelled else { return }
+        guard let locale else {
             errorMessage = "Dictation is unavailable for this language. You can still type or paste your workout."
             return
         }
         do {
             let transcriber = SpeechTranscriber(locale: locale, preset: .transcription)
             if let installation = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+                guard expected == generation, !Task.isCancelled else { return }
                 try await installation.downloadAndInstall()
             }
-            guard expected == generation, !Task.isCancelled else { return }
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .measurement, options: [])
-            try session.setActive(true)
+            guard expected == generation, !Task.isCancelled,
+                  UIApplication.shared.applicationState == .active else { return }
+            try await audioSession.activate(generation: expected)
+            guard expected == generation, !Task.isCancelled,
+                  UIApplication.shared.applicationState == .active else {
+                await audioSession.deactivate(generation: expected)
+                return
+            }
             let engine = AVAudioEngine()
             let input = engine.inputNode
             let nativeFormat = input.outputFormat(forBus: 0)
@@ -51,8 +69,9 @@ final class WorkoutDictation {
                   let converter = AVAudioConverter(from: nativeFormat, to: format) else {
                 throw CaptureError.unavailable
             }
-            guard expected == generation, !Task.isCancelled else {
-                try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            guard expected == generation, !Task.isCancelled,
+                  UIApplication.shared.applicationState == .active else {
+                await audioSession.deactivate(generation: expected)
                 return
             }
             let (stream, continuation) = AsyncStream<AnalyzerInput>.makeStream()
@@ -77,7 +96,7 @@ final class WorkoutDictation {
             analysisTask = Task { [weak self] in
                 do { try await analyzer.start(inputSequence: stream) }
                 catch {
-                    guard let self, self.generation == expected else { return }
+                    guard let self, self.generation == expected, self.analyzer != nil else { return }
                     self.errorMessage = "Couldn't read the microphone. Try again or type your workout."
                     await self.stop()
                 }
@@ -86,12 +105,20 @@ final class WorkoutDictation {
             try engine.start()
             isRecording = true
         } catch {
+            guard expected == generation, !Task.isCancelled else { return }
             errorMessage = "Couldn't start dictation. Check your microphone and try again."
             await stop()
         }
     }
 
     func stop() async {
+        let stoppingGeneration = generation
+        // Invalidate an outstanding permission/asset request, while letting a
+        // running analyzer deliver its final words during normal Stop.
+        if isPreparing {
+            generation += 1
+            isPreparing = false
+        }
         engine?.stop()
         engine?.inputNode.removeTap(onBus: 0)
         engine = nil
@@ -99,17 +126,22 @@ final class WorkoutDictation {
         continuation = nil
         let activeAnalyzer = analyzer
         self.analyzer = nil
+        let finalResults = resultTask
+        resultTask = nil
+        analysisTask = nil
         if let activeAnalyzer {
             do { try await activeAnalyzer.finalizeAndFinishThroughEndOfInput() }
             catch { await activeAnalyzer.cancelAndFinishNow() }
         }
-        await resultTask?.value
-        isRecording = false
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        await finalResults?.value
+        if generation == stoppingGeneration { isRecording = false }
+        await audioSession.deactivate(generation: stoppingGeneration)
     }
 
     func cancel() {
+        let cancelledGeneration = generation
         generation += 1
+        isPreparing = false
         engine?.stop()
         engine?.inputNode.removeTap(onBus: 0)
         engine = nil
@@ -117,13 +149,51 @@ final class WorkoutDictation {
         continuation = nil
         analysisTask?.cancel()
         resultTask?.cancel()
+        analysisTask = nil
+        resultTask = nil
         if let analyzer { Task { await analyzer.cancelAndFinishNow() } }
         analyzer = nil
         isRecording = false
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        let audioSession = audioSession
+        Task { await audioSession.deactivate(generation: cancelledGeneration) }
     }
 
     private enum CaptureError: Error { case unavailable }
+}
+
+/// AVAudioSession activation can block. Keep it off the UI actor and serialize
+/// ownership so an old Stop/Cancel cannot deactivate a newer recording.
+actor WorkoutDictationAudioSession {
+    private var highestGeneration = 0
+    private var invalidatedThrough = 0
+    private var activeGeneration: Int?
+    private let performActivation: @Sendable () throws -> Void
+    private let performDeactivation: @Sendable () -> Void
+
+    init(activate: @escaping @Sendable () throws -> Void = {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.record, mode: .measurement, options: [])
+        try session.setActive(true)
+    }, deactivate: @escaping @Sendable () -> Void = {
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }) {
+        performActivation = activate
+        performDeactivation = deactivate
+    }
+
+    func activate(generation: Int) throws {
+        guard generation > invalidatedThrough, generation >= highestGeneration else { throw CancellationError() }
+        highestGeneration = generation
+        try performActivation()
+        activeGeneration = generation
+    }
+
+    func deactivate(generation: Int) {
+        invalidatedThrough = max(invalidatedThrough, generation)
+        guard activeGeneration == generation else { return }
+        performDeactivation()
+        activeGeneration = nil
+    }
 }
 
 /// AVAudioEngine delivers tap buffers serially. Conversion stays on that callback;
@@ -198,7 +268,13 @@ struct WorkoutDictationSheet: View {
             }
         }
         .task { await capture.start() }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { Task { await capture.stop() } } }
+        .onChange(of: scenePhase) { _, phase in
+            // The permission sheet itself makes the scene inactive. Background
+            // always cancels setup; inactive stops only an existing recording.
+            if phase == .background || (phase == .inactive && capture.isRecording) {
+                Task { await capture.stop() }
+            }
+        }
         .onDisappear { capture.cancel() }
     }
 }

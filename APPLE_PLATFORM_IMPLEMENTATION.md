@@ -31,13 +31,22 @@ workout title and exercise label; locked-device acceptance is still required.
 
 ## Verification evidence so far
 
-- The latest full unit run completed 1,099 cases: 1,089 passed and ten explicitly
+- The latest full unit run completed 1,106 cases: 1,096 passed and ten explicitly
   gated cases skipped, with zero failures, after the callback, parser, editor,
-  authentication, overnight Health export, model backoff and Progress Details changes.
+  authentication, overnight Health export, model backoff, Progress Details and dictation lifecycle changes.
   It includes the reopened SQLite selection predicate and analytic text/mark contrast
   across light, dark and Increase Contrast. Consistent totals restated as sets now
   reconcile without adding an extra effort; inconsistent totals remain unresolved.
   This is developmental evidence; release still needs an exact committed-source run.
+- The full development accessibility run passed 12 cases with two explicitly skipped
+  runtime Dynamic Type checks and zero failures. All 96 Progress snapshot variants
+  were intentionally recorded and verified, including the production volume component
+  and category values at the largest text size. Final release evidence must cover the
+  complete snapshot/UI/audit suites on the release source.
+- Dictation setup cancellation and audio ownership have seven hardware-free regression
+  checks. Audio-session configuration/activation runs away from the UI actor; stale
+  Stop/Cancel work cannot deactivate a newer recording. Actual microphone acceptance
+  still requires the connected phone.
 - Physical validation confirmed sprint tenths and start/log/repeat/finish through
   Apple's App Intents system path. The query identity assertion was corrected to compare
   instance IDs, because the framework can omit a returned entity's bundle qualification.
@@ -63,7 +72,9 @@ workout title and exercise label; locked-device acceptance is still required.
   at 75 minutes; its partial artifact is not full acceptance.
 - Release-tooling Ruby checks passed after signing, authentication-metadata and CI changes.
 - The migration gate includes the immutable public 2.6.1 (84) source as well as
-  retained 2.5 (77) and 2.4 (61) coverage; the expanded gate must pass before release.
+  retained 2.5 (77) and 2.4 (61) coverage. All three passed against `6deb220`, preserving
+  each real store's identity, fixtures and 40 exercises. Regenerate the full gate for
+  the final release source/build.
 
 Evidence above is developmental. Production requires clean committed source, the five
 release gates, a device signoff for that exact source/build, and an upload receipt.
