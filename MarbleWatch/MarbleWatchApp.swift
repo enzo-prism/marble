@@ -19,6 +19,10 @@ final class WatchWorkoutConnection: NSObject, WCSessionDelegate {
     private(set) var message: String?
     private(set) var isReachable = false
     @ObservationIgnored private var pendingRequest: WatchWorkoutRequest?
+    @ObservationIgnored private var transmissionGeneration = 0
+    @ObservationIgnored private var responseTimeout: Task<Void, Never>?
+    @ObservationIgnored private var restAlertOperation: Task<Void, Never>?
+    @ObservationIgnored private var restAlertGeneration = 0
     override init() {
         super.init()
         if WCSession.isSupported() {
@@ -55,29 +59,50 @@ final class WatchWorkoutConnection: NSObject, WCSessionDelegate {
             UserDefaults.standard.set(data, forKey: "marble.watch.pendingRequest")
         }
         isSending = true
+        transmissionGeneration += 1
+        let expectedGeneration = transmissionGeneration
+        responseTimeout?.cancel()
+        responseTimeout = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(15)) }
+            catch { return }
+            guard let self, self.completeTransmission(expectedGeneration) else { return }
+            self.message = "Couldn't confirm. Reconnect and retry before logging again."
+        }
         WCSession.default.sendMessageData(data) { @Sendable [weak self] data in
             Task { @MainActor in
                 guard let self else { return }
-                self.isSending = false
+                let isCurrentTransmission = self.completeTransmission(expectedGeneration)
                 guard let result = try? JSONDecoder().decode(WatchWorkoutResponse.self, from: data) else {
-                    self.message = "No confirmation received. Retry to check."; return
+                    if isCurrentTransmission { self.message = "No confirmation received. Retry to check." }
+                    return
                 }
-                if request.action != .refresh {
+                let confirmsPendingRequest = request.action != .refresh && self.pendingRequest?.id == request.id
+                if confirmsPendingRequest {
                     self.pendingRequest = nil
                     UserDefaults.standard.removeObject(forKey: "marble.watch.pendingRequest")
                 }
                 if let snapshot = result.snapshot { self.receive(snapshot) }
-                self.message = result.message
-                if result.succeeded, request.action != .refresh { WKInterfaceDevice.current().play(.success) }
-                else if !result.succeeded { WKInterfaceDevice.current().play(.failure) }
+                if isCurrentTransmission || confirmsPendingRequest {
+                    self.message = result.message
+                    if result.succeeded, request.action != .refresh { WKInterfaceDevice.current().play(.success) }
+                    else if !result.succeeded { WKInterfaceDevice.current().play(.failure) }
+                }
             }
         } errorHandler: { @Sendable [weak self] _ in
             Task { @MainActor in
-                guard let self else { return }
-                self.isSending = false
+                guard let self, self.completeTransmission(expectedGeneration) else { return }
                 self.message = "Couldn't confirm. Reconnect and retry before logging again."
             }
         }
+    }
+    /// An old callback may confirm its own saved request, but must never
+    /// cancel a newer transmission's timer or clear its busy state.
+    private func completeTransmission(_ generation: Int) -> Bool {
+        guard generation == transmissionGeneration else { return false }
+        responseTimeout?.cancel()
+        responseTimeout = nil
+        isSending = false
+        return true
     }
     private func receive(_ snapshot: WatchWorkoutSnapshot) {
         guard self.snapshot == nil || snapshot.updatedAt >= self.snapshot!.updatedAt else { return }
@@ -90,15 +115,26 @@ final class WatchWorkoutConnection: NSObject, WCSessionDelegate {
         scheduleRestAlert(snapshot?.restEndsAt)
     }
     private func scheduleRestAlert(_ end: Date?) {
+        restAlertGeneration += 1
+        let expectedGeneration = restAlertGeneration
+        let previous = restAlertOperation
+        restAlertOperation = Task {
+            await previous?.value
+            guard expectedGeneration == self.restAlertGeneration else { return }
+            await Self.updateRestAlert(end)
+        }
+    }
+    @concurrent
+    private nonisolated static func updateRestAlert(_ end: Date?) async {
         let center = UNUserNotificationCenter.current()
-        center.removePendingNotificationRequests(withIdentifiers: ["marble.watch.rest"])
+        await NotificationDelivery.removePending(identifiers: ["marble.watch.rest"])
         guard let end, end > Date() else { return }
         let content = UNMutableNotificationContent()
         content.title = "Rest complete"
         content.body = "Ready for your next set in Marble."
         content.sound = .default
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, end.timeIntervalSinceNow), repeats: false)
-        center.add(UNNotificationRequest(identifier: "marble.watch.rest", content: content, trigger: trigger))
+        try? await center.add(UNNotificationRequest(identifier: "marble.watch.rest", content: content, trigger: trigger))
     }
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         let data = session.receivedApplicationContext["workout"] as? Data
@@ -114,7 +150,13 @@ final class WatchWorkoutConnection: NSObject, WCSessionDelegate {
         Task { @MainActor in self.receive(snapshot) }
     }
     nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
-        Task { @MainActor in self.isReachable = WCSession.default.isReachable }
+        Task { @MainActor in
+            self.isReachable = WCSession.default.isReachable
+            // Reconcile after reconnect, including a message left by an
+            // initial refresh while the phone was still opening. A refresh
+            // preserves any pending mutation's ID for an explicit retry.
+            if self.isReachable { self.send(.refresh) }
+        }
     }
 }
 

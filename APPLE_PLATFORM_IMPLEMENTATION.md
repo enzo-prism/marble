@@ -31,7 +31,7 @@ workout title and exercise label; locked-device acceptance is still required.
 
 ## Verification evidence so far
 
-- The latest full unit run completed 1,106 cases: 1,096 passed and ten explicitly
+- The latest full unit run completed 1,107 cases: 1,097 passed and ten explicitly
   gated cases skipped, with zero failures, after the callback, parser, editor,
   authentication, overnight Health export, model backoff, Progress Details and dictation lifecycle changes.
   It includes the reopened SQLite selection predicate and analytic text/mark contrast
@@ -60,7 +60,23 @@ workout title and exercise label; locked-device acceptance is still required.
   sheet were corrected and passed focused reruns. The remaining onboarding failure
   showed a correctly dismissed cover with visible tabs but missing SwiftUI tab-item IDs;
   the test now checks cover dismissal and a tappable Log tab by identifier or visible
-  label. A fresh complete UI sweep is running; the first run is not a passing gate.
+  label. The second sweep completed 81 cases: 76 passed, four gated skips and one
+  failure while import parsing was still visibly running at its 15-second deadline.
+  That unchanged edit flow passed a focused rerun on the latest app. Its parsing wait
+  now matches other import flows' 60-second deadline; the edit assertions are unchanged.
+  Neither full sweep is a passing release gate.
+- A later accessibility sweep passed eight cases and skipped two runtime checks, but
+  flagged two Notes review contrast checks. The audit retained an invalidated AX node
+  after scrolling; another flag referred to plain black-on-white count text. The
+  harness now resolves the specific fresh element and measures only known plain labels
+  at the unchanged 4.5:1 threshold. Both Notes audits passed the focused rerun. Final
+  full accessibility acceptance remains required.
+- A simulator background watchdog captured synchronous notification removal waiting
+  on service XPC from the UI actor. All app/Watch removal now runs explicitly away from
+  that actor, with removal-before-add ordering retained. A regression check verifies
+  the executor hop and exact notification identifiers. Watch requests also time out
+  after 15 seconds while preserving pending mutation IDs; pausing only the paired
+  simulator phone verified that controls recover and later refresh succeeds.
 - Physical validation confirmed sprint tenths and start/log/repeat/finish through
   Apple's App Intents system path. The query identity assertion was corrected to compare
   instance IDs, because the framework can omit a returned entity's bundle qualification.

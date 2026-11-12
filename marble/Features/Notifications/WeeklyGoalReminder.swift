@@ -14,6 +14,8 @@ import UserNotifications
 /// - Never prompts for permission — it rides on the authorization the user
 ///   already granted for their own reminders, and stays silent otherwise.
 enum WeeklyGoalReminder {
+    private static var pendingRemoval: Task<Void, Never>?
+    private static var removalGeneration = 0
     static let requestIdentifier = "marble.weeklyGoal.atRisk"
     /// Same literal key it has always had, in `SharedDefaults.suite` (which is
     /// `.standard`). App-only: the widget never reads this flag.
@@ -64,6 +66,7 @@ enum WeeklyGoalReminder {
         guard !TestHooks.isUITesting, !TestHooks.isXCTestProcess else { return }
         guard SharedDefaults.suite.object(forKey: enabledDefaultsKey) as? Bool ?? true else {
             removePending()
+            await pendingRemoval?.value
             return
         }
 
@@ -87,6 +90,9 @@ enum WeeklyGoalReminder {
         let sessions = Set(weekEntries.map { calendar.startOfDay(for: $0.performedAt) }).count
 
         removePending()
+        let expectedGeneration = removalGeneration
+        await pendingRemoval?.value
+        guard expectedGeneration == removalGeneration else { return }
         guard sessions < target else { return }
 
         // The week-scoped fetch can't tell a fresh user (no sets EVER) from a
@@ -122,7 +128,11 @@ enum WeeklyGoalReminder {
     }
 
     static func removePending() {
-        UNUserNotificationCenter.current()
-            .removePendingNotificationRequests(withIdentifiers: [requestIdentifier])
+        removalGeneration += 1
+        let previous = pendingRemoval
+        pendingRemoval = Task {
+            await previous?.value
+            await NotificationDelivery.removePending(identifiers: [requestIdentifier])
+        }
     }
 }

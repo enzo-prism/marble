@@ -2,6 +2,11 @@ import XCTest
 
 final class AccessibilityAuditUITests: MarbleUITestCase {
     private var allowDynamicTypeAuditSkip = false
+    private struct AuditElementIdentity {
+        let type: XCUIElement.ElementType
+        let identifier: String
+        let label: String
+    }
 
     func testWorkoutNotesReviewAccessibility_DefaultText() throws {
         try runWorkoutNotesReviewAudits(contentSizeCategory: nil, sizeLabel: "Default")
@@ -372,6 +377,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         takeScreenshot(name)
         var issues: [XCUIAccessibilityAuditIssue] = []
         var issueVisibility: [ObjectIdentifier: (frame: CGRect, hittable: Bool, listFrame: CGRect)] = [:]
+        var issueIdentities: [ObjectIdentifier: AuditElementIdentity] = [:]
         // iOS 26's all-category audit can scroll this List while sampling contrast.
         // Preserve which exact footer labels started outside the visible viewport.
         let footerLabels = [
@@ -400,6 +406,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                     try app.performAccessibilityAudit(for: auditTypes) { issue in
                         issues.append(issue)
                         if let element = issue.element {
+                            issueIdentities[ObjectIdentifier(issue)] = AuditElementIdentity(
+                                type: element.elementType, identifier: element.identifier, label: element.label
+                            )
                             let list = self.app.collectionViews.firstMatch
                             issueVisibility[ObjectIdentifier(issue)] = (
                                 element.frame, element.isHittable, list.exists ? list.frame : .null
@@ -496,7 +505,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             }
 
             if filteredIssues.contains(where: { $0.auditType == .contrast }) {
-                filteredIssues = try issuesSurvivingMeasuredContrastRecheck(filteredIssues, auditName: name)
+                filteredIssues = try issuesSurvivingMeasuredContrastRecheck(
+                    filteredIssues, auditName: name, identities: issueIdentities
+                )
             }
 
             if filteredIssues.isEmpty {
@@ -552,7 +563,8 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
 
     @available(iOS 17.0, *)
     private func issuesSurvivingMeasuredContrastRecheck(
-        _ issues: [XCUIAccessibilityAuditIssue], auditName: String
+        _ issues: [XCUIAccessibilityAuditIssue], auditName: String,
+        identities: [ObjectIdentifier: AuditElementIdentity]
     ) throws -> [XCUIAccessibilityAuditIssue] {
         let screenshot = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
@@ -566,30 +578,47 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
 
         var notes: [String] = []
         let kept = issues.filter { issue in
-            guard issue.auditType == .contrast, let element = issue.element,
-                  element.exists else { return true }
+            guard issue.auditType == .contrast,
+                  let identity = identities[ObjectIdentifier(issue)] else { return true }
+            // Footer verification can invalidate the framework's retained AX
+            // node. Resolve its original identity against the current hierarchy.
+            let element = identity.identifier.isEmpty
+                ? app.descendants(matching: identity.type).matching(NSPredicate(format: "label == %@", identity.label)).firstMatch
+                : app.descendants(matching: identity.type).matching(identifier: identity.identifier).firstMatch
             let investigated = Self.pixelVerifiedContrastElements.contains {
-                $0.type == element.elementType && $0.identifier == element.identifier && $0.label == element.label
+                $0.type == identity.type && $0.identifier == identity.identifier && $0.label == identity.label
             }
             // The same iOS 27 report also affected ExerciseEditor.Cancel after
             // the earlier surfaces passed. Native plain-text Cancel/Save/Done
             // controls can be checked by their rendered text, only when the
             // identified button really belongs to a navigation bar. Icons and
             // compound controls remain outside this recheck.
-            let nativePlainText = element.elementType == .button && !element.identifier.isEmpty
-                && ["Cancel", "Save", "Done"].contains(element.label)
-                && app.navigationBars.buttons.matching(identifier: element.identifier).firstMatch.exists
+            let nativePlainText = identity.type == .button && !identity.identifier.isEmpty
+                && ["Cancel", "Save", "Done"].contains(identity.label)
+                && app.navigationBars.buttons.matching(identifier: identity.identifier).firstMatch.exists
             // Audit callbacks retain nodes while the footer verification above
             // scrolls the List. Reposition only these text-only review components
             // before measuring; never sample the navigation bar at an old row frame.
-            let reviewSummary = nameHasReviewPrefix(auditName) && element.elementType == .staticText
-                && element.identifier.hasPrefix("TextEntry.ExerciseSummary.")
+            // Count-only guidance is also plain text: audit-v9 reports black
+            // text on white. Its exact rendered pixels must still meet 4.5:1.
+            let reviewSummary = nameHasReviewPrefix(auditName) && identity.type == .staticText
+                && (identity.identifier.hasPrefix("TextEntry.ExerciseSummary.")
+                    || identity.identifier.hasPrefix("TextEntry.Exercise.CountOnly."))
             guard investigated || nativePlainText || reviewSummary else { return true }
-            if nameHasReviewPrefix(auditName), element.elementType == .staticText {
+            if nameHasReviewPrefix(auditName), identity.type == .staticText {
                 let list = app.collectionViews.firstMatch
                 for _ in 0..<12 {
-                    guard element.exists, list.exists else { return true }
+                    guard list.exists else { return true }
                     let viewport = workoutNotesAuditViewport(list)
+                    if !element.exists {
+                        // These rows precede the footer just checked. Reveal
+                        // them again before asking a lazy List for their frame.
+                        let start = list.coordinate(withNormalizedOffset: .zero)
+                            .withOffset(CGVector(dx: viewport.maxX - list.frame.minX - 5, dy: viewport.minY - list.frame.minY + 20))
+                        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: viewport.height * 0.5)),
+                                    withVelocity: .slow, thenHoldForDuration: 0.3)
+                        continue
+                    }
                     if element.isHittable && viewport.contains(element.frame) { break }
                     let distance = min(max(viewport.midY - element.frame.midY, -viewport.height * 0.4), viewport.height * 0.4)
                     let start = list.coordinate(withNormalizedOffset: .zero)
@@ -597,9 +626,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                     start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
                                 withVelocity: .slow, thenHoldForDuration: 0.3)
                 }
-                guard element.isHittable, workoutNotesAuditViewport(list).contains(element.frame) else { return true }
+                guard element.exists, element.isHittable, workoutNotesAuditViewport(list).contains(element.frame) else { return true }
             }
-            guard element.isHittable else { return true }
+            guard element.exists, element.label == identity.label, element.isHittable else { return true }
             let frame = element.frame
             // Exclude the capsule border so a dark decorative edge cannot
             // supply the measured text contrast of a low-contrast label.

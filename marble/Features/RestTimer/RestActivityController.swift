@@ -195,8 +195,7 @@ private final class UserNotificationRestEndAlertClient: RestEndAlertClient {
         let previousOperation = pendingOperation
         pendingOperation = Task {
             await previousOperation?.value
-            UNUserNotificationCenter.current()
-                .removePendingNotificationRequests(withIdentifiers: [Self.requestIdentifier])
+            await NotificationDelivery.removePending(identifiers: [Self.requestIdentifier])
         }
     }
 }
