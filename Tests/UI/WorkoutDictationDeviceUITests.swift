@@ -24,8 +24,12 @@ final class WorkoutDictationDeviceUITests: MarbleUITestCase {
             let alert = surface.alerts.firstMatch
             if alert.waitForExistence(timeout: 2),
                alert.label.localizedCaseInsensitiveContains("microphone"),
-               alert.label.contains("Marble Validation"), alert.buttons["Allow"].exists {
-                alert.buttons["Allow"].tap()
+               alert.label.contains("Marble Validation") {
+                // iOS 27.2 exposes the native Allow button twice as nested
+                // nodes. Keep the exact microphone-service scope and use its
+                // first match instead of an ambiguous visible-label query.
+                let allow = alert.buttons.matching(identifier: "kTCCServiceMicrophone-allow-button").firstMatch
+                if allow.exists { allow.tap() }
             }
         }
         if record.exists, record.isEnabled, record.label == "Record" { record.tap() }

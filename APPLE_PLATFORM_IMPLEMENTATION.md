@@ -120,6 +120,11 @@ See `RELEASE_HANDOFF.md`, `TESTING.md` and `SiriAIPreview/README.md`.
 - The connected iPhone is on iOS 27.2, with Developer Mode and UI automation enabled.
 - Physical tests use `Prism.marble.validation`, isolated URL schemes, keychain groups,
   and a dedicated persistent App Intents test store. Production is not the test target.
+- Owner subsequently stopped further iPhone automation. Remaining automated checks run
+  on this Mac Studio's simulators; actual microphone, on-device model and physical
+  Health/Lock Screen checks are not substituted with simulated results. The first
+  microphone attempt stopped at an ambiguous native consent-button query before the
+  fixture played; the scoped query was corrected, but no further phone run is authorized.
 - Readback 2026-11-11: public 2.6.1 (84); 2.7 (86) is approved and pending manual release.
   Build 86 predates this work. Working source version 2.7 (85) has not been bumped;
   determine the new version/train and next build from fresh ASC state before release.

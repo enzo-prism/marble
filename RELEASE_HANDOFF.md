@@ -24,6 +24,10 @@
   differs; use the verified CI signing path or appropriate local profile overrides.
 - Physical validation is isolated as `Prism.marble.validation` with separate keychain
   groups. Developer Mode and UI automation are enabled on the connected iOS 27.2 phone.
+- Owner direction later on 2026-11-11: run all remaining automated tests on this Mac
+  Studio's simulators. Do not start further automated tests on the owner's iPhone.
+  Existing physical evidence remains historical; unsupported physical-only checks
+  remain unverified and must not be relabeled as simulator acceptance.
 - An exact, empty developer-test session in the production container was removed through
   SwiftData after UUID/date/emptiness checks; device readback verified every other user
   row and store identity unchanged. Temporary SQLite inspection copies were purged.
