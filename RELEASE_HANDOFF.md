@@ -9,13 +9,16 @@
   `e65d1f38-6c84-4096-ba1b-5d7436f0f575`; build ID
   `9430c497-7e8e-4235-b121-c319e463bdd4` is `VALID` and internally testing.
 - `origin/main` baseline is `e1e1275c5822692a172904d554af255ee2653e33`.
-  New work is on `feature/apple-platform-workouts`, not yet uploaded or merged.
+  New work is integrated into `release/apple-platform-2.7-87` from clean canonical main,
+  and is incorporated in PR 57's feature head. It is not yet uploaded or merged to main.
   Build 86 does not contain the new platform features. The older sections below are history.
 - Owner explicitly authorized implementation, documentation, main/prod, TestFlight and
   App Store submission on 2026-11-11. Continue through the existing evidence gates;
   this authorization does not substitute for passing checks.
-- Working version is still 2.7 (85). Recheck ASC's next build before creating a clean
-  release branch. Do not reuse 85/86 or silently replace an approved binary.
+- Fresh ASC readback still reports 87 as the next build. The clean-main release branch
+  now stages 2.7 (87), updated What to Test and App Store copy, plus the native Watch
+  screenshot. All five gates must pass on that committed candidate before PR merge
+  and upload. Do not reuse 85/86 or silently replace an approved binary.
 - Candidate details and remaining acceptance: `APPLE_PLATFORM_IMPLEMENTATION.md`.
   Stable CI now pins Xcode 27.0 (27A266a) and iOS 27.0. Deployment stays iOS 26.0.
 - New Share and Watch App Store profiles are registered and mapped in export options:

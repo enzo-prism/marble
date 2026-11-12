@@ -1,8 +1,9 @@
 # Apple platform candidate — distribution copy
 
-Draft for the next verified binary. This file is not an upload receipt or evidence of
-App Review submission. Select the version/build only after fresh ASC readback and the
-release gates. The pre-existing approved 2.7 (86) does not contain these changes.
+Distribution copy is staged for 2.7 (87) after fresh ASC next-build readback. The
+actual version localization and `TESTFLIGHT_NOTES_2.7.txt` contain the candidate copy.
+This file is not an upload receipt or evidence of App Review submission. Publish only
+after the release gates. The pre-existing approved 2.7 (86) does not contain these changes.
 
 ## What's New draft
 

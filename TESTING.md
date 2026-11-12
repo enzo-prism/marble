@@ -2,8 +2,8 @@
 
 ## Current Apple platform candidate (2026-11-11)
 
-The working candidate is on `feature/apple-platform-workouts`, draft PR 57. Source
-version remains 2.7 (85); no new binary has been uploaded. Current ASC readback is
+The working candidate is 2.7 (87) on `release/apple-platform-2.7-87`, incorporated
+in draft PR 57. All five final gates run on this Mac; no new binary has been uploaded. Current ASC readback is
 public 2.6.1 (84), with pre-existing 2.7 (86) approved and pending developer release.
 Read `RELEASE_HANDOFF.md` and `APPLE_PLATFORM_IMPLEMENTATION.md` for the dated
 candidate state. The historical October checks below do not certify this candidate.

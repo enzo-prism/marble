@@ -1,7 +1,9 @@
 # Apple platform implementation — November 2026
 
 Authorized by the owner on 2026-11-11, from canonical `main` `e1e1275`.
-This branch is an implementation candidate, not a release. No new binary has been uploaded.
+The 2.7 (87) candidate is staged on `release/apple-platform-2.7-87`, created from
+clean canonical main with the feature branch integrated. No new binary has been uploaded.
+Run all five local gates against the committed candidate before merging PR 57 or publishing.
 
 ## Implemented behavior
 
