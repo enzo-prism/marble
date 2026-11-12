@@ -42,7 +42,8 @@ enum MarbleTab: String, CaseIterable {
 class MarbleUITestCase: XCTestCase {
     static var targetBundleIdentifier: String {
         #if targetEnvironment(simulator)
-        "Prism.marble"
+        ProcessInfo.processInfo.environment["MARBLE_SIMULATOR_VALIDATION"] == "1"
+            ? "Prism.marble.validation" : "Prism.marble"
         #else
         "Prism.marble.validation"
         #endif

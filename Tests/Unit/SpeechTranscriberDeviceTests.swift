@@ -7,12 +7,14 @@ import XCTest
 @MainActor
 final class SpeechTranscriberDeviceTests: XCTestCase {
     func testWorkoutAudioTranscribesWithLocalSpeechAssets() async throws {
-        #if targetEnvironment(simulator)
-        throw XCTSkip("Real speech acceptance requires the physical validation device.")
-        #else
         try XCTSkipUnless(ProcessInfo.processInfo.environment["MARBLE_SPEECH_ACCEPTANCE"] == "1")
+        #if !targetEnvironment(simulator)
         try XCTSkipUnless(Bundle.main.object(forInfoDictionaryKey: "MarbleBundleSuffix") as? String == ".validation")
+        #endif
         let supported = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "en-US"))
+        #if targetEnvironment(simulator)
+        try XCTSkipUnless(supported != nil, "This simulator does not provide the local English speech model; not microphone acceptance.")
+        #endif
         let locale = try XCTUnwrap(supported)
         let module = SpeechTranscriber(locale: locale, preset: .transcription)
         if let request = try await AssetInventory.assetInstallationRequest(supporting: [module]) {
@@ -48,6 +50,5 @@ final class SpeechTranscriberDeviceTests: XCTestCase {
             results.cancel()
             throw error
         }
-        #endif
     }
 }

@@ -45,8 +45,7 @@ workout title and exercise label; locked-device acceptance is still required.
   The two new failure cases were reproduced before the fix; the full unit suite passed.
   The prior single-unit rejection test now verifies recovery of the exact written load,
   unit and reps instead of discarding an otherwise grounded movement.
-- The full development accessibility run passed 12 cases with two explicitly skipped
-  runtime Dynamic Type checks and zero failures. All 96 Progress snapshot variants
+- All 96 Progress snapshot variants
   were intentionally recorded and verified, including the production volume component
   and category values at the largest text size. Final release evidence must cover the
   complete snapshot/UI/audit suites on the release source.
@@ -62,22 +61,20 @@ workout title and exercise label; locked-device acceptance is still required.
 - Opening a planned set now presents its selected exercise as the sheet item. This
   fixes a reproducible empty logger sheet; the existing split edit/log/dismiss/save
   UI flow passed without weakening its assertions.
-- The first full UI sweep completed 80 cases: 73 passed, three gated skips and four
-  failures. The stale privacy-copy assertion, accessibility sheet layout and planned-set
-  sheet were corrected and passed focused reruns. The remaining onboarding failure
-  showed a correctly dismissed cover with visible tabs but missing SwiftUI tab-item IDs;
-  the test now checks cover dismissal and a tappable Log tab by identifier or visible
-  label. The second sweep completed 81 cases: 76 passed, four gated skips and one
-  failure while import parsing was still visibly running at its 15-second deadline.
-  That unchanged edit flow passed a focused rerun on the latest app. Its parsing wait
-  now matches other import flows' 60-second deadline; the edit assertions are unchanged.
-  Neither full sweep is a passing release gate.
-- A later accessibility sweep passed eight cases and skipped two runtime checks, but
-  flagged two Notes review contrast checks. The audit retained an invalidated AX node
-  after scrolling; another flag referred to plain black-on-white count text. The
-  harness now resolves the specific fresh element and measures only known plain labels
-  at the unchanged 4.5:1 threshold. Both Notes audits passed the focused rerun. Final
-  full accessibility acceptance remains required.
+- The latest full UI sweep completed 81 cases: 77 passed, four explicitly gated cases
+  skipped and zero failures. It covers the corrected privacy assertion, accessibility
+  sheet layout, planned-set logger and onboarding dismissal. The tab check accepts its
+  native visible label when SwiftUI omits the identifier. The import edit flow waits
+  up to the same 60 seconds used by other parsing flows, preserving every edit assertion.
+  This is development evidence; the final source/version/build still needs its full gate.
+- The latest full accessibility sweep completed 12 cases: seven passed, two runtime
+  checks skipped and three failed on text contrast reports. Captured text measured
+  8.46–21:1; the audit also retained an invalidated AX node after scrolling. The harness
+  now captures identity/frame atomically and resolves a specific fresh occurrence,
+  rather than selecting an arbitrary duplicate label. Known plain labels are measured
+  at the unchanged 4.5:1 threshold. The separated exercise-editor audit and both Notes
+  review audits passed all three focused reruns. Final full accessibility acceptance
+  remains required; unknown elements are not treated as verified contrast.
 - A simulator background watchdog captured synchronous notification removal waiting
   on service XPC from the UI actor. All app/Watch removal now runs explicitly away from
   that actor, with removal-before-add ordering retained. A regression check verifies
@@ -99,9 +96,15 @@ workout title and exercise label; locked-device acceptance is still required.
   execution was interrupted by the phone relocking and is not a quality result. A later
   completed run reached 42/71 (59%) and still failed; it encountered model throttling
   near the end. The threshold remains unchanged. Explicit lists, weight-first notation
-  and restated totals have regression coverage; the physical quality gate must be rerun.
+  and restated totals have regression coverage; that prior physical result remains
+  below its threshold. Further iPhone automation is no longer authorized.
   Throttling is distinguished from context overflow and respects Apple's reset deadline
   with a bounded fallback backoff. Fixed token metadata is cached without workout content.
+- A dedicated local iOS 27.2 simulator initially reported modelNotReady, then became
+  ready and exercised the Mac's actual model. The corrected-source quality run passed
+  41/43 standard cases, 5/7 prose cases and 45/71 hard cases, with no model-service
+  failures. This meets the unchanged 80% / 70% / 60% thresholds. These are simulator
+  model results, not physical iPhone latency or microphone acceptance.
 - Snapshot references were intentionally updated for the pinned stable Xcode 27.0 /
   iOS 27.0 renderer. All four recording/verification shards completed successfully in
   run `43117948757`. Visual review adopted 214 changed non-Progress references, while
@@ -109,6 +112,10 @@ workout title and exercise label; locked-device acceptance is still required.
   a full latest-source verification on this Mac Studio.
   The earlier sequential recorder was cancelled after live logs showed only group 13
   at 75 minutes; its partial artifact is not full acceptance.
+- The later local five-gate development attempt passed unit and part of the snapshot
+  matrix before being interrupted to correct the source-unit bug. It is incomplete
+  development evidence, not a passing release manifest. Run all five gates again on
+  the clean final source/version/build.
 - Release-tooling Ruby checks passed after signing, authentication-metadata and CI changes.
 - The migration gate includes the immutable public 2.6.1 (84) source as well as
   retained 2.5 (77) and 2.4 (61) coverage. All three passed against `6deb220`, preserving

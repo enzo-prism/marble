@@ -634,9 +634,12 @@ Preserve the manifest and exact-source upload receipt, and complete
 [the 2.6 physical-device checklist](AppStore/PHYSICAL_DEVICE_CHECKLIST_2.6.md).
 The verifier checks that all evidence identifies the same final SHA/version/build.
 
-A simulator cannot establish real model behavior, locked-device keychain sharing,
-spoken Siri recognition, physical Apple Health integration or device performance.
-These remain separate hardware checks; follow the dated candidate section for device availability.
+A ready simulator can exercise the Mac's actual Foundation Models model. The local
+iOS 27.2 simulator on macOS 27.2.1 has produced real responses; modelNotReady during
+initial setup is not quality acceptance. Mac model results do not establish iPhone
+latency, locked-device keychain sharing, spoken Siri recognition, physical Apple
+Health integration or device performance. The owner has stopped further iPhone
+automation; remaining automated checks run on this Mac Studio's simulators.
 
 ## Archived physical-device acceptance pass for 2.4
 
@@ -891,8 +894,14 @@ Opt-in physical checks (prepend `TEST_RUNNER_` when invoking xcodebuild):
   and exact-row deletion. Requires an empty validation inbox and removes only its own IDs.
 - `MARBLE_FM_EVAL=1`: `FoundationModelsLiveEvalTests` runs the actual installed model and
   attaches per-case pass/failure and latency JSON. An unavailable-model skip is not a pass.
+- `MARBLE_SIMULATOR_VALIDATION=1`: points only simulator UI tests at
+  `Prism.marble.validation`; build with `MARBLE_BUNDLE_SUFFIX=.validation` as well.
+  This enables isolated simulator probes of the system-intent test service. The
+  physical UI-test target stays hardcoded to Validation, with no production fallback.
 - `MARBLE_SPEECH_ACCEPTANCE=1`: `SpeechTranscriberDeviceTests` transcribes a synthetic
-  bundled workout using installed local speech assets. This does not establish microphone
+  bundled workout using installed local speech assets. This file-only check can run on
+  Simulator; unsupported local speech models are an explicit skip. Physical runs still
+  require the isolated Validation bundle. This does not establish microphone
   capture acceptance; separately verify the Record/Stop/Use Text and permission-denial UI.
 - `MARBLE_MICROPHONE_ACCEPTANCE=1`: `WorkoutDictationDeviceUITests` checks live
   Record/Stop/Use Text in the isolated app. At `MARBLE_MICROPHONE_READY`, play the
