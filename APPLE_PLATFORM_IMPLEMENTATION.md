@@ -97,6 +97,9 @@ See `RELEASE_HANDOFF.md`, `TESTING.md` and `SiriAIPreview/README.md`.
 ## Platform and distribution boundaries
 
 - App deployment remains iOS 26.0; iOS 27-only APIs are availability gated.
+- The app declares no scheduled `processing` background mode: it registers no
+  Background Tasks work. Native workout/background acceptance depends on the Health
+  session, Live Activity and recovery lifecycle, not an unrelated Info.plist mode.
 - Stable development/CI uses Xcode 27.0 (27A266a), iOS/watchOS 27.0.
 - The connected iPhone is on iOS 27.2, with Developer Mode and UI automation enabled.
 - Physical tests use `Prism.marble.validation`, isolated URL schemes, keychain groups,
