@@ -3,20 +3,27 @@
 A local-only workout + supplements journal for iOS, built with SwiftUI and SwiftData — and
 a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
-## Apple platform candidate
+## Apple platform release — 2.7 (87)
 
-The current implementation adds richer Siri/Shortcuts actions, a workout-long Live
-Activity, opt-in native Health tracking, on-device dictation, a Share extension inbox,
-and a phone-connected Watch controller. It is undergoing release acceptance; these
-changes are not yet the public binary. See
-[implementation and acceptance status](APPLE_PLATFORM_IMPLEMENTATION.md).
-Custom Siri AI skills remain a separate iOS 27.3 developer preview.
+The Siri/Shortcuts, workout-long Live Activity, optional native Health tracking,
+on-device dictation, Share inbox, Watch controller and colored Progress Details
+improvements are merged into main through [PR 57](https://github.com/enzo-prism/marble/pull/57).
+Build **2.7 (87)** is `VALID` and `IN_BETA_TESTING` on internal TestFlight. All five
+release gates passed locally on the Mac Studio; the signed upload uses that exact source.
+
+Public distribution remains **2.6.1 (84)**. The previous **2.7 (86)** approval is still
+pending manual release; it predates these features. Build 87 App Store submission
+awaits the exact-build manual signoff required by the release verifier. See
+[release identities and remaining steps](RELEASE_HANDOFF.md) and
+[implementation and acceptance boundaries](APPLE_PLATFORM_IMPLEMENTATION.md).
+Custom Siri AI skills remain a separate iOS 27.3 developer preview, excluded from
+this public archive.
 
 ## What it is
 
 September 5 Add Workout improvements and their fidelity contract are documented in
-[WORKOUT_TEXT_ENTRY.md](WORKOUT_TEXT_ENTRY.md). Release validation is in progress;
-this documentation does not establish a public release.
+[WORKOUT_TEXT_ENTRY.md](WORKOUT_TEXT_ENTRY.md). The current distribution and acceptance state is recorded above; this feature
+documentation alone does not establish an App Store release.
 
 The tab bar is three destinations: **Add**, **Log**, and **Progress**. Calendar and
 Supplements are modes inside Log (not separate tabs). Deep links `marble://calendar` and

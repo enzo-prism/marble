@@ -1,23 +1,43 @@
 # Apple platform implementation — November 2026
 
 Authorized by the owner on 2026-11-11, from canonical `main` `e1e1275`.
-The 2.7 (87) candidate is staged on `release/apple-platform-2.7-87`, created from
-clean canonical main with the feature branch integrated. No new binary has been uploaded.
-Run all five local gates against the committed candidate before merging PR 57 or publishing.
+The tested source `e39dae2fb7664038eddb70b969035349d99023d0` is in main through
+[PR 57](https://github.com/enzo-prism/marble/pull/57), merge `ffca7a0f585dc251757560d4e6bc418fbe1eece3`.
+The merge's full tree matches the tested candidate. **2.7 (87)** is now `VALID` and
+internally `IN_BETA_TESTING`, uploaded by [run 43211130545](https://github.com/enzo-prism/marble/actions/runs/43211130545) from that same source.
+Public distribution remains 2.6.1 (84); App Store submission of 87 awaits the required
+owner-manual exact-build signoff. No further iPhone automation is authorized.
+
+## Final verification and delivery
+
+All five local Mac Studio gates passed on the clean committed source above:
+
+- Unit: 1,110 cases, 1,104 passed, six explicit skips, zero failures; four large-store benchmarks included.
+- Snapshots: all 45 groups and 65 cases passed, including 96 Progress references and native Composer capture.
+- UI: 81 cases, 77 passed, four explicit skips, zero failures.
+- Accessibility: 13 cases, 11 passed, two unsupported-runtime skips, zero failures.
+- Migration: public 2.6.1 (84), 2.5 (77) and 2.4 (61) store upgrades passed with identities and 40 exercises preserved.
+
+The combined manifest verifies 93 artifacts, retains original per-gate provenance
+and matches the same source/version/build throughout. Signed archive/export and
+extracted private-intent authentication checks passed, followed by a processed upload,
+matching TestFlight notes and immutable receipt. Evidence paths and current external
+identities are in `RELEASE_HANDOFF.md`. Earlier attempts below remain historical;
+they are not the passing release record or physical-device acceptance.
 
 ## Implemented behavior
 
 | Area | Candidate behavior | Acceptance still required |
 |---|---|---|
-| Shared commands | Log/repeat/start/finish save before rest, donations and indexing; undo cancels only the originating rest; complete units and sprint tenths | Final unit and migration gates |
-| App Intents | Typed set/session results, correction by exact ID, date-filtered workout search, open/share/repeat-review, authenticated data-returning actions, nine App Shortcuts | Final release gates; physical locked-device behavior |
+| Shared commands | Log/repeat/start/finish save before rest, donations and indexing; undo cancels only the originating rest; complete units and sprint tenths | Local unit/migration gates passed; physical cross-surface checks remain qualified below |
+| App Intents | Typed set/session results, correction by exact ID, date-filtered workout search, open/share/repeat-review, authenticated data-returning actions, nine App Shortcuts | Physical locked-device behavior |
 | System surfaces | One workout-long Live Activity, integrated rest, exact routes, onscreen exercise/session associations, bounded Spotlight session indexing | Physical lock screen, termination/recovery and accessibility |
 | Apple Health | Retry checkpoints and stable sync IDs; no inferred workout effort; opt-in native strength session with pause/resume/recovery | Physical authorization, save, cleanup and background recovery |
 | Capture | On-device SpeechAnalyzer dictation with editable review; text/file/image Share extension with bounded local OCR and a five-item shared-keychain inbox | Physical speech and cross-process Share handoff |
-| History | Text export from session detail; repeats enter review; imported Health workout zones on iOS 27 | Final UI and accessibility suites |
+| History | Text export from session detail; repeats enter review; imported Health workout zones on iOS 27 | Local UI/accessibility gates passed; owner manual signoff pending |
 | Watch | Focused phone-connected controller: start, repeat last set, rest/skip, finish and refresh; persistent request IDs prevent repeat duplication after lost acknowledgements | Physical Watch transport, offline retry and rest alerts |
-| AI extraction | Actual model on the Mac's iOS 27.2 simulator meets unchanged standard/prose/hard quality thresholds | Final release gates; physical iPhone latency remains unverified |
-| Progress Details | Semantic metric colors, stable category colors, matching volume symbols/legend, wrapping category values, proper weekly bar intervals, adaptive Increase Contrast, neutral surfaces and preserved data/Audio Graphs | Final visual matrix, accessibility audit and UI checks |
+| AI extraction | Actual model on the Mac's iOS 27.2 simulator meets unchanged standard/prose/hard quality thresholds | Physical iPhone latency remains unverified |
+| Progress Details | Semantic metric colors, stable category colors, matching volume symbols/legend, wrapping category values, proper weekly bar intervals, adaptive Increase Contrast, neutral surfaces and preserved data/Audio Graphs | Full local visual, accessibility and UI gates passed; owner readability signoff pending |
 | Siri AI preview | Updated skill text, scenarios and separate development-only project generator; SDK preflight prevents accidental public packaging | Xcode/iOS 27.3, compiled skills, Siri Evaluations and conversational/card acceptance |
 
 The Watch target is a companion controller. It does not yet own a wrist HealthKit
@@ -31,7 +51,7 @@ for the development binary. The upload path verifies the archive metadata again.
 System redaction can hide the Live Activity's
 workout title and exercise label; locked-device acceptance is still required.
 
-## Verification evidence so far
+## Development checks and earlier attempts
 
 - The latest full unit run completed 1,110 cases: 1,104 passed and six explicitly
   gated cases skipped, with zero failures, after the callback, parser, editor,

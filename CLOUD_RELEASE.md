@@ -9,13 +9,19 @@ Linux Cloud Agents cannot run `xcodebuild`. This repo splits shipping in two:
 
 Agents drive both through `scripts/cloud_release.sh` / `make cloud-*`. They still must not bump builds, upload, submit, or release without explicit user approval.
 
-## Current candidate (2026-11-11)
+## Current distribution (2026-11-12)
 
-Public distribution is 2.6.1 (84). Pre-existing 2.7 (86) is approved and pending
-manual release; it does not contain the Apple-platform and Progress Details work
-on draft PR 57. No new candidate has been uploaded. The owner authorized main,
-TestFlight and App Store delivery; matching release evidence and physical signoff
-remain required. See `RELEASE_HANDOFF.md` for the current identities and limits.
+Main contains the Apple-platform and Progress Details changes from PR 57.
+**2.7 (87)** is `VALID` / internal `IN_BETA_TESTING`, uploaded by
+[run 43211130545](https://github.com/enzo-prism/marble/actions/runs/43211130545) from exact tested source `e39dae2fb7664038eddb70b969035349d99023d0`.
+All five local Mac Studio gates passed, and the immutable upload receipt is verified.
+No further automated tests on the owner's iPhone are authorized.
+
+Public distribution remains **2.6.1 (84)**. The older **2.7 (86)** is still approved
+and pending manual release. The owner authorized latest-version App Store submission;
+its remaining prerequisite is actual build-87 manual signoff. Then remove the older
+approval, stage the tested build/copy and submit it. Do not release build 86 as this work.
+See `RELEASE_HANDOFF.md` for identities, evidence paths and the guard.
 
 App Store staging passes `AppStore/metadata` as the metadata root, containing both
 `app-info` and `version/<version>`. Passing only the version directory is invalid.

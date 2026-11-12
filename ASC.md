@@ -18,9 +18,13 @@ Use `asc --help` and `asc <command> --help` as the source of truth. The CLI
 docs explicitly recommend this because command surfaces move faster than
 project-local notes.
 
-The November candidate is not uploaded. Current public distribution is 2.6.1 (84),
-and pre-existing 2.7 (86) is approved pending manual release. Use
-`RELEASE_HANDOFF.md` for candidate/evidence state. Staging's `--metadata-dir` must
+The November Apple-platform candidate is uploaded as **2.7 (87)**: `VALID`,
+internal `IN_BETA_TESTING`, build ID `507e9170-c386-4994-b61f-491e48eb305d`.
+PR 57 is merged; all five local gates and the signed upload receipt match source
+`e39dae2fb7664038eddb70b969035349d99023d0`. Public distribution remains 2.6.1 (84),
+while the older 2.7 (86) approval is pending manual release. The authorized App Store
+resubmission of 87 awaits its required owner-manual signoff. Use
+`RELEASE_HANDOFF.md` for the remaining steps and evidence paths. Staging's `--metadata-dir` must
 point to the `AppStore/metadata` root, with `app-info` and `version` children,
 rather than `AppStore/metadata/version/<version>`.
 
