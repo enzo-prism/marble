@@ -1,8 +1,8 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-11-11.**
+**App Store Connect state refreshed: 2026-11-12.**
 
-## Apple platform candidate in progress (2026-11-11)
+## Apple platform candidate in progress (2026-11-12)
 
 - Fresh ASC readback: **2.6.1 (84) is public**; **2.7 (86) is approved,
   `PENDING_DEVELOPER_RELEASE`**, manual release. Version ID
@@ -43,6 +43,13 @@
   category wrapping and weekly bar-layout fixes. Recorder run `43117948757` uses earlier
   source `0c00762`; exclude **all `TrendsSnapshotTests` references** from its artifacts
   when adopting the remaining renderer updates. The local Progress references are newer.
+- Latest committed-source development evidence: unit 1,104 passes/six opt-in skips;
+  accessibility eleven passes/two runtime skips, zero failures. Actual model checks
+  meet unchanged standard/prose/hard thresholds after an initial Apple asset-service
+  failure, retained in the evidence. Composer native-window capture now verifies all
+  seven cases and 64 intentionally refreshed references; Progress references are intact.
+  The interrupted complete run does not certify release. Freeze the corrected source
+  and rerun all five gates locally before merge/upload.
 - No final exact-source device signoff, final five-gate manifest, new upload receipt,
   TestFlight upload or App Review submission exists for this candidate yet.
 - Siri AI custom skills remain a 27.3 developer preview, separate from public App Shortcuts.

@@ -33,7 +33,7 @@ workout title and exercise label; locked-device acceptance is still required.
 
 ## Verification evidence so far
 
-- The latest full unit run completed 1,110 cases: 1,100 passed and ten explicitly
+- The latest full unit run completed 1,110 cases: 1,104 passed and six explicitly
   gated cases skipped, with zero failures, after the callback, parser, editor,
   authentication, overnight Health export, model backoff, Progress Details and dictation lifecycle changes.
   It includes the reopened SQLite selection predicate and analytic text/mark contrast
@@ -69,21 +69,17 @@ workout title and exercise label; locked-device acceptance is still required.
   native visible label when SwiftUI omits the identifier. The import edit flow waits
   up to the same 60 seconds used by other parsing flows, preserving every edit assertion.
   This is development evidence; the final source/version/build still needs its full gate.
-- The latest full accessibility sweep completed 13 cases: ten passed, two runtime
-  checks skipped and one failed on theoretical native-toolbar clipping. The corrected
-  harness captures AX identity/frame atomically and resolves a specific fresh occurrence;
-  the editor and both Notes audits pass. Known plain labels measure 8.46–21:1 at the
-  unchanged 4.5:1 threshold. Follow-up default audits identified history text sizing;
-  card values/timestamps and section headings now explicitly retain their full height.
-  The required XXXL logging test passed checks of the complete native Cancel/Save titles,
-  Last time heading, weight, rest and wrapped timestamp through rendered-pixel OCR;
-  Cancel also dismisses the sheet. A theoretical report for those exact elements is
-  cleared only when the same fresh render check passes. Card reports must match the
-  captured issue's type, text and frame, avoiding another occurrence of the same value.
-  OCR ignores whitespace, preserves every other character and allows at most one pixel
-  of Vision bounding-box estimation error; the element must remain fully in view.
-  All eight Add Set/history snapshot cases passed without reference changes after the
-  card sizing fix. Final full accessibility/snapshot acceptance remains required.
+- The latest full accessibility sweep on `6b698e9` completed 13 cases: eleven
+  passed, two runtime-unsupported Dynamic Type checks skipped and zero failures.
+  The default audit covers both appearances and all seeded states. The harness
+  captures AX identity/frame atomically and checks the exact fresh occurrence.
+  The XXXL logging check verifies complete Cancel/Save titles, Last time, weight,
+  rest and timestamp through rendered-pixel OCR, then confirms Cancel dismisses.
+  Card reports must match the captured issue's type, text and frame. OCR ignores
+  whitespace, preserves every other character and permits at most one pixel of
+  Vision bounding-box estimation error; the element must remain fully in view.
+  Known plain labels retain the unchanged 4.5:1 threshold. Final release evidence
+  must repeat the complete gate on the final source.
 - A simulator background watchdog captured synchronous notification removal waiting
   on service XPC from the UI actor. All app/Watch removal now runs explicitly away from
   that actor, with removal-before-add ordering retained. A regression check verifies
@@ -146,13 +142,28 @@ workout title and exercise label; locked-device acceptance is still required.
   skips), including the four 5,000/20,000-set SQLite checks. It was stopped after the
   accessibility gate retained the history-card reports described above; it is not a
   complete release manifest. Regenerate every gate after the render-check changes.
-- A build-87 supplemental run with Xcode/iOS 27.2 passed the native system-intent,
-  keychain and Health checks and the hard model corpus at 45/71. Its standard/prose
-  run reached 40/43 and 4/7 and failed the prose threshold after an Apple model-catalog
-  asset-service failure in one prose case. That failed attempt is retained, not counted
-  as quality acceptance. The final model evaluation must use the pinned shipping
-  Xcode 27.0 toolchain against the ready 27.2 simulator, separately from the matching-SDK
-  AppIntentsTesting service probes. No threshold is lowered.
+- Build-87 native simulator probes on `6b698e9` passed both system-intent flows,
+  both keychain inbox checks and the Health lifecycle; speech explicitly skipped
+  because its local English model was unavailable. Matching Xcode/iOS 27.2 was
+  used for AppIntentsTesting; ordinary release gates remain pinned to 27.0.
+- Initial model attempts on both toolchains encountered Apple's model-catalog asset
+  service failure on the first prose case: 40/43 standard, 4/7 prose (failed),
+  45/71 hard (passed). A debugger diagnostic passed without hitting its failure
+  breakpoint. A subsequent fresh, unattached process built with pinned Xcode 27.0
+  passed 41/43 standard and 5/7 prose with no asset-service errors. Together with
+  the completed hard corpus this meets the unchanged 80% / 70% / 60% bars.
+  Retain the failed attempts: neither debugger attachment nor an SDK change proves
+  a permanent fix to Apple's asset service. Mac model latency is not iPhone latency.
+- The second build-87 five-gate attempt passed unit and accessibility, then exposed
+  a Composer snapshot capture defect after the first 39 snapshot groups passed.
+  Layer-only images omitted native navigation/footer controls. Composer now uses
+  the established mounted-window capture, requires three identical rendered frames,
+  and checks the Add Workout title and Review Workout action with OCR. Its native
+  controls receive up to ten seconds to settle; pixel precision remains 0.98.
+  All 64 Composer references were intentionally recorded with `make snapshot-record`,
+  visually inspected and verified in a separate non-recording run (seven cases).
+  No Progress reference changed. The interrupted full attempt is incomplete; all
+  five gates must run again against the clean committed candidate.
 - Release-tooling Ruby checks passed after signing, authentication-metadata and CI changes.
 - The migration gate includes the immutable public 2.6.1 (84) source as well as
   retained 2.5 (77) and 2.4 (61) coverage. All three passed against `6deb220`, preserving
@@ -178,9 +189,9 @@ See `RELEASE_HANDOFF.md`, `TESTING.md` and `SiriAIPreview/README.md`.
   Health/Lock Screen checks are not substituted with simulated results. The first
   microphone attempt stopped at an ambiguous native consent-button query before the
   fixture played; the scoped query was corrected, but no further phone run is authorized.
-- Readback 2026-11-11: public 2.6.1 (84); 2.7 (86) is approved and pending manual release.
-  Build 86 predates this work. Working source version 2.7 (85) has not been bumped;
-  determine the new version/train and next build from fresh ASC state before release.
+- Readback 2026-11-12: public 2.6.1 (84); 2.7 (86) is approved and pending manual release.
+  Build 86 predates this work. The clean-main release branch stages 2.7 (87), the
+  next build confirmed by ASC. Recheck external state before distribution mutations.
 - Apple's November 3 preview requires iOS 27.3 and supported Apple Intelligence hardware.
   Preview features cannot be distributed through the App Store or external TestFlight.
   Do not equate App Shortcuts/system-path tests with custom Siri AI acceptance.

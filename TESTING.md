@@ -1,6 +1,6 @@
 # Marble Testing
 
-## Current Apple platform candidate (2026-11-11)
+## Current Apple platform candidate (2026-11-12)
 
 The working candidate is 2.7 (87) on `release/apple-platform-2.7-87`, incorporated
 in draft PR 57. All five final gates run on this Mac; no new binary has been uploaded. Current ASC readback is
@@ -24,6 +24,13 @@ The volume-tooltip fixture renders the production chart component directly, so
 the bars, matching symbols/legend and selected values are actually in frame.
 Category labels and values wrap above their bars. At accessibility sizes, the
 weekly date range wraps below the plot instead of crowding axis tick labels.
+
+Composer snapshots use an appeared native window, correct safe areas and three
+identical rendered frames. Add/Live Preview also require OCR of the native title
+and review action. Composer permits ten seconds for controls to settle, while
+History retains its four-second deadline and matching system-text-size partitions.
+The 64 Composer references were intentionally refreshed and separately verified;
+this harness correction does not alter app behavior or the 0.98 pixel precision.
 
 ## Historical hardening candidate and distribution (2026-10-04)
 
