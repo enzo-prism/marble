@@ -2,63 +2,68 @@
 
 **App Store Connect state refreshed: 2026-11-12.**
 
-## Apple platform candidate in progress (2026-11-12)
+## Apple platform release — 2.7 (87), internal TestFlight (2026-11-12)
 
-- Fresh ASC readback: **2.6.1 (84) is public**; **2.7 (86) is approved,
-  `PENDING_DEVELOPER_RELEASE`**, manual release. Version ID
-  `e65d1f38-6c84-4096-ba1b-5d7436f0f575`; build ID
-  `9430c497-7e8e-4235-b121-c319e463bdd4` is `VALID` and internally testing.
-- `origin/main` baseline is `e1e1275c5822692a172904d554af255ee2653e33`.
-  New work is integrated into `release/apple-platform-2.7-87` from clean canonical main,
-  and is incorporated in PR 57's feature head. It is not yet uploaded or merged to main.
-  Build 86 does not contain the new platform features. The older sections below are history.
-- Owner explicitly authorized implementation, documentation, main/prod, TestFlight and
-  App Store submission on 2026-11-11. Continue through the existing evidence gates;
-  this authorization does not substitute for passing checks.
-- Fresh ASC readback still reports 87 as the next build. The clean-main release branch
-  now stages 2.7 (87), updated What to Test and App Store copy, plus the native Watch
-  screenshot. All five gates must pass on that committed candidate before PR merge
-  and upload. Do not reuse 85/86 or silently replace an approved binary.
-- Candidate details and remaining acceptance: `APPLE_PLATFORM_IMPLEMENTATION.md`.
-  Stable CI now pins Xcode 27.0 (27A266a) and iOS 27.0. Deployment stays iOS 26.0.
-- New Share and Watch App Store profiles are registered and mapped in export options:
-  `Marble Share App Store` (`3HPT4NGH4P`) and `Marble Watch App Store` (`KSLXXWP9SN`).
-  They use existing CI distribution certificate `9M47KCWLU8`. Local distribution identity
-  differs; use the verified CI signing path or appropriate local profile overrides.
-- Physical validation is isolated as `Prism.marble.validation` with separate keychain
-  groups. Developer Mode and UI automation are enabled on the connected iOS 27.2 phone.
-- Owner direction later on 2026-11-11: run all remaining automated tests on this Mac
-  Studio's simulators. Do not start further automated tests on the owner's iPhone.
-  Existing physical evidence remains historical; unsupported physical-only checks
-  remain unverified and must not be relabeled as simulator acceptance.
-- An exact, empty developer-test session in the production container was removed through
-  SwiftData after UUID/date/emptiness checks; device readback verified every other user
-  row and store identity unchanged. Temporary SQLite inspection copies were purged.
-  The installed production binary is temporarily a baseline development 2.7 (86),
-  preserving its container/keychain. Restore it through the verified next TestFlight
-  build; never uninstall. New features remain in the isolated Validation app.
-- The owner additionally approved color for Progress Details and analytical drilldowns.
-  Keep the monochrome overview/navigation and preserve labels, data and accessibility.
-- The local Progress matrix now has 96 intentionally recorded/verified references after
-  category wrapping and weekly bar-layout fixes. Recorder run `43117948757` uses earlier
-  source `0c00762`; exclude **all `TrendsSnapshotTests` references** from its artifacts
-  when adopting the remaining renderer updates. The local Progress references are newer.
-- Latest committed-source development evidence: unit 1,104 passes/six opt-in skips;
-  accessibility eleven passes/two runtime skips, zero failures. Actual model checks
-  meet unchanged standard/prose/hard thresholds after an initial Apple asset-service
-  failure, retained in the evidence. Composer native-window capture now verifies all
-  seven cases and 64 intentionally refreshed references; Progress references are intact.
-  `e752889` passed the full 45-group/65-case snapshot matrix, unit and migrations.
-  Its audit retained two review-label sampling reports; UI was stopped after 51
-  passes to correct verification. Rechecks now bind the exact parent control and
-  require full text OCR plus 4.5:1 rendered contrast. Focused default/largest review
-  audits pass. The interrupted run does not certify release; rerun all five gates
-  on the corrected committed source before merge/upload.
-- No final exact-source device signoff, final five-gate manifest, new upload receipt,
-  TestFlight upload or App Review submission exists for this candidate yet.
-- Siri AI custom skills remain a 27.3 developer preview, separate from public App Shortcuts.
-  Never package the preview bundle into the public archive or claim executed conversational
-  evaluations from scenario fixtures alone.
+- **Main:** PR 57 merged as `ffca7a0f585dc251757560d4e6bc418fbe1eece3`. Its complete tree
+  `5290362b00e4da3408a58983b550f886ed5bb622` matches tested source
+  `e39dae2fb7664038eddb70b969035349d99023d0`. Keep `release/apple-platform-2.7-87` immutable
+  at that source for receipt/signoff verification. Feature and backup branches are preserved.
+- **TestFlight:** build 87 `507e9170-c386-4994-b61f-491e48eb305d`, version 2.7,
+  `VALID`, internal `IN_BETA_TESTING`, auto-notify enabled, external
+  `READY_FOR_BETA_SUBMISSION`. Internal test group A already receives all builds;
+  no external group was submitted. [Upload run 43211130545](https://github.com/enzo-prism/marble/actions/runs/43211130545)
+  archived that exact source. The notes read back identically to `AppStore/TESTFLIGHT_NOTES_2.7.txt`.
+- **Public App Store:** 2.6.1 (84). Pre-existing **2.7 (86)** is approved and still
+  `PENDING_DEVELOPER_RELEASE`, release type `MANUAL`. It predates these improvements.
+  Version ID `e65d1f38-6c84-4096-ba1b-5d7436f0f575`; its current attached build is
+  `9430c497-7e8e-4235-b121-c319e463bdd4`. Do not release 86 as this work.
+- **Authorization:** the owner authorized implementation, documentation, main/prod,
+  TestFlight and App Store delivery on November 11 and reaffirmed proceeding on
+  November 12. The latest build's App Store submission remains authorized, but the
+  release verifier still requires actual exact-build manual signoff. It has not yet
+  been supplied; no build-87 App Review submission has been made.
+- **All five gates passed** on clean source `e39dae2fb7664038eddb70b969035349d99023d0`: unit 1,110
+  (1,104 pass/six skips); snapshots 45 groups/65 cases; UI 81 (77 pass/four skips);
+  accessibility 13 (11 pass/two unsupported-runtime skips); all three real-store
+  migrations from 2.6.1 (84), 2.5 (77) and 2.4 (61). Zero failures. The complete
+  manifest verifies 93 artifacts, with original per-gate records and matching hashes.
+  The large-store checks are included. All remaining automated tests ran on this Mac Studio.
+- **Evidence manifest:**
+  `/Users/enzo/Documents/Codex/2026-11-11/analy-2/work/release87-parallel-e39dae2f/combined/manifest.json`
+- **Verified upload receipt:**
+  `/Users/enzo/Documents/Codex/2026-11-11/analy-2/outputs/marble-2.7-87-upload-receipt/upload-87-e39dae2fb7664038eddb70b969035349d99023d0.json`
+  It binds source, version/build, ASC build ID, IPA digest, archive identity and run 43211130545.
+- **Next:** the owner installs TestFlight 87 over the existing app, without uninstalling,
+  and manually confirms launch, logging, draft resume, history repeat, accessibility
+  and responsiveness. No further automated iPhone tests are authorized. Record only
+  actual results in `RELEASE_DEVICE_SIGNOFF`; never infer physical acceptance from Simulator.
+  Then run `verify_release_candidate.rb` on the frozen release branch with that signoff,
+  the complete manifest and receipt before any App Store mutation. Remove the older
+  pending approval, attach 87, stage tracked copy, upload the prepared native Watch
+  screenshot, validate and submit. Freshly read ASC state before each mutation sequence.
+- **App Review payload:** `AppStore/review/2.7.md`; localization in
+  `AppStore/metadata/version/2.7/en-US.json`; native Watch screenshot in
+  `AppStore/screenshots/2.7/watch/01-active-workout.png`. These are prepared for the
+  resubmission, not proof they were uploaded. Existing review contact fields must be preserved.
+- Stable signing/archive uses Xcode 27.0 (27A266a); deployment remains iOS 26.0.
+  Both the [distribution dry run](https://github.com/enzo-prism/marble/actions/runs/43206083135)
+  and final upload verified extracted authentication for private workout intents.
+  Share profile `3HPT4NGH4P` and Watch profile `KSLXXWP9SN` use CI certificate `9M47KCWLU8`.
+  Local distribution identity differs; use the verified CI path or matching local profiles.
+- Physical-only microphone, sensor, long-background, locked-device and Watch acceptance
+  remains qualified in `APPLE_PLATFORM_IMPLEMENTATION.md`. The actual Mac model meets
+  unchanged quality thresholds, and native simulator Health/system-intent/keychain probes
+  passed on identical app source. These do not establish physical iPhone performance.
+- Before this upload, the production phone installation was a baseline development 2.7
+  (86) preserving its journal/keychain. One precisely identified empty test session was
+  removed through SwiftData; prior readback verified all other rows/store identity unchanged.
+  Temporary inspection copies were purged. Restore distribution through TestFlight 87
+  over the app; never uninstall. Validation is separate as `Prism.marble.validation`.
+- The owner approved semantic color for dense Progress Details, retaining neutral
+  overview/navigation, labels/shapes, data and accessibility. All 96 Progress references
+  passed locally; do not overwrite them with older recorder artifacts.
+- Custom Siri AI remains a separate 27.3 preview excluded from this public archive.
+  Compiled skills, Siri Evaluations and actual preview conversations still require that SDK/hardware.
 
 External state can change outside git, so always re-run the **Live state checks** before acting.
 

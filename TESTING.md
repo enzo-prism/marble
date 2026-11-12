@@ -2,11 +2,17 @@
 
 ## Current Apple platform candidate (2026-11-12)
 
-The working candidate is 2.7 (87) on `release/apple-platform-2.7-87`, incorporated
-in draft PR 57. All five final gates run on this Mac; no new binary has been uploaded. Current ASC readback is
-public 2.6.1 (84), with pre-existing 2.7 (86) approved and pending developer release.
-Read `RELEASE_HANDOFF.md` and `APPLE_PLATFORM_IMPLEMENTATION.md` for the dated
-candidate state. The historical October checks below do not certify this candidate.
+The frozen 2.7 (87) source `e39dae2fb7664038eddb70b969035349d99023d0` is merged through PR 57
+and available on internal TestFlight (`VALID` / `IN_BETA_TESTING`). All five final
+Mac Studio gates passed: unit 1,110 cases (six skips), snapshots 45 groups/65 cases,
+UI 81 cases (four skips), accessibility 13 cases (two unsupported-runtime skips),
+and all three shipped-store migrations. There were zero failures. The complete
+manifest verifies 93 artifacts; the signed upload receipt and What to Test notes
+match that source/build. See `RELEASE_HANDOFF.md` for paths and identities.
+
+Public distribution is still 2.6.1 (84), with the older 2.7 (86) approval pending
+manual release. The build-87 App Store submission awaits its required manual signoff.
+The October history below does not certify this candidate.
 
 The owner stopped further iPhone automation. Run all remaining automated tests on
 this Mac Studio's simulators. Historical physical validation used the isolated

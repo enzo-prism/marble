@@ -1,9 +1,10 @@
 # Apple platform candidate — distribution copy
 
-Distribution copy is staged for 2.7 (87) after fresh ASC next-build readback. The
-actual version localization and `TESTFLIGHT_NOTES_2.7.txt` contain the candidate copy.
-This file is not an upload receipt or evidence of App Review submission. Publish only
-after the release gates. The pre-existing approved 2.7 (86) does not contain these changes.
+Build **2.7 (87)** is on internal TestFlight from tested source `e39dae2`;
+PR 57 is merged and all five local release gates passed. The localization and
+App Review copy remain prepared for the authorized resubmission. The older approved
+2.7 (86) still awaits manual release; build 87 has not yet been submitted to App Review.
+Its exact-build owner-manual signoff is still required. See `RELEASE_HANDOFF.md`.
 
 ## What's New draft
 
@@ -48,6 +49,9 @@ import acceptance examples in `testflight/2.7-candidate.md` as regression covera
     remain readable with Differentiate Without Color and the largest text size.
 
 ## App Review notes draft
+
+Use the exact submission payload in `review/2.7.md`. Preserve existing review contact
+fields when updating notes. The constraints below describe the implemented scope.
 
 No account or login is required. Core training records remain local. Speech capture
 uses Apple's on-device speech APIs and requires permission. Shared content is held in
