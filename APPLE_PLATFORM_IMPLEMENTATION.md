@@ -55,6 +55,12 @@ workout title and exercise label; locked-device acceptance is still required.
 - Opening a planned set now presents its selected exercise as the sheet item. This
   fixes a reproducible empty logger sheet; the existing split edit/log/dismiss/save
   UI flow passed without weakening its assertions.
+- The first full UI sweep completed 80 cases: 73 passed, three gated skips and four
+  failures. The stale privacy-copy assertion, accessibility sheet layout and planned-set
+  sheet were corrected and passed focused reruns. The remaining onboarding failure
+  showed a correctly dismissed cover with visible tabs but missing SwiftUI tab-item IDs;
+  the test now checks cover dismissal and a tappable Log tab by identifier or visible
+  label. A fresh complete UI sweep is running; the first run is not a passing gate.
 - Physical validation confirmed sprint tenths and start/log/repeat/finish through
   Apple's App Intents system path. The query identity assertion was corrected to compare
   instance IDs, because the framework can omit a returned entity's bundle qualification.
