@@ -52,6 +52,9 @@ workout title and exercise label; locked-device acceptance is still required.
   change. The focused onboarding rerun passed both preference/completion flows and the
   updated privacy-copy capture. A gated physical microphone UI check is compiled but
   has not yet run; it uses the synthetic fixture and clears its own draft without saving.
+- Opening a planned set now presents its selected exercise as the sheet item. This
+  fixes a reproducible empty logger sheet; the existing split edit/log/dismiss/save
+  UI flow passed without weakening its assertions.
 - Physical validation confirmed sprint tenths and start/log/repeat/finish through
   Apple's App Intents system path. The query identity assertion was corrected to compare
   instance IDs, because the framework can omit a returned entity's bundle qualification.

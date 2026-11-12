@@ -29,7 +29,7 @@ import acceptance examples in `testflight/2.7-candidate.md` as regression covera
    cancellation must leave the journal unchanged. Share should prepare that session's text.
 4. During a workout, check the Lock Screen and return to Marble. Rest and the running
    session should agree after backgrounding and relaunch. Finish once.
-5. Use Add → Dictate Workout. Grant microphone/speech access, speak a short workout,
+5. Use Add → Dictate Workout. Grant microphone access if asked, speak a short workout,
    stop, edit the transcript, and review it. Cancel should discard the proposed text.
 6. From Notes/Files/Photos, share supported workout content to Marble. Confirm it
    appears once in review, survives app relaunch, and writes no sets before acceptance.

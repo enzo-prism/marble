@@ -16,7 +16,6 @@ struct SplitDayEditorView: View {
     @State private var showExercisePicker = false
     @State private var selectedExercise: Exercise?
     @State private var loggingExercise: Exercise?
-    @State private var isPresentingLog = false
 
     var body: some View {
         List {
@@ -143,21 +142,22 @@ struct SplitDayEditorView: View {
             .presentationDragIndicator(.visible)
             .sheetGlassBackground()
         }
-        .sheet(isPresented: $isPresentingLog, onDismiss: {
-            loggingExercise = nil
-        }) {
-            if let loggingExercise {
-                AddSetView(
-                    initialPerformedAt: DateHelper.nextDate(for: day.weekday, from: AppEnvironment.now),
-                    initialExercise: loggingExercise,
-                    context: logContext,
-                    activeSession: activeSessions.first,
-                    isPresented: $isPresentingLog
+        // The item supplies the content and presentation in the same update;
+        // a separate Boolean can present before the captured exercise updates.
+        .sheet(item: $loggingExercise) { exercise in
+            AddSetView(
+                initialPerformedAt: DateHelper.nextDate(for: day.weekday, from: AppEnvironment.now),
+                initialExercise: exercise,
+                context: logContext,
+                activeSession: activeSessions.first,
+                isPresented: Binding(
+                    get: { loggingExercise != nil },
+                    set: { if !$0 { loggingExercise = nil } }
                 )
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
-                .sheetGlassBackground()
-            }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .sheetGlassBackground()
         }
     }
 
@@ -226,7 +226,6 @@ struct SplitDayEditorView: View {
 
     private func openLog(for plannedSet: PlannedSet) {
         loggingExercise = plannedSet.exercise
-        isPresentingLog = true
     }
 
     private var logContext: QuickLogContext {
