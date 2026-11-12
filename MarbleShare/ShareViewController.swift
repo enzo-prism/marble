@@ -10,6 +10,7 @@ final class ShareViewController: SLComposeServiceViewController {
     private var loading = true
     private var loadError: String?
     private var attachmentText = ""
+    private let shareCompletion = SharedWorkoutInbox.SharePosting.CompletionGuard()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -37,14 +38,13 @@ final class ShareViewController: SLComposeServiceViewController {
     }
 
     override func didSelectPost() {
-        do {
-            try SharedWorkoutInbox.save(text: combinedText)
-            let alert = UIAlertController(title: "Saved for review", message: "Open Marble and tap Shared Workouts to review and add this workout. Nothing has been logged yet.", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "Done", style: .default) { [weak self] _ in
-                self?.extensionContext?.completeRequest(returningItems: nil)
-            })
-            present(alert, animated: true)
-        } catch { showError(error.localizedDescription) }
+        SharedWorkoutInbox.SharePosting.performPost(
+            saving: { try SharedWorkoutInbox.save(text: combinedText) },
+            complete: { [weak self] in self?.extensionContext?.completeRequest(returningItems: nil) },
+            presentError: { [weak self] message, done in self?.showError(message, onDismiss: done) },
+            cancel: { [weak self] error in self?.extensionContext?.cancelRequest(withError: error) },
+            completion: shareCompletion
+        )
     }
 
     override func configurationItems() -> [Any]! {
@@ -56,9 +56,9 @@ final class ShareViewController: SLComposeServiceViewController {
         return [item]
     }
 
-    private func showError(_ message: String) {
+    private func showError(_ message: String, onDismiss: (() -> Void)? = nil) {
         let alert = UIAlertController(title: "Couldn't save workout", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in onDismiss?() })
         present(alert, animated: true)
     }
 
