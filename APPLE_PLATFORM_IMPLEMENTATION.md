@@ -31,13 +31,20 @@ workout title and exercise label; locked-device acceptance is still required.
 
 ## Verification evidence so far
 
-- The latest full unit run completed 1,107 cases: 1,097 passed and ten explicitly
+- The latest full unit run completed 1,110 cases: 1,100 passed and ten explicitly
   gated cases skipped, with zero failures, after the callback, parser, editor,
   authentication, overnight Health export, model backoff, Progress Details and dictation lifecycle changes.
   It includes the reopened SQLite selection predicate and analytic text/mark contrast
   across light, dark and Increase Contrast. Consistent totals restated as sets now
   reconcile without adding an extra effort; inconsistent totals remain unresolved.
   This is developmental evidence; release still needs an exact committed-source run.
+- A live simulator diagnostic exposed a model assigning pounds to a load explicitly
+  written in kilos. Grounding now applies the single unit written beside that exact
+  numeric load in its source span, without converting the number. Regressions cover
+  mixed units, the same load in separate movements, and both units within one movement.
+  The two new failure cases were reproduced before the fix; the full unit suite passed.
+  The prior single-unit rejection test now verifies recovery of the exact written load,
+  unit and reps instead of discarding an otherwise grounded movement.
 - The full development accessibility run passed 12 cases with two explicitly skipped
   runtime Dynamic Type checks and zero failures. All 96 Progress snapshot variants
   were intentionally recorded and verified, including the production volume component

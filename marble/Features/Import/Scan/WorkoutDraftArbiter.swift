@@ -266,14 +266,24 @@ nonisolated enum WorkoutDraftArbiter {
                   context.grounds(exerciseName: proposed.trimmedName),
                   let source = sourceSpan(for: proposed.name, in: sourceText),
                   !requiresIntentReview(source.text) else { return nil }
-            let exercise = fillingKnownOmissions(proposed, source: source.text)
-            let local = numberTokens(in: source.text)
+            var exercise = fillingKnownOmissions(proposed, source: source.text)
+            let local = SourceContext(source.text, defaultWeightUnit: context.defaultWeightUnit)
+            // A model can emit the right load with the wrong unit. An explicit
+            // unit attached to that exact number is authoritative; this labels
+            // the stated value and never converts it. Ambiguous occurrences
+            // with both units are left for the existing grounding/review path.
+            for index in exercise.sets.indices {
+                guard let weight = exercise.sets[index].weight,
+                      let units = local.writtenUnits[weight], units.count == 1,
+                      let unit = units.first else { continue }
+                exercise.sets[index].weightUnit = unit
+            }
             let values = numericValues(in: ParsedWorkoutDraft(exercises: [exercise]))
             let faithful = agreesWithKnownMetrics(exercise, source: source.text)
-                && values.exact.allSatisfy { local.contains($0) }
+                && values.exact.allSatisfy { local.tokens.contains($0) }
                 && values.seconds.allSatisfy { value in
                     let variants: Set<Double> = [value, value / 60, value / 3600]
-                    return !variants.isDisjoint(with: local)
+                    return !variants.isDisjoint(with: local.tokens)
                 }
             return faithful ? exercise : nil
         }
