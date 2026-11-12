@@ -8,9 +8,10 @@ public 2.6.1 (84), with pre-existing 2.7 (86) approved and pending developer rel
 Read `RELEASE_HANDOFF.md` and `APPLE_PLATFORM_IMPLEMENTATION.md` for the dated
 candidate state. The historical October checks below do not certify this candidate.
 
-Physical validation uses the isolated `Prism.marble.validation` installation. The
-connected iPhone has Developer Mode/UI automation enabled; unlocked execution and
-optional Health permissions are still required for the remaining acceptance checks.
+The owner stopped further iPhone automation. Run all remaining automated tests on
+this Mac Studio's simulators. Historical physical validation used the isolated
+`Prism.marble.validation` installation; do not start more automated phone checks.
+Physical-only behavior remains unverified until the owner checks the final binary.
 
 Progress Details color checks cover every semantic accent against the actual page
 and chart surfaces in light/dark and Increase Contrast: text requires 4.5:1 and
@@ -594,9 +595,11 @@ for workflow testing, but it is not full release proof.
   after a full-suite run; it has always passed unchanged on retry.
 - Feature-verification pass on the Apple Health / Watch / Garmin import path and the AI
   photo-scan pipeline. The real Vision OCR step is proven by
-  `WorkoutTextRecognizerIntegrationTests`; the FoundationModels LLM parser is availability-
-  gated and falls back to the deterministic parser off-device. Real Watch/Garmin Health data,
-  the on-device LLM, and handwriting-OCR accuracy remain **device-only**.
+  `WorkoutTextRecognizerIntegrationTests`; the Foundation Models parser is availability-
+  gated and falls back when the model is unavailable. The Mac's iOS 27.2 simulator
+  can execute the actual model once ready, as verified in this candidate's corpus runs.
+  Real Watch/Garmin sensor data and physical handwriting-capture accuracy remain
+  device checks; simulator model latency does not establish iPhone performance.
 - `make verify-widget-plist` confirms `MarbleWidgets/Info.plist` exists before unit/test runs.
 
 ## Continuous integration
@@ -874,7 +877,9 @@ remains iOS 26.0. Snapshot baselines were intentionally moved to this renderer;
 recording alone is not a passing snapshot verification. Run the complete `make test`,
 `make ui`, `make audit` and migration gates on the final committed candidate.
 
-Physical automation must target **Prism.marble.validation**, never the installed
+The owner has stopped physical automation; the configuration below documents prior
+checks and simulator-capable probes, not authorization to restart phone tests.
+Physical automation, if separately authorized later, must target **Prism.marble.validation**, never the installed
 production journal. Pass `MARBLE_BUNDLE_SUFFIX=.validation` and the matching manual
 development profiles for app, widgets, Share, Watch and UI runner. Both XCUIApplication
 and AppIntentsTesting use the same explicit validation bundle ID. Never fall back to
@@ -882,16 +887,19 @@ the production identifier when target metadata is missing. The prepare intent re
 the validation suffix and uses its own persistent store, because the system may relaunch
 the app between invocations. Release builds contain neither fixture nor repair intents.
 
-Opt-in physical checks (prepend `TEST_RUNNER_` when invoking xcodebuild):
+Opt-in platform checks (prepend `TEST_RUNNER_` when invoking xcodebuild):
 
 - `MARBLE_SYSTEM_INTENTS=1`: `AppIntentSystemPathUITests` validates typed set/session
   results, sprint tenths, repeat identity, finish and subsequent entity queries. Returned
   entity identifiers may omit bundle qualification; compare their instance IDs.
 - `MARBLE_NATIVE_HEALTH_ACCEPTANCE=1`: `NativeWorkoutDeviceUITests` requests Health
-  consent through Settings and checks start/pause/resume/save. Cleanup targets only its
+  consent through Settings and checks start/pause/resume, background/return and save.
+  It also runs in the isolated simulator. The iOS 27 consent sheet requires selecting
+  the workout-writing switch before Allow becomes enabled. Cleanup targets only its
   recorded validation session and exact source/sync ID; never delete by a broad date range.
-- `SharedWorkoutInboxDeviceTests`: signed shared-keychain capacity, concurrency, reopening
+- `SharedWorkoutInboxDeviceTests`: native keychain capacity, concurrency, reopening
   and exact-row deletion. Requires an empty validation inbox and removes only its own IDs.
+  Simulator success does not prove physical access-group enforcement.
 - `MARBLE_FM_EVAL=1`: `FoundationModelsLiveEvalTests` runs the actual installed model and
   attaches per-case pass/failure and latency JSON. An unavailable-model skip is not a pass.
 - `MARBLE_SIMULATOR_VALIDATION=1`: points only simulator UI tests at

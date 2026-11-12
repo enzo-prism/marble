@@ -134,6 +134,7 @@ struct AddSetView: View {
                         .accessibilityIdentifier("AddSet.LastTime")
                     } header: {
                         SectionHeaderView(title: "Last time")
+                            .accessibilityIdentifier("AddSet.LastTimeHeading")
                     }
 
                     if (exercise.metrics.usesWeight || exercise.metrics.usesReps),
@@ -1593,11 +1594,13 @@ struct LastTimeCardView: View {
                     Text(loggedAtText)
                         .font(MarbleTypography.rowMeta)
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             } else if let emptyText = content.emptyText {
                 Text(emptyText)
                     .font(MarbleTypography.rowSubtitle)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(MarbleSpacing.s)
@@ -1629,10 +1632,12 @@ struct LastTimeCardView: View {
                 .font(MarbleTypography.smallLabel)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .textCase(.uppercase)
+                .fixedSize(horizontal: false, vertical: true)
             Text(metric.value)
                 .font(MarbleTypography.rowTitle)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .monospacedDigit()
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

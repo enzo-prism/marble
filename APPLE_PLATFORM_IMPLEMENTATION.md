@@ -8,13 +8,13 @@ This branch is an implementation candidate, not a release. No new binary has bee
 | Area | Candidate behavior | Acceptance still required |
 |---|---|---|
 | Shared commands | Log/repeat/start/finish save before rest, donations and indexing; undo cancels only the originating rest; complete units and sprint tenths | Final unit and migration gates |
-| App Intents | Typed set/session results, correction by exact ID, date-filtered workout search, open/share/repeat-review, authenticated data-returning actions, nine App Shortcuts | Final physical system-path run; locked-device behavior |
+| App Intents | Typed set/session results, correction by exact ID, date-filtered workout search, open/share/repeat-review, authenticated data-returning actions, nine App Shortcuts | Final release gates; physical locked-device behavior |
 | System surfaces | One workout-long Live Activity, integrated rest, exact routes, onscreen exercise/session associations, bounded Spotlight session indexing | Physical lock screen, termination/recovery and accessibility |
 | Apple Health | Retry checkpoints and stable sync IDs; no inferred workout effort; opt-in native strength session with pause/resume/recovery | Physical authorization, save, cleanup and background recovery |
 | Capture | On-device SpeechAnalyzer dictation with editable review; text/file/image Share extension with bounded local OCR and a five-item shared-keychain inbox | Physical speech and cross-process Share handoff |
 | History | Text export from session detail; repeats enter review; imported Health workout zones on iOS 27 | Final UI and accessibility suites |
 | Watch | Focused phone-connected controller: start, repeat last set, rest/skip, finish and refresh; persistent request IDs prevent repeat duplication after lost acknowledgements | Physical Watch transport, offline retry and rest alerts |
-| AI extraction | Live model corpus tests record per-case outcomes and latency attachments | Run on the actual phone with its installed model |
+| AI extraction | Actual model on the Mac's iOS 27.2 simulator meets unchanged standard/prose/hard quality thresholds | Final release gates; physical iPhone latency remains unverified |
 | Progress Details | Semantic metric colors, stable category colors, matching volume symbols/legend, wrapping category values, proper weekly bar intervals, adaptive Increase Contrast, neutral surfaces and preserved data/Audio Graphs | Final visual matrix, accessibility audit and UI checks |
 | Siri AI preview | Updated skill text, scenarios and separate development-only project generator; SDK preflight prevents accidental public packaging | Xcode/iOS 27.3, compiled skills, Siri Evaluations and conversational/card acceptance |
 
@@ -52,7 +52,7 @@ workout title and exercise label; locked-device acceptance is still required.
 - Dictation setup cancellation and audio ownership have seven hardware-free regression
   checks. Audio-session configuration/activation runs away from the UI actor; stale
   Stop/Cancel work cannot deactivate a newer recording. Actual microphone acceptance
-  still requires the connected phone.
+  remains unverified; further iPhone automation is not authorized.
 - Log sheets use full height at accessibility text sizes, including the exercise picker
   and active-workout logger. Both largest-text exercise-library flows passed after the
   change. The focused onboarding rerun passed both preference/completion flows and the
@@ -67,14 +67,17 @@ workout title and exercise label; locked-device acceptance is still required.
   native visible label when SwiftUI omits the identifier. The import edit flow waits
   up to the same 60 seconds used by other parsing flows, preserving every edit assertion.
   This is development evidence; the final source/version/build still needs its full gate.
-- The latest full accessibility sweep completed 12 cases: seven passed, two runtime
-  checks skipped and three failed on text contrast reports. Captured text measured
-  8.46–21:1; the audit also retained an invalidated AX node after scrolling. The harness
-  now captures identity/frame atomically and resolves a specific fresh occurrence,
-  rather than selecting an arbitrary duplicate label. Known plain labels are measured
-  at the unchanged 4.5:1 threshold. The separated exercise-editor audit and both Notes
-  review audits passed all three focused reruns. Final full accessibility acceptance
-  remains required; unknown elements are not treated as verified contrast.
+- The latest full accessibility sweep completed 13 cases: ten passed, two runtime
+  checks skipped and one failed on theoretical native-toolbar clipping. The corrected
+  harness captures AX identity/frame atomically and resolves a specific fresh occurrence;
+  the editor and both Notes audits pass. Known plain labels measure 8.46–21:1 at the
+  unchanged 4.5:1 threshold. Follow-up default audits identified history text sizing;
+  card values/timestamps and section headings now explicitly retain their full height.
+  The native Cancel/Save titles and Last time heading pass full-word rendered-pixel OCR
+  within their bounds at XXXL; Cancel also dismisses the sheet. A theoretical report
+  for those exact elements is cleared only when the same fresh render check passes.
+  All eight Add Set/history snapshot cases passed without reference changes after the
+  card sizing fix. Final full accessibility/snapshot acceptance remains required.
 - A simulator background watchdog captured synchronous notification removal waiting
   on service XPC from the UI actor. All app/Watch removal now runs explicitly away from
   that actor, with removal-before-add ordering retained. A regression check verifies
@@ -84,6 +87,23 @@ workout title and exercise label; locked-device acceptance is still required.
 - Physical validation confirmed sprint tenths and start/log/repeat/finish through
   Apple's App Intents system path. The query identity assertion was corrected to compare
   instance IDs, because the framework can omit a returned entity's bundle qualification.
+- The matching Xcode/iOS 27.2 simulator passed both opt-in App Intents system-service
+  flows, including distinct repeated-set identities, exact units, sprint tenths,
+  session completion and entity lookup. Xcode 27.0's AppIntentsTesting library could
+  not load against the 27.2 runtime; the matching 27.2 probe resolved that SDK mismatch.
+  The regular release gates remain pinned to Xcode/iOS 27.0.
+- Both native simulator keychain inbox checks passed: concurrent five-item capacity
+  and reopening, plus stale-review protection when a slot is reused. Simulator results
+  do not prove physical keychain access-group enforcement or a cross-process Share UI.
+- The isolated iOS 27.2 simulator passed the native Health workout lifecycle:
+  authorize workout writing, start, pause, resume, return from the Home screen,
+  save one workout and remove only that validation-owned workout/session. The iOS 27
+  consent sheet uses granular switches; the test now enables workout writing before
+  tapping its enabled Allow button. Physical sensors and extended background runtime
+  remain unverified.
+- Synthetic speech-file acceptance was attempted on both simulator toolchains, but
+  the English local speech model was unavailable. Those explicit skips are not speech
+  acceptance, and no further phone automation will be used to replace them.
 - Four active-session/navigation checks passed on the connected phone. Final whole-suite
   UI, accessibility, snapshots, migration and device acceptance remain pending.
 - A paired iOS/watchOS 27.0 simulator run exercised start, rest, skip, repeat and finish.
@@ -169,6 +189,8 @@ See `RELEASE_HANDOFF.md`, `TESTING.md` and `SiriAIPreview/README.md`.
 - [Running workout sessions](https://developer.apple.com/documentation/healthkit/running-workout-sessions)
 - [SpeechAnalyzer introduction](https://developer.apple.com/videos/play/wwdc2025/277/)
 - [Speech asset inventory](https://developer.apple.com/documentation/speech/assetinventory)
+- [Actual Foundation Models execution in Simulator](https://developer.apple.com/videos/play/wwdc2025/259/)
+- [Dynamic Type layouts](https://developer.apple.com/videos/play/wwdc2024/10074/)
 
 - [Foundation Models OS/model revision guidance](https://developer.apple.com/documentation/Updates/FoundationModels)
 - [Model rate-limit recovery](https://developer.apple.com/documentation/foundationmodels/languagemodelerror/ratelimited(_:))

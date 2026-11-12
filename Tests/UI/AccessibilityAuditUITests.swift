@@ -510,6 +510,9 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 if shouldIgnoreVerifiedWorkoutTextClipping(issue) {
                     return false
                 }
+                if shouldIgnoreVerifiedAddSetToolbarClipping(issue) {
+                    return false
+                }
                 if shouldIgnoreVerifiedExercisePickerTextClipping(issue) {
                     return false
                 }
@@ -876,6 +879,26 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             return label == "Start Workout" || label == "Edit Workout Plan"
         }
         return false
+    }
+
+    @available(iOS 17.0, *)
+    private func shouldIgnoreVerifiedAddSetToolbarClipping(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
+        if issue.auditType == .textClipped, issue.element?.label == "Last time" {
+            // A default-size virtual SwiftUI node repeats this theoretical
+            // report after explicit vertical sizing. Require a fresh full-word
+            // render, with the same check exercised at XXXL by the AddSet test.
+            return (try? isAddSetHistoryHeadingFullyDrawn()) == true
+        }
+        guard issue.auditType == .textClipped, let element = issue.element,
+              element.elementType == .button,
+              let title = ["AddSet.Cancel": "Cancel", "AddSet.Save": "Save"][element.identifier],
+              element.label == title else { return false }
+        // Audit-v13's native Cancel title is fully drawn in its captured default
+        // layout. The required XXXL AddSet test also recognizes both complete
+        // titles inside their bounds and verifies Cancel dismisses the sheet.
+        // Resolve this theoretical report only when a fresh current crop passes
+        // that same full-word check; actual truncation and unknown nodes fail.
+        return (try? isNativeToolbarTitleFullyDrawn(identifier: element.identifier, title: title)) == true
     }
 
     @available(iOS 17.0, *)

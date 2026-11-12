@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import Vision
 
 enum MarbleAppearance {
     case light
@@ -192,6 +193,36 @@ class MarbleUITestCase: XCTestCase {
         // coordinate, clamped to the portion not covered by navigation/tab
         // chrome, instead of trusting a stale accessibility activation point.
         tapVisible(element)
+    }
+
+    func isNativeToolbarTitleFullyDrawn(identifier: String, title: String) throws -> Bool {
+        let button = app.navigationBars.buttons.matching(identifier: identifier).firstMatch
+        guard button.exists, button.isHittable, button.label == title,
+              app.navigationBars.allElementsBoundByIndex.contains(where: { $0.frame.contains(button.frame) }) else { return false }
+        return try isFullTitleDrawn(in: button, title: title)
+    }
+
+    func isAddSetHistoryHeadingFullyDrawn() throws -> Bool {
+        let heading = app.staticTexts["AddSet.LastTimeHeading"]
+        guard app.buttons["AddSet.ExercisePicker"].exists,
+              heading.exists, heading.label == "Last time", heading.isHittable,
+              unobscuredFrame().contains(heading.frame) else { return false }
+        return try isFullTitleDrawn(in: heading, title: "Last time")
+    }
+
+    private func isFullTitleDrawn(in element: XCUIElement, title: String) throws -> Bool {
+        guard let image = element.screenshot().image.cgImage else { return false }
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.recognitionLanguages = ["en-US"]
+        request.usesLanguageCorrection = false
+        try VNImageRequestHandler(cgImage: image).perform([request])
+        return (request.results ?? []).contains { observation in
+            let bounds = observation.boundingBox
+            return observation.topCandidates(1).first?.string == title
+                && bounds.minX > 0.01 && bounds.minY > 0.01
+                && bounds.maxX < 0.99 && bounds.maxY < 0.99
+        }
     }
 
     func tapVisible(

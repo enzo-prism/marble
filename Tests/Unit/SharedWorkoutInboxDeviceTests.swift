@@ -2,15 +2,15 @@ import Foundation
 import XCTest
 @testable import marble
 
-/// Exercises the actual shared keychain entitlement, atomic cross-process slots,
-/// and exact-row deletion. Runs only in the isolated signed validation app.
+/// Exercises the native keychain, atomic slots and exact-row deletion in
+/// Validation. Simulator results do not establish physical entitlement enforcement.
 @MainActor
 final class SharedWorkoutInboxDeviceTests: XCTestCase {
     private var savedIDs: [UUID] = []
     override func setUpWithError() throws {
         try super.setUpWithError()
         try XCTSkipUnless(Bundle.main.object(forInfoDictionaryKey: "MarbleBundleSuffix") as? String == ".validation",
-            "Requires the development-signed Marble Validation app on a physical device.")
+            "Requires the isolated Marble Validation app.")
         try XCTSkipUnless(SharedWorkoutInbox.items().isEmpty, "Preserving existing validation inbox contents.")
     }
     override func tearDownWithError() throws {
