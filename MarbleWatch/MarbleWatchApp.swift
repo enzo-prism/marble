@@ -76,7 +76,11 @@ final class WatchWorkoutConnection: NSObject, WCSessionDelegate {
                 if result == nil, isCurrentTransmission {
                     self.message = "No confirmation received. Retry to check."
                 }
-                let confirmsPendingRequest = request.action != .refresh && self.pendingRequest?.id == request.id
+                let confirmsPendingRequest = WatchPendingRequestPolicy.confirmsPendingRequest(
+                    action: request.action,
+                    pendingID: self.pendingRequest?.id,
+                    requestID: request.id
+                )
                 if WatchPendingRequestPolicy.shouldClearPendingRequest(
                     action: request.action,
                     pendingID: self.pendingRequest?.id,

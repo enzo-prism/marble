@@ -61,13 +61,21 @@ nonisolated struct WatchWorkoutResponse: Codable, Sendable {
 
 /// The Watch reply handler must call this before dropping a preserved request ID.
 nonisolated enum WatchPendingRequestPolicy {
+    static func confirmsPendingRequest(
+        action: WatchWorkoutRequest.Action,
+        pendingID: UUID?,
+        requestID: UUID
+    ) -> Bool {
+        action != .refresh && pendingID == requestID
+    }
+
     static func shouldClearPendingRequest(
         action: WatchWorkoutRequest.Action,
         pendingID: UUID?,
         requestID: UUID,
         response: WatchWorkoutResponse?
     ) -> Bool {
-        guard action != .refresh, pendingID == requestID else { return false }
+        guard confirmsPendingRequest(action: action, pendingID: pendingID, requestID: requestID) else { return false }
         return response?.shouldClearPendingRequest ?? false
     }
 }

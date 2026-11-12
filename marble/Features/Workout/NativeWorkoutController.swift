@@ -3,11 +3,17 @@ import Foundation
 import Observation
 import SwiftData
 
+@MainActor
+protocol NativeWorkoutFinishing: AnyObject {
+    func finish() async
+    func finish(for journalID: UUID) async
+}
+
 /// Opt-in HealthKit ownership of a live workout. The journal remains the source of
 /// set history; HealthKit owns sensor collection, pauses and workout recovery.
 @MainActor
 @Observable
-final class NativeWorkoutController: NSObject, HKWorkoutSessionDelegate, HKLiveWorkoutBuilderDelegate {
+final class NativeWorkoutController: NSObject, NativeWorkoutFinishing, HKWorkoutSessionDelegate, HKLiveWorkoutBuilderDelegate {
     static let shared = NativeWorkoutController()
     nonisolated static let enabledKey = "marble.health.liveWorkouts"
     nonisolated static let sessionKey = "marble.health.activeSessionID"
@@ -111,10 +117,10 @@ final class NativeWorkoutController: NSObject, HKWorkoutSessionDelegate, HKLiveW
     func finish(for journalID: UUID) async {
         await startTask?.value
         if session == nil {
-            guard Self.tracks(journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
+            guard Self.shouldFinish(journalID: journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
             await recover()
         }
-        guard Self.tracks(journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
+        guard Self.shouldFinish(journalID: journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
         await finishCurrentSession()
     }
 
@@ -123,7 +129,16 @@ final class NativeWorkoutController: NSObject, HKWorkoutSessionDelegate, HKLiveW
         liveSessionID == journalID.uuidString
     }
 
+    /// Skip recover/finish when the live Health session is a different workout.
+    nonisolated static func shouldFinish(journalID: UUID, liveSessionID: String?) -> Bool {
+        tracks(journalID, liveSessionID: liveSessionID)
+    }
+
+    /// Counts attempts to stop the in-memory Health session, including no-ops.
+    @ObservationIgnored var finishCurrentSessionCalls = 0
+
     private func finishCurrentSession() async {
+        finishCurrentSessionCalls += 1
         guard let session else { return }
         if session.state == .ended { clearSession(); return }
         await withCheckedContinuation { continuation in

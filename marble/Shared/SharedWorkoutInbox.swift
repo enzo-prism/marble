@@ -144,7 +144,9 @@ nonisolated enum SharedWorkoutInbox {
             case .completeRequest:
                 _ = completion.completeIfNeeded(complete)
             case .presentErrorThenCancel(let error):
-                presentError(error.localizedDescription, { cancel(error) })
+                presentError(error.localizedDescription, {
+                    _ = completion.completeIfNeeded { cancel(error) }
+                })
             }
         }
     }

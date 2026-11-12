@@ -5,6 +5,7 @@ import SwiftData
 @MainActor
 final class WatchWorkoutCoordinator: NSObject, WCSessionDelegate {
     static let shared = WatchWorkoutCoordinator()
+    var nativeWorkout: any NativeWorkoutFinishing = NativeWorkoutController.shared
     private var activated = false
     func activate() {
         guard !activated, !TestHooks.isUITesting, !TestHooks.isXCTestProcess, WCSession.isSupported() else { return }
@@ -103,7 +104,7 @@ final class WatchWorkoutCoordinator: NSObject, WCSessionDelegate {
     /// Native Health finish is scoped to this journal workout so a lost-ack
     /// retry cannot stop a newer live session. Export remains idempotent.
     private func finishCompanionSurfaces(sessionID: UUID, from context: ModelContext) async {
-        await NativeWorkoutController.shared.finish(for: sessionID)
+        await nativeWorkout.finish(for: sessionID)
         await HealthSessionExporter.shared.exportIfEnabled(from: context)
     }
 

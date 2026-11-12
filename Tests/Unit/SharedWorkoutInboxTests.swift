@@ -107,6 +107,73 @@ final class SharedWorkoutInboxTests: XCTestCase {
         XCTAssertEqual(store.items.first?.text, "Bench 5x5 @ 185")
     }
 
+    func testSameTextAtRetryWindowBoundaryInsertsANewItem() throws {
+        let now = Date()
+        let original = SharedWorkoutInbox.Item(id: UUID(), createdAt: now, text: "Bench 5x5")
+        let inside = now.addingTimeInterval(SharedWorkoutInbox.retryWindow - 1)
+        let atBoundary = now.addingTimeInterval(SharedWorkoutInbox.retryWindow)
+        let reuse = try SharedWorkoutInbox.prepareSave(text: original.text, existing: [original], now: inside)
+        guard case .reuse(let kept) = reuse else {
+            return XCTFail("599s is still inside the retry window")
+        }
+        XCTAssertEqual(kept, original)
+        let result = try SharedWorkoutInbox.prepareSave(
+            text: original.text, existing: [original], createdAt: atBoundary, now: atBoundary
+        )
+        guard case .insert(let item) = result else {
+            return XCTFail("Exactly 600s must insert a new inbox item")
+        }
+        XCTAssertNotEqual(item.id, original.id)
+    }
+
+    func testReconcileBreaksEqualTimestampTiesByID() throws {
+        let now = Date()
+        let low = SharedWorkoutInbox.Item(
+            id: try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000001")),
+            createdAt: now,
+            text: "Bench 5x5"
+        )
+        let high = SharedWorkoutInbox.Item(
+            id: try XCTUnwrap(UUID(uuidString: "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF")),
+            createdAt: now,
+            text: "Bench 5x5"
+        )
+        let result = SharedWorkoutInbox.reconcile(inserted: high, among: [high, low], now: now)
+        XCTAssertEqual(result.keeper, low)
+        XCTAssertEqual(result.extras.map(\.id), [high.id])
+    }
+
+    func testSaveReconcilesAfterAStaleFirstLoad() throws {
+        let now = Date()
+        let earlier = SharedWorkoutInbox.Item(
+            id: try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000001")),
+            createdAt: now,
+            text: "Bench 5x5"
+        )
+        let store = StaleFirstLoadInboxStore()
+        store.planted = earlier
+        let saved = try SharedWorkoutInbox.save(text: "Bench 5x5", now: now.addingTimeInterval(1), using: store)
+        XCTAssertEqual(saved.id, earlier.id)
+        XCTAssertEqual(store.items.map(\.id), [earlier.id])
+    }
+
+    func testShareCancelGoesThroughCompletionGuard() {
+        let completion = SharedWorkoutInbox.SharePosting.CompletionGuard()
+        var cancelled = 0
+        var acks: [() -> Void] = []
+        for _ in 0..<2 {
+            SharedWorkoutInbox.SharePosting.performPost(
+                saving: { throw SharedWorkoutInbox.InboxError.full },
+                complete: { XCTFail("A failed write must not complete") },
+                presentError: { _, done in acks.append(done) },
+                cancel: { _ in cancelled += 1 },
+                completion: completion
+            )
+        }
+        acks.forEach { $0() }
+        XCTAssertEqual(cancelled, 1)
+    }
+
     func testReconcileRemovesLaterDuplicateFromADoublePost() {
         let now = Date()
         let first = SharedWorkoutInbox.Item(id: UUID(), createdAt: now, text: "Bench 5x5")
@@ -122,4 +189,15 @@ final class SharedWorkoutInboxTests: XCTestCase {
         XCTAssertNotEqual(key, SharedWorkoutInbox.dedupeKey(for: "Squat 5x5"))
         XCTAssertEqual(key.count, 64)
     }
+}
+
+final class StaleFirstLoadInboxStore: SharedWorkoutInbox.Storage, @unchecked Sendable {
+    nonisolated(unsafe) var items: [SharedWorkoutInbox.Item] = []
+    nonisolated(unsafe) var planted: SharedWorkoutInbox.Item?
+    nonisolated func load() throws -> [SharedWorkoutInbox.Item] { items }
+    nonisolated func insert(_ item: SharedWorkoutInbox.Item) throws {
+        if let planted { items.append(planted) }
+        items.append(item)
+    }
+    nonisolated func delete(id: UUID) throws { items.removeAll { $0.id == id } }
 }
