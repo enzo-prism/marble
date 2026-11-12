@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Security
 
@@ -9,7 +10,7 @@ nonisolated enum SharedWorkoutInbox {
         let createdAt: Date
         let text: String
     }
-    enum InboxError: LocalizedError {
+    enum InboxError: LocalizedError, Equatable {
         case empty, tooLarge, full, unavailable
         var errorDescription: String? {
             switch self {
@@ -53,25 +54,71 @@ nonisolated enum SharedWorkoutInbox {
         try records().map(\.item).sorted { $0.createdAt < $1.createdAt }
     }
 
-    @discardableResult
-    static func save(text: String) throws -> Item {
+    /// Content-addressed identity so a host retry of the same share cannot
+    /// enqueue a second inbox item.
+    static func dedupeKey(for text: String) -> String {
+        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    enum PreparedSave: Equatable {
+        case reuse(Item)
+        case insert(Item)
+    }
+
+    static func prepareSave(
+        text: String,
+        existing: [Item],
+        id: UUID = UUID(),
+        createdAt: Date = Date()
+    ) throws -> PreparedSave {
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { throw InboxError.empty }
         guard cleaned.utf8.count <= maximumBytes else { throw InboxError.tooLarge }
-        let item = Item(id: UUID(), createdAt: Date(), text: cleaned)
-        let data = try JSONEncoder().encode(item)
-        // Five add-only slots make the capacity atomic across extension processes.
-        // A slot is never updated or overwritten, even when two hosts share at once.
-        for slot in 0..<maximumItems {
-            var query = baseQuery
-            query[kSecAttrAccount as String] = "slot-\(slot)"
-            query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-            query[kSecValueData as String] = data
-            let status = SecItemAdd(query as CFDictionary, nil)
-            if status == errSecSuccess { return item }
-            if status != errSecDuplicateItem { throw InboxError.unavailable }
+        let key = dedupeKey(for: cleaned)
+        if let match = existing.first(where: { dedupeKey(for: $0.text) == key }) {
+            return .reuse(match)
         }
-        throw InboxError.full
+        guard existing.count < maximumItems else { throw InboxError.full }
+        return .insert(Item(id: id, createdAt: createdAt, text: cleaned))
+    }
+
+    /// Share extensions must complete or cancel immediately after the write.
+    enum SharePosting {
+        enum Disposition {
+            case completeRequest
+            case cancelRequest(Error)
+        }
+
+        static func disposition(saving: () throws -> Void) -> Disposition {
+            do {
+                try saving()
+                return .completeRequest
+            } catch {
+                return .cancelRequest(error)
+            }
+        }
+    }
+
+    @discardableResult
+    static func save(text: String) throws -> Item {
+        switch try prepareSave(text: text, existing: try items()) {
+        case .reuse(let item):
+            return item
+        case .insert(let item):
+            let data = try JSONEncoder().encode(item)
+            // Five add-only slots make the capacity atomic across extension processes.
+            // A slot is never updated or overwritten, even when two hosts share at once.
+            for slot in 0..<maximumItems {
+                var query = baseQuery
+                query[kSecAttrAccount as String] = "slot-\(slot)"
+                query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+                query[kSecValueData as String] = data
+                let status = SecItemAdd(query as CFDictionary, nil)
+                if status == errSecSuccess { return item }
+                if status != errSecDuplicateItem { throw InboxError.unavailable }
+            }
+            throw InboxError.full
+        }
     }
 
     static func remove(id: UUID) throws {

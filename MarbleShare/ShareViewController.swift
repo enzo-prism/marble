@@ -37,14 +37,12 @@ final class ShareViewController: SLComposeServiceViewController {
     }
 
     override func didSelectPost() {
-        do {
-            try SharedWorkoutInbox.save(text: combinedText)
-            let alert = UIAlertController(title: "Saved for review", message: "Open Marble and tap Shared Workouts to review and add this workout. Nothing has been logged yet.", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "Done", style: .default) { [weak self] _ in
-                self?.extensionContext?.completeRequest(returningItems: nil)
-            })
-            present(alert, animated: true)
-        } catch { showError(error.localizedDescription) }
+        switch SharedWorkoutInbox.SharePosting.disposition(saving: { try SharedWorkoutInbox.save(text: combinedText) }) {
+        case .completeRequest:
+            extensionContext?.completeRequest(returningItems: nil)
+        case .cancelRequest(let error):
+            extensionContext?.cancelRequest(withError: error)
+        }
     }
 
     override func configurationItems() -> [Any]! {
