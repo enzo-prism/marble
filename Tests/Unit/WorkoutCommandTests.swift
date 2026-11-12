@@ -148,6 +148,38 @@ final class WorkoutCommandTests: MarbleTestCase {
         XCTAssertTrue(session.entries.isEmpty)
     }
 
+    func testWatchFinishRetrySucceedsForAlreadySavedSession() async throws {
+        let context = context()
+        let session = try XCTUnwrap(WorkoutCommands.start(in: context))
+        let request = WatchWorkoutRequest(id: UUID(), action: .finish, sessionID: session.id,
+            setID: nil, createdAt: AppEnvironment.now)
+        let first = await WatchWorkoutCoordinator.shared.handle(request)
+        let retry = await WatchWorkoutCoordinator.shared.handle(request)
+        XCTAssertTrue(first.succeeded)
+        XCTAssertTrue(retry.succeeded)
+        XCTAssertNotNil(session.endedAt)
+        XCTAssertNil(WorkoutSessionIntentSupport.activeSession(in: context))
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<WorkoutSession>()), 1)
+
+        TestHooks.overrideNow = now.addingTimeInterval(180)
+        let expiredRetry = WatchWorkoutRequest(id: request.id, action: .finish, sessionID: session.id,
+            setID: nil, createdAt: request.createdAt)
+        let late = await WatchWorkoutCoordinator.shared.handle(expiredRetry)
+        XCTAssertTrue(late.succeeded)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<WorkoutSession>()), 1)
+    }
+
+    func testWatchFinishOfUnknownSessionIsNotRetryable() async throws {
+        let context = context()
+        _ = try XCTUnwrap(WorkoutCommands.start(in: context))
+        let request = WatchWorkoutRequest(id: UUID(), action: .finish, sessionID: UUID(),
+            setID: nil, createdAt: AppEnvironment.now)
+        let response = await WatchWorkoutCoordinator.shared.handle(request)
+        XCTAssertFalse(response.succeeded)
+        XCTAssertFalse(response.retryable ?? false)
+        XCTAssertTrue(response.shouldClearPendingRequest)
+    }
+
     func testSessionQueryReturnsJustFinishedWorkout() async throws {
         let context = context()
         let session = try XCTUnwrap(WorkoutCommands.start(in: context))

@@ -77,7 +77,7 @@ final class WatchWorkoutConnection: NSObject, WCSessionDelegate {
                     return
                 }
                 let confirmsPendingRequest = request.action != .refresh && self.pendingRequest?.id == request.id
-                if confirmsPendingRequest {
+                if confirmsPendingRequest, WatchWorkoutResponse.shouldClearPendingRequest(for: result) {
                     self.pendingRequest = nil
                     UserDefaults.standard.removeObject(forKey: "marble.watch.pendingRequest")
                 }
