@@ -95,9 +95,11 @@ workout title and exercise label; locked-device acceptance is still required.
   and restated totals have regression coverage; the physical quality gate must be rerun.
   Throttling is distinguished from context overflow and respects Apple's reset deadline
   with a bounded fallback backoff. Fixed token metadata is cached without workout content.
-- Snapshot references are being intentionally updated for the pinned stable Xcode 27.0 /
-  iOS 27.0 renderer. Recording uses four disjoint shards, each followed by verification;
-  artifacts include changed references only. Production evidence forces the full suite.
+- Snapshot references were intentionally updated for the pinned stable Xcode 27.0 /
+  iOS 27.0 renderer. All four recording/verification shards completed successfully in
+  run `43117948757`. Visual review adopted 214 changed non-Progress references, while
+  preserving every newer local Progress reference. Production evidence still requires
+  a full latest-source verification on this Mac Studio.
   The earlier sequential recorder was cancelled after live logs showed only group 13
   at 75 minutes; its partial artifact is not full acceptance.
 - Release-tooling Ruby checks passed after signing, authentication-metadata and CI changes.
