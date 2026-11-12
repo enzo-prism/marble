@@ -258,6 +258,11 @@ nonisolated enum HandwrittenWorkoutParser {
                 continue
             }
 
+            if let listed = parseExplicitSetLists(line, defaultWeightUnit: defaultWeightUnit) {
+                if let exercise = listed.exercise { appendExercises([exercise], source: rawLine) }
+                else { recordDrop(rawLine) }
+                continue
+            }
             if let pieces = transitionPieces(line) {
                 let parsed = pieces.map {
                     parseDetailed($0, referenceDate: referenceDate, defaultWeightUnit: defaultWeightUnit)
@@ -526,6 +531,74 @@ nonisolated enum HandwrittenWorkoutParser {
         let name = String(line[nameRange])
         guard !["set", "sets"].contains(name.lowercased()) else { return nil }
         return parseCountedExercise("\(name) \(line[countRange]) sets \(line[valueRange]) each", defaultWeightUnit: defaultWeightUnit)
+    }
+
+    /// Anchored list grammars preserve each written effort. A count mismatch
+    /// remains unresolved instead of silently repeating the first rep/load.
+    private static func parseExplicitSetLists(_ line: String, defaultWeightUnit: WeightUnit) -> CountedExerciseResult? {
+        let numberList = #"(\d+(?:\.\d+)?(?:[ ,]+\d+(?:\.\d+)?)+)"#
+        let movement = #"([\p{L}][\p{L} '\-]+?)"#
+        let unit = #"(kg|kgs|kilograms?|kilos?|lb|lbs|pounds?)?"#
+        func groups(_ pattern: String) -> [String]? {
+            guard let regex = try? NSRegularExpression(pattern: "(?i)^\\s*" + pattern + "\\s*$"),
+                  let match = firstMatch(regex, in: line) else { return nil }
+            return (1..<match.numberOfRanges).map { index in
+                Range(match.range(at: index), in: line).map { String(line[$0]) } ?? ""
+            }
+        }
+        func numbers(_ text: String) -> [Double] {
+            text.split(whereSeparator: { $0 == " " || $0 == "," }).compactMap { Double($0) }
+        }
+        func result(name: String, reps: [Double], loads: [Double] = [], count: Int? = nil, unitText: String = "") -> CountedExerciseResult {
+            let name = cleanName(name)
+            guard !name.isEmpty, !containsUnresolvedIntent(name),
+                  !name.lowercased().contains(" and "),
+                  (2...maximumExpandedSets).contains(reps.count),
+                  count == nil || count == reps.count,
+                  reps.allSatisfy({ $0.isFinite && $0 > 0 && $0 == $0.rounded() && $0 <= 10000 }),
+                  loads.isEmpty || loads.count == reps.count,
+                  loads.allSatisfy({ $0.isFinite && $0 >= 0 }) else { return .init(exercise: nil) }
+            let resolvedUnit: WeightUnit = unitText.isEmpty ? defaultWeightUnit : (unitText.lowercased().hasPrefix("k") ? .kg : .lb)
+            return .init(exercise: .init(name: name, sets: reps.indices.map { index in
+                .init(weight: loads.isEmpty ? nil : loads[index], weightUnit: resolvedUnit, reps: Int(reps[index]))
+            }))
+        }
+        // A restated total is a checksum, never an extra set. Claim a mismatch
+        // as unresolved so the permissive count parser cannot discard it.
+        if let g = groups(#"(\d+)\s+"# + movement + #"\s+total\s*,?\s*(\d+)\s+sets?\s+of\s+(\d+)(?:\s+reps?)?"#) {
+            guard let total = Int(g[0]), let count = Int(g[2]), let reps = Int(g[3]),
+                  (2...maximumExpandedSets).contains(count), (1...10000).contains(reps),
+                  total == count * reps else { return .init(exercise: nil) }
+            return result(name: g[1], reps: Array(repeating: Double(reps), count: count))
+        }
+        // "Shoulder press 4 sets 12 10 8 8 at 50 55 60 60 [kg]".
+        if let g = groups(movement + #"\s+(\d+)\s+sets?\s+"# + numberList + #"\s+(?:at|@)\s+"# + numberList + #"\s*"# + unit) {
+            return result(name: g[0], reps: numbers(g[2]), loads: numbers(g[3]), count: Int(g[1]), unitText: g[4])
+        }
+        // "3 sets 10 8 6 reps on lat pulldown at 120 [kg]".
+        if let g = groups(#"(\d+)\s+sets?\s+"# + numberList + #"\s+reps?\s+on\s+"# + movement + #"\s+(?:at|@)\s+(\d+(?:\.\d+)?)\s*"# + unit) {
+            let reps = numbers(g[1])
+            return result(name: g[2], reps: reps, loads: Array(repeating: Double(g[3]) ?? -.infinity, count: reps.count), count: Int(g[0]), unitText: g[4])
+        }
+        // "Worked up 135 185 225 for 5 5 3 on squat".
+        if let g = groups(#"worked\s+up\s+"# + numberList + #"\s*"# + unit + #"\s+for\s+"# + numberList + #"\s+on\s+"# + movement) {
+            return result(name: g[3], reps: numbers(g[2]), loads: numbers(g[0]), unitText: g[1])
+        }
+        // Actual completed counts, rather than inventing reps for "to failure".
+        if let g = groups(movement + #"\s+(\d+)\s+sets?\s+to\s+failure\s*:\s*"# + numberList) {
+            return result(name: g[0], reps: numbers(g[2]), count: Int(g[1]))
+        }
+        // Explicit drop-set pairs belong to one named movement, including
+        // light loads below the ordinary weight/set-count heuristic.
+        let pair = #"\d+(?:\.\d+)?\s*x\s*\d+"#
+        if let g = groups(movement + #"\s+drop\s+sets?\s*:?\s*("# + pair + #"(?:[ ,]+"# + pair + #")+)\s*"# + unit),
+           let regex = try? NSRegularExpression(pattern: #"(\d+(?:\.\d+)?)\s*x\s*(\d+)"#) {
+            let matches = regex.matches(in: g[1], range: NSRange(g[1].startIndex..., in: g[1]))
+            let loads = matches.compactMap { Range($0.range(at: 1), in: g[1]).flatMap { Double(g[1][$0]) } }
+            let reps = matches.compactMap { Range($0.range(at: 2), in: g[1]).flatMap { Double(g[1][$0]) } }
+            return result(name: g[0], reps: reps, loads: loads, unitText: g[2])
+        }
+        return nil
     }
 
     private static let commaRepLadderRegex = try? NSRegularExpression(
@@ -1538,6 +1611,13 @@ nonisolated enum HandwrittenWorkoutParser {
         guard let b = parseBValue(parts[1]) else { return nil }
         var embedded: (Double, WeightUnit)?
         if parts.count == 3 {
+            // A leading heavy load disambiguates weight × reps × set count.
+            // Keep ordinary sets × reps × load notation in its existing order.
+            if a >= weightDisambiguationThreshold, case .reps = b,
+               let count = Int(parts[2]), (1...maximumExpandedSets).contains(count),
+               Double(count) < weightDisambiguationThreshold {
+                return AxB(a: Double(count), b: b, embeddedWeight: (a, defaultWeightUnit))
+            }
             embedded = parseWeight(parts[2]) ?? Double(parts[2]).map { ($0, defaultWeightUnit) }
         }
         return AxB(a: a, b: b, embeddedWeight: embedded)

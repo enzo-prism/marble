@@ -46,6 +46,8 @@ SNAPSHOT_GROUPS_FULL=(
   "MarbleSnapshotTests/SupplementsSnapshotTests/testSupplementsPopulated"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsEmpty"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsPopulated"
+  "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsDetails"
+  "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsCategoryCharts"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsDailyHighlights"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsFilteredExercise"
   "MarbleSnapshotTests/TrendsSnapshotTests/testTrendsExerciseSearch"
@@ -108,6 +110,30 @@ elif [[ "${SNAPSHOT_SUITE}" == "quick" ]]; then
 else
   verify_full_coverage
   SNAPSHOT_GROUPS=("${SNAPSHOT_GROUPS_FULL[@]}")
+fi
+
+# A shard selects complete groups; History's two real content-size launches stay
+# together. The default still runs every group for release evidence.
+shard_count=${SNAPSHOT_SHARD_COUNT:-1}
+shard_index=${SNAPSHOT_SHARD_INDEX:-0}
+if [[ ! "$shard_count" =~ ^([1-9]|[1-9][0-9]|100)$ || ! "$shard_index" =~ ^(0|[1-9][0-9]?)$ ]] ||
+   (( shard_index >= shard_count )); then
+  echo "Invalid snapshot shard: index=$shard_index count=$shard_count" >&2
+  exit 1
+fi
+if (( shard_count > 1 )); then
+  selected_groups=()
+  for group_index in "${!SNAPSHOT_GROUPS[@]}"; do
+    if (( group_index % shard_count == shard_index )); then
+      selected_groups+=("${SNAPSHOT_GROUPS[$group_index]}")
+    fi
+  done
+  SNAPSHOT_GROUPS=("${selected_groups[@]}")
+  echo "Snapshot shard $shard_index/$shard_count: ${#SNAPSHOT_GROUPS[@]} groups"
+fi
+if [[ "${SNAPSHOT_LIST_ONLY:-0}" == 1 ]]; then
+  printf '%s\n' "${SNAPSHOT_GROUPS[@]}"
+  exit 0
 fi
 
 prepare_simulator() {

@@ -59,16 +59,18 @@ enum AppIntentsSupport {
     /// The Control Center `QuickLogControl` needs no reload here: it is a
     /// `StaticControlConfiguration` button with no value provider, so it has
     /// no state to go stale.
-    static func refreshSystemSurfaces(modelContext: ModelContext) async {
+    static func refreshSystemSurfaces(modelContext: ModelContext, changedExerciseIDs: [UUID] = []) async {
         // Same pair, same store as the scene-phase handler in `ContentView` —
         // the publisher's own doc comment asks to be called wherever
         // `WeeklyGoalReminder.sync` is, because both answer "how does this
         // week stand?" and must never disagree.
+        await WorkoutActivityController.refresh()
+        await WorkoutSessionSpotlightIndex.refresh()
         WeeklyGoalWidgetPublisher.publish(modelContext: modelContext)
         await WeeklyGoalReminder.sync(modelContext: modelContext)
         // The indexed exercises carry personal bests and recency that a
         // voice-logged set just changed; awaited for the same reason as above.
-        await ExerciseSpotlightIndex.refreshAfterSetChange()
+        if !changedExerciseIDs.isEmpty { await ExerciseSpotlightIndex.refreshAfterSetChange(identifiers: changedExerciseIDs) }
     }
 }
 
@@ -93,53 +95,31 @@ struct OpenQuickLogIntent: AppIntent {
 // from natural requests. Needs the Xcode 27.3 beta SDK — see SiriAIPreview/README.md.
 @AppIntent(.tool)
 #endif
-struct LogLastSetAgainIntent: AppIntent, UndoableIntent {
+struct LogLastSetAgainIntent: LiveActivityIntent, UndoableIntent {
+    static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
     static let title: LocalizedStringResource = "Log Last Set Again"
     static let description = IntentDescription("Logs another set of your most recent exercise with the same metrics.")
 
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<LoggedSetEntity> {
         let context = try AppIntentsSupport.resolvedContainer().mainContext
-        var descriptor = FetchDescriptor<SetEntry>(sortBy: [SortDescriptor(\.performedAt, order: .reverse)])
-        descriptor.fetchLimit = 1
-        guard let latest = (try? context.fetch(descriptor))?.first else {
-            return .result(dialog: "No sets logged yet. Open Marble to log your first set.")
+        guard let latest = try WorkoutCommands.latestRepeatSource(in: context) else {
+            throw WorkoutIntentFailure(message: "No sets in the current workout yet. Log a set first.")
         }
-
-        let duplicate = latest.duplicated(at: AppEnvironment.now)
-        context.insert(duplicate)
-        let latestID = latest.id
-        let goalDescriptor = FetchDescriptor<SprintGoalSnapshot>(
-            predicate: #Predicate { $0.setEntryID == latestID }
-        )
-        var duplicatedGoalID: UUID?
-        if let goal = (try? context.fetch(goalDescriptor))?.first {
-            let duplicatedGoal = SprintGoalSnapshot(
-                setEntryID: duplicate.id,
-                exerciseID: duplicate.exercise.id,
-                distance: goal.distance,
-                distanceUnit: goal.distanceUnit,
-                repetitionNumber: nil,
-                repetitionCount: goal.repetitionCount,
-                targetLowerSeconds: goal.targetLowerSeconds,
-                targetUpperSeconds: goal.targetUpperSeconds,
-                isInferred: goal.isInferred,
-                createdAt: duplicate.createdAt
-            )
-            context.insert(duplicatedGoal)
-            duplicatedGoalID = duplicatedGoal.id
+        guard let duplicate = WorkoutCommands.repeatSet(
+            latest, into: WorkoutSessionIntentSupport.activeSession(in: context), in: context
+        ) else {
+            throw WorkoutIntentFailure(message: "Couldn't log the set. Open Marble to try again.")
         }
-        do {
-            try context.save()
-        } catch {
-            context.rollback()
-            return .result(dialog: "Couldn't log the set. Open Marble to try again.")
-        }
+        let duplicateID = duplicate.id
+        let goalDescriptor = FetchDescriptor<SprintGoalSnapshot>(predicate: #Predicate { $0.setEntryID == duplicateID })
+        let duplicatedGoalID = try context.fetch(goalDescriptor).first?.id
+        await RestActivityController.shared.waitForPendingLiveActivityOperation()
 
         // This set may have just completed the week — the widget and the
         // at-risk nudge must hear about it before the intent returns.
-        await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
+        await AppIntentsSupport.refreshSystemSurfaces(modelContext: context, changedExerciseIDs: [latest.exercise.id])
 
         IntentUndo.registerLoggedSet(
             entryID: duplicate.id,
@@ -149,7 +129,8 @@ struct LogLastSetAgainIntent: AppIntent, UndoableIntent {
             actionName: "Log Last Set Again"
         )
 
-        return .result(dialog: "Logged another set of \(latest.exercise.name).")
+        let confirmed = LoggedSetEntity(duplicate)
+        return .result(value: confirmed, dialog: IntentDialog(stringLiteral: confirmed.summary))
     }
 }
 
@@ -159,6 +140,7 @@ struct LogLastSetAgainIntent: AppIntent, UndoableIntent {
 @AppIntent(.tool)
 #endif
 struct ReviewWorkoutTextIntent: AppIntent {
+    static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
     static let title: LocalizedStringResource = "Review Workout Text"
     static let description = IntentDescription("Opens Marble to review a pasted workout before adding it to the journal.")
     static let openAppWhenRun = true
@@ -184,6 +166,7 @@ struct ReviewWorkoutTextIntent: AppIntent {
 @AppIntent(.tool)
 #endif
 struct ReviewWorkoutFileIntent: AppIntent {
+    static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
     static let title: LocalizedStringResource = "Review Workout File"
     static let description = IntentDescription("Opens Marble to review a Hevy, Strong, or Notes workout file before adding it to the journal.")
     static let openAppWhenRun = true
@@ -273,6 +256,24 @@ struct MarbleShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Import a Workout",
             systemImageName: "square.and.pencil"
+        )
+        AppShortcut(
+            intent: StartRestIntent(),
+            phrases: ["Start rest in \(.applicationName)"],
+            shortTitle: "Start Rest",
+            systemImageName: "timer"
+        )
+        AppShortcut(
+            intent: SkipRestIntent(),
+            phrases: ["Skip rest in \(.applicationName)"],
+            shortTitle: "Skip Rest",
+            systemImageName: "forward.end"
+        )
+        AppShortcut(
+            intent: FindWorkoutsIntent(),
+            phrases: ["Find my workouts in \(.applicationName)"],
+            shortTitle: "Find Workouts",
+            systemImageName: "magnifyingglass"
         )
     }
 }

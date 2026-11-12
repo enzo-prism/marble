@@ -121,6 +121,8 @@ download_profile() {
 echo "Installing App Store provisioning profiles"
 app_ok=0
 widget_ok=0
+share_ok=0
+watch_ok=0
 
 if decode_optional_profile "${MOBILEPROVISION_APP_B64:-}" "${SIGNING_DIR}/app.mobileprovision"; then
   app_ok=1
@@ -134,9 +136,17 @@ elif download_profile "$MARBLE_WIDGET_PROFILE_NAME" "$MARBLE_WIDGET_PROFILE_ID" 
   widget_ok=1
 fi
 
-if [[ "$app_ok" -ne 1 || "$widget_ok" -ne 1 ]]; then
-  echo "error: could not install both App Store profiles" >&2
-  echo "Need ${MARBLE_APP_PROFILE_NAME} and ${MARBLE_WIDGET_PROFILE_NAME}." >&2
+if download_profile "$MARBLE_SHARE_PROFILE_NAME" "$MARBLE_SHARE_PROFILE_ID" "${SIGNING_DIR}/share.mobileprovision"; then
+  share_ok=1
+fi
+
+if download_profile "$MARBLE_WATCH_PROFILE_NAME" "$MARBLE_WATCH_PROFILE_ID" "${SIGNING_DIR}/watch.mobileprovision"; then
+  watch_ok=1
+fi
+
+if [[ "$app_ok" -ne 1 || "$widget_ok" -ne 1 || "$share_ok" -ne 1 || "$watch_ok" -ne 1 ]]; then
+  echo "error: could not install all App Store profiles" >&2
+  echo "Need ${MARBLE_APP_PROFILE_NAME}, ${MARBLE_WIDGET_PROFILE_NAME} and ${MARBLE_SHARE_PROFILE_NAME} and ${MARBLE_WATCH_PROFILE_NAME}." >&2
   echo "Either make ASC API credentials available, or set MOBILEPROVISION_APP_B64 and MOBILEPROVISION_WIDGET_B64." >&2
   exit 1
 fi

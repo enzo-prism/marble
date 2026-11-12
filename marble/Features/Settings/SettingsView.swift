@@ -25,6 +25,7 @@ struct SettingsView: View {
     // Health state mirrors the import hub exactly: the service owns the truth,
     // these are just the view's copy of it.
     @State private var autoImportEnabled = HealthAutoImportService.shared.isEnabled
+    @AppStorage(NativeWorkoutController.enabledKey) private var liveWorkoutsEnabled = false
     @State private var healthExportEnabled = UserDefaults.standard.bool(forKey: HealthSessionExporter.enabledDefaultsKey)
     @State private var bodyMetricsEnabled = BodyMetricsAutoImportService.shared.isEnabled
     @State private var showingData = false
@@ -412,6 +413,27 @@ struct SettingsView: View {
             .listRowBackground(Theme.backgroundColor(for: colorScheme))
 
             VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                Toggle("Track live strength workouts in Apple Health", isOn: $liveWorkoutsEnabled)
+                    .font(MarbleTypography.rowTitle)
+                    .tint(Theme.dividerColor(for: colorScheme))
+                    .onChange(of: liveWorkoutsEnabled) { _, enabled in
+                        if enabled {
+                            Task { if !(await NativeWorkoutController.shared.authorize()) { liveWorkoutsEnabled = false } }
+                        } else {
+                            Task { await NativeWorkoutController.shared.finish() }
+                        }
+                    }
+                    .accessibilityIdentifier("Settings.LiveHealthWorkout")
+                Text("New workouts track strength training with an unspecified location, collect available sensor data and save to Apple Health when finished. Heart rate requires a compatible connected sensor. Your set history stays in Marble.")
+                    .font(MarbleTypography.caption)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .marbleRowInsets()
+            .listRowSeparator(.hidden)
+            .listRowBackground(Theme.backgroundColor(for: colorScheme))
+
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
                 Toggle("Send sessions to Apple Health", isOn: $healthExportEnabled)
                     .font(MarbleTypography.rowTitle)
                     .tint(Theme.dividerColor(for: colorScheme))
@@ -433,7 +455,7 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("Settings.HealthExport")
 
-                Text("Completed training days are saved to Apple Health as strength workouts with your session effort (RPE), so Marble sessions count toward Apple's Training Load.")
+                Text("Completed workouts are saved to Apple Health. Historical sessions without an activity classification use Other. Set difficulty is not treated as a session effort rating; you can rate effort in Apple Health.")
                     .font(MarbleTypography.caption)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .lineLimit(nil)

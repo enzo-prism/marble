@@ -31,14 +31,18 @@ final class WorkoutFlowUITests: MarbleUITestCase {
 
         let editor = app.textViews["TextEntry.Editor"]
         waitFor(editor, timeout: 8)
-        forceTap(editor)
+        editor.tap()
         editor.typeText("Bench press 3x8 @ 185 lb")
 
         let clear = waitForIdentifier("TextEntry.Clear", timeout: 8)
         XCTAssertTrue(clear.isHittable)
         forceTap(clear)
 
-        XCTAssertEqual(editor.value as? String, "", "Clear should empty the workout draft in one explicit action.")
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        // Empty UITextView exposes a nil accessibility value on the device's
+        // iOS 27.2 build. Check the empty state and disabled review action.
+        XCTAssertEqual(editor.value as? String ?? "", "", "Clear should empty the workout draft in one explicit action.")
+        XCTAssertFalse(app.buttons["TextEntry.Clear"].exists)
         XCTAssertFalse(app.buttons["TextEntry.Preview"].isEnabled)
     }
 

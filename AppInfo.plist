@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>MarbleURLScheme</key>
+	<string>marble$(MARBLE_BUNDLE_SUFFIX)</string>
+	<key>MarbleBundleSuffix</key>
+	<string>$(MARBLE_BUNDLE_SUFFIX)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -11,7 +15,7 @@
 			<string>Prism.marble</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>marble</string>
+				<string>marble$(MARBLE_BUNDLE_SUFFIX)</string>
 			</array>
 		</dict>
 	</array>

@@ -158,50 +158,24 @@ struct MuscleGroupSectionView: View {
     }
 
     private var chart: some View {
-        let accent = TrendsPalette.volumeWeighted.color(for: colorScheme)
         let band = LifterCoaching.weeklySetBand
         let maxValue = max(groups.map(\.setsPerWeek).max() ?? 1, band.upperBound)
         // Horizontal bars on purpose: orientation distinguishes the category
         // comparisons from the time-series charts above (HIG pattern).
-        return Chart {
+        return VStack(alignment: .leading, spacing: MarbleSpacing.m) {
             ForEach(groups) { group in
-                BarMark(
-                    x: .value("Sets per week", group.setsPerWeek),
-                    y: .value("Muscle Group", group.category.displayName)
+                TrendsCategoryBar(
+                    title: group.category.displayName,
+                    valueText: annotationText(for: group),
+                    accessibilityValue: accessibilityText(for: group),
+                    value: group.setsPerWeek,
+                    maximum: maxValue * 1.25,
+                    accent: TrendsPalette.muscleGroup(group.category).color(for: colorScheme),
+                    guideBand: band
                 )
-                .foregroundStyle(TrendsPalette.barGradient(accent))
-                .cornerRadius(3)
-                .annotation(position: .trailing, alignment: .leading, spacing: MarbleSpacing.xxs) {
-                    Text(annotationText(for: group))
-                        .font(MarbleTypography.smallLabel)
-                        .monospacedDigit()
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        .accessibilityHidden(true)
-                }
-                .accessibilityLabel(group.category.displayName)
-                .accessibilityValue(accessibilityText(for: group))
-            }
-
-            // The 10–20 hard-sets-per-week guide band, drawn as two quiet rules.
-            RuleMark(x: .value("Band low", band.lowerBound))
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.35))
-                .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                .accessibilityHidden(true)
-            RuleMark(x: .value("Band high", band.upperBound))
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.35))
-                .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                .accessibilityHidden(true)
-        }
-        .frame(height: max(CGFloat(groups.count) * 34, 60))
-        .chartXScale(domain: 0 ... maxValue * 1.25)
-        .chartXAxis(.hidden)
-        .chartYAxis {
-            AxisMarks(position: .leading) { _ in
-                AxisValueLabel()
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             }
         }
-        .chartLegend(.hidden)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Weekly sets per muscle group chart")
         .accessibilityValue(accessibilityValue)
         .accessibilityIdentifier("Trends.MuscleGroupsChart")
@@ -261,34 +235,20 @@ struct RepRangeSectionView: View {
     }
 
     private var chart: some View {
-        let accent = TrendsPalette.volumeReps.color(for: colorScheme)
-        return Chart(buckets) { bucket in
-            BarMark(
-                x: .value("Sets", bucket.setCount),
-                y: .value("Range", bucket.kind.displayName)
-            )
-            .foregroundStyle(TrendsPalette.barGradient(accent))
-            .cornerRadius(3)
-            .annotation(position: .trailing, alignment: .leading, spacing: MarbleSpacing.xxs) {
-                Text(annotationText(for: bucket))
-                    .font(MarbleTypography.smallLabel)
-                    .monospacedDigit()
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .accessibilityHidden(true)
-            }
-            .accessibilityLabel("\(bucket.kind.displayName), \(bucket.kind.subtitle)")
-            .accessibilityValue(accessibilityText(for: bucket))
-        }
-        .frame(height: 128)
-        .chartXScale(domain: 0 ... Double((buckets.map(\.setCount).max() ?? 1)) * 1.3)
-        .chartXAxis(.hidden)
-        .chartYAxis {
-            AxisMarks(position: .leading) { _ in
-                AxisValueLabel()
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+        let maximum = max(Double(buckets.map(\.setCount).max() ?? 1), 1)
+        return VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+            ForEach(buckets) { bucket in
+                TrendsCategoryBar(
+                    title: bucket.kind.displayName,
+                    valueText: annotationText(for: bucket),
+                    accessibilityValue: "\(bucket.kind.subtitle), \(accessibilityText(for: bucket))",
+                    value: Double(bucket.setCount),
+                    maximum: maximum,
+                    accent: TrendsPalette.repRange(bucket.kind).color(for: colorScheme)
+                )
             }
         }
-        .chartLegend(.hidden)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Rep range distribution chart")
         .accessibilityValue(chartSummary)
         .accessibilityIdentifier("Trends.RepRangesChart")

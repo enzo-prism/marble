@@ -6,6 +6,7 @@ import WidgetKit
 @main
 struct MarbleWidgetsBundle: WidgetBundle {
     var body: some Widget {
+        WorkoutLiveActivity()
         RestTimerLiveActivity()
         WeeklyGoalWidget()
         QuickLogControl()

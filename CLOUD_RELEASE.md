@@ -4,12 +4,24 @@ Linux Cloud Agents cannot run `xcodebuild`. This repo splits shipping in two:
 
 | Work | Where it runs | What it needs |
 |---|---|---|
-| Archive, sign, export, upload IPA | GitHub Actions `macos-26` (`release-testflight.yml`) | ASC API key **and** Apple Distribution `.p12` |
+| Archive, sign, export, upload IPA | GitHub Actions `xcode-27`, pinned Xcode 27.0 (`release-testflight.yml`) | ASC API key **and** Apple Distribution `.p12` |
 | Status, validate, attach, App Review submit, release an approved version | Linux agent **or** GitHub Actions `ubuntu-latest` (`release-appstore.yml`) | ASC API key only |
 
 Agents drive both through `scripts/cloud_release.sh` / `make cloud-*`. They still must not bump builds, upload, submit, or release without explicit user approval.
 
-## Current distribution (readback 2026-10-30)
+## Current candidate (2026-11-11)
+
+Public distribution is 2.6.1 (84). Pre-existing 2.7 (86) is approved and pending
+manual release; it does not contain the Apple-platform and Progress Details work
+on draft PR 57. No new candidate has been uploaded. The owner authorized main,
+TestFlight and App Store delivery; matching release evidence and physical signoff
+remain required. See `RELEASE_HANDOFF.md` for the current identities and limits.
+
+App Store staging passes `AppStore/metadata` as the metadata root, containing both
+`app-info` and `version/<version>`. Passing only the version directory is invalid.
+The staging contract tests intercept the CLI and never contact Apple.
+
+## Historical distribution (readback 2026-10-30)
 
 - **Public App Store:** 2.6 (83), build `81bbf2fe-1fdc-4f32-bae4-e2ded7b684dd`,
   `READY_FOR_DISTRIBUTION`. Shipped source is `8d46a09` (PR #45, tag `v2.6-83`).

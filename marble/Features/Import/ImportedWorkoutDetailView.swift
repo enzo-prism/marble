@@ -23,6 +23,7 @@ struct ImportedWorkoutDetailView: View {
         let maxHeartRate: Double?
         let elevationAscendedMeters: Double?
         let isIndoor: Bool?
+        let healthWorkoutID: UUID?
 
         var displayOrigin: String { originName ?? source.displayName }
 
@@ -53,6 +54,7 @@ struct ImportedWorkoutDetailView: View {
             maxHeartRate = record.maxHeartRate
             elevationAscendedMeters = record.elevationAscendedMeters
             isIndoor = record.isIndoor
+            healthWorkoutID = record.source == .appleHealth ? UUID(uuidString: record.externalID) : nil
         }
 
         init(workout: ImportedWorkout) {
@@ -70,6 +72,7 @@ struct ImportedWorkoutDetailView: View {
             maxHeartRate = workout.maxHeartRate
             elevationAscendedMeters = workout.elevationAscendedMeters
             isIndoor = workout.isIndoor
+            healthWorkoutID = workout.source == .appleHealth ? UUID(uuidString: workout.externalID) : nil
         }
     }
 
@@ -79,6 +82,7 @@ struct ImportedWorkoutDetailView: View {
     var heartRateLoader: ((_ start: Date, _ end: Date) async -> [HeartRatePoint])?
 
     @Environment(\.colorScheme) private var colorScheme
+    @State private var zoneRows: [WorkoutZoneRow] = []
     @State private var heartRatePoints: [HeartRatePoint] = []
     @State private var isLoadingHeartRate = false
 
@@ -88,6 +92,7 @@ struct ImportedWorkoutDetailView: View {
                 header
                 statsGrid
                 heartRateSection
+                WorkoutZonesView(rows: zoneRows)
                 provenance
             }
             .padding(MarbleLayout.pagePadding)
@@ -96,6 +101,9 @@ struct ImportedWorkoutDetailView: View {
         .accessibilityIdentifier("ImportDetail.View")
         .task {
             await loadHeartRate()
+            if #available(iOS 27.0, *), let id = details.healthWorkoutID {
+                zoneRows = await WorkoutZones.load(workoutID: id)
+            }
         }
     }
 

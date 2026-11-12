@@ -83,8 +83,8 @@ struct NotificationEditorView: View {
         )
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button("Cancel") {
-                    dismiss()
+                Button { dismiss() } label: {
+                    Text("Cancel").foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 }
                 .accessibilityIdentifier("NotificationEditor.Cancel")
             }
@@ -95,8 +95,9 @@ struct NotificationEditorView: View {
                 } label: {
                     Text("Save")
                         .fontWeight(.semibold)
-                        .foregroundStyle(saveButtonColor)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 }
+                .disabled(!canSave)
                 .accessibilityValue(canSave ? "Ready" : "Unavailable")
                 .accessibilityIdentifier("NotificationEditor.Save")
             }
@@ -150,10 +151,6 @@ struct NotificationEditorView: View {
 
     private var messageFieldState: MarbleFieldState {
         message.isEmpty || !trimmedMessage.isEmpty ? .normal : .error
-    }
-
-    private var saveButtonColor: Color {
-        canSave ? Theme.primaryTextColor(for: colorScheme) : Theme.secondaryTextColor(for: colorScheme)
     }
 
     private func toggle(_ weekday: Weekday) {

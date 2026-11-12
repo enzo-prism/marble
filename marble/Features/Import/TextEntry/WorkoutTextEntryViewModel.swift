@@ -281,8 +281,10 @@ final class WorkoutTextEntryViewModel {
             modelIssueNote = "That's more than Apple Intelligence can read at once — put a date or a blank line between workouts to split it."
         case .unsupportedLanguage:
             modelIssueNote = "Apple Intelligence doesn't support this language yet, so only gym notation was read."
-        case .unavailable, .failed:
+        case .unavailable:
             modelIssueNote = "Apple Intelligence couldn't read this right now, so only gym notation was read."
+        case .failed:
+            modelIssueNote = "Apple Intelligence couldn't finish reading this. Check the review carefully or try again later."
         }
     }
 

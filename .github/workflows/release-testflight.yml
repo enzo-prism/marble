@@ -40,7 +40,7 @@ env:
 jobs:
   testflight:
     name: Archive and upload
-    runs-on: macos-26
+    runs-on: xcode-27
     environment: testflight
     timeout-minutes: 90
     env:

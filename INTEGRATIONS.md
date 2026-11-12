@@ -216,3 +216,28 @@ as the session splitter, Garmin reverse-engineering, `ImportSource.hevy` / `.str
 
 Dedup, persistence, selection UI, origin labeling, and the journal mapping all come for free
 from the shared spine.
+
+## Apple platform candidate (2026-11-11)
+
+The platform branch shares workout commands across app, App Intents and the Watch
+controller. All journal mutations save before timers, donations or system indexing.
+Typed entities carry explicit units and sprint tenths; private entities require
+authentication. Session repeats open editable review and do not bulk-write history.
+
+Opt-in iPhone live Health tracking owns an HKWorkoutSession and live builder, with
+pause/resume, recovery and stable journal-session sync identity. Historical export
+uses the same identity to avoid duplicating native workouts; separate persisted
+checkpoints allow retries after partial saves. Set RPE is not synthesized into workout
+effort. Unclassified historical sessions export as Other with unknown location.
+The Watch app controls the phone; it does not collect wrist HealthKit sensors.
+
+The Share extension accepts bounded text, files and local image OCR. It stages up to
+five items in the existing shared-keychain architecture; the containing app opens
+review before any logging. Atomic slots and persistent keychain references keep a
+stale review from deleting a replacement item. Production keychain ordering and
+schema V6 remain unchanged; no App Group is introduced.
+
+Dictation uses SpeechAnalyzer/SpeechTranscriber with local language assets and explicit
+microphone permission. Captured text enters the same editable import review. Siri AI
+preview skills are built separately and excluded from public targets. Current acceptance
+limits and Apple references are in `APPLE_PLATFORM_IMPLEMENTATION.md`.

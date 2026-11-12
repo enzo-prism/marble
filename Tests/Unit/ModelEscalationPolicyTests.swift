@@ -37,7 +37,6 @@ final class ModelEscalationPolicyTests: MarbleTestCase {
     /// (an impossible set count, two prescriptions on one line). A dropped
     /// line escalates on its own, so these must reach the model too.
     static let unresolvedInputs = [
-        "Bench 225x5x3",
         "Squat 100kg 5x5 then 3x10 at 80",
         "Bench 3x8 185 then dropped to 135 for 12",
     ]

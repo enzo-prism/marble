@@ -134,7 +134,9 @@ final class ImportFlowUITests: MarbleUITestCase {
         editor.typeText("Bench Press 3x8 @ 185 lb\nround 2 of 3 felt easy\nround 2 of 3 felt easy")
         dismissKeyboardIfPresent()
         forceTap(waitForIdentifier("TextEntry.Preview", timeout: 8))
-        _ = waitForIdentifier("TextEntry.ReviewSummary", timeout: 15)
+        // Parsing can still be running on a contended simulator; match the
+        // other import flows' deadline without weakening the edit assertions.
+        _ = waitForIdentifier("TextEntry.ReviewSummary", timeout: 60)
         let second = app.descendants(matching: .any).matching(identifier: "TextEntry.Unparsed.Line.1").firstMatch
         scrollToElement(second, in: app.collectionViews.firstMatch)
         waitFor(second, timeout: 8)

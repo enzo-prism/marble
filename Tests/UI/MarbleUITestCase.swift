@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import Vision
 
 enum MarbleAppearance {
     case light
@@ -40,12 +41,21 @@ enum MarbleTab: String, CaseIterable {
 }
 
 class MarbleUITestCase: XCTestCase {
+    static var targetBundleIdentifier: String {
+        #if targetEnvironment(simulator)
+        ProcessInfo.processInfo.environment["MARBLE_SIMULATOR_VALIDATION"] == "1"
+            ? "Prism.marble.validation" : "Prism.marble"
+        #else
+        "Prism.marble.validation"
+        #endif
+    }
     var app: XCUIApplication!
     private let draftNamespace = UUID().uuidString
 
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
     }
 
     override func tearDown() {
@@ -75,10 +85,13 @@ class MarbleUITestCase: XCTestCase {
         if app != nil {
             app.terminate()
         }
-        app = XCUIApplication()
+        app = XCUIApplication(bundleIdentifier: Self.targetBundleIdentifier)
         app.launchEnvironment["MARBLE_UI_TESTING"] = "1"
         app.launchEnvironment["MARBLE_DRAFT_NAMESPACE"] = draftNamespace
         app.launchEnvironment["MARBLE_DISABLE_ANIMATIONS"] = "1"
+        if ProcessInfo.processInfo.environment["MARBLE_DEVICE_KEEP_AWAKE"] == "1" {
+            app.launchEnvironment["MARBLE_DEVICE_KEEP_AWAKE"] = "1"
+        }
         if resetDB {
             app.launchEnvironment["MARBLE_RESET_DB"] = "1"
         }
@@ -105,6 +118,10 @@ class MarbleUITestCase: XCTestCase {
             app.launchEnvironment[key] = value
         }
         app.launch()
+        // Physical devices can retain the orientation of the preceding app.
+        // These flows use a deterministic portrait viewport; landscape tests
+        // explicitly rotate after launch.
+        XCUIDevice.shared.orientation = .portrait
     }
 
     func navigateToTab(_ tab: MarbleTab) {
@@ -176,6 +193,36 @@ class MarbleUITestCase: XCTestCase {
         // coordinate, clamped to the portion not covered by navigation/tab
         // chrome, instead of trusting a stale accessibility activation point.
         tapVisible(element)
+    }
+
+    func isNativeToolbarTitleFullyDrawn(identifier: String, title: String) throws -> Bool {
+        let button = app.navigationBars.buttons.matching(identifier: identifier).firstMatch
+        guard button.exists, button.isHittable, button.label == title,
+              app.navigationBars.allElementsBoundByIndex.contains(where: { $0.frame.contains(button.frame) }) else { return false }
+        return try isFullTitleDrawn(in: button, title: title)
+    }
+
+    func isAddSetHistoryHeadingFullyDrawn() throws -> Bool {
+        let heading = app.staticTexts["AddSet.LastTimeHeading"]
+        guard app.buttons["AddSet.ExercisePicker"].exists,
+              heading.exists, heading.label == "Last time", heading.isHittable,
+              unobscuredFrame().contains(heading.frame) else { return false }
+        return try isFullTitleDrawn(in: heading, title: "Last time")
+    }
+
+    private func isFullTitleDrawn(in element: XCUIElement, title: String) throws -> Bool {
+        guard let image = element.screenshot().image.cgImage else { return false }
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.recognitionLanguages = ["en-US"]
+        request.usesLanguageCorrection = false
+        try VNImageRequestHandler(cgImage: image).perform([request])
+        return (request.results ?? []).contains { observation in
+            let bounds = observation.boundingBox
+            return observation.topCandidates(1).first?.string == title
+                && bounds.minX > 0.01 && bounds.minY > 0.01
+                && bounds.maxX < 0.99 && bounds.maxY < 0.99
+        }
     }
 
     func tapVisible(

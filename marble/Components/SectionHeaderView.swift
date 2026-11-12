@@ -9,6 +9,8 @@ struct SectionHeaderView: View {
         Text(title)
             .font(MarbleTypography.sectionTitle)
             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
             .background(Theme.backgroundColor(for: colorScheme))
     }
 }

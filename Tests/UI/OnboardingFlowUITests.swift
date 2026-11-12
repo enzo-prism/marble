@@ -17,6 +17,17 @@ final class OnboardingFlowUITests: MarbleUITestCase {
         )
     }
 
+    private func waitForMainApp() {
+        waitForDisappearance(app.buttons["Onboarding.Done"], timeout: 10)
+        // SwiftUI can drop tab-item identifiers after a full-screen cover
+        // dismisses. The actual Log button remains visible and tappable.
+        let journal = app.tabBars.buttons.matching(NSPredicate(
+            format: "identifier == %@ OR label == %@", "Tab.Journal", "Log"
+        )).firstMatch
+        waitFor(journal, timeout: 10)
+        XCTAssertTrue(journal.isHittable)
+    }
+
     func testOnboardingWalksThreePagesAndHandsOverToTheApp() {
         launchOnboarding()
 
@@ -38,9 +49,8 @@ final class OnboardingFlowUITests: MarbleUITestCase {
 
         step("Finishing reveals the app itself") {
             forceTap(app.buttons["Onboarding.Done"])
-            // The Journal tab existing at all proves the gate let go: onboarding
-            // is presented full-screen with dismissal disabled.
-            waitForIdentifier("Tab.Journal", timeout: 10)
+            // A tappable app tab plus the dismissed cover proves the gate let go.
+            waitForMainApp()
             XCTAssertFalse(app.buttons["Onboarding.Done"].exists)
         }
     }
@@ -64,7 +74,7 @@ final class OnboardingFlowUITests: MarbleUITestCase {
         }
 
         forceTap(waitForIdentifier("Onboarding.Done", timeout: 8))
-        waitForIdentifier("Tab.Journal", timeout: 10)
+        waitForMainApp()
 
         navigateToTab(.addWorkout)
         openAddToolbarAction("Workout.Settings")

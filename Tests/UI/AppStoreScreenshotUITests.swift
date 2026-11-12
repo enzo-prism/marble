@@ -190,9 +190,10 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         launchScreenshotApp(extraEnvironment: ["MARBLE_FORCE_ONBOARDING": "1"])
         _ = waitForIdentifier("Onboarding.Continue", timeout: 10)
         let privacyCopy = app.staticTexts
-            .matching(NSPredicate(format: "label CONTAINS %@", "stays on this device"))
+            .matching(NSPredicate(format: "label CONTAINS %@", "Your journal is stored on this device."))
             .firstMatch
         XCTAssertTrue(privacyCopy.waitForExistence(timeout: 5))
+        XCTAssertTrue(privacyCopy.label.contains("Siri, Apple Health, and sharing"))
         takeScreenshot("10-private-onboarding")
     }
 }

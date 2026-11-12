@@ -1,3 +1,4 @@
+import AppIntents
 import SwiftData
 import SwiftUI
 import os
@@ -136,6 +137,7 @@ struct WorkoutHistoryView: View {
 struct WorkoutSessionDetailView: View {
     let session: WorkoutSession
     private let loadsDetails: Bool
+    private var startsRepeatReview = false
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @State private var repeatDraft: RepeatPresentation?
@@ -144,8 +146,9 @@ struct WorkoutSessionDetailView: View {
     @State private var detailLoadFailed = false
     @State private var detailsLoaded = false
 
-    init(session: WorkoutSession) {
+    init(session: WorkoutSession, startsRepeatReview: Bool = false) {
         self.session = session
+        self.startsRepeatReview = startsRepeatReview
         loadsDetails = true
     }
 
@@ -223,8 +226,20 @@ struct WorkoutSessionDetailView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundColor(for: colorScheme))
+        .userActivity("Prism.marble.viewingWorkout") { activity in
+            activity.title = session.title
+            activity.appEntityIdentifier = EntityIdentifier(for: WorkoutSessionEntity(session))
+        }
         .navigationTitle(session.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ShareLink(item: WorkoutSessionEntity(session), preview: SharePreview(session.title)) {
+                    Label("Share Workout", systemImage: "square.and.arrow.up")
+                }
+                .accessibilityIdentifier("History.Share")
+            }
+        }
         .task {
             guard loadsDetails else { return }
             let ids = session.entries.map(\.id)
@@ -235,6 +250,11 @@ struct WorkoutSessionDetailView: View {
                 sprintDetails = Dictionary(details.map { ($0.setEntryID, $0) }, uniquingKeysWith: { first, _ in first })
                 detailLoadFailed = false
                 detailsLoaded = true
+                if startsRepeatReview, repeatDraft == nil {
+                    if sprintDetails.isEmpty {
+                        repeatDraft = RepeatPresentation(draft: WorkoutRepeatDraft.make(from: session))
+                    } else { showingPrecisionNotice = true }
+                }
             } catch {
                 detailLoadFailed = true
             }

@@ -83,6 +83,30 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         assertSnapshot(view, named: "Trends_DailyHighlights")
     }
 
+    func testTrendsDetails() {
+        SharedDefaults.suite.set(false, forKey: SharedDefaults.Key.dailyHighlightsEnabled)
+        let container = SnapshotFixtures.makeContainer()
+        SnapshotFixtures.seedPopulated(in: ModelContext(container))
+        let view = TrendsView(prioritizesInitialDetail: true)
+            .modelContainer(container)
+            .environment(QuickLogCoordinator())
+        assertSnapshot(view, named: "Trends_Details")
+    }
+
+    func testTrendsCategoryCharts() {
+        let container = SnapshotFixtures.makeContainer()
+        let context = ModelContext(container)
+        SnapshotFixtures.seedPopulated(in: context)
+        let entries = (try? context.fetch(FetchDescriptor<SetEntry>())) ?? []
+        let groups: [LifterCoaching.MuscleGroupCoverage] = [
+            .init(category: .chest, setsPerWeek: 12, directSets: 12, indirectSets: 0, lastTrainedDaysAgo: 0, band: .inRange),
+            .init(category: .back, setsPerWeek: 8, directSets: 8, indirectSets: 0, lastTrainedDaysAgo: 2, band: .below),
+            .init(category: .quads, setsPerWeek: 16, directSets: 16, indirectSets: 0, lastTrainedDaysAgo: 1, band: .inRange)
+        ]
+        assertSnapshot(TrendsCategoryChartsFixture(groups: groups, buckets: []), named: "Trends_MuscleGroups")
+        assertSnapshot(TrendsCategoryChartsFixture(groups: [], buckets: LifterAnalytics.repRangeDistribution(entries: entries)), named: "Trends_RepRanges")
+    }
+
     func testTrendsFilteredExercise() {
         let container = SnapshotFixtures.makeContainer()
         let context = ModelContext(container)
@@ -129,10 +153,13 @@ final class TrendsSnapshotTests: SnapshotTestCase {
         let context = ModelContext(container)
         SnapshotFixtures.seedPopulated(in: context)
 
-        let weekStart = TrendsDateHelper.startOfWeek(for: SnapshotFixtures.now)
-        let view = TrendsView(initialSelectedWeekStart: weekStart, prioritizesInitialDetail: true)
-            .modelContainer(container)
-            .environment(QuickLogCoordinator())
+        let entries = (try? context.fetch(FetchDescriptor<SetEntry>())) ?? []
+        let derived = TrendsDerivedData.build(
+            entries: entries, supplementEntries: [], historyEntries: entries,
+            selectedExercise: nil, selectedSupplementType: nil, range: .thirtyDays,
+            now: SnapshotFixtures.now
+        )
+        let view = TrendsVolumeChartFixture(derived: derived)
         assertSnapshot(view, named: "Trends_VolumeTooltip")
     }
 
@@ -150,6 +177,52 @@ final class TrendsSnapshotTests: SnapshotTestCase {
             .modelContainer(container)
             .environment(QuickLogCoordinator())
         assertSnapshot(view, named: "Trends_SupplementsTooltip")
+    }
+}
+
+private struct TrendsVolumeChartFixture: View {
+    let derived: TrendsDerivedData
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var isScrubbing = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                Text("Weekly Volume").font(MarbleTypography.sectionTitle)
+                TrendsWeeklyVolumeChart(
+                    derived: derived,
+                    selectedSummary: derived.weeklySummaries.last,
+                    chartHeight: dynamicTypeSize.isAccessibilitySize ? 220 : 180,
+                    isScrubbingChart: $isScrubbing,
+                    onSelectWeek: { _ in }, onViewSets: { _ in }, onClearSelection: {}
+                )
+            }
+            .padding(MarbleLayout.pagePadding)
+        }
+        .background(Theme.backgroundColor(for: colorScheme))
+    }
+}
+
+private struct TrendsCategoryChartsFixture: View {
+    let groups: [LifterCoaching.MuscleGroupCoverage]
+    let buckets: [LifterAnalytics.RepRangeBucket]
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxl) {
+                ProgressDetailHeading(section: .training)
+                if !groups.isEmpty {
+                    MuscleGroupSectionView(groups: groups, accessibilityValue: "Three muscle groups")
+                }
+                if !buckets.isEmpty {
+                    RepRangeSectionView(buckets: buckets)
+                }
+            }
+            .padding(MarbleLayout.pagePadding)
+        }
+        .background(Theme.backgroundColor(for: colorScheme))
     }
 }
 
