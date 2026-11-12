@@ -53,8 +53,8 @@ if [[ -z "$VERSION" ]]; then
 fi
 
 stage_version() {
-  local metadata_dir="$ROOT/AppStore/metadata/version/$VERSION"
-  [[ -d "$metadata_dir" ]] || { echo "error: missing tracked version metadata: $metadata_dir" >&2; return 1; }
+  local metadata_dir="$ROOT/AppStore/metadata"
+  [[ -d "$metadata_dir/version/$VERSION" ]] || { echo "error: missing tracked version metadata: $metadata_dir/version/$VERSION" >&2; return 1; }
   asc release stage --app "$MARBLE_ASC_APP_ID" --version "$VERSION" --build-id "$BUILD_ID" \
     --metadata-dir "$metadata_dir" --platform "$MARBLE_PLATFORM" --strict-validate "$@"
 }
