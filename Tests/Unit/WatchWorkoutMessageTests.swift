@@ -47,6 +47,14 @@ final class WatchWorkoutMessageTests: XCTestCase {
 
     func testWatchPendingRequestPolicyRequiresMatchingNonRefreshRequest() {
         let success = WatchWorkoutResponse(succeeded: true, message: "Updated", snapshot: nil)
+        XCTAssertFalse(WatchPendingRequestPolicy.confirmsPendingRequest(
+            action: .refresh, pendingID: requestID, requestID: requestID))
+        XCTAssertFalse(WatchPendingRequestPolicy.confirmsPendingRequest(
+            action: .finish, pendingID: pendingID, requestID: requestID))
+        XCTAssertFalse(WatchPendingRequestPolicy.confirmsPendingRequest(
+            action: .finish, pendingID: nil, requestID: requestID))
+        XCTAssertTrue(WatchPendingRequestPolicy.confirmsPendingRequest(
+            action: .finish, pendingID: requestID, requestID: requestID))
         XCTAssertFalse(WatchPendingRequestPolicy.shouldClearPendingRequest(
             action: .refresh, pendingID: requestID, requestID: requestID, response: success))
         XCTAssertFalse(WatchPendingRequestPolicy.shouldClearPendingRequest(
