@@ -55,7 +55,7 @@ final class WatchWorkoutCoordinator: NSObject, WCSessionDelegate {
         if request.action == .finish, let sessionID = request.sessionID {
             if let existing = try? context.fetch(FetchDescriptor<WorkoutSession>(predicate: #Predicate { $0.id == sessionID })).first,
                existing.endedAt != nil {
-                await finishCompanionSurfaces(from: context)
+                await finishCompanionSurfaces(sessionID: existing.id, from: context)
                 await AppIntentsSupport.refreshSystemSurfaces(modelContext: context)
                 publish()
                 return response(true, "Workout already finished")
@@ -91,7 +91,7 @@ final class WatchWorkoutCoordinator: NSObject, WCSessionDelegate {
                 guard WorkoutCommands.finish(session, in: context) else {
                     return response(false, "Couldn't finish workout", retryable: true)
                 }
-                await finishCompanionSurfaces(from: context)
+                await finishCompanionSurfaces(sessionID: session.id, from: context)
             case .start, .refresh: break
             }
         }
@@ -100,10 +100,10 @@ final class WatchWorkoutCoordinator: NSObject, WCSessionDelegate {
         return response(true, request.action == .repeatSet ? "Set saved" : "Updated")
     }
 
-    /// Native Health finish and export are themselves idempotent, so a finish
-    /// retry after the journal row is saved still runs them.
-    private func finishCompanionSurfaces(from context: ModelContext) async {
-        await NativeWorkoutController.shared.finish()
+    /// Native Health finish is scoped to this journal workout so a lost-ack
+    /// retry cannot stop a newer live session. Export remains idempotent.
+    private func finishCompanionSurfaces(sessionID: UUID, from context: ModelContext) async {
+        await NativeWorkoutController.shared.finish(for: sessionID)
         await HealthSessionExporter.shared.exportIfEnabled(from: context)
     }
 

@@ -169,6 +169,23 @@ final class WorkoutCommandTests: MarbleTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<WorkoutSession>()), 1)
     }
 
+    func testWatchFinishRetryDoesNotStopANewerWorkout() async throws {
+        let context = context()
+        let first = try XCTUnwrap(WorkoutCommands.start(in: context))
+        let request = WatchWorkoutRequest(id: UUID(), action: .finish, sessionID: first.id,
+            setID: nil, createdAt: AppEnvironment.now)
+        XCTAssertTrue(await WatchWorkoutCoordinator.shared.handle(request).succeeded)
+        let newer = try XCTUnwrap(WorkoutCommands.start(in: context))
+        XCTAssertTrue(newer.isActive)
+        XCTAssertTrue(await WatchWorkoutCoordinator.shared.handle(request).succeeded)
+        XCTAssertTrue(newer.isActive)
+        XCTAssertNotNil(first.endedAt)
+        XCTAssertNil(newer.endedAt)
+        XCTAssertEqual(WorkoutSessionIntentSupport.activeSession(in: context)?.id, newer.id)
+        XCTAssertFalse(NativeWorkoutController.tracks(first.id, liveSessionID: newer.id.uuidString))
+        XCTAssertTrue(NativeWorkoutController.tracks(newer.id, liveSessionID: newer.id.uuidString))
+    }
+
     func testWatchStartRetrySucceedsForAlreadySavedSessionAfterExpiry() async throws {
         let context = context()
         let request = WatchWorkoutRequest(id: UUID(), action: .start, sessionID: nil,
