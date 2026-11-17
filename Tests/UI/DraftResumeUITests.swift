@@ -50,7 +50,7 @@ final class DraftResumeUITests: MarbleUITestCase {
             // Relaunch also closes its popover without relying on system button
             // titles, calendar formatting, or a hard-coded dismissal coordinate.
             XCUIDevice.shared.press(.home)
-            app.terminate()
+            terminateIfRunning()
             launchApp(
                 appearance: appearance, contentSizeCategory: category,
                 fixtureMode: "empty", resetDB: false, extraEnvironment: environment
@@ -143,7 +143,7 @@ final class DraftResumeUITests: MarbleUITestCase {
         editor.tap()
         editor.typeText("Bench Press 3x8")
         XCUIDevice.shared.press(.home)
-        app.terminate()
+        terminateIfRunning()
         launchApp(
             appearance: .dark,
             contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
@@ -180,7 +180,7 @@ final class DraftResumeUITests: MarbleUITestCase {
         dismissKeyboardIfPresent()
         // Backgrounding flushes pending edits before the termination boundary.
         XCUIDevice.shared.press(.home)
-        app.terminate()
+        terminateIfRunning()
         launchApp(fixtureMode: "empty", resetDB: false, extraEnvironment: environment)
         forceTap(waitForIdentifier("WorkoutEntry.Draft.Resume", timeout: 10))
         let restoredDate = app.datePickers.matching(identifier: "TextEntry.Date").firstMatch
@@ -200,12 +200,12 @@ final class DraftResumeUITests: MarbleUITestCase {
         editor.tap()
         editor.typeText("Bench Press 3x8")
         XCUIDevice.shared.press(.home)
-        app.terminate()
+        terminateIfRunning()
         launchApp(fixtureMode: "empty", resetDB: false, extraEnvironment: environment)
         forceTap(waitForIdentifier("WorkoutEntry.Draft.Discard", timeout: 10))
         forceTap(app.buttons.matching(identifier: "WorkoutEntry.Draft.ConfirmDiscard").firstMatch)
         XCUIDevice.shared.press(.home)
-        app.terminate()
+        terminateIfRunning()
         launchApp(fixtureMode: "empty", resetDB: false, extraEnvironment: environment)
         XCTAssertTrue(waitForIdentifier("TextEntry.Editor", timeout: 8).exists)
         XCTAssertFalse(app.buttons["WorkoutEntry.Draft.Resume"].exists)

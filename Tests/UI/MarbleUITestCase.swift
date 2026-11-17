@@ -65,9 +65,16 @@ class MarbleUITestCase: XCTestCase {
         if let run = testRun, run.failureCount > 0 {
             attachFailureArtifacts()
         }
-        app?.terminate()
+        terminateIfRunning()
         app = nil
         super.tearDown()
+    }
+
+    /// Home + relaunch can leave XCUITest thinking the process is already
+    /// gone (`Failed to terminate Prism.marble:0`). Skip terminate then.
+    func terminateIfRunning() {
+        guard app != nil, app.state != .notRunning else { return }
+        app.terminate()
     }
 
     func launchApp(
@@ -82,9 +89,7 @@ class MarbleUITestCase: XCTestCase {
         accessibilityAudit: Bool = false,
         extraEnvironment: [String: String] = [:]
     ) {
-        if app != nil {
-            app.terminate()
-        }
+        terminateIfRunning()
         app = XCUIApplication(bundleIdentifier: Self.targetBundleIdentifier)
         app.launchEnvironment["MARBLE_UI_TESTING"] = "1"
         app.launchEnvironment["MARBLE_DRAFT_NAMESPACE"] = draftNamespace
@@ -476,14 +481,18 @@ class MarbleUITestCase: XCTestCase {
         // subscript throws "Multiple matching elements found".
         let typed = [
             firstIdentified(app.buttons, identifier),
-            firstIdentified(app.cells, identifier),
-            firstIdentified(app.staticTexts, identifier),
             firstIdentified(app.textFields, identifier),
             firstIdentified(app.textViews, identifier),
             firstIdentified(app.secureTextFields, identifier),
             firstIdentified(app.switches, identifier),
-            firstIdentified(app.sliders, identifier),
             firstIdentified(app.datePickers, identifier),
+            firstIdentified(app.scrollViews, identifier),
+            firstIdentified(app.otherElements, identifier),
+            firstIdentified(app.groups, identifier),
+            firstIdentified(app.windows, identifier),
+            firstIdentified(app.cells, identifier),
+            firstIdentified(app.staticTexts, identifier),
+            firstIdentified(app.sliders, identifier),
             firstIdentified(app.pickers, identifier),
             firstIdentified(app.searchFields, identifier),
             firstIdentified(app.collectionViews, identifier),
@@ -492,8 +501,7 @@ class MarbleUITestCase: XCTestCase {
             firstIdentified(app.navigationBars.buttons, identifier),
             firstIdentified(app.segmentedControls.buttons, identifier),
             firstIdentified(app.images, identifier),
-            firstIdentified(app.links, identifier),
-            firstIdentified(app.otherElements, identifier)
+            firstIdentified(app.links, identifier)
         ]
         for candidate in typed where candidate.exists {
             return candidate
