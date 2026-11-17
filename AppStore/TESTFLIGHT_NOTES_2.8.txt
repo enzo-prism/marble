@@ -1,0 +1,19 @@
+Marble 2.8 deepens on-device Apple Intelligence: readings that appear as they form, scans that use the page image on iOS 27, Ask your journal, interactive Siri/Spotlight set cards, Visual Intelligence and live dictation. Everything is read on this iPhone; review all proposed workout data before saving.
+
+1. Add: paste or type a workout in plain sentences ("Bench three sets of eight at 185, then curls 3x12 with 25s"). While Apple Intelligence reads it, the lines it has read appear under the progress text; Stop returns to your text. The review must match the final reading, with dates, titles and numbers taken only from your note.
+
+2. In a review that Apple Intelligence read, each exercise shows "From: …" with the text it came from. Try the "Was this read correctly?" thumbs. Thumbs down offers Share this example; nothing is sent unless you choose to share.
+
+3. Scan a handwritten log or a printed table. Rows should stay together in the reading. On iOS 27 with a supported iPhone, the page image also helps the reading; numbers must still match the page. Report any invented set or value.
+
+4. History → Ask (toolbar): try "When did I last bench 225?", "Heaviest squat this year?", "How many sets this week?" and "Last push day". Answers come with cards that open the matching workout or exercise. Every number must match your journal. Questions it can't answer should say what it can.
+
+5. Siri or Shortcuts: "Log a set of bench in Marble". The result card offers +5 lb (or +2.5 kg), +1 rep, Same again and Undo. Each button must change only that card's set; Same again adds exactly one set to the running workout; Undo removes only the card's set. Check while locked: it should ask you to unlock.
+
+6. Visual Intelligence: point the camera at a whiteboard workout or use it on a screenshot of a program. "Review workout in Marble" should appear only for workout text and open an editable review. Nothing saves before you accept.
+
+7. Add → Dictate Workout: words appear while you speak and settle when finished. Exercise names from your library (and terms like RDL, AMRAP, EMOM) should be recognized well.
+
+8. If Apple Intelligence isn't available, the Add screen explains why without telling iOS 27 users to turn it on, and gym notation still works.
+
+9. Check VoiceOver, large text, light/dark and existing history after updating. No data model change; please report any lost or altered records.
