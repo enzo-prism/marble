@@ -2,6 +2,39 @@ import XCTest
 import UIKit
 @testable import marble
 
+/// Pass-rate bars for the live eval, per on-device model. iOS 26's base model
+/// sets the floor (the historical thresholds); iOS 27's AFM 3 models are held
+/// to higher bars so a regression on newer hardware can't hide under the old
+/// model's allowance. No variant may ever go below the floor. The iOS 27 bars
+/// are provisional until the first physical-device run calibrates them.
+struct FoundationModelsEvalThresholds: Equatable {
+    /// Minimum fraction of all `.all` cases the parse path must satisfy.
+    var corpus: Double
+    /// Prose is gated on its own: notation cases are solved deterministically,
+    /// so an overall rate can hide a model path that fails most prose.
+    var prose: Double
+    /// The hard corpus is realistic dictation, shorthand, and known parser
+    /// traps; its bar is lower and exists to catch regressions.
+    var hard: Double
+
+    static let floor = FoundationModelsEvalThresholds(corpus: 0.8, prose: 0.7, hard: 0.6)
+
+    static func forModel(_ kind: OnDeviceModelVersion.Kind) -> FoundationModelsEvalThresholds {
+        switch kind {
+        case .base26, .other:
+            return floor
+        case .core3:
+            return FoundationModelsEvalThresholds(corpus: 0.85, prose: 0.75, hard: 0.65)
+        case .coreAdvanced3:
+            return FoundationModelsEvalThresholds(corpus: 0.9, prose: 0.8, hard: 0.7)
+        }
+    }
+
+    func isAtLeast(_ other: FoundationModelsEvalThresholds) -> Bool {
+        corpus >= other.corpus && prose >= other.prose && hard >= other.hard
+    }
+}
+
 /// Live evaluation of the on-device model parser against the eval corpora.
 ///
 /// This talks to Apple's real on-device language model, so it is nondeterministic,
@@ -32,27 +65,23 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
         super.tearDown()
     }
 
-    /// Minimum fraction of all `.all` cases the parse path must satisfy.
-    private static let requiredPassRate = 0.8
-    /// Prose is gated on its own: notation cases are solved deterministically,
-    /// so an overall rate can hide a model path that fails most prose.
-    private static let requiredProsePassRate = 0.7
-    /// The hard corpus is realistic dictation, shorthand, and known parser
-    /// traps; its bar is lower and exists to catch regressions.
-    private static let requiredHardPassRate = 0.6
+    /// The bars for whichever model is answering on this machine.
+    private var thresholds: FoundationModelsEvalThresholds {
+        FoundationModelsEvalThresholds.forModel(OnDeviceModelVersion.current.kind)
+    }
 
     func testLiveModelPassRateOnCorpus() async throws {
         try skipUnlessLiveModel()
         let results = await evaluate(WorkoutParseEvalCase.all, label: "corpus")
         let prose = results.filter { $0.tier == .prose }
-        assertRate(results, atLeast: Self.requiredPassRate, label: "corpus")
-        assertRate(prose, atLeast: Self.requiredProsePassRate, label: "corpus prose")
+        assertRate(results, atLeast: thresholds.corpus, label: "corpus")
+        assertRate(prose, atLeast: thresholds.prose, label: "corpus prose")
     }
 
     func testLiveModelPassRateOnHardCorpus() async throws {
         try skipUnlessLiveModel()
         let results = await evaluate(WorkoutParseEvalCase.hard, label: "hard corpus")
-        assertRate(results, atLeast: Self.requiredHardPassRate, label: "hard corpus")
+        assertRate(results, atLeast: thresholds.hard, label: "hard corpus")
     }
 
     func testLiveDiagnosticsForIncompleteMovements() async throws {
@@ -71,6 +100,9 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
         var failures: [String]
         var seconds: Double
         var modelIssue: String?
+        /// The model the parser consulted for this case; nil when notation was
+        /// complete and the model never ran.
+        var modelVersion: String?
     }
 
     private func skipUnlessLiveModel() throws {
@@ -86,7 +118,9 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
 
     private func evaluate(_ cases: [WorkoutParseEvalCase], label: String) async -> [CaseResult] {
         var results: [CaseResult] = []
+        let model = OnDeviceModelVersion.current
         print("[FM APP STATE] \(UIApplication.shared.applicationState.rawValue)")
+        print("[FM MODEL] \(model.summary) (thresholds: corpus \(thresholds.corpus), prose \(thresholds.prose), hard \(thresholds.hard))")
         for (index, evalCase) in cases.enumerated() {
             // Independent quality samples should not become a burst-rate-limit
             // stress test of the OS model service. Keep the quality threshold.
@@ -116,14 +150,15 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
             results.append(CaseResult(
                 name: evalCase.name, tier: evalCase.tier, pass: result.pass,
                 failures: result.failures, seconds: seconds,
-                modelIssue: parser.lastModelIssue.map { String(describing: $0) }
+                modelIssue: parser.lastModelIssue.map { String(describing: $0) },
+                modelVersion: Self.consultedModel(parser)
             ))
             print("[FM END] \(evalCase.name): \(result.pass ? "PASS" : "FAIL"), \(String(format: "%.1f", seconds))s, model issue: \(String(describing: parser.lastModelIssue))")
         }
 
         // Per-case table so a failing run shows exactly where the model fell
         // short, not just an aggregate number.
-        print("=== FoundationModels live eval: \(label) (\(results.count) cases) ===")
+        print("=== FoundationModels live eval: \(label) (\(results.count) cases) on \(model.displayName) ===")
         for result in results {
             let status = result.pass ? "PASS" : "FAIL"
             print("[\(status)] \(result.name) (\(String(format: "%.1f", result.seconds))s)")
@@ -135,10 +170,20 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
             "label": label,
             "recordedAt": ISO8601DateFormatter().string(from: Date()),
             "modelAvailable": FoundationModelsWorkoutScanParser.isAvailable,
+            "modelVersion": [
+                "kind": model.kind.rawValue,
+                "displayName": model.displayName,
+                "contextSize": model.contextSize,
+                "imageInput": model.supportsVision,
+            ] as [String: Any],
+            "thresholds": [
+                "corpus": thresholds.corpus, "prose": thresholds.prose, "hard": thresholds.hard,
+            ],
             "cases": results.map { result in
                 ["name": result.name, "tier": String(describing: result.tier),
                  "passed": result.pass, "failures": result.failures,
-                 "seconds": result.seconds, "modelIssue": result.modelIssue ?? "none"] as [String: Any]
+                 "seconds": result.seconds, "modelIssue": result.modelIssue ?? "none",
+                 "modelConsulted": result.modelVersion ?? "none"] as [String: Any]
             }
         ]
         if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) {
@@ -154,6 +199,14 @@ final class FoundationModelsLiveEvalTests: MarbleTestCase {
             print("=== Latency: mean \(String(format: "%.1f", mean))s, p90 \(String(format: "%.1f", p90))s ===")
         }
         return results
+    }
+
+    private static func consultedModel(_ parser: FoundationModelsWorkoutScanParser) -> String? {
+        #if DEBUG
+        return parser.lastModelVersion?.displayName
+        #else
+        return nil
+        #endif
     }
 
     private func assertRate(_ results: [CaseResult], atLeast required: Double, label: String) {

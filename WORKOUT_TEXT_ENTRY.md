@@ -76,11 +76,84 @@ notation rewrite runs first; structured extraction runs only when the rewrite yi
 no source-grounded content. Each pass gets one fresh-session retry, and only for
 transient failures (guardrail, refusal, rate limit, concurrent requests); missing
 assets or unclassified errors stop model calls for 10 minutes. Cancellation is
-checked between stages. A conservative 4,000 UTF-8 byte per-session input budget,
-then a token count against the context window, reserves room for instructions,
+checked between stages. A per-session UTF-8 byte budget derived from the model's
+context window (`inputByteBudget(contextSize:)`: what remains after the rewrite
+instructions and the 1,024-token output reserve, at 1.75 bytes per token — 3,976
+bytes on iOS 26's 4,096-token model, roughly three times that on an 8K iOS 27
+model), then an exact token count (iOS 26.4+), reserves room for instructions,
 schema, and output; oversized source falls back without truncation. CSV never goes
 through the model.
 No cloud model, account, external workout upload, or subscription was added.
+Nothing uses Private Cloud Compute.
+
+### Plain-text rewrite (guardrails)
+
+`SystemLanguageModel.Guardrails.permissiveContentTransformations` relaxes guardrails
+only for text responses; guided (`@Generable`) generation keeps the default
+guardrails and still threw on benign gym prose. The notation rewrite therefore
+answers in plain text: an optional first line `Date: <as written>`, then one
+notation line per exercise block. `ModelNotationOutput` strips bullets, numbering,
+code fences, emphasis, quotes and chatter ("Here is…", "Note: …") but never edits a
+line's words or numbers. The lines then go through `HandwrittenWorkoutParser`; the
+date literal is kept only when the source states it (`sourceDate`); units come from
+each movement's source span (`applyingSourceWeightUnits`); and the arbiter grounds
+the result as before. Structured extraction (`GeneratedWorkout`) is unchanged and
+remains the fallback. Prewarming still warms the rewrite instructions plus the same
+prompt prefix.
+
+### Streaming, sources and feedback (HIG Generative AI)
+
+- The rewrite streams (`streamResponse`). Each finished notation line is reported as
+  `WorkoutParseStage.partialNotation` and shown as a quiet monochrome list under the
+  stage text (Paste or Type keeps its Stop button). Only complete lines are shown;
+  VoiceOver is told the stage once per change, not each line. The draft is built
+  from the final snapshot by the same `rewriteDraft` a non-streamed answer would
+  use, so streaming changes when lines appear, not the result. A stopped or
+  superseded preview ignores late progress.
+- The staged `parse(ocrText:referenceDate:pageImages:onStage:)` is now a
+  `WorkoutScanParsing` requirement. Before, it was only an extension method, so calls
+  through `any WorkoutScanParsing` never reached the on-device parser's stages.
+  Conformers must spell the closure type as `WorkoutParseStageHandler`: the app
+  target builds with approachable concurrency and the test targets don't, so a
+  hand-written closure type in a test file silently fails to witness the requirement.
+- A model-interpreted draft carries `ParsedExerciseDraft.sourceExcerpt` (from
+  `WorkoutDraftArbiter.sourceSpan`), shown in review as `From: “…”` under each
+  exercise (`TextEntry.Exercise.Source.<id>` / `Scan.Exercise.Source.<id>`). It is set
+  once at parse time, so it survives renaming and draft recovery; deterministic
+  drafts don't get one.
+- Model-interpreted reviews end with "Was this read correctly?" thumbs up/down
+  (`<prefix>.ModelFeedback.Up` / `.Down`). Only aggregate counts are stored, in user
+  defaults (`modelReadFeedback.correctCount` / `.incorrectCount`), once per reviewed
+  workout. A thumbs-down offers a person-initiated `ShareLink`
+  (`<prefix>.ModelFeedback.Share`) with their text and Marble's reading as plain
+  text. Nothing is sent automatically.
+
+### Availability copy
+
+Copy branches on `SystemLanguageModel.Availability.UnavailableReason`
+(`ModelAvailabilityStatus`): an ineligible iPhone is told it doesn't support Apple
+Intelligence and that gym notation still works on device; `modelNotReady` says it is
+still downloading; `appleIntelligenceNotEnabled` asks to turn it on only before
+iOS 27 (Apple Intelligence can't be turned off on iOS 27, so iOS 27 copy never says
+"turn on"). The review's model-issue note uses the same reasons.
+
+### iOS 27 models and page images
+
+`OnDeviceModelVersion` reports the system model (`SystemLanguageModel.Variant`
+display name on iOS 27, "iOS 26 base model" before), its context size and whether it
+accepts images. Debug builds record it per parse (`lastModelVersion`), and the live
+eval prints it and applies per-variant thresholds (`FoundationModelsEvalThresholds`;
+iOS 26's historical 0.8 / 0.7 / 0.6 is the floor, iOS 27 bars are provisional until a
+device run calibrates them).
+
+For photo scans on iOS 27, when the model's `capabilities` contain `.vision`, the
+captured pages (at most three, each downscaled to 1,024 px on the long edge, with
+their orientation) are attached to the rewrite prompt after the OCR text, with a note
+that the OCR text is authoritative and the photo only settles layout (rows/columns,
+crossed-out or checked sets, handwriting). Images are dropped — never the text — when
+they don't fit the context window or the token count fails, and a rewrite that fails
+with images retries once on text alone. Grounding is always against the OCR text.
+Typed text, iOS 26 and models without image input behave exactly as before.
 
 Guided generation provides a structured response, not proof that its facts are
 correct. Source grounding and explicit unresolved review remain necessary. Lexical
@@ -93,8 +166,10 @@ Design decisions follow Apple's guidance on
 [context management](https://developer.apple.com/documentation/foundationmodels/managing-the-context-window),
 [input boundaries](https://developer.apple.com/documentation/foundationmodels/improving-the-safety-of-generative-model-output), and
 [evaluation](https://developer.apple.com/documentation/foundationmodels/evaluating-prompts-to-measure-performance-and-improve-model-responses).
-Keep implementation within the deployed iOS 26 SDK; newer documentation may describe
-beta APIs that are not available here.
+The deployment target is iOS 26.0: every iOS 27 symbol sits behind
+`if #available(iOS 27.0, *)` (and `#if compiler(>=6.4)`), and only symbols available
+in the iOS 27.0 SDK are used (CI and the archive build with Xcode 27.0), never
+27.1+ additions such as `Transcript.DataAttachment`.
 
 ## Validation
 

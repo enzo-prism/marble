@@ -496,6 +496,40 @@ nonisolated enum WorkoutDraftArbiter {
         }
     }
 
+    // MARK: - Showing sources
+
+    /// Longest excerpt shown under an exercise in review.
+    static let sourceExcerptLimit = 160
+
+    /// The source text a model-interpreted exercise came from, for review to
+    /// show beside it ("From: “…”") so the person can verify the reading.
+    /// Uses the same lexical anchoring that grounds the exercise; nil when no
+    /// span names the movement. Line breaks inside a span become " / ".
+    static func sourceExcerpt(for name: String, in sourceText: String, limit: Int = sourceExcerptLimit) -> String? {
+        guard let span = sourceSpan(for: name, in: sourceText) else { return nil }
+        let flattened = span.text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " / ")
+        guard !flattened.isEmpty else { return nil }
+        guard flattened.count > limit, limit > 1 else { return flattened }
+        return String(flattened.prefix(limit - 1)).trimmingCharacters(in: .whitespaces) + "…"
+    }
+
+    /// Attaches `sourceExcerpt` to every exercise of a model-interpreted draft.
+    /// Deterministic drafts are returned untouched: their rows already are the
+    /// source lines, so a "From:" line would only repeat them.
+    static func annotatingSourceExcerpts(_ draft: ParsedWorkoutDraft, sourceText: String) -> ParsedWorkoutDraft {
+        guard draft.interpretedByModel == true else { return draft }
+        var annotated = draft
+        for index in annotated.exercises.indices where annotated.exercises[index].sourceExcerpt == nil {
+            annotated.exercises[index].sourceExcerpt = sourceExcerpt(
+                for: annotated.exercises[index].name, in: sourceText
+            )
+        }
+        return annotated
+    }
+
     // MARK: - Merging
 
     private static let placeholderTitles: Set<String> = ["Scanned workout", "Typed workout", "Imported workout"]

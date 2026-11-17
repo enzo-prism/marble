@@ -69,6 +69,11 @@ nonisolated struct ParsedExerciseDraft: Equatable, Sendable, Identifiable, Codab
     /// Keep an editable metric visible while its last value is temporarily
     /// blank. Review establishes this once; parsers still infer from values.
     var reviewMetricsProfile: ExerciseMetricsProfile? = nil
+    /// For a model-interpreted draft: the source text this exercise was read
+    /// from, shown in review so the reading can be checked against it. Set
+    /// once at parse time (an edited name keeps its original source); nil for
+    /// deterministic parses and drafts saved before this field existed.
+    var sourceExcerpt: String? = nil
 
     init(
         id: UUID = UUID(),
