@@ -97,18 +97,42 @@ final class WorkoutVisualSearchTests: MarbleTestCase {
 
     // MARK: - Entity
 
-    func testEntityIdentifierRoundTripsTheRecognizedText() throws {
-        let text = "Bench 3x8 @ 185\nSquat 5x5 225"
-        let entity = WorkoutCaptureEntity(text: text)
-        let restored = try XCTUnwrap(WorkoutCaptureEntity(id: entity.id))
-        XCTAssertEqual(restored.text, text)
-        XCTAssertNil(WorkoutCaptureEntity(id: "something-else"))
-        XCTAssertNil(WorkoutCaptureEntity(id: WorkoutCaptureEntity.identifierPrefix))
+    override func tearDown() {
+        WorkoutCaptureCache.removeAll()
+        super.tearDown()
     }
 
-    func testQueryResolvesIdentifiersWithoutStoredState() async throws {
+    func testEntityIdentifierIsOpaqueAndResolvesFromTheCache() throws {
+        let text = "Bench 3x8 @ 185\nSquat 5x5 225"
+        let entity = WorkoutCaptureEntity(text: text)
+        XCTAssertNotNil(UUID(uuidString: entity.id), "The identifier is a random token.")
+        XCTAssertFalse(entity.id.contains("Bench"), "Recognized text never appears in the identifier.")
+        XCTAssertNotEqual(WorkoutCaptureEntity(text: text).id, entity.id)
+        XCTAssertEqual(try XCTUnwrap(WorkoutCaptureEntity(id: entity.id)).text, text)
+        XCTAssertNil(WorkoutCaptureEntity(id: "something-else"))
+        XCTAssertNil(WorkoutCaptureEntity(id: UUID().uuidString), "An unknown token (e.g. after relaunch) resolves to nothing.")
+    }
+
+    func testCapturesExpireAfterTenMinutes() {
+        let entity = WorkoutCaptureEntity(text: "Deadlift 315x5", now: now)
+        XCTAssertNotNil(WorkoutCaptureEntity(id: entity.id, now: now.addingTimeInterval(9 * 60)))
+        XCTAssertNil(WorkoutCaptureEntity(id: entity.id, now: now.addingTimeInterval(10 * 60)))
+    }
+
+    func testCacheIsBounded() {
+        let first = WorkoutCaptureEntity(text: "Squat 5x5", now: now)
+        let rest = (0..<WorkoutCaptureCache.capacity).map { WorkoutCaptureEntity(text: "Row \($0)x10", now: now) }
+        XCTAssertNil(WorkoutCaptureEntity(id: first.id, now: now), "The oldest capture is evicted.")
+        XCTAssertNotNil(WorkoutCaptureEntity(id: rest[0].id, now: now))
+    }
+
+    func testOpenIntentIsNotAShortcutsAction() {
+        XCTAssertFalse(OpenWorkoutCaptureIntent.isDiscoverable)
+    }
+
+    func testQueryResolvesOnlyLiveTokens() async throws {
         let entity = WorkoutCaptureEntity(text: "Deadlift 315x5")
-        let resolved = try await WorkoutCaptureQuery().entities(for: [entity.id, "unknown"])
+        let resolved = try await WorkoutCaptureQuery().entities(for: [entity.id, "unknown", UUID().uuidString])
         XCTAssertEqual(resolved.map(\.text), ["Deadlift 315x5"])
     }
 

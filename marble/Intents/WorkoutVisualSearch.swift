@@ -3,6 +3,7 @@ import CoreGraphics
 import CoreImage
 import CoreVideo
 import Foundation
+import Synchronization
 import VideoToolbox
 #if canImport(VisualIntelligence)
 import VisualIntelligence
@@ -18,11 +19,12 @@ import VisualIntelligence
 
 /// Recognized workout text offered as a Visual Intelligence result.
 ///
-/// The identifier *is* the recognized text (behind a version prefix), so the system
-/// can hand the entity back to `OpenWorkoutCaptureIntent` after a relaunch without
-/// Marble persisting anything it saw on screen.
+/// The identifier is an opaque random token. The recognized text lives only in
+/// `WorkoutCaptureCache` — in memory, for ten minutes, a handful of captures at
+/// most — so intent parameters, donations or logs the system may keep never carry
+/// what was on screen. A token that no longer resolves (expired, or the app was
+/// relaunched) yields no entity; running Visual Intelligence again recreates it.
 nonisolated struct WorkoutCaptureEntity: AppEntity {
-    static let identifierPrefix = "capture-v1:"
     /// Generous for a whiteboard or a program page; longer captures are trimmed at a
     /// line boundary and stay editable in review.
     static let maximumTextLength = 4_000
@@ -33,16 +35,20 @@ nonisolated struct WorkoutCaptureEntity: AppEntity {
     static var defaultQuery: WorkoutCaptureQuery { WorkoutCaptureQuery() }
 
     let id: String
+    let text: String
 
-    var text: String { String(id.dropFirst(Self.identifierPrefix.count)) }
-
-    init(text: String) {
-        id = Self.identifierPrefix + Self.bounded(text)
+    /// Registers `text` in the in-memory cache under a fresh opaque identifier.
+    init(text: String, now: Date = Date()) {
+        let bounded = Self.bounded(text)
+        id = WorkoutCaptureCache.store(bounded, now: now).uuidString
+        self.text = bounded
     }
 
-    init?(id: String) {
-        guard id.hasPrefix(Self.identifierPrefix), id.count > Self.identifierPrefix.count else { return nil }
+    /// Resolves a token from the cache; `nil` once it has expired or been evicted.
+    init?(id: String, now: Date = Date()) {
+        guard let token = UUID(uuidString: id), let text = WorkoutCaptureCache.text(for: token, now: now) else { return nil }
         self.id = id
+        self.text = text
     }
 
     var displayRepresentation: DisplayRepresentation {
@@ -73,9 +79,44 @@ nonisolated struct WorkoutCaptureEntity: AppEntity {
     }
 }
 
+/// Short-lived, process-local storage for recognized capture text.
+nonisolated enum WorkoutCaptureCache {
+    static let lifetime: TimeInterval = 10 * 60
+    static let capacity = 8
+
+    private struct Entry {
+        let token: UUID
+        let text: String
+        let storedAt: Date
+    }
+
+    private static let entries = Mutex<[Entry]>([])
+
+    static func store(_ text: String, now: Date = Date()) -> UUID {
+        let token = UUID()
+        entries.withLock { entries in
+            entries.removeAll { now.timeIntervalSince($0.storedAt) >= lifetime }
+            entries.append(Entry(token: token, text: text, storedAt: now))
+            if entries.count > capacity { entries.removeFirst(entries.count - capacity) }
+        }
+        return token
+    }
+
+    static func text(for token: UUID, now: Date = Date()) -> String? {
+        entries.withLock { entries in
+            entries.removeAll { now.timeIntervalSince($0.storedAt) >= lifetime }
+            return entries.first { $0.token == token }?.text
+        }
+    }
+
+    static func removeAll() {
+        entries.withLock { $0.removeAll() }
+    }
+}
+
 nonisolated struct WorkoutCaptureQuery: EntityQuery {
     func entities(for identifiers: [String]) async throws -> [WorkoutCaptureEntity] {
-        identifiers.compactMap(WorkoutCaptureEntity.init(id:))
+        identifiers.compactMap { WorkoutCaptureEntity(id: $0) }
     }
 
     func suggestedEntities() async throws -> [WorkoutCaptureEntity] { [] }
@@ -88,6 +129,8 @@ struct OpenWorkoutCaptureIntent: OpenIntent {
     static let description = IntentDescription("Opens workout text Marble read from the screen or camera for review. Nothing is logged until it is reviewed.")
     static let supportedModes: IntentModes = [.foreground(.immediate)]
     static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
+    /// Only Visual Intelligence results open this; it is not a Shortcuts action.
+    static let isDiscoverable = false
 
     @Parameter(title: "Workout") var target: WorkoutCaptureEntity
 
