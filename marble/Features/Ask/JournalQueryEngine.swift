@@ -120,13 +120,20 @@ struct JournalQueryEngine {
     private func lastPerformed(exerciseID: UUID, atLeast threshold: WeightThreshold?) -> JournalResult {
         guard let exercise = exercise(id: exerciseID) else { return missingExercise() }
         let name = exercise.name
-        let thresholdText = threshold.map { "\(AskFormat.number($0.value, maximumFractionDigits: 2)) \($0.unit.symbol)" }
+        // Dumbbell pairs store the pair total but are entered, shown and asked
+        // about per dumbbell ("DB bench at 50 lb" means 50 lb each), so the
+        // threshold applies to one dumbbell — the same input convention as the
+        // logger and LogSetIntent.
+        let style = exercise.resistanceTrackingStyle
+        let eachSuffix = style == .singleDumbbellPair ? " each" : ""
+        let thresholdText = threshold.map { "\(AskFormat.number($0.value, maximumFractionDigits: 2)) \($0.unit.symbol)\(eachSuffix)" }
 
         let entry: SetEntry?
         if let threshold {
             entry = newestEntry(of: exerciseID) { candidate in
-                guard let weight = candidate.weight, weight > 0 else { return false }
-                return PersonalRecords.kilograms(weight, unit: candidate.weightUnit) >= threshold.kilograms - PersonalRecords.weightEpsilon
+                guard let weight = candidate.weight, weight > 0,
+                      let entered = style.inputWeight(from: weight) else { return false }
+                return PersonalRecords.kilograms(entered, unit: candidate.weightUnit) >= threshold.kilograms - PersonalRecords.weightEpsilon
             }
         } else {
             entry = SetEntryQueries.mostRecentEntry(for: exerciseID, in: context)
@@ -321,7 +328,9 @@ struct JournalQueryEngine {
     }
 
     /// Same ordering as `PersonalRecords`: heavier (unit-normalized), then
-    /// more reps, then the later set.
+    /// more reps, then the later set. Compared on stored weight: every set of
+    /// one exercise shares its tracking style, so per-dumbbell and pair-total
+    /// order identically, and the winner is shown per dumbbell.
     private static func heaviestIsLess(_ lhs: SetEntry, _ rhs: SetEntry) -> Bool {
         let left = PersonalRecords.kilograms(lhs.weight ?? 0, unit: lhs.weightUnit)
         let right = PersonalRecords.kilograms(rhs.weight ?? 0, unit: rhs.weightUnit)

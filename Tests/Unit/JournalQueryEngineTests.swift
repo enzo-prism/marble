@@ -245,6 +245,24 @@ final class JournalQueryEngineTests: MarbleTestCase {
         XCTAssertEqual(result.cards.first?.value, "50 lb each × 10")
     }
 
+    func testDumbbellThresholdsApplyToOneDumbbell() {
+        let press = exercise("Dumbbell Press", style: .singleDumbbellPair)
+        set(press, day(-1), weight: 60, reps: 10)    // 30 lb each
+        set(press, day(-5), weight: 100, reps: 8)    // 50 lb each
+        let result = engine().run(.lastPerformed(exerciseID: press.id, atLeast: WeightThreshold(value: 50, unit: .lb)))
+        XCTAssertTrue(result.found)
+        XCTAssertEqual(result.sentence, "The last time you did Dumbbell Press at 50 lb each or more was Jan 10, 2025 (5 days ago): 50 lb each × 8.")
+        XCTAssertTrue(result.facts.contains("Filter: sets at or above 50 lb each"))
+
+        let none = engine().run(.lastPerformed(exerciseID: press.id, atLeast: WeightThreshold(value: 55, unit: .lb)))
+        XCTAssertFalse(none.found)
+        XCTAssertEqual(none.sentence, "No Dumbbell Press sets at 55 lb each or more are in your journal.")
+
+        // Kilogram threshold against pound-logged pairs: 22.7 kg each ≈ 50 lb each.
+        let metric = engine(.kg).run(.lastPerformed(exerciseID: press.id, atLeast: WeightThreshold(value: 22, unit: .kg)))
+        XCTAssertEqual(metric.cards.first?.value, "22.7 kg each × 8")
+    }
+
     // MARK: - Totals
 
     func testTotalsCountManualAndImportedSetsWithVolumeInEitherUnit() {
