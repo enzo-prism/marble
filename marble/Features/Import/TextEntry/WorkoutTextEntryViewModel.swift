@@ -94,6 +94,17 @@ final class WorkoutTextEntryViewModel {
     /// Current pipeline stage while `phase == .processing` — drives the status
     /// copy beside an indeterminate spinner. Reset on every preview.
     private(set) var parseStage: WorkoutParseStage = .readingNotation
+    /// Notation lines the streaming rewrite pass has finished so far, shown
+    /// as a quiet preview under the stage text while `phase == .processing`.
+    /// Never the result: review shows the arbitrated, grounded draft.
+    private(set) var streamedNotationLines: [String] = []
+    /// Answers to "Was this read correctly?", one per reviewed workout (keyed
+    /// by session so a batch drill-in can't be counted twice). Cleared by a
+    /// new preview.
+    private var modelReadVerdicts: [UUID: ModelReadVerdict] = [:]
+    /// The answer for the workout in review; nil until the person answers.
+    var modelReadVerdict: ModelReadVerdict? { modelReadVerdicts[reviewingSessionID ?? Self.singleReviewKey] }
+    private static let singleReviewKey = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
     /// 1-based index of the session currently being parsed, when a paste
     /// split into more than one workout.
     private(set) var batchProgress: (current: Int, total: Int)?
@@ -128,6 +139,7 @@ final class WorkoutTextEntryViewModel {
     private let parser: WorkoutScanParsing
     /// Test seam: when nil, `commit` calls `WorkoutScanImporter` directly.
     private let importHandler: ImportHandler?
+    @ObservationIgnored private let feedbackStore: ModelReadFeedbackStore
     /// Unit assumed for weights written without one ("Bench 3x8 @ 100") — the
     /// user's preferred unit, not a hardcoded lb.
     private let defaultWeightUnit: WeightUnit
@@ -152,11 +164,13 @@ final class WorkoutTextEntryViewModel {
         importHandler: ImportHandler? = nil,
         defaultWeightUnit: WeightUnit = WorkoutTextEntryViewModel.preferredWeightUnit,
         initialText: String = "",
-        draftStore: (any WorkoutEntryDraftStoring)? = nil
+        draftStore: (any WorkoutEntryDraftStoring)? = nil,
+        feedbackStore: ModelReadFeedbackStore = ModelReadFeedbackStore()
     ) {
         self.defaultWeightUnit = defaultWeightUnit
         self.parser = parser ?? FoundationModelsWorkoutScanParser(defaultWeightUnit: defaultWeightUnit)
         self.importHandler = importHandler
+        self.feedbackStore = feedbackStore
         self.text = initialText
         self.draftStore = draftStore
         restoreSavedDraft()
@@ -276,15 +290,28 @@ final class WorkoutTextEntryViewModel {
 
     private func recordModelIssue() {
         guard let issue = (parser as? FoundationModelsWorkoutScanParser)?.lastModelIssue else { return }
+        modelIssueNote = Self.modelIssueNote(for: issue, availability: .current)
+    }
+
+    /// User-facing copy for why Apple Intelligence didn't help. An
+    /// `.unavailable` issue names the actual availability reason when there
+    /// is one (ineligible iPhone, still downloading, turned off before iOS 27)
+    /// instead of a generic "right now".
+    static func modelIssueNote(
+        for issue: FoundationModelsWorkoutScanParser.ModelIssue,
+        availability: ModelAvailabilityStatus,
+        canTurnOnAppleIntelligence: Bool = ModelAvailabilityStatus.canTurnOnAppleIntelligence
+    ) -> String {
         switch issue {
         case .inputTooLong:
-            modelIssueNote = "That's more than Apple Intelligence can read at once — put a date or a blank line between workouts to split it."
+            return "That's more than Apple Intelligence can read at once — put a date or a blank line between workouts to split it."
         case .unsupportedLanguage:
-            modelIssueNote = "Apple Intelligence doesn't support this language yet, so only gym notation was read."
+            return "Apple Intelligence doesn't support this language yet, so only gym notation was read."
         case .unavailable:
-            modelIssueNote = "Apple Intelligence couldn't read this right now, so only gym notation was read."
+            return availability.unavailableNote(canTurnOnAppleIntelligence: canTurnOnAppleIntelligence)
+                ?? "Apple Intelligence couldn't read this right now, so only gym notation was read."
         case .failed:
-            modelIssueNote = "Apple Intelligence couldn't finish reading this. Check the review carefully or try again later."
+            return "Apple Intelligence couldn't finish reading this. Check the review carefully or try again later."
         }
     }
 
@@ -295,29 +322,51 @@ final class WorkoutTextEntryViewModel {
         previewGeneration += 1
         batchProgress = nil
         parseStage = .readingNotation
+        streamedNotationLines = []
         phase = .input
     }
 
-    /// Privacy / availability line under the editor. Matches Apple's
-    /// `SystemLanguageModel.availability` cases instead of a generic lock label.
-    var privacyCaption: String {
-        #if canImport(FoundationModels)
-        if #available(iOS 26.0, *) {
-            switch SystemLanguageModel.default.availability {
-            case .available:
-                return "Read on your device with Apple Intelligence — nothing is uploaded."
-            case .unavailable(.appleIntelligenceNotEnabled):
-                return "Turn on Apple Intelligence to read prose; gym notation still works on device. Nothing is uploaded."
-            case .unavailable(.modelNotReady):
-                return "Apple Intelligence is still downloading. Gym notation still works on this device."
-            case .unavailable(.deviceNotEligible):
-                return "Read on your device — nothing is uploaded."
-            default:
-                return "Read on your device — nothing is uploaded."
-            }
+    /// Applies one parser progress callback. Streamed notation lines update
+    /// the preview list without changing the stage text, so VoiceOver hears
+    /// "Interpreting…" once rather than every line.
+    private func applyParseProgress(_ stage: WorkoutParseStage) {
+        switch stage {
+        case .partialNotation(let lines):
+            streamedNotationLines = lines
+        case .readingNotation, .interpreting:
+            streamedNotationLines = []
+            parseStage = stage
+        case .finalizing:
+            // Keep the streamed lines on screen until review replaces them.
+            parseStage = stage
         }
-        #endif
-        return "Read on your device — nothing is uploaded."
+    }
+
+    /// Privacy / availability line under the editor, branched on the actual
+    /// `SystemLanguageModel.Availability.UnavailableReason`.
+    var privacyCaption: String {
+        ModelAvailabilityStatus.current.privacyCaption()
+    }
+
+    // MARK: - Reading feedback
+
+    /// Records the person's answer once per review; later taps are ignored
+    /// so one draft can't skew the on-device counts.
+    func recordModelReadFeedback(_ verdict: ModelReadVerdict) {
+        guard modelReadVerdict == nil, draft.interpretedByModel == true else { return }
+        feedbackStore.record(verdict)
+        modelReadVerdicts[reviewingSessionID ?? Self.singleReviewKey] = verdict
+    }
+
+    /// What the person may choose to share after a misread: their text and
+    /// Marble's reading, as plain text. Built on demand; never sent anywhere
+    /// by Marble itself.
+    var modelReadShareText: String {
+        ModelReadExample.shareText(
+            source: reviewSourceText,
+            draft: draft,
+            modelName: OnDeviceModelVersion.current.displayName
+        )
     }
 
     func ingestPastedText(_ pasted: String) {
@@ -351,6 +400,8 @@ final class WorkoutTextEntryViewModel {
         let generation = previewGeneration
         phase = .processing
         parseStage = .readingNotation
+        streamedNotationLines = []
+        modelReadVerdicts = [:]
         batchProgress = nil
         errorMessage = nil
         modelIssueNote = nil
@@ -370,7 +421,8 @@ final class WorkoutTextEntryViewModel {
             guard generation == previewGeneration else { return }
             batchProgress = (index + 1, segments.count)
             parseStage = .readingNotation
-            let parsed = await parseSegment(segment, sessionCount: segments.count)
+            streamedNotationLines = []
+            let parsed = await parseSegment(segment, sessionCount: segments.count, generation: generation)
             let hasContent = parsed.draft.hasContent
             // Keep an unreadable block in a real multi-workout paste so the
             // review screen can point to it instead of silently dropping it.
@@ -430,7 +482,8 @@ final class WorkoutTextEntryViewModel {
 
     private func parseSegment(
         _ segment: WorkoutImportSegment,
-        sessionCount: Int
+        sessionCount: Int,
+        generation: Int
     ) async -> (draft: ParsedWorkoutDraft, unparsedLines: [String]) {
         if var draft = segment.draft {
             if draft.title == ParsedWorkoutDraft().title { draft.title = Self.defaultTitle }
@@ -464,7 +517,12 @@ final class WorkoutTextEntryViewModel {
         }
 
         var parsed = await parser.parse(ocrText: segment.sourceText, referenceDate: AppEnvironment.now) { stage in
-            await MainActor.run { self.parseStage = stage }
+            await MainActor.run {
+                // A stopped or superseded preview keeps streaming in the
+                // background; its progress must not repaint the new state.
+                guard generation == self.previewGeneration else { return }
+                self.applyParseProgress(stage)
+            }
         }
         if parsed.title == ParsedWorkoutDraft().title { parsed.title = Self.defaultTitle }
         recordModelIssue()
@@ -1228,6 +1286,8 @@ final class WorkoutTextEntryViewModel {
         batchProgress = nil
         livePreview = nil
         parseStage = .readingNotation
+        streamedNotationLines = []
+        modelReadVerdicts = [:]
         celebration = ImportCelebration(volumeText: nil, prExercises: [])
         saveDraftNow()
     }

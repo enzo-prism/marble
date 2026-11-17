@@ -624,10 +624,12 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         func parse(
             ocrText: String,
             referenceDate: Date,
-            onStage: @Sendable (WorkoutParseStage) async -> Void
+            pageImages: [WorkoutScanPageImage],
+            onStage: WorkoutParseStageHandler
         ) async -> ParsedWorkoutDraft {
             await onStage(.readingNotation)
             await onStage(.interpreting(pass: 1, of: 2))
+            await onStage(.partialNotation(lines: ["Bench 1x5"]))
             await onStage(.interpreting(pass: 2, of: 2))
             await onStage(.finalizing)
             return await parse(ocrText: ocrText, referenceDate: referenceDate)
@@ -658,6 +660,51 @@ final class WorkoutTextEntryViewModelTests: MarbleTestCase {
         XCTAssertEqual(viewModel.phase, .review)
         XCTAssertEqual(viewModel.parseStage, .finalizing,
                        "The stub's last stage (finalizing) must be reflected on the view model")
+        XCTAssertTrue(viewModel.streamedNotationLines.isEmpty,
+                      "A later pass clears the previous pass's streamed lines")
+    }
+
+    /// Stops the preview mid-stream, then keeps streaming like the model
+    /// would (its call can't be interrupted).
+    private final class StoppingParser: WorkoutScanParsing, @unchecked Sendable {
+        var stop: (@MainActor () -> Void)?
+
+        func parse(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft {
+            ParsedWorkoutDraft(exercises: [ParsedExerciseDraft(name: "Bench", sets: [ParsedSetDraft(reps: 5)])])
+        }
+
+        func parse(
+            ocrText: String,
+            referenceDate: Date,
+            pageImages: [WorkoutScanPageImage],
+            onStage: WorkoutParseStageHandler
+        ) async -> ParsedWorkoutDraft {
+            await onStage(.interpreting(pass: 1, of: 2))
+            await onStage(.partialNotation(lines: ["Bench 1x5"]))
+            if let stop { await MainActor.run { stop() } }
+            await onStage(.partialNotation(lines: ["Bench 1x5", "Squat 1x5"]))
+            await onStage(.finalizing)
+            return await parse(ocrText: ocrText, referenceDate: referenceDate)
+        }
+    }
+
+    /// The streamed lines are a preview only; a stopped read must not keep
+    /// painting them (or its stages) once the person is back in the editor.
+    func testStopClearsStreamedLinesAndIgnoresLateProgress() async {
+        let parser = StoppingParser()
+        let viewModel = WorkoutTextEntryViewModel(parser: parser)
+        parser.stop = { [weak viewModel] in
+            XCTAssertEqual(viewModel?.streamedNotationLines, ["Bench 1x5"])
+            viewModel?.stopProcessing()
+        }
+        viewModel.text = "I did a hard workout this morning"
+
+        await viewModel.preview(in: makeInMemoryContext())
+
+        XCTAssertEqual(viewModel.phase, .input)
+        XCTAssertTrue(viewModel.streamedNotationLines.isEmpty)
+        XCTAssertEqual(viewModel.parseStage, .readingNotation)
+        XCTAssertEqual(viewModel.text, "I did a hard workout this morning")
     }
 
     func testCompleteNotationUsesDeterministicFastPathWithoutModelParser() async {
