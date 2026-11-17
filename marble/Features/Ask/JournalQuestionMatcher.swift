@@ -57,6 +57,28 @@ nonisolated enum JournalTimeParser {
                   let end = calendar.date(byAdding: .day, value: 1, to: day) else { return nil }
             return .between(start: day, end: end)
         }
+        // "since October", "since Oct 5", "since October 5, 2025": open-ended
+        // from that day (the most recent one not in the future) through today.
+        claim(#"since\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\b(?:\s+(\d{1,2})(?:st|nd|rd|th)?\b)?(?:,?\s+((?:19|20)\d{2}))?"#) { groups in
+            guard let name = groups[1], let month = monthNumber(name) else { return nil }
+            let day = groups[2].flatMap { Int($0) } ?? 1
+            let current = calendar.dateComponents([.year], from: now)
+            var year = groups[3].flatMap { Int($0) } ?? current.year ?? 2000
+            guard var start = calendar.date(from: DateComponents(year: year, month: month, day: day)),
+                  calendar.component(.day, from: start) == day else { return nil }
+            if groups[3] == nil, start > now {
+                year -= 1
+                guard let previous = calendar.date(from: DateComponents(year: year, month: month, day: day)) else { return nil }
+                start = previous
+            }
+            start = calendar.startOfDay(for: start)
+            return .between(start: start, end: max(tomorrow, calendar.date(byAdding: .day, value: 1, to: start) ?? tomorrow))
+        }
+        claim(#"since\s+((?:19|20)\d{2})\b"#) { groups in
+            guard let year = groups[1].flatMap({ Int($0) }),
+                  let start = calendar.date(from: DateComponents(year: year, month: 1, day: 1)) else { return nil }
+            return .between(start: start, end: max(tomorrow, calendar.date(byAdding: .day, value: 1, to: start) ?? tomorrow))
+        }
         claim(#"(?:(?:in|over|during|for)\s+)?(?:the\s+)?(?:last|past|previous)\s+(\d{1,3})\s+(days?|weeks?|months?)\b"#) { groups in
             guard let count = groups[1].flatMap({ Int($0) }), count > 0, let unit = groups[2] else { return nil }
             if unit.hasPrefix("day") { return .lastDays(count) }
@@ -95,6 +117,12 @@ nonisolated enum JournalTimeParser {
             var year = groups[3].flatMap { Int($0) } ?? current.year ?? 2000
             if groups[3] == nil, let currentMonth = current.month, month > currentMonth { year -= 1 }
             return .month(year: year, month: month)
+        }
+
+        // A whole year: "in 2025", "during 2024", or a bare year that isn't a
+        // load ("2025" — never "2025 lb").
+        claim(#"(?<![\d\-/.])\b(?:(?:in|during|for|of)\s+)?((?:19|20)\d{2})\b(?![.,\-/]\d)(?!\s*(?:lbs?|pounds?|kgs?|kilos?|kilograms?|m|km|mi|yd|meters?|metres?|miles?|yards?|reps?|sets?|x)\b)"#) { groups in
+            groups[1].flatMap { Int($0) }.map { JournalPeriod.year($0) }
         }
 
         return found.sorted { $0.range.lowerBound < $1.range.lowerBound }
@@ -268,15 +296,18 @@ nonisolated struct JournalQuestionMatcher {
             let unit: WeightUnit = (groups[2] ?? "").hasPrefix("k") ? .kg : .lb
             return WeightThreshold(value: value, unit: unit)
         }
-        if let groups = firstMatch(#"\b(?:at|over|above|with|least|of)\s+(\d+(?:\.\d+)?)\b(?!\s*(?:m|km|mi|yd|meters?|metres?|miles?|yards?|reps?|sets?)\b)"#, in: lowered),
-           let value = groups[1].flatMap(Double.init), value > 0 {
-            return WeightThreshold(value: value, unit: preferredUnit)
-        }
-        // A bare load ("last time I benched 185"): a number that isn't a
-        // count of reps/sets or a distance.
-        if let groups = firstMatch(#"(?<![\d.])(\d{2,4}(?:\.\d+)?)\b(?!\s*(?:x|m|km|mi|yd|meters?|metres?|miles?|yards?|reps?|sets?|times|s|sec|seconds?|min|minutes?)\b)"#, in: lowered),
-           let value = groups[1].flatMap(Double.init), value >= 10 {
-            return WeightThreshold(value: value, unit: preferredUnit)
+        // Unit-less numbers: "at 185", or a bare load ("last time I benched
+        // 185") that isn't a count of reps/sets, a distance, a duration — or
+        // a year (1900–2100 is always read as a date, never a load).
+        let unitless = [
+            #"\b(?:at|over|above|with|least|of)\s+(\d+(?:\.\d+)?)\b(?!\s*(?:m|km|mi|yd|meters?|metres?|miles?|yards?|reps?|sets?)\b)"#,
+            #"(?<![\d.])(\d{2,4}(?:\.\d+)?)\b(?!\s*(?:x|m|km|mi|yd|meters?|metres?|miles?|yards?|reps?|sets?|times|s|sec|seconds?|min|minutes?)\b)"#
+        ]
+        for pattern in unitless {
+            for groups in allMatches(pattern, in: lowered) {
+                guard let value = groups[1].flatMap(Double.init), value >= 10, !isYear(value) else { continue }
+                return WeightThreshold(value: value, unit: preferredUnit)
+            }
         }
         return nil
     }
@@ -291,6 +322,19 @@ nonisolated struct JournalQuestionMatcher {
         else if unitText.hasPrefix("y") { unit = .yards }
         else { unit = .meters }
         return unit.meters(from: value)
+    }
+
+    static func isYear(_ value: Double) -> Bool {
+        value == value.rounded() && (1900...2100).contains(value)
+    }
+
+    private static func allMatches(_ pattern: String, in text: String) -> [[String?]] {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
+        return regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).map { result in
+            (0..<result.numberOfRanges).map { index in
+                Range(result.range(at: index), in: text).map { String(text[$0]) }
+            }
+        }
     }
 
     private static func firstMatch(_ pattern: String, in text: String) -> [String?]? {
