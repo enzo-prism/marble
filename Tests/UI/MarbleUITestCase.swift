@@ -1,4 +1,3 @@
-import Darwin
 import Foundation
 import XCTest
 import Vision
@@ -75,19 +74,18 @@ class MarbleUITestCase: XCTestCase {
     /// (`Failed to terminate Prism.marble:49523: Failed to terminate
     /// Prism.marble:0` on CI 44043995039). `terminate()` records an XCTIssue
     /// even when the process is already dying, which fails an otherwise green
-    /// History audit in tearDown. SIGKILL any pid XCTest still knows — after
-    /// Home the state is often `.runningBackgroundSuspended` or `.unknown`,
-    /// not foreground/background — then wait for `.notRunning` without going
-    /// through `terminate()`.
+    /// History audit in tearDown. This SDK has no `XCUIApplication.processID`
+    /// (CI 44061298848), so wrap `terminate()` in a non-strict expected
+    /// failure instead of SIGKILL.
     func terminateIfRunning() {
-        guard let application = app else { return }
-        guard application.state != .notRunning else { return }
-        let pid = application.processID
-        guard pid > 0 else { return }
-        kill(pid, SIGKILL)
-        let deadline = Date().addingTimeInterval(5)
-        while application.state != .notRunning, Date() < deadline {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        guard let application = app, application.state != .notRunning else { return }
+        let options = XCTExpectFailure.Options()
+        options.isStrict = false
+        XCTExpectFailure(
+            "Home can leave XCUITest unable to terminate the process",
+            options: options
+        ) {
+            _ = application.terminate()
         }
     }
 
