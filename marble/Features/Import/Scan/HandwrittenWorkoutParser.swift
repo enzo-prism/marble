@@ -26,6 +26,15 @@ enum WorkoutParseStage: Sendable, Equatable {
 /// extension default runs instead.
 typealias WorkoutParseStageHandler = @Sendable (WorkoutParseStage) async -> Void
 
+/// One parse's draft together with that same call's model issue (why Apple
+/// Intelligence didn't contribute, nil when it did or was never needed).
+/// Per call, so an abandoned or overlapping parse can't report into the
+/// current one.
+nonisolated struct WorkoutParseOutcome: Sendable {
+    var draft: ParsedWorkoutDraft
+    var modelIssue: FoundationModelsWorkoutScanParser.ModelIssue?
+}
+
 /// Turns OCR / model text into structured workout data for review.
 ///
 /// Conformers are interchangeable so the scan flow can prefer the on-device model
@@ -43,6 +52,14 @@ protocol WorkoutScanParsing: Sendable {
         pageImages: [WorkoutScanPageImage],
         onStage: WorkoutParseStageHandler
     ) async -> ParsedWorkoutDraft
+    /// The staged parse plus this call's model issue. Conformers without a
+    /// model (the default) report no issue.
+    func parseOutcome(
+        ocrText: String,
+        referenceDate: Date,
+        pageImages: [WorkoutScanPageImage],
+        onStage: WorkoutParseStageHandler
+    ) async -> WorkoutParseOutcome
 }
 
 extension WorkoutScanParsing {
@@ -56,6 +73,18 @@ extension WorkoutScanParsing {
         onStage: WorkoutParseStageHandler
     ) async -> ParsedWorkoutDraft {
         await parse(ocrText: ocrText, referenceDate: referenceDate)
+    }
+
+    func parseOutcome(
+        ocrText: String,
+        referenceDate: Date,
+        pageImages: [WorkoutScanPageImage],
+        onStage: WorkoutParseStageHandler
+    ) async -> WorkoutParseOutcome {
+        WorkoutParseOutcome(
+            draft: await parse(ocrText: ocrText, referenceDate: referenceDate, pageImages: pageImages, onStage: onStage),
+            modelIssue: nil
+        )
     }
 
     /// Typed-text convenience: no page images.

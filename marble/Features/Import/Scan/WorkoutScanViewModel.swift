@@ -50,6 +50,8 @@ final class WorkoutScanViewModel {
     private(set) var streamedNotationLines: [String] = []
     /// The person's answer to "Was this read correctly?" for this scan.
     private(set) var modelReadVerdict: ModelReadVerdict?
+    /// The model's reading as parsed, before any review edits.
+    private(set) var modelReadSnapshot: ModelReadSnapshot?
 
     private let recognizer: WorkoutTextRecognizing
     private let parser: WorkoutScanParsing
@@ -122,6 +124,8 @@ final class WorkoutScanViewModel {
         parseStage = .readingNotation
         streamedNotationLines = []
         modelReadVerdict = nil
+        modelReadSnapshot = nil
+        modelIssue = nil
         errorMessage = nil
         handoffText = ""
         let combinedData = pages.reduce(into: Data()) { $0.append($1.imageData) }
@@ -161,9 +165,16 @@ final class WorkoutScanViewModel {
             )
         }
         let generation = processGeneration
-        let parsed = await parse(combined, pageImages: pageImages, generation: generation)
+        let outcome = await parse(combined, pageImages: pageImages, generation: generation)
+        // A reset or newer scan owns the screen now; drop this result and
+        // its model issue together.
         guard generation == processGeneration else { return }
-        draft = parsed
+        draft = outcome.draft
+        modelIssue = outcome.modelIssue
+        modelReadSnapshot = outcome.draft.interpretedByModel == true
+            ? ModelReadSnapshot(source: combined, reading: outcome.draft,
+                                modelName: OnDeviceModelVersion.current.displayName)
+            : nil
         reloadMatcher(in: context)
         rebuildResolutions()
         alreadyImported = (try? WorkoutScanImporter.alreadyImported(externalID: externalID, in: context)) ?? false
@@ -174,18 +185,17 @@ final class WorkoutScanViewModel {
     /// meaningful dropped, nothing implausible per `ModelEscalationPolicy`) is
     /// already the answer, so the scan skips the seconds-long model passes. The
     /// model runs for prose, dropped lines, and confident misreads.
-    private func parse(_ text: String, pageImages: [WorkoutScanPageImage], generation: Int) async -> ParsedWorkoutDraft {
+    private func parse(_ text: String, pageImages: [WorkoutScanPageImage], generation: Int) async -> WorkoutParseOutcome {
         let referenceDate = AppEnvironment.now
         let diagnostics = HandwrittenWorkoutParser.parseDetailed(
             text,
             referenceDate: referenceDate,
             defaultWeightUnit: defaultWeightUnit
         )
-        modelIssue = nil
         guard ModelEscalationPolicy.shouldRunModel(for: diagnostics, sourceText: text, referenceDate: referenceDate) else {
-            return diagnostics.draft
+            return WorkoutParseOutcome(draft: diagnostics.draft, modelIssue: nil)
         }
-        let parsed = await parser.parse(
+        return await parser.parseOutcome(
             ocrText: text, referenceDate: referenceDate, pageImages: pageImages
         ) { stage in
             await MainActor.run {
@@ -193,8 +203,6 @@ final class WorkoutScanViewModel {
                 self.applyParseProgress(stage)
             }
         }
-        modelIssue = (parser as? FoundationModelsWorkoutScanParser)?.lastModelIssue
-        return parsed
     }
 
     /// Streamed lines update the preview; only stage changes change the
@@ -233,13 +241,10 @@ final class WorkoutScanViewModel {
         modelReadVerdict = verdict
     }
 
-    /// The OCR and Marble's reading, for the person to share if they choose.
-    var modelReadShareText: String {
-        ModelReadExample.shareText(
-            source: sourceText,
-            draft: draft,
-            modelName: OnDeviceModelVersion.current.displayName
-        )
+    /// The OCR, Marble's original reading and any review corrections, for
+    /// the person to share if they choose. Text is built at export time.
+    var modelReadShareItem: ModelReadShareItem? {
+        modelReadSnapshot.map { ModelReadShareItem(snapshot: $0, current: draft) }
     }
 
     /// Joins OCR from successive notebook pages. Blank pages drop out so they
@@ -409,6 +414,7 @@ final class WorkoutScanViewModel {
         parseStage = .readingNotation
         streamedNotationLines = []
         modelReadVerdict = nil
+        modelReadSnapshot = nil
         processGeneration += 1
     }
 }

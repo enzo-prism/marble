@@ -738,7 +738,7 @@ struct WorkoutTextEntryView: View {
                         ModelReadFeedbackRow(
                             idPrefix: "TextEntry",
                             verdict: viewModel.modelReadVerdict,
-                            shareText: { viewModel.modelReadShareText },
+                            shareItem: viewModel.modelReadShareItem,
                             onVerdict: { viewModel.recordModelReadFeedback($0) }
                         )
                     }

@@ -25,12 +25,17 @@ nonisolated struct ModelNotationOutput: Equatable, Sendable {
         var dateText = ""
         var lines: [String] = []
         for rawLine in raw.components(separatedBy: .newlines) {
-            guard let line = cleaned(rawLine) else { continue }
+            guard var line = cleaned(rawLine) else { continue }
+            if isChatter(line) {
+                // "Sure, Bench 3x8 @ 185": keep the notation after a
+                // conversational opener; drop everything else that's chatter.
+                guard let salvaged = removingFiller(from: line) else { continue }
+                line = salvaged
+            }
             if let date = dateValue(in: line) {
                 if dateText.isEmpty { dateText = date }
                 continue
             }
-            if isChatter(line) { continue }
             lines.append(line)
             if lines.count == maximumLines { break }
         }
@@ -112,17 +117,50 @@ nonisolated struct ModelNotationOutput: Equatable, Sendable {
         return emptyDateValues.contains(value.lowercased()) ? "" : value
     }
 
+    /// Conversational openers a model puts *in front of* a real line ("Sure,
+    /// Bench 3x8", "Here's the workout: Squat 5x5"). Only these are stripped;
+    /// commentary openers ("Note:", "I dropped…") are never mined for content.
+    private static let fillerPrefixes = [
+        "here is", "here's", "here are", "sure", "certainly", "of course", "okay", "ok,", "ok.",
+        "below is", "notation:", "output:",
+    ]
+
+    /// The rest of a line after a recognized filler opener, up to and
+    /// including its first ":" / "," / "." — only when that rest is itself a
+    /// plausible notation line (starts with a name, has a number, isn't
+    /// chatter) or a "Date:" line. Otherwise
+    /// nil, so chatter can never become an exercise.
+    static func removingFiller(from line: String, depth: Int = 0) -> String? {
+        guard depth < 3 else { return nil }
+        let lowered = line.lowercased()
+        guard let prefix = fillerPrefixes.first(where: { startsWithWord(lowered, $0) }) else { return nil }
+        // The delimiter may be the opener's own last character ("ok.", "output:").
+        let searchStart = lowered.index(lowered.startIndex, offsetBy: max(0, prefix.count - 1))
+        guard let delimiter = lowered[searchStart...].firstIndex(where: { ":,.".contains($0) }) else { return nil }
+        let offset = lowered.distance(from: lowered.startIndex, to: delimiter)
+        let remainder = String(line.dropFirst(offset + 1))
+        guard let rest = cleaned(remainder) else { return nil }
+        if isChatter(rest) { return removingFiller(from: rest, depth: depth + 1) }
+        if dateValue(in: rest) != nil { return rest }
+        // Notation lines lead with the movement name and carry a number;
+        // "3 exercises." or "4 lines below" lead with the count and are talk.
+        guard rest.first?.isLetter == true, rest.contains(where: \.isNumber) else { return nil }
+        return rest
+    }
+
+    /// Whole-word prefix match: "sure" must not swallow "Surestep Lunge".
+    private static func startsWithWord(_ lowered: String, _ prefix: String) -> Bool {
+        guard lowered.hasPrefix(prefix) else { return false }
+        guard let next = lowered.dropFirst(prefix.count).first else { return true }
+        return !next.isLetter || prefix.last?.isLetter == false
+    }
+
     static func isChatter(_ line: String) -> Bool {
         let lowered = line.lowercased()
         // A heading-like line ending in a colon ("Notation lines:", "Workout:")
         // introduces content rather than being content.
         if lowered.hasSuffix(":") { return true }
-        return chatterPrefixes.contains { prefix in
-            guard lowered.hasPrefix(prefix) else { return false }
-            // Whole-word prefixes only: "sure" must not swallow "Surestep Lunge".
-            guard let next = lowered.dropFirst(prefix.count).first else { return true }
-            return !next.isLetter || prefix.last?.isLetter == false
-        }
+        return chatterPrefixes.contains { startsWithWord(lowered, $0) }
     }
 
     private static func unquoted(_ text: String) -> String {

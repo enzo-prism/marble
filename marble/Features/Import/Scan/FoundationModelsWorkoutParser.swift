@@ -175,6 +175,19 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
         pageImages: [WorkoutScanPageImage],
         onStage: WorkoutParseStageHandler
     ) async -> ParsedWorkoutDraft {
+        await parseOutcome(ocrText: ocrText, referenceDate: referenceDate, pageImages: pageImages, onStage: onStage).draft
+    }
+
+    /// The staged parse plus *this call's* model issue. Callers that show the
+    /// issue use this rather than `lastModelIssue`, which is shared by copies
+    /// of the parser and is overwritten by whichever overlapping parse
+    /// finishes last.
+    func parseOutcome(
+        ocrText: String,
+        referenceDate: Date,
+        pageImages: [WorkoutScanPageImage],
+        onStage: WorkoutParseStageHandler
+    ) async -> WorkoutParseOutcome {
         await onStage(.readingNotation)
         let deterministic = await fallback.parse(ocrText: ocrText, referenceDate: referenceDate)
         // Complete, plausible notation is already solved (the same gate both
@@ -217,7 +230,10 @@ nonisolated struct FoundationModelsWorkoutScanParser: WorkoutScanParsing {
         )
         // Show sources: a model reading carries the text each exercise came
         // from so review can put the two side by side.
-        return WorkoutDraftArbiter.annotatingSourceExcerpts(chosen, sourceText: ocrText)
+        return WorkoutParseOutcome(
+            draft: WorkoutDraftArbiter.annotatingSourceExcerpts(chosen, sourceText: ocrText),
+            modelIssue: issue
+        )
     }
 
     /// Task definition and output policy live in the instructions (they outrank

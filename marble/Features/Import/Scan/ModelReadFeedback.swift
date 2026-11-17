@@ -1,4 +1,6 @@
+import CoreTransferable
 import Foundation
+import UniformTypeIdentifiers
 
 /// The person's answer to "Was this read correctly?" on a model-interpreted
 /// review. Only aggregate counts are kept, on this device; nothing about the
@@ -33,10 +35,44 @@ struct ModelReadFeedbackStore {
     }
 }
 
+/// What the model read, frozen when review opens — before the person edits
+/// anything. A shared example must show the misreading, not the fix.
+nonisolated struct ModelReadSnapshot: Equatable, Sendable {
+    var source: String
+    /// The draft exactly as the parse returned it.
+    var reading: ParsedWorkoutDraft
+    var modelName: String
+}
+
+/// The share-sheet payload after a thumbs-down. Holds values only; the text
+/// is built when the share sheet exports it, not on every render.
+nonisolated struct ModelReadShareItem: Transferable, Sendable {
+    var snapshot: ModelReadSnapshot
+    /// The review as it stands, shown as corrections when it differs.
+    var current: ParsedWorkoutDraft
+
+    var text: String {
+        ModelReadExample.shareText(
+            source: snapshot.source, reading: snapshot.reading,
+            corrected: current, modelName: snapshot.modelName
+        )
+    }
+
+    static var transferRepresentation: some TransferRepresentation {
+        ProxyRepresentation(exporting: \.text)
+    }
+}
+
 /// Plain-text example a person can choose to share after a misread: what they
-/// wrote and what Marble read. Built only when they tap Share.
+/// wrote, what Marble read, and — if they fixed it in review — what it should
+/// have been.
 nonisolated enum ModelReadExample {
-    static func shareText(source: String, draft: ParsedWorkoutDraft, modelName: String) -> String {
+    static func shareText(
+        source: String,
+        reading: ParsedWorkoutDraft,
+        corrected: ParsedWorkoutDraft? = nil,
+        modelName: String
+    ) -> String {
         var lines = [
             "Marble misread this workout (on-device Apple Intelligence, \(modelName)).",
             "",
@@ -45,14 +81,21 @@ nonisolated enum ModelReadExample {
             "",
             "What Marble read:",
         ]
-        let exercises = draft.importableExercises
-        if exercises.isEmpty {
-            lines.append("(no exercises)")
-        }
-        for exercise in exercises {
-            lines.append("- \(exercise.trimmedName): \(setSummary(exercise.sets))")
+        let read = exerciseLines(reading)
+        lines += read
+        if let corrected {
+            let fixed = exerciseLines(corrected)
+            if fixed != read {
+                lines += ["", "Corrected to:"] + fixed
+            }
         }
         return lines.joined(separator: "\n")
+    }
+
+    static func exerciseLines(_ draft: ParsedWorkoutDraft) -> [String] {
+        let exercises = draft.importableExercises
+        guard !exercises.isEmpty else { return ["(no exercises)"] }
+        return exercises.map { "- \($0.trimmedName): \(setSummary($0.sets))" }
     }
 
     /// "3 sets of 8 reps @ 185 lb" when every set matches; otherwise each set

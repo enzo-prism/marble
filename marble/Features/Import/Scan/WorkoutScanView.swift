@@ -211,7 +211,7 @@ struct WorkoutScanView: View {
                     ModelReadFeedbackRow(
                         idPrefix: "Scan",
                         verdict: viewModel.modelReadVerdict,
-                        shareText: { viewModel.modelReadShareText },
+                        shareItem: viewModel.modelReadShareItem,
                         onVerdict: { viewModel.recordModelReadFeedback($0) }
                     )
                 } footer: {
