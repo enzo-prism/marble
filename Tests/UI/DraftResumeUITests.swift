@@ -18,7 +18,7 @@ final class DraftResumeUITests: MarbleUITestCase {
             forceTap(preview)
             _ = waitForIdentifier("TextEntry.ReviewSummary", timeout: 15)
 
-            let date = identifiedElement("TextEntry.Date")
+            let date = app.datePickers["TextEntry.Date"]
             scrollToElement(date, in: app.collectionViews.firstMatch)
             waitFor(date, timeout: 10)
             revealAboveSave(date, label: app.staticTexts["Date"].firstMatch)
@@ -51,7 +51,7 @@ final class DraftResumeUITests: MarbleUITestCase {
             let resume = app.buttons["WorkoutEntry.Draft.Resume"]
             scrollToElement(resume, in: app)
             forceTap(resume)
-            let restoredDate = identifiedElement("TextEntry.Date")
+            let restoredDate = app.datePickers["TextEntry.Date"]
             scrollToElement(restoredDate, in: app.collectionViews.firstMatch)
             waitFor(restoredDate, timeout: 10)
             revealAboveSave(restoredDate, label: app.staticTexts["Date"].firstMatch)
@@ -79,7 +79,7 @@ final class DraftResumeUITests: MarbleUITestCase {
             XCTAssertEqual(includeTime.value as? String, "1")
             // Inspect the switch while its lazy row is visible. Revealing the
             // full picker can legitimately scroll that row out of the tree.
-            let time = identifiedElement("TextEntry.Time")
+            let time = app.datePickers["TextEntry.Time"]
             scrollToElement(time, in: app.collectionViews.firstMatch)
             waitFor(time, timeout: 8)
             revealAboveSave(time, label: app.staticTexts["Time"].firstMatch)
@@ -158,7 +158,7 @@ final class DraftResumeUITests: MarbleUITestCase {
         editor.typeText("Yesterday: Push\nBench Press 1x8 @ 185 lb")
         dismissKeyboardIfPresent()
         forceTap(waitForIdentifier("TextEntry.Preview", timeout: 8))
-        let date = identifiedElement("TextEntry.Date")
+        let date = app.datePickers["TextEntry.Date"]
         scrollToElement(date, in: app.collectionViews.firstMatch)
         waitFor(date, timeout: 10)
         let dateButton = date.buttons.firstMatch
@@ -176,7 +176,7 @@ final class DraftResumeUITests: MarbleUITestCase {
         app.terminate()
         launchApp(fixtureMode: "empty", resetDB: false, extraEnvironment: environment)
         forceTap(waitForIdentifier("WorkoutEntry.Draft.Resume", timeout: 10))
-        let restoredDate = identifiedElement("TextEntry.Date")
+        let restoredDate = app.datePickers["TextEntry.Date"]
         scrollToElement(restoredDate, in: app.collectionViews.firstMatch)
         waitFor(restoredDate, timeout: 8)
         XCTAssertEqual(restoredDate.buttons.firstMatch.value as? String, reviewedDate)

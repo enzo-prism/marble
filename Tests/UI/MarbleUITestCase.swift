@@ -497,6 +497,9 @@ class MarbleUITestCase: XCTestCase {
         for candidate in typed where candidate.exists {
             return candidate
         }
+        // Nothing is in the tree yet. Do not cache this otherElements query
+        // across a lazy-list scroll; Date/Time pickers must be queried as
+        // datePickers so they match after the row materializes.
         return app.otherElements[identifier]
     }
 
