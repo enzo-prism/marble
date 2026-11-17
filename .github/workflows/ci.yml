@@ -22,9 +22,10 @@ jobs:
     # Build with stable Xcode 27.0 and the pinned iOS 27.0 runtime; deployment
     # remains iOS 26.0 with availability checks for newer integrations.
     runs-on: xcode-27
-    # 120 min: a slow three-baseline migration is ~36-40 min, and the rest of
-    # this job is ~50 min when History/audit/snapshots are healthy.
-    timeout-minutes: 120
+    # 135 min: a slow three-baseline migration needs ~50-55 min (run 44043995039
+    # hit the 40 min cap while building baseline 3), and the rest of this job is
+    # ~70 min when History/audit/snapshots are healthy.
+    timeout-minutes: 135
     steps:
       - uses: actions/checkout@v4
         with:
@@ -79,7 +80,7 @@ jobs:
 
       - name: Verify shipped-store migration
         if: success() || failure()
-        timeout-minutes: 40
+        timeout-minutes: 55
         run: |
           destination=$(scripts/sim_destination.sh)
           simulator_id=${destination#id=}

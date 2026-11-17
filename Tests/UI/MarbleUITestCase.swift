@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import XCTest
 import Vision
@@ -70,11 +71,23 @@ class MarbleUITestCase: XCTestCase {
         super.tearDown()
     }
 
-    /// Home + relaunch can leave XCUITest thinking the process is already
-    /// gone (`Failed to terminate Prism.marble:0`). Skip terminate then.
+    /// Home + relaunch can leave XCUITest unable to `terminate()` a live PID
+    /// (`Failed to terminate Prism.marble:49523: Failed to terminate
+    /// Prism.marble:0` on CI 44043995039). `terminate()` records an XCTIssue
+    /// even when the process is already dying, which fails an otherwise green
+    /// History audit in tearDown. SIGKILL the pid XCTest still knows, then
+    /// wait for `.notRunning` without going through that API.
     func terminateIfRunning() {
-        guard app != nil, app.state != .notRunning else { return }
-        app.terminate()
+        guard let application = app else { return }
+        let state = application.state
+        guard state == .runningForeground || state == .runningBackground else { return }
+        let pid = application.processID
+        guard pid > 0 else { return }
+        kill(pid, SIGKILL)
+        let deadline = Date().addingTimeInterval(5)
+        while application.state != .notRunning, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
     }
 
     func launchApp(

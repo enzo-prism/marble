@@ -66,7 +66,7 @@ final class DraftResumeUITests: MarbleUITestCase {
             waitFor(restoredDateButton)
             XCTAssertEqual(restoredDateButton.value as? String, reviewedDate)
 
-            let includeTime = app.switches["TextEntry.IncludeTime"]
+            let includeTime = app.switches.matching(identifier: "TextEntry.IncludeTime").firstMatch
             scrollToElement(includeTime, in: app.collectionViews.firstMatch)
             waitFor(includeTime)
             // A multiline switch wrapper can be hittable while its native
@@ -82,7 +82,9 @@ final class DraftResumeUITests: MarbleUITestCase {
             let enabled = XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "value == '1'"), object: includeTime
             )
-            XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 5), .completed)
+            // XXXL resume can take longer than 5s for the native switch to
+            // publish value=1 (CI 44043995039). Still require the toggle.
+            XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 15), .completed)
             XCTAssertEqual(includeTime.value as? String, "1")
             // Inspect the switch while its lazy row is visible. Revealing the
             // full picker can legitimately scroll that row out of the tree.
