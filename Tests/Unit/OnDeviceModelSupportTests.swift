@@ -58,6 +58,36 @@ final class OnDeviceModelSupportTests: MarbleTestCase {
         XCTAssertEqual(output.lines, ["Bench 3x8 @ 185", "Surestep Lunge 3x10"])
     }
 
+    func testKeepsNotationAfterAConversationalOpener() {
+        let output = ModelNotationOutput.parse("""
+            Sure, Bench 3x8 @ 185
+            OK. Squat 5x5 @ 225
+            Here's the workout: Row 3x10
+            Sure, here is the workout: Plank 3x45s
+            Okay, Date: 1/10/25
+            """)
+        XCTAssertEqual(output.lines, ["Bench 3x8 @ 185", "Squat 5x5 @ 225", "Row 3x10", "Plank 3x45s"])
+        XCTAssertEqual(output.dateText, "1/10/25")
+    }
+
+    func testFillerSalvageNeverTurnsChatterIntoAnExercise() {
+        let output = ModelNotationOutput.parse("""
+            Here's the workout, 3 exercises.
+            Sure, here is the workout in notation:
+            Here are the lines below.
+            Okay, I converted 3 lines for you
+            Sure, 4 lines follow
+            Note: I kept 3 sets as written, Bench 3x8
+            I dropped the percentages, 85-90%
+            Here is the workout
+            Bench 3x8 @ 185
+            """)
+        XCTAssertEqual(output.lines, ["Bench 3x8 @ 185"])
+        XCTAssertNil(ModelNotationOutput.removingFiller(from: "Here's what I found."))
+        XCTAssertNil(ModelNotationOutput.removingFiller(from: "Surestep Lunge 3x10"),
+                     "Only whole-word openers are filler")
+    }
+
     func testLeadingSetCountIsNotMistakenForNumbering() {
         XCTAssertEqual(ModelNotationOutput.parse("5x5 Squat @ 225").lines, ["5x5 Squat @ 225"])
         XCTAssertEqual(ModelNotationOutput.parse("3 sets of 8 bench").lines, ["3 sets of 8 bench"])
@@ -334,7 +364,7 @@ final class OnDeviceModelSupportTests: MarbleTestCase {
                 ParsedSetDraft(weight: 152.5, weightUnit: .kg, reps: 3),
             ]),
         ], interpretedByModel: true)
-        let text = ModelReadExample.shareText(source: "  bench 3x8 at 185 ...  ", draft: draft, modelName: "iOS 26 base model")
+        let text = ModelReadExample.shareText(source: "  bench 3x8 at 185 ...  ", reading: draft, corrected: draft, modelName: "iOS 26 base model")
         XCTAssertEqual(text, """
             Marble misread this workout (on-device Apple Intelligence, iOS 26 base model).
 
@@ -346,7 +376,23 @@ final class OnDeviceModelSupportTests: MarbleTestCase {
             - Bounds: 2 sets
             - Sprint: 1 set of 50 m
             - Ramp: 5 reps @ 135 kg; 3 reps @ 152.5 kg
-            """)
+            """, "An unedited review adds no corrections section")
+    }
+
+    func testShareTextKeepsTheMisreadingAndAddsCorrections() {
+        let read = ParsedWorkoutDraft(exercises: [
+            ParsedExerciseDraft(name: "Bench Press", sets: [ParsedSetDraft(weight: 815, reps: 8)])
+        ], interpretedByModel: true)
+        var fixed = read
+        fixed.exercises[0].sets[0].weight = 185
+        let text = ModelReadExample.shareText(source: "bench 185 for 8", reading: read, corrected: fixed, modelName: "m")
+        XCTAssertTrue(text.hasSuffix("""
+            What Marble read:
+            - Bench Press: 1 set of 8 reps @ 815 lb
+
+            Corrected to:
+            - Bench Press: 1 set of 8 reps @ 185 lb
+            """), text)
     }
 
     private struct ModelDraftParser: WorkoutScanParsing {
@@ -369,7 +415,7 @@ final class OnDeviceModelSupportTests: MarbleTestCase {
         }
     }
 
-    func testTextEntryRecordsOneVerdictPerModelReview() async {
+    func testTextEntryRecordsOneVerdictPerModelReview() async throws {
         let defaults = ephemeralDefaults()
         let store = ModelReadFeedbackStore(defaults: defaults)
         let viewModel = WorkoutTextEntryViewModel(parser: ModelDraftParser(), feedbackStore: store)
@@ -386,8 +432,13 @@ final class OnDeviceModelSupportTests: MarbleTestCase {
         XCTAssertEqual(viewModel.modelReadVerdict, .incorrect)
         XCTAssertEqual(store.count(.incorrect), 1)
         XCTAssertEqual(store.count(.correct), 0)
-        XCTAssertTrue(viewModel.modelReadShareText.contains("Hit chest hard this morning, felt great"))
-        XCTAssertTrue(viewModel.modelReadShareText.contains("- Bench Press: 1 set of 8 reps @ 185 lb"))
+        // The person fixes the reading after a thumbs-down; the shared
+        // example must still show what Marble read, then the correction.
+        viewModel.draft.exercises[0].sets[0].weight = 195
+        let shared = try XCTUnwrap(viewModel.modelReadShareItem).text
+        XCTAssertTrue(shared.contains("Hit chest hard this morning, felt great"))
+        XCTAssertTrue(shared.contains("What Marble read:\n- Bench Press: 1 set of 8 reps @ 185 lb"), shared)
+        XCTAssertTrue(shared.contains("Corrected to:\n- Bench Press: 1 set of 8 reps @ 195 lb"), shared)
 
         await viewModel.preview(in: makeInMemoryContext())
         XCTAssertNil(viewModel.modelReadVerdict, "A new reading asks again")
@@ -458,12 +509,87 @@ final class OnDeviceModelSupportTests: MarbleTestCase {
         viewModel.recordModelReadFeedback(.correct)
         XCTAssertEqual(viewModel.modelReadVerdict, .correct)
         XCTAssertEqual(store.count(.correct), 1)
-        XCTAssertTrue(viewModel.modelReadShareText.contains("Legs today, went heavy and felt strong"))
+        viewModel.draft.exercises[0].name = "Front Squat"
+        let shared = try XCTUnwrap(viewModel.modelReadShareItem).text
+        XCTAssertTrue(shared.contains("Legs today, went heavy and felt strong"))
+        XCTAssertTrue(shared.contains("What Marble read:\n- Squat: 1 set of 5 reps @ 100 lb"), shared)
+        XCTAssertTrue(shared.contains("Corrected to:\n- Front Squat:"), shared)
 
         viewModel.reset()
         XCTAssertNil(viewModel.modelReadVerdict)
+        XCTAssertNil(viewModel.modelReadShareItem)
         XCTAssertTrue(viewModel.streamedNotationLines.isEmpty)
         XCTAssertEqual(viewModel.sourceText, "")
+    }
+
+    func testRestoredReviewWithoutTheOriginalReadingOffersNoShare() {
+        let viewModel = WorkoutTextEntryViewModel(parser: ModelDraftParser(),
+                                                  feedbackStore: ModelReadFeedbackStore(defaults: ephemeralDefaults()))
+        viewModel.startReview(with: ParsedWorkoutDraft(exercises: [
+            ParsedExerciseDraft(name: "Bench", sets: [ParsedSetDraft(reps: 5)])
+        ], interpretedByModel: true))
+        XCTAssertNil(viewModel.modelReadShareItem, "Corrections must never be shared as Marble's reading")
+    }
+
+    // MARK: - Per-call model issues
+
+    /// Reports `.failed` for its own call, after running `hook` mid-parse.
+    private final class IssueParser: WorkoutScanParsing, @unchecked Sendable {
+        var hook: (@MainActor () -> Void)?
+        func parse(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft {
+            ParsedWorkoutDraft(exercises: [ParsedExerciseDraft(name: "Squat", sets: [ParsedSetDraft(reps: 5)])])
+        }
+
+        func parseOutcome(
+            ocrText: String,
+            referenceDate: Date,
+            pageImages: [WorkoutScanPageImage],
+            onStage: WorkoutParseStageHandler
+        ) async -> WorkoutParseOutcome {
+            if let hook { await MainActor.run { hook() } }
+            return WorkoutParseOutcome(draft: await parse(ocrText: ocrText, referenceDate: referenceDate), modelIssue: .failed)
+        }
+    }
+
+    private func scanImage() throws -> (CGImage, Data) {
+        (try makeImage(width: 8, height: 8), Data(UUID().uuidString.utf8))
+    }
+
+    func testScanAppliesItsOwnParsesIssue() async throws {
+        let viewModel = WorkoutScanViewModel(
+            recognizer: StubRecognizer(text: "Legs today, went heavy and felt strong"), parser: IssueParser()
+        )
+        await viewModel.process(pages: [try scanImage()], in: makeInMemoryContext())
+        XCTAssertEqual(viewModel.phase, .review)
+        XCTAssertEqual(viewModel.modelIssue, .failed)
+    }
+
+    func testAbandonedScanDoesNotReportItsIssue() async throws {
+        let parser = IssueParser()
+        let viewModel = WorkoutScanViewModel(
+            recognizer: StubRecognizer(text: "Legs today, went heavy and felt strong"), parser: parser
+        )
+        parser.hook = { [weak viewModel] in viewModel?.reset() }
+        await viewModel.process(pages: [try scanImage()], in: makeInMemoryContext())
+        XCTAssertEqual(viewModel.phase, .capture)
+        XCTAssertNil(viewModel.modelIssue, "A reset scan must not show the old parse's issue")
+        XCTAssertFalse(viewModel.draft.hasContent)
+    }
+
+    func testStoppedTextPreviewDoesNotReportItsIssue() async {
+        let parser = IssueParser()
+        let viewModel = WorkoutTextEntryViewModel(parser: parser)
+        parser.hook = { [weak viewModel] in viewModel?.stopProcessing() }
+        viewModel.text = "Hit chest hard this morning, felt great"
+        await viewModel.preview(in: makeInMemoryContext())
+        XCTAssertEqual(viewModel.phase, .input)
+        XCTAssertNil(viewModel.modelIssueNote)
+
+        parser.hook = nil
+        await viewModel.preview(in: makeInMemoryContext())
+        XCTAssertEqual(viewModel.modelIssueNote,
+                       WorkoutTextEntryViewModel.modelIssueNote(for: .failed, availability: .available),
+                       "The current preview's own issue is shown")
     }
 
     /// Before the staged parse was a protocol requirement, a call through

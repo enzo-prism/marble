@@ -102,8 +102,11 @@ struct ModelSourceExcerptLine: View {
 struct ModelReadFeedbackRow: View {
     let idPrefix: String
     let verdict: ModelReadVerdict?
-    /// Built only when the share sheet asks for it.
-    let shareText: () -> String
+    /// The frozen reading plus current review; its text is built only when
+    /// the share sheet exports it. nil when the original reading isn't
+    /// known (a draft restored after relaunch), so nothing misleading is
+    /// offered.
+    let shareItem: ModelReadShareItem?
     let onVerdict: (ModelReadVerdict) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -121,20 +124,28 @@ struct ModelReadFeedbackRow: View {
                 .accessibilityIdentifier("\(idPrefix).ModelFeedback.Thanks")
         case .incorrect?:
             VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                Text("Thanks. Fix anything above before adding. You can share this example if you'd like — you choose where it goes.")
+                Text(shareItem == nil
+                     ? "Thanks. Fix anything above before adding."
+                     : "Thanks. Fix anything above before adding. You can share this example if you'd like — it includes how Marble first read it, and you choose where it goes.")
                     .font(MarbleTypography.rowMeta)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("\(idPrefix).ModelFeedback.Thanks")
-                ShareLink(item: shareText(), subject: Text("Marble reading example")) {
-                    Label("Share this example", systemImage: "square.and.arrow.up")
-                        .font(MarbleTypography.rowMeta)
-                        .frame(minHeight: 44, alignment: .leading)
-                        .contentShape(Rectangle())
+                if let shareItem {
+                    ShareLink(
+                        item: shareItem,
+                        subject: Text("Marble reading example"),
+                        preview: SharePreview("Marble reading example")
+                    ) {
+                        Label("Share this example", systemImage: "square.and.arrow.up")
+                            .font(MarbleTypography.rowMeta)
+                            .frame(minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .accessibilityHint("Opens the share sheet with your text, how Marble read it, and your corrections.")
+                    .accessibilityIdentifier("\(idPrefix).ModelFeedback.Share")
                 }
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .accessibilityHint("Opens the share sheet with your text and how Marble read it.")
-                .accessibilityIdentifier("\(idPrefix).ModelFeedback.Share")
             }
         }
     }

@@ -125,8 +125,19 @@ prompt prefix.
   (`<prefix>.ModelFeedback.Up` / `.Down`). Only aggregate counts are stored, in user
   defaults (`modelReadFeedback.correctCount` / `.incorrectCount`), once per reviewed
   workout. A thumbs-down offers a person-initiated `ShareLink`
-  (`<prefix>.ModelFeedback.Share`) with their text and Marble's reading as plain
-  text. Nothing is sent automatically.
+  (`<prefix>.ModelFeedback.Share`) with their text, Marble's reading as the parse
+  returned it (`ModelReadSnapshot`, frozen before any review edits) and, if they
+  changed it, a "Corrected to:" section. The text is built only when the share
+  sheet exports it (`ModelReadShareItem`). The snapshot is in memory only, so a
+  draft restored after relaunch offers no share rather than passing corrections off
+  as the reading. Nothing is sent automatically.
+- Model issues come back per call (`WorkoutScanParsing.parseOutcome` →
+  `WorkoutParseOutcome`), not from the parser's shared `lastModelIssue`, and both
+  view models apply them only while that parse still owns the screen.
+- Lines a model prefixes with filler ("Sure, Bench 3x8", "Here's the workout:
+  Row 3x10") keep the notation after the first `:` `,` or `.`, but only after a
+  recognized conversational opener and only when the rest starts with a name and
+  has a number; commentary ("Note:", "I dropped…") is never mined.
 
 ### Availability copy
 
