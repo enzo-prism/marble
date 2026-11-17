@@ -523,12 +523,13 @@ class MarbleUITestCase: XCTestCase {
         file: StaticString = #file,
         line: UInt = #line
     ) -> XCUIElement {
-        let deadline = Date().addingTimeInterval(timeout)
+        let startedAt = Date()
+        let deadline = startedAt.addingTimeInterval(timeout)
         var swipes = 0
         repeat {
             let element = identifiedElement(identifier)
             if element.exists { return element }
-            if container != nil, swipes < 8 {
+            if container != nil, shouldSwipeTowardOffscreenRows(startedAt: startedAt, swipes: swipes) {
                 swipeTowardOffscreenRows(in: container)
                 swipes += 1
             }
@@ -539,15 +540,22 @@ class MarbleUITestCase: XCTestCase {
         return element
     }
 
-    func firstElement(identifierPrefix prefix: String, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) -> XCUIElement {
-        let deadline = Date().addingTimeInterval(timeout)
+    func firstElement(
+        identifierPrefix prefix: String,
+        timeout: TimeInterval = 5,
+        scrollIn container: XCUIElement? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCUIElement {
+        let startedAt = Date()
+        let deadline = startedAt.addingTimeInterval(timeout)
         var swipes = 0
         repeat {
             if let match = firstTypedMatch(identifierPrefix: prefix) {
                 return match
             }
-            if swipes < 8 {
-                swipeTowardOffscreenRows(in: app)
+            if container != nil, shouldSwipeTowardOffscreenRows(startedAt: startedAt, swipes: swipes) {
+                swipeTowardOffscreenRows(in: container)
                 swipes += 1
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
@@ -567,6 +575,10 @@ class MarbleUITestCase: XCTestCase {
             app.otherElements.matching(predicate).firstMatch
         ]
         return typed.first(where: \.exists)
+    }
+
+    private func shouldSwipeTowardOffscreenRows(startedAt: Date, swipes: Int, grace: TimeInterval = 1) -> Bool {
+        swipes < 8 && Date().timeIntervalSince(startedAt) >= grace
     }
 
     private func swipeTowardOffscreenRows(in container: XCUIElement?) {

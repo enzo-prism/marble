@@ -159,7 +159,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             scrollToElement(finish, in: app)
             forceTap(finish)
             confirmFinishWorkout()
-            let recent = firstElement(identifierPrefix: "Workout.Recent.", timeout: 8)
+            let recent = firstElement(identifierPrefix: "Workout.Recent.", timeout: 8, scrollIn: app)
             scrollToElement(recent, in: app)
             waitFor(recent, timeout: 8)
             forceTap(recent)
