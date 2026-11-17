@@ -147,12 +147,11 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             )
             navigateToTab(.addWorkout)
             forceTap(waitForIdentifier("Workout.Open", timeout: 8))
-            let finish = app.descendants(matching: .any).matching(identifier: "Workout.Finish").firstMatch
+            let finish = waitForIdentifier("Workout.Finish", timeout: 8)
             scrollToElement(finish, in: app)
-            forceTap(waitForIdentifier("Workout.Finish", timeout: 8))
+            forceTap(finish)
             confirmFinishWorkout()
-            let recent = app.descendants(matching: .any)
-                .matching(NSPredicate(format: "identifier BEGINSWITH 'Workout.Recent.'")).firstMatch
+            let recent = firstElement(identifierPrefix: "Workout.Recent.", timeout: 8)
             scrollToElement(recent, in: app)
             waitFor(recent, timeout: 8)
             forceTap(recent)

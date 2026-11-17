@@ -85,6 +85,9 @@ XCODEBUILD_CMD=(
   -derivedDataPath "$DERIVED_DATA_PATH"
   -parallel-testing-enabled NO
   -enableCodeCoverage NO
+  -test-timeouts-enabled YES
+  -default-test-execution-time-allowance "${XCODEBUILD_DEFAULT_TEST_TIMEOUT:-180}"
+  -maximum-test-execution-time-allowance "${XCODEBUILD_MAXIMUM_TEST_TIMEOUT:-480}"
 )
 
 # Xcode still creates a DerivedData result bundle when no explicit

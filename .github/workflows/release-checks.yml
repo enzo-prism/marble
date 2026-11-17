@@ -15,7 +15,11 @@ concurrency:
 jobs:
   candidate:
     runs-on: xcode-27
-    timeout-minutes: 300
+    # Previous greens spent ~202-208 min because snapshots rebooted the
+    # simulator once per group (~44 boots). After batching those groups and
+    # capping hung XCTest queries, a green run should finish in ~40-50 min.
+    # 90 min is about 2x that budget so a hang dies before five hours.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,9 +29,7 @@ jobs:
       - name: Install test log formatter
         run: brew install xcbeautify || true
       - name: Run candidate checks
-        # Reserve time for evidence upload if the suite exceeds its own limit.
-        # The five gates took ~208 min on 8d46a09 before migration ran builds.
-        timeout-minutes: 290
+        timeout-minutes: 80
         env:
           RELEASE_EVIDENCE_ROOT: ${{ runner.temp }}/marble-release-evidence
           DERIVED_DATA_PATH: ${{ runner.temp }}/marble-derived-data

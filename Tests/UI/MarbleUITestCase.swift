@@ -131,9 +131,7 @@ class MarbleUITestCase: XCTestCase {
             if app.buttons["Log.Mode.Menu"].waitForExistence(timeout: 4) {
                 forceTap(app.buttons["Log.Mode.Menu"])
             }
-            let setsMode = app.descendants(matching: .any)
-                .matching(identifier: "Log.Mode.Sets")
-                .firstMatch
+            let setsMode = identifiedElement("Log.Mode.Sets")
             if setsMode.waitForExistence(timeout: 6) {
                 setsMode.tap()
                 return
@@ -148,7 +146,7 @@ class MarbleUITestCase: XCTestCase {
                 forceTap(app.buttons["Log.Mode.Menu"])
             }
             let modeIdentifier = tab == .calendar ? "Tab.Calendar" : "Tab.Supplements"
-            let mode = app.descendants(matching: .any).matching(identifier: modeIdentifier).firstMatch
+            let mode = identifiedElement(modeIdentifier)
             if mode.waitForExistence(timeout: 6) {
                 forceTap(mode)
                 return
@@ -472,11 +470,66 @@ class MarbleUITestCase: XCTestCase {
         }
     }
 
+    /// Typed queries avoid `descendants(matching: .any)`, which can stall XCTest
+    /// for minutes with "Timed out while evaluating UI query" on iOS 27.
+    func identifiedElement(_ identifier: String) -> XCUIElement {
+        let typed = [
+            app.buttons[identifier],
+            app.cells[identifier],
+            app.staticTexts[identifier],
+            app.textFields[identifier],
+            app.textViews[identifier],
+            app.secureTextFields[identifier],
+            app.switches[identifier],
+            app.sliders[identifier],
+            app.datePickers[identifier],
+            app.pickers[identifier],
+            app.searchFields[identifier],
+            app.collectionViews[identifier],
+            app.tables[identifier],
+            app.navigationBars[identifier],
+            app.navigationBars.buttons[identifier],
+            app.segmentedControls.buttons[identifier],
+            app.images[identifier],
+            app.links[identifier],
+            app.otherElements[identifier]
+        ]
+        for candidate in typed where candidate.exists {
+            return candidate
+        }
+        return app.otherElements[identifier]
+    }
+
     @discardableResult
     func waitForIdentifier(_ identifier: String, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) -> XCUIElement {
-        let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        XCTAssertTrue(element.waitForExistence(timeout: timeout), file: file, line: line)
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let element = identifiedElement(identifier)
+            if element.exists { return element }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        let element = identifiedElement(identifier)
+        XCTAssertTrue(element.exists, file: file, line: line)
         return element
+    }
+
+    func firstElement(identifierPrefix prefix: String, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) -> XCUIElement {
+        let predicate = NSPredicate(format: "identifier BEGINSWITH %@", prefix)
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let typed = [
+                app.cells.matching(predicate).firstMatch,
+                app.buttons.matching(predicate).firstMatch,
+                app.otherElements.matching(predicate).firstMatch
+            ]
+            for match in typed where match.exists {
+                return match
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        let fallback = app.buttons.matching(predicate).firstMatch
+        XCTAssertTrue(fallback.exists, file: file, line: line)
+        return fallback
     }
 
     func addSetListContainer(timeout: TimeInterval = 6) -> XCUIElement {

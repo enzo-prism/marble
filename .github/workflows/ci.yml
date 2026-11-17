@@ -22,7 +22,7 @@ jobs:
     # Build with stable Xcode 27.0 and the pinned iOS 27.0 runtime; deployment
     # remains iOS 26.0 with availability checks for newer integrations.
     runs-on: xcode-27
-    timeout-minutes: 150
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,13 +38,16 @@ jobs:
         run: brew install xcbeautify || true
 
       - name: Run unit tests
+        timeout-minutes: 20
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Unit.xcresult" make unit
 
       - name: Verify extracted intent authentication
+        timeout-minutes: 5
         run: ruby scripts/verify_intent_authentication.rb "$PWD/DerivedData/Build/Products/Debug-iphonesimulator/marble.app"
 
       - name: Audit workout review, history and recovery
         if: success() || failure()
+        timeout-minutes: 25
         run: |
           RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryAccessibility.xcresult" scripts/xcodebuild_test.sh \
             -only-testing:MarbleUITests/AccessibilityAuditUITests/testHistoryAndRecoveryAccessibilityAudit_DefaultText \
@@ -52,6 +55,7 @@ jobs:
 
       - name: Verify History and import interactions
         if: success() || failure()
+        timeout-minutes: 25
         run: |
           RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryLargestText.xcresult" scripts/xcodebuild_test.sh \
             -only-testing:MarbleUITests/WorkoutHistoryUITests \
@@ -62,15 +66,18 @@ jobs:
 
       - name: Verify History and Composer snapshots
         if: success() || failure()
+        timeout-minutes: 25
         run: SNAPSHOT_GROUPS_OVERRIDE=MarbleSnapshotTests/WorkoutHistorySnapshotTests,MarbleSnapshotTests/WorkoutComposerSnapshotTests make snapshot
 
       - name: Verify release tooling
         if: success() || failure()
+        timeout-minutes: 5
         run: |
           for test in scripts/tests/*_test.rb; do ruby "$test"; done
 
       - name: Verify shipped-store migration
         if: success() || failure()
+        timeout-minutes: 15
         run: |
           destination=$(scripts/sim_destination.sh)
           simulator_id=${destination#id=}
@@ -80,6 +87,7 @@ jobs:
 
       - name: Run navigation smoke tests
         if: success() || failure()
+        timeout-minutes: 12
         run: RESULT_BUNDLE_PATH="$PWD/TestResults/Smoke.xcresult" make ui-smoke
 
       - name: Upload test results
