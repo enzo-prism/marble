@@ -422,7 +422,7 @@ nonisolated struct AskLastTimeTool: Tool {
     nonisolated struct Arguments {
         @Guide(description: "The exercise as the user wrote it, e.g. \"bench press\" or \"squat\".")
         var exercise: String
-        @Guide(description: "The minimum weight the user asked about, or 0 when they gave none.")
+        @Guide(description: "The minimum weight the user asked about (one dumbbell for dumbbell exercises), or 0 when they gave none.")
         var minimumWeight: Double
         @Guide(description: "Unit of minimumWeight: \"lb\" or \"kg\". Empty when there is no weight.")
         var weightUnit: String

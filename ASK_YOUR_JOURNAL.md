@@ -16,8 +16,10 @@ SF Symbol `apple.intelligence` when Apple Intelligence will write the answer,
 | Workouts in a period | `.sessions` | "What did I train last week?" |
 
 Periods: today, yesterday, this/last week/month/year, last/past N days/weeks/months,
-month names ("in October", "january 2024"), ISO dates and ranges
-("2026-11-01 to 2026-11-10", "since 2026-11-01"), all time / ever.
+month names ("in October", "january 2024"), whole years ("in 2025"), open-ended
+"since" ranges ("since October", "since Oct 5", "since 2025", "since 2026-11-01"),
+ISO dates and ranges ("2026-11-01 to 2026-11-10"), all time / ever. A number from
+1900 to 2100 without a unit is always a year, never a weight.
 
 Anything else gets an honest "Marble can answer questions about…" plus tappable examples.
 
@@ -27,7 +29,9 @@ Anything else gets an honest "Marble can answer questions about…" plus tappabl
    fetches and returns facts (plain text), a template sentence, and `JournalCard`s.
    Weights are compared in kilograms (`PersonalRecords.kilograms`) and shown in the
    preferred unit; converted values round to 0.1 and the card/facts carry the logged
-   original ("logged as 100 kg"). Dumbbell pairs show per hand. Sprint times use the
+   original ("logged as 100 kg"). Dumbbell pairs show per dumbbell, and a weight
+   threshold for a pair exercise ("DB bench at 50 lb") applies to one dumbbell,
+   matching how the logger and `LogSetIntent` take dumbbell weight. Sprint times use the
    tenths canon (`SprintRepDetail` where present, whole seconds × 10 otherwise).
    Ties follow `PersonalRecords` (heavier → more reps → later set; fastest tie → later rep).
    Imported sets count like manual ones and are labelled "Imported from …".
@@ -40,9 +44,11 @@ Anything else gets an honest "Marble can answer questions about…" plus tappabl
    A single time phrase in the question outranks the model's period; a confident
    library match for the model's exercise name wins, else the exercise the question
    names. Distances for "fastest" come from the question only.
-3. **The model's sentence is not trusted.** `AskAnswerValidator` (built on
-   `InsightValidator`) requires every number in the reply to appear in the tool
-   outputs, blocks the insight blocklist plus advice/hedging words ("should",
+3. **The model's sentence is not trusted.** `AskAnswerValidator` (reusing
+   `InsightValidator`'s parsing and blocklist, stricter than it) requires every
+   number in the reply to equal a tool-output value exactly as displayed — no
+   rounding ("15 s" for 14.8s fails) — and every number word ("one",
+   "twenty-five", "a dozen", "twice") to name a value the outputs state. It blocks the insight blocklist plus advice/hedging words ("should",
    "recommend", "roughly", "health", …), emoji and links, and keeps at most two
    sentences (the first must pass). No tool call → no model answer.
 4. **Always verifiable.** Cards are rendered from tool/engine output, never model

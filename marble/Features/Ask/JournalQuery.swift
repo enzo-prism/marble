@@ -20,6 +20,8 @@ nonisolated enum JournalPeriod: Equatable, Hashable, Sendable {
     /// The trailing `n` calendar months up to the end of today.
     case lastMonths(Int)
     case month(year: Int, month: Int)
+    /// A whole calendar year ("in 2025").
+    case year(Int)
     /// Day-aligned `[start, end)`; `end` is exclusive.
     case between(start: Date, end: Date)
 
@@ -63,6 +65,9 @@ nonisolated enum JournalPeriod: Equatable, Hashable, Sendable {
         case .month(let year, let month):
             guard let anchor = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else { return nil }
             return calendar.dateInterval(of: .month, for: anchor)
+        case .year(let year):
+            guard let anchor = calendar.date(from: DateComponents(year: year, month: 1, day: 1)) else { return nil }
+            return calendar.dateInterval(of: .year, for: anchor)
         case .between(let start, let end):
             guard end > start else { return DateInterval(start: start, end: start) }
             return DateInterval(start: start, end: end)
@@ -88,6 +93,8 @@ nonisolated enum JournalPeriod: Equatable, Hashable, Sendable {
             let names = AskFormat.monthNames
             let name = (1...12).contains(month) ? names[month - 1] : "month \(month)"
             return "in \(name) \(year)"
+        case .year(let year):
+            return "in \(year)"
         case .between(let start, let end):
             let lastDay = calendar.date(byAdding: .day, value: -1, to: end) ?? start
             if calendar.isDate(start, inSameDayAs: lastDay) || lastDay < start {

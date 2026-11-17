@@ -148,6 +148,37 @@ final class JournalQuestionMatcherTests: MarbleTestCase {
         )
     }
 
+    func testYearsAreRangesNeverLoads() {
+        XCTAssertEqual(matcher.query(for: "How many sets did I do in 2025?"), .totals(period: .year(2025), exerciseID: nil))
+        XCTAssertEqual(matcher.query(for: "heaviest bench during 2024"), .best(exerciseID: bench.id, measure: .heaviest, period: .year(2024), distanceMeters: nil))
+        XCTAssertEqual(matcher.query(for: "squat volume 2024"), .totals(period: .year(2024), exerciseID: squat.id))
+        // A year is never a load, even when the time parser doesn't claim it.
+        XCTAssertNil(JournalQuestionMatcher.threshold(in: "benched in 2025", preferredUnit: .lb))
+        XCTAssertNil(JournalQuestionMatcher.threshold(in: "at 2000", preferredUnit: .lb))
+        // With a unit it is a load.
+        XCTAssertEqual(matcher.query(for: "last deadlift at 2000 lb"), .lastPerformed(exerciseID: deadlift.id, atLeast: WeightThreshold(value: 2000, unit: .lb)))
+        XCTAssertEqual(matcher.reading(of: "last bench 185 in 2024").threshold, WeightThreshold(value: 185, unit: .lb))
+
+        let cal = Self.stableCalendar
+        XCTAssertEqual(JournalPeriod.year(2025).interval(now: now, calendar: cal), DateInterval(start: date(2025, 1, 1), end: date(2026, 1, 1)))
+        XCTAssertEqual(JournalPeriod.year(2025).label(calendar: cal), "in 2025")
+    }
+
+    func testSincePhrasesAreOpenEndedThroughToday() {
+        let cal = Self.stableCalendar
+        let throughToday = date(2025, 1, 16)
+        func period(_ text: String) -> JournalPeriod? { JournalTimeParser.period(in: text, now: now, calendar: cal) }
+        // A month later in the year than now means last year's.
+        XCTAssertEqual(period("since October"), .between(start: date(2024, 10, 1), end: throughToday))
+        XCTAssertEqual(period("since Jan 5"), .between(start: date(2025, 1, 5), end: throughToday))
+        XCTAssertEqual(period("since Jan 20"), .between(start: date(2024, 1, 20), end: throughToday))
+        XCTAssertEqual(period("since November 3rd, 2024"), .between(start: date(2024, 11, 3), end: throughToday))
+        XCTAssertEqual(period("since October 2024"), .between(start: date(2024, 10, 1), end: throughToday))
+        XCTAssertEqual(period("since 2024"), .between(start: date(2024, 1, 1), end: throughToday))
+        XCTAssertEqual(period("since 2024-12-25"), .between(start: date(2024, 12, 25), end: throughToday))
+        XCTAssertEqual(matcher.query(for: "How many sets since October?"), .totals(period: .between(start: date(2024, 10, 1), end: throughToday), exerciseID: nil))
+    }
+
     func testPeriodLabels() {
         let cal = Self.stableCalendar
         XCTAssertEqual(JournalPeriod.lastDays(30).label(calendar: cal), "in the last 30 days")
