@@ -22,6 +22,7 @@ Environment for `run` / `init` / `finalize` / `assemble`:
   RELEASE_EVIDENCE_ALLOW_DIRTY Set to 1 only for non-release workflow development
   DERIVED_DATA_PATH            Optional dedicated DerivedData path
   MARBLE_SIMULATOR_ID          Dedicated simulator for test/snapshot/UI/audit gates
+                               (required on GITHUB_ACTIONS; no shared-name lookup)
   MIGRATION_BASE_REF           Optional shipped-source migration base
   SIMULATOR_UDID               Migration simulator (defaults to MARBLE_SIMULATOR_ID)
 
@@ -85,9 +86,25 @@ candidate_is_unchanged() {
   fi
 }
 
+require_dedicated_simulator() {
+  if [[ "${GITHUB_ACTIONS:-}" != "true" ]]; then
+    return 0
+  fi
+  if [[ -z "${MARBLE_SIMULATOR_ID:-}" ]]; then
+    echo "GITHUB_ACTIONS release gates require MARBLE_SIMULATOR_ID from scripts/release_sim.sh create." >&2
+    exit 1
+  fi
+}
+
 prepare_ui_simulator() {
   local simulator_id="${MARBLE_SIMULATOR_ID:-${SIMULATOR_UDID:-}}"
-  [[ -n "${simulator_id}" ]] || return 0
+  if [[ -z "${simulator_id}" ]]; then
+    if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+      echo "GITHUB_ACTIONS UI/audit gates require MARBLE_SIMULATOR_ID." >&2
+      exit 1
+    fi
+    return 0
+  fi
 
   # Consecutive xcodebuild invocations can leave SpringBoard busy or the device
   # shut down while Xcode finalizes the preceding result bundle. Establish one
@@ -390,6 +407,7 @@ run_release_evidence() {
   fi
   parse_gates
   open_run_dir
+  require_dedicated_simulator
   execute_gates
   if [[ "${RELEASE_EVIDENCE_DEFER_MANIFEST:-0}" == "1" ]]; then
     echo "Deferred manifest until finalize: ${RELEASE_EVIDENCE_RUN_DIR}"

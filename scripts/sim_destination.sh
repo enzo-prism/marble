@@ -6,6 +6,11 @@ if [[ -n "${MARBLE_SIMULATOR_ID:-}" ]]; then
   exit 0
 fi
 
+if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+  echo "GITHUB_ACTIONS requires MARBLE_SIMULATOR_ID from scripts/release_sim.sh create. Refusing shared simulator name lookup." >&2
+  exit 1
+fi
+
 preferred_name="${MARBLE_SIMULATOR_NAME:-iPhone 17}"
 preferred_runtime="${MARBLE_SIMULATOR_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-27-0}"
 

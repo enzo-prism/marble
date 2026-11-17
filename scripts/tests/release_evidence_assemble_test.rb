@@ -71,31 +71,74 @@ class ReleaseEvidenceAssembleTest < Minitest::Test
   def test_release_checks_jobs_stay_parallel_and_under_two_hours
     workflow = YAML.load_file(WORKFLOW)
     jobs = workflow.fetch("jobs")
-    %w[unit snapshot ui accessibility migration evidence].each do |name|
-      assert jobs.key?(name), "missing job #{name}"
+    assert jobs.key?("sim"), "missing simulator matrix job"
+    assert jobs.key?("evidence"), "missing evidence job"
+    %w[unit snapshot ui accessibility migration].each do |name|
+      refute jobs.key?(name), "#{name} must be a sim matrix leg, not a top-level job"
     end
-    jobs.each do |name, job|
-      cap = Integer(job.fetch("timeout-minutes"))
-      step_sum = job.fetch("steps").sum { |step| Integer(step["timeout-minutes"] || 0) }
-      assert_operator cap, :<=, 120, "#{name} job cap #{cap} is over 120"
-      assert_operator cap, :>=, step_sum, "#{name} job #{cap} is below step sum #{step_sum}"
-      upload = job.fetch("steps").reverse.find { |step| step["uses"].to_s.include?("upload-artifact") }
-      assert_equal "always()", upload.fetch("if"), "#{name} upload must always run"
-      assert_equal 10, Integer(upload.fetch("timeout-minutes"))
+
+    sim = jobs.fetch("sim")
+    assert_equal 3, Integer(sim.dig("strategy", "max-parallel"))
+    assert_equal false, sim.dig("strategy", "fail-fast")
+    includes = sim.dig("strategy", "matrix", "include")
+    names = includes.map { |row| row.fetch("name") }
+    assert_equal %w[unit snapshot ui-1 ui-2 ui-3 accessibility migration], names
+
+    steps = sim.fetch("steps")
+    assert_equal(
+      "marble-${{ github.run_id }}-${{ github.job }}-${{ matrix.name }}",
+      sim.dig("env", "MARBLE_SIMULATOR_NAME")
+    )
+    create = steps.find { |step| step["name"] == "Create dedicated simulator" }
+    assert_includes create.fetch("run"), 'scripts/release_sim.sh create "${MARBLE_SIMULATOR_NAME}"'
+    delete = steps.find { |step| step["name"] == "Delete dedicated simulator" }
+    assert_equal "always()", delete.fetch("if")
+    assert_equal 3, Integer(delete.fetch("timeout-minutes"))
+    assert_includes delete.fetch("run"), "scripts/release_sim.sh delete"
+    upload = steps.reverse.find { |step| step["uses"].to_s.include?("upload-artifact") }
+    assert_equal "always()", upload.fetch("if")
+    assert_equal 10, Integer(upload.fetch("timeout-minutes"))
+    assert_equal "release-evidence-${{ matrix.name }}", upload.dig("with", "name")
+
+    literal_sum = steps.sum { |step| literal_step_timeout(step) }
+    includes.each do |row|
+      cap = Integer(row.fetch("job_timeout"))
+      step_sum = literal_sum + Integer(row.fetch("checkout_timeout")) + Integer(row.fetch("gate_timeout"))
+      assert_operator cap, :<=, 120, "#{row['name']} job cap #{cap} is over 120"
+      assert_operator cap, :>=, step_sum, "#{row['name']} job #{cap} is below step sum #{step_sum}"
     end
-    assert_equal 110, Integer(jobs.fetch("ui").fetch("timeout-minutes"))
-    assert_equal 80, Integer(jobs.fetch("accessibility").fetch("timeout-minutes"))
-    assert_equal 80, Integer(jobs.fetch("migration").fetch("timeout-minutes"))
-    assert_equal 40, Integer(jobs.fetch("unit").fetch("timeout-minutes"))
+
+    by_name = includes.to_h { |row| [row.fetch("name"), row] }
+    assert_equal 20, Integer(by_name.fetch("unit").fetch("gate_timeout"))
+    assert_equal 22, Integer(by_name.fetch("snapshot").fetch("gate_timeout"))
+    assert_equal 85, Integer(by_name.fetch("ui-1").fetch("gate_timeout"))
+    assert_equal 85, Integer(by_name.fetch("ui-2").fetch("gate_timeout"))
+    assert_equal 85, Integer(by_name.fetch("ui-3").fetch("gate_timeout"))
+    assert_equal 60, Integer(by_name.fetch("accessibility").fetch("gate_timeout"))
+    assert_equal 61, Integer(by_name.fetch("migration").fetch("gate_timeout"))
+    assert_equal %w[1 2 3], includes.select { |row| row.fetch("gate") == "ui" }.map { |row| row.fetch("shard") }
+
     evidence = jobs.fetch("evidence")
-    assert_equal %w[unit snapshot ui accessibility migration], evidence.fetch("needs")
+    cap = Integer(evidence.fetch("timeout-minutes"))
+    step_sum = evidence.fetch("steps").sum { |step| Integer(step["timeout-minutes"] || 0) }
+    assert_operator cap, :<=, 120
+    assert_operator cap, :>=, step_sum
+    assert_equal ["sim"], Array(evidence.fetch("needs"))
     assert_equal "always()", evidence.fetch("if")
     upload = evidence.fetch("steps").find { |step| step["name"] == "Preserve candidate evidence" }
+    assert_equal "always()", upload.fetch("if")
+    assert_equal 10, Integer(upload.fetch("timeout-minutes"))
     assert_equal "release-evidence", upload.dig("with", "name")
-    assert_equal %w[1 2 3], jobs.fetch("ui").dig("strategy", "matrix", "shard")
   end
 
   private
+
+  def literal_step_timeout(step)
+    raw = step["timeout-minutes"]
+    return 0 if raw.nil? || raw.is_a?(String)
+
+    Integer(raw)
+  end
 
   def shard_classes(shard)
     output, error, status = Open3.capture3("bash", SHARDS, "--classes", shard.to_s)

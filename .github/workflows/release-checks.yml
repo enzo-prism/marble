@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 # Parallel gate jobs, each with its own runner/simulator. Wall time is the
-# longest job plus the always-run evidence assemble, not the sum.
+# longest wave of N=3 jobs plus the always-run evidence assemble, not the sum.
 #
 # The 4h09m snapshot stall on main came from per-group simulator boots and
 # xcodebuild startup across ~45 groups, not from the XCUITest tree walk.
@@ -21,187 +21,103 @@ concurrency:
 # UI hit a 60 min step cap mid-KeyboardLayout (~16 suites still queued),
 # which killed the simulator, and accessibility crashed in 1m24s.
 #
-# Caps are dispatch 44185860768 on 1b5f098 plus ~25% headroom. No job is
+# Dispatch 44185860768 on 1b5f098 then showed the parallel jobs sharing one
+# simulator: snapshot and migration both hit `simctl bootstatus timed out` on
+# UDID 24E299B4-C77B-4426-AC2B-71243825F07C, and overlapping UI shards failed
+# element waits. Only ui-1, which ran mostly alone, passed.
+#
+# Each simulator matrix leg creates
+# `marble-${{ github.run_id }}-${{ github.job }}-${{ matrix.name }}` as a
+# pinned iPhone 17 / iOS 27.0 device, exports that UDID as
+# MARBLE_SIMULATOR_ID / SIMULATOR_UDID, and refuses shared name lookup.
+# Shutdown+delete runs `if: always()`. max-parallel is N=3 so one host is
+# not asked to boot every gate at once. Not sequential.
+#
+# Caps are dispatch 44185860768 plus ~25% headroom. Gate step caps match
+# 5be7d0c; job walls grew only for create (5) and delete (3). No job is
 # over 120 min. Each job cap is at or above the sum of its step caps,
-# including the always-run 10 min upload, so a step timeout still
-# uploads a fragment instead of cancelling the job wall.
+# including the always-run upload, so a step timeout still uploads a
+# fragment instead of cancelling the job wall.
 #
-# 44185860768 (wall 1h44m): unit gate killed at 12m still running tests;
-# snapshot died on a 120s cold simctl bootstatus; ui-1 passed in 66m25s;
-# accessibility finished the full suite in 44m (test failures, not a
-# cap); ui-2/ui-3/migration failed tests under cap; evidence uploaded.
-#
-#   unit 40          12m timeout + remaining work; steps sum to 38
-#   snapshot 40      15m8s from 44145967148 * 1.25; bootstatus 180s
-#   ui-1/2/3 110     ui-1 66m25s * 1.25 = 83; gate 85; steps sum to 103
-#   accessibility 80 full make audit in 44m * 1.25; steps sum to 78
-#   migration 80     CI 47m11s * 1.25 plus setup/upload
+#   unit 50          gate 20; steps sum to 46
+#   snapshot 50      gate 22; steps sum to 48
+#   ui-1/2/3 115     gate 85; steps sum to 111
+#   accessibility 90 gate 60; steps sum to 86
+#   migration 90     gate 61; steps sum to 90
 #   evidence 25      assemble one five-gate manifest and upload it
 #
-# The evidence job `needs` every gate, runs `if: always()`, and uploads
-# artifact `release-evidence` (the name App Store submit downloads).
+# The evidence job `needs` the simulator matrix, runs `if: always()`, and
+# uploads artifact `release-evidence` (the name App Store submit downloads).
+# testWorkoutNotesReviewAccessibility_DefaultText (#64) is not changed here.
 
 jobs:
-  unit:
+  sim:
+    name: ${{ matrix.name }}
     runs-on: xcode-27
-    timeout-minutes: 40
-    env:
-      RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
-    steps:
-      - uses: actions/checkout@v4
-        timeout-minutes: 2
-      - name: Export evidence paths
-        timeout-minutes: 1
-        run: |
-          echo "RELEASE_EVIDENCE_ROOT=${RUNNER_TEMP}/marble-release-evidence" >> "$GITHUB_ENV"
-          echo "DERIVED_DATA_PATH=${RUNNER_TEMP}/marble-derived-data" >> "$GITHUB_ENV"
-      - name: Select pinned Xcode
-        timeout-minutes: 2
-        run: bash scripts/select_ci_xcode.sh
-      - name: Install test log formatter
-        timeout-minutes: 2
-        run: brew install xcbeautify || true
-      - name: Start evidence run
-        timeout-minutes: 1
-        run: scripts/release_evidence.sh init
-      - name: Unit gate
-        timeout-minutes: 20
-        run: RELEASE_EVIDENCE_GATES=unit make release-evidence
-      - name: Upload unit evidence
-        if: always()
-        timeout-minutes: 10
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-evidence-unit
-          path: ${{ runner.temp }}/marble-release-evidence
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 30
-
-  snapshot:
-    runs-on: xcode-27
-    timeout-minutes: 40
-    env:
-      RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
-    steps:
-      - uses: actions/checkout@v4
-        timeout-minutes: 2
-      - name: Export evidence paths
-        timeout-minutes: 1
-        run: |
-          echo "RELEASE_EVIDENCE_ROOT=${RUNNER_TEMP}/marble-release-evidence" >> "$GITHUB_ENV"
-          echo "DERIVED_DATA_PATH=${RUNNER_TEMP}/marble-derived-data" >> "$GITHUB_ENV"
-      - name: Select pinned Xcode
-        timeout-minutes: 2
-        run: bash scripts/select_ci_xcode.sh
-      - name: Install test log formatter
-        timeout-minutes: 2
-        run: brew install xcbeautify || true
-      - name: Start evidence run
-        timeout-minutes: 1
-        run: scripts/release_evidence.sh init
-      - name: Snapshot gate
-        timeout-minutes: 22
-        run: RELEASE_EVIDENCE_GATES=snapshot make release-evidence
-      - name: Upload snapshot evidence
-        if: always()
-        timeout-minutes: 10
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-evidence-snapshot
-          path: ${{ runner.temp }}/marble-release-evidence
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 30
-
-  ui:
-    name: ui-${{ matrix.shard }}
-    runs-on: xcode-27
-    timeout-minutes: 110
+    timeout-minutes: ${{ matrix.job_timeout }}
     env:
       RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
       RELEASE_EVIDENCE_UI_SHARD: ${{ matrix.shard }}
+      MARBLE_SIMULATOR_NAME: marble-${{ github.run_id }}-${{ github.job }}-${{ matrix.name }}
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix:
-        shard: ["1", "2", "3"]
+        include:
+          - name: unit
+            gate: unit
+            shard: ""
+            job_timeout: 50
+            gate_timeout: 20
+            checkout_timeout: 2
+            fetch_depth: 1
+          - name: snapshot
+            gate: snapshot
+            shard: ""
+            job_timeout: 50
+            gate_timeout: 22
+            checkout_timeout: 2
+            fetch_depth: 1
+          - name: ui-1
+            gate: ui
+            shard: "1"
+            job_timeout: 115
+            gate_timeout: 85
+            checkout_timeout: 2
+            fetch_depth: 1
+          - name: ui-2
+            gate: ui
+            shard: "2"
+            job_timeout: 115
+            gate_timeout: 85
+            checkout_timeout: 2
+            fetch_depth: 1
+          - name: ui-3
+            gate: ui
+            shard: "3"
+            job_timeout: 115
+            gate_timeout: 85
+            checkout_timeout: 2
+            fetch_depth: 1
+          - name: accessibility
+            gate: accessibility
+            shard: ""
+            job_timeout: 90
+            gate_timeout: 60
+            checkout_timeout: 2
+            fetch_depth: 1
+          - name: migration
+            gate: migration
+            shard: ""
+            job_timeout: 90
+            gate_timeout: 61
+            checkout_timeout: 5
+            fetch_depth: 0
     steps:
       - uses: actions/checkout@v4
-        timeout-minutes: 2
-      - name: Export evidence paths
-        timeout-minutes: 1
-        run: |
-          echo "RELEASE_EVIDENCE_ROOT=${RUNNER_TEMP}/marble-release-evidence" >> "$GITHUB_ENV"
-          echo "DERIVED_DATA_PATH=${RUNNER_TEMP}/marble-derived-data" >> "$GITHUB_ENV"
-      - name: Select pinned Xcode
-        timeout-minutes: 2
-        run: bash scripts/select_ci_xcode.sh
-      - name: Install test log formatter
-        timeout-minutes: 2
-        run: brew install xcbeautify || true
-      - name: Start evidence run
-        timeout-minutes: 1
-        run: scripts/release_evidence.sh init
-      - name: UI shard
-        timeout-minutes: 85
-        run: RELEASE_EVIDENCE_GATES=ui make release-evidence
-      - name: Upload UI shard evidence
-        if: always()
-        timeout-minutes: 10
-        uses: actions/upload-artifact@v4
+        timeout-minutes: ${{ matrix.checkout_timeout }}
         with:
-          name: release-evidence-ui-${{ matrix.shard }}
-          path: ${{ runner.temp }}/marble-release-evidence
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 30
-
-  accessibility:
-    runs-on: xcode-27
-    timeout-minutes: 80
-    env:
-      RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
-    steps:
-      - uses: actions/checkout@v4
-        timeout-minutes: 2
-      - name: Export evidence paths
-        timeout-minutes: 1
-        run: |
-          echo "RELEASE_EVIDENCE_ROOT=${RUNNER_TEMP}/marble-release-evidence" >> "$GITHUB_ENV"
-          echo "DERIVED_DATA_PATH=${RUNNER_TEMP}/marble-derived-data" >> "$GITHUB_ENV"
-      - name: Select pinned Xcode
-        timeout-minutes: 2
-        run: bash scripts/select_ci_xcode.sh
-      - name: Install test log formatter
-        timeout-minutes: 2
-        run: brew install xcbeautify || true
-      - name: Start evidence run
-        timeout-minutes: 1
-        run: scripts/release_evidence.sh init
-      - name: Accessibility gate
-        timeout-minutes: 60
-        run: RELEASE_EVIDENCE_GATES=accessibility make release-evidence
-      - name: Upload accessibility evidence
-        if: always()
-        timeout-minutes: 10
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-evidence-accessibility
-          path: ${{ runner.temp }}/marble-release-evidence
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 30
-
-  migration:
-    runs-on: xcode-27
-    timeout-minutes: 80
-    env:
-      RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
-    steps:
-      - uses: actions/checkout@v4
-        timeout-minutes: 5
-        with:
-          fetch-depth: 0
+          fetch-depth: ${{ matrix.fetch_depth }}
       - name: Export evidence paths
         timeout-minutes: 1
         run: |
@@ -211,25 +127,35 @@ jobs:
       - name: Select pinned Xcode
         timeout-minutes: 2
         run: bash scripts/select_ci_xcode.sh
+      - name: Install test log formatter
+        timeout-minutes: 2
+        run: brew install xcbeautify || true
       - name: Start evidence run
         timeout-minutes: 1
         run: scripts/release_evidence.sh init
-      - name: Migration gate
-        timeout-minutes: 61
-        run: RELEASE_EVIDENCE_GATES=migration make release-evidence
-      - name: Upload migration evidence
+      - name: Create dedicated simulator
+        timeout-minutes: 5
+        run: scripts/release_sim.sh create "${MARBLE_SIMULATOR_NAME}"
+      - name: Gate
+        timeout-minutes: ${{ matrix.gate_timeout }}
+        run: RELEASE_EVIDENCE_GATES=${{ matrix.gate }} make release-evidence
+      - name: Upload gate evidence
         if: always()
         timeout-minutes: 10
         uses: actions/upload-artifact@v4
         with:
-          name: release-evidence-migration
+          name: release-evidence-${{ matrix.name }}
           path: ${{ runner.temp }}/marble-release-evidence
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
+      - name: Delete dedicated simulator
+        if: always()
+        timeout-minutes: 3
+        run: scripts/release_sim.sh delete
 
   evidence:
-    needs: [unit, snapshot, ui, accessibility, migration]
+    needs: [sim]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 25

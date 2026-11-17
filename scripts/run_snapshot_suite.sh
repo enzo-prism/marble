@@ -4,13 +4,7 @@ set -euo pipefail
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 destination=""
-if destination=$("${ROOT_DIR}/scripts/sim_destination.sh" 2>/dev/null); then
-  :
-fi
-sim_id="${destination#id=}"
-if [[ "${destination}" != id=* ]]; then
-  sim_id=""
-fi
+sim_id=""
 
 SNAPSHOT_SUITE=${SNAPSHOT_SUITE:-full}
 
@@ -134,6 +128,13 @@ fi
 if [[ "${SNAPSHOT_LIST_ONLY:-0}" == 1 ]]; then
   printf '%s\n' "${SNAPSHOT_GROUPS[@]}"
   exit 0
+fi
+
+destination=$("${ROOT_DIR}/scripts/sim_destination.sh")
+sim_id="${destination#id=}"
+if [[ "${destination}" != id=* || -z "${sim_id}" ]]; then
+  echo "No simulator UDID from sim_destination.sh" >&2
+  exit 1
 fi
 
 # Keep the simulator booted across groups. Per-group simulator boots plus
