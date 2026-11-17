@@ -121,8 +121,7 @@ echo "Migration baseline: $base_version ($base_build), source $BASE_REF"
 
 # Release builds do not require the destination to remain booted. Re-establish
 # a ready Simulator immediately before the install/launch migration sequence.
-xcrun simctl boot "$SIMULATOR_UDID" >/dev/null 2>&1 || true
-xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+"$ROOT_DIR/scripts/simctl_ready.sh" "$SIMULATOR_UDID"
 xcrun simctl terminate "$SIMULATOR_UDID" Prism.marbleUITests.xctrunner >/dev/null 2>&1 || true
 
 xcrun simctl terminate "$SIMULATOR_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true

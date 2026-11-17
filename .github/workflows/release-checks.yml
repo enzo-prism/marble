@@ -15,28 +15,53 @@ concurrency:
 jobs:
   candidate:
     runs-on: xcode-27
-    # Previous greens spent ~202-208 min because snapshots rebooted the
-    # simulator once per group (~44 boots). After batching those groups and
-    # capping hung XCTest queries, a green run should finish in ~40-50 min.
-    # 90 min is about 2x that budget so a hang dies before five hours.
-    timeout-minutes: 90
+    # Step caps below sum to 280. The job cap must stay at or above that so a
+    # hung gate dies at its own step instead of the job wall. Historical green
+    # 43104061973 spent ~111 min before snapshots and ~198 min overall because
+    # each of ~45 snapshot groups booted a simulator and started xcodebuild.
+    # Batched snapshots on this branch are ~7-25 min (CI 44121214082: 6m31s
+    # focused). Expected wall after batching is ~130-160 min; 280 min is that
+    # budget plus headroom so a real dispatch can finish, including the
+    # always-run upload (~10 min). Extra 10 min on the job so upload still
+    # runs if a gate uses its full step cap.
+    timeout-minutes: 290
+    env:
+      RELEASE_EVIDENCE_ROOT: ${{ runner.temp }}/marble-release-evidence
+      DERIVED_DATA_PATH: ${{ runner.temp }}/marble-derived-data
+      MIGRATION_DERIVED_DATA_ROOT: ${{ runner.temp }}/marble-migration-builds
     steps:
       - uses: actions/checkout@v4
+        timeout-minutes: 5
         with:
           fetch-depth: 0
       - name: Select pinned Xcode
+        timeout-minutes: 5
         run: bash scripts/select_ci_xcode.sh
       - name: Install test log formatter
+        timeout-minutes: 10
         run: brew install xcbeautify || true
-      - name: Run candidate checks
-        timeout-minutes: 80
-        env:
-          RELEASE_EVIDENCE_ROOT: ${{ runner.temp }}/marble-release-evidence
-          DERIVED_DATA_PATH: ${{ runner.temp }}/marble-derived-data
-          MIGRATION_DERIVED_DATA_ROOT: ${{ runner.temp }}/marble-migration-builds
-        run: make release-evidence
+      - name: Unit gate
+        timeout-minutes: 25
+        run: RELEASE_EVIDENCE_GATES=unit make release-evidence
+      - name: Snapshot gate
+        if: success() || failure()
+        timeout-minutes: 45
+        run: RELEASE_EVIDENCE_GATES=snapshot make release-evidence
+      - name: UI gate
+        if: success() || failure()
+        timeout-minutes: 60
+        run: RELEASE_EVIDENCE_GATES=ui make release-evidence
+      - name: Accessibility gate
+        if: success() || failure()
+        timeout-minutes: 50
+        run: RELEASE_EVIDENCE_GATES=accessibility make release-evidence
+      - name: Migration gate
+        if: success() || failure()
+        timeout-minutes: 70
+        run: RELEASE_EVIDENCE_GATES=migration make release-evidence
       - name: Preserve candidate evidence
         if: always()
+        timeout-minutes: 10
         uses: actions/upload-artifact@v4
         with:
           name: release-evidence

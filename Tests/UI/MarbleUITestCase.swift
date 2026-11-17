@@ -76,15 +76,20 @@ class MarbleUITestCase: XCTestCase {
     /// even when the process is already dying, which fails an otherwise green
     /// History audit in tearDown. This SDK has no `XCUIApplication.processID`
     /// (CI 44061298848), so wrap `terminate()` in a non-strict expected
-    /// failure instead of SIGKILL.
+    /// failure instead of SIGKILL. Matcher is scoped to that message so a
+    /// different tearDown issue still fails the test. Tracked in
+    /// https://github.com/enzo-prism/marble/issues/65
     func terminateIfRunning() {
         guard let application = app, application.state != .notRunning else { return }
         // XCTExpectFailure is the function; the options type is
         // XCTExpectedFailure.Options (CI 44071137794).
         let options = XCTExpectedFailure.Options()
         options.isStrict = false
+        options.issueMatcher = { issue in
+            issue.compactDescription.contains("Failed to terminate")
+        }
         XCTExpectFailure(
-            "Home can leave XCUITest unable to terminate the process",
+            "Home can leave XCUITest unable to terminate the process (#65)",
             options: options
         ) {
             _ = application.terminate()

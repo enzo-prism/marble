@@ -136,11 +136,12 @@ if [[ "${SNAPSHOT_LIST_ONLY:-0}" == 1 ]]; then
   exit 0
 fi
 
-# Keep the simulator booted across groups. A full shutdown/boot pair per group
-# is what stretched Release checks past four hours on d1de18b. Still clear the
-# leftover XCUITest runner and app from the previous CI step — otherwise
-# drawHierarchy in mounted Composer snapshots can fail to render (run
-# 44030761198: 2 captures in 10s on the last Composer test).
+# Keep the simulator booted across groups. Per-group simulator boots plus
+# xcodebuild startup across ~45 groups is what stretched Release checks to
+# 4h09m on d1de18b (run 43931608061) — not the XCUITest tree walk. Still
+# clear the leftover XCUITest runner and app from the previous CI step —
+# otherwise drawHierarchy in mounted Composer snapshots can fail to render
+# (run 44030761198: 2 captures in 10s on the last Composer test).
 reset_app() {
   if [[ -z "${sim_id}" ]]; then
     return 0
@@ -155,8 +156,7 @@ boot_simulator() {
   fi
   # xcodebuild can leave the device Shutdown after a suite (CI 44079417409:
   # Composer passed, then History simctl ui failed with "current state: Shutdown").
-  xcrun simctl boot "${sim_id}" >/dev/null 2>&1 || true
-  xcrun simctl bootstatus "${sim_id}" -b >/dev/null 2>&1 || true
+  "${ROOT_DIR}/scripts/simctl_ready.sh" "${sim_id}"
 }
 
 prepare_simulator() {

@@ -19,9 +19,9 @@ Environment for `run`:
   MIGRATION_BASE_REF           Optional shipped-source migration base
   SIMULATOR_UDID               Migration simulator (defaults to MARBLE_SIMULATOR_ID)
 
-Unit and snapshot gates retain xcresult bundles. UI and accessibility gates retain
-complete command logs and exit status without xcresult attachments, which can grow
-by multiple gigabytes when UI screenshots and hierarchy diagnostics are embedded.
+Every gate retains an xcresult (or migration log) plus a teed command.log so a
+step cap still names the hanging test. UI/accessibility skip sysdiagnose
+collection (`-collect-test-diagnostics never`) to avoid multi-gigabyte bundles.
 EOF
 }
 
@@ -81,8 +81,7 @@ prepare_ui_simulator() {
   # Consecutive xcodebuild invocations can leave SpringBoard busy or the device
   # shut down while Xcode finalizes the preceding result bundle. Establish one
   # deterministic ready state before launching a UI test runner.
-  xcrun simctl boot "${simulator_id}" >/dev/null 2>&1 || true
-  xcrun simctl bootstatus "${simulator_id}" -b
+  "${ROOT_DIR}/scripts/simctl_ready.sh" "${simulator_id}"
   xcrun simctl terminate "${simulator_id}" Prism.marbleUITests.xctrunner >/dev/null 2>&1 || true
   xcrun simctl terminate "${simulator_id}" Prism.marble >/dev/null 2>&1 || true
   sleep 2
@@ -124,10 +123,10 @@ run_gate() {
         fi
         ;;
       ui|accessibility)
-        if [[ ! -s "${log_path}" ]]; then
+        if [[ ! -d "${RELEASE_EVIDENCE_RUN_DIR}/${gate}/Marble.xcresult" ]]; then
           status=failed
           exit_code=87
-          printf '%s\n' "Expected ${gate} command log was empty." | tee -a "${log_path}" >&2
+          printf '%s\n' "Expected ${gate} xcresult was not produced." | tee -a "${log_path}" >&2
         fi
         ;;
       snapshot)
@@ -272,11 +271,11 @@ run_release_evidence() {
         ;;
       ui)
         prepare_ui_simulator
-        run_gate "${gate}" env RELEASE_EVIDENCE_CAPTURE_XCRESULT=0 make -C "${ROOT_DIR}" ui
+        run_gate "${gate}" make -C "${ROOT_DIR}" ui
         ;;
       accessibility)
         prepare_ui_simulator
-        run_gate "${gate}" env RELEASE_EVIDENCE_CAPTURE_XCRESULT=0 make -C "${ROOT_DIR}" audit
+        run_gate "${gate}" make -C "${ROOT_DIR}" audit
         ;;
       migration)
         run_gate "${gate}" make -C "${ROOT_DIR}" migration-release

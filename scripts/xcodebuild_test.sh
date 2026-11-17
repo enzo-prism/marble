@@ -94,14 +94,15 @@ XCODEBUILD_CMD=(
   -maximum-test-execution-time-allowance "${XCODEBUILD_MAXIMUM_TEST_TIMEOUT:-900}"
 )
 
-# Xcode still creates a DerivedData result bundle when no explicit
-# -resultBundlePath is supplied. For long release-evidence UI suites, prevent
-# post-test sysdiagnose collection from turning an otherwise-green run into a
-# multi-gigabyte ENOSPC failure. Unit and snapshot evidence continue to retain
-# their explicit xcresult bundles.
-if [[ -n "${RELEASE_EVIDENCE_RUN_DIR}" && "${RELEASE_EVIDENCE_CAPTURE_XCRESULT}" == "0" ]]; then
+# Release-evidence UI suites still keep an xcresult (so a step cap can show
+# which test hung) but skip post-test sysdiagnose collection. Those attachments
+# are what turned otherwise-green runs into multi-gigabyte ENOSPC failures.
+if [[ -n "${RELEASE_EVIDENCE_RUN_DIR}" ]]; then
   XCODEBUILD_CMD+=(-collect-test-diagnostics never)
 fi
+
+# Line-buffer xcodebuild/xcbeautify so a killed step still shows the last test.
+export NSUnbufferedIO=YES
 
 # An explicitly empty path keeps focused reruns low-artifact when Xcode result
 # recording is unavailable. Normal developer runs still replace the single
