@@ -76,15 +76,20 @@ class ReleaseEvidenceAssembleTest < Minitest::Test
     end
     jobs.each do |name, job|
       cap = Integer(job.fetch("timeout-minutes"))
+      step_sum = job.fetch("steps").sum { |step| Integer(step["timeout-minutes"] || 0) }
       assert_operator cap, :<=, 120, "#{name} job cap #{cap} is over 120"
+      assert_operator cap, :>=, step_sum, "#{name} job #{cap} is below step sum #{step_sum}"
+      upload = job.fetch("steps").reverse.find { |step| step["uses"].to_s.include?("upload-artifact") }
+      assert_equal "always()", upload.fetch("if"), "#{name} upload must always run"
+      assert_equal 10, Integer(upload.fetch("timeout-minutes"))
     end
-    assert_equal 90, Integer(jobs.fetch("ui").fetch("timeout-minutes"))
-    assert_equal 75, Integer(jobs.fetch("migration").fetch("timeout-minutes"))
+    assert_equal 100, Integer(jobs.fetch("ui").fetch("timeout-minutes"))
+    assert_equal 120, Integer(jobs.fetch("accessibility").fetch("timeout-minutes"))
+    assert_equal 80, Integer(jobs.fetch("migration").fetch("timeout-minutes"))
     evidence = jobs.fetch("evidence")
     assert_equal %w[unit snapshot ui accessibility migration], evidence.fetch("needs")
     assert_equal "always()", evidence.fetch("if")
     upload = evidence.fetch("steps").find { |step| step["name"] == "Preserve candidate evidence" }
-    assert_equal "always()", upload.fetch("if")
     assert_equal "release-evidence", upload.dig("with", "name")
     assert_equal %w[1 2 3], jobs.fetch("ui").dig("strategy", "matrix", "shard")
   end

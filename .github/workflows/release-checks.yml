@@ -22,19 +22,24 @@ concurrency:
 # which killed the simulator, and accessibility crashed in 1m24s.
 #
 # Caps are 44145967148 (and same-SHA CI migration 47m11s) plus ~25%
-# headroom. No job is over 120 min. UI is three class shards because one
-# UI job plus headroom would exceed 120 (JournalFlow 13 tests ~24 min;
-# 60 min elapsed with ~16 suites still queued).
+# headroom. No job is over 120 min. Each job cap is at or above the sum
+# of its step caps, including the always-run 10 min upload, so a step
+# timeout still uploads a fragment instead of cancelling the job wall.
 #
-#   unit 20          8m8s * 1.25 plus setup/upload
-#   snapshot 30      15m8s * 1.25 plus setup/upload
-#   ui-1/2/3 90      shard 1 is the 60 min A–Keyboard set * 1.25 plus
-#                    setup/upload; 90 < 120
-#   accessibility 50 1m24s was the cascade crash, not a real duration.
-#                    Isolated estimate from CI audit (~15 min for 2 tests)
-#                    for the full suite, plus headroom.
-#   migration 75     same-SHA CI 47m11s * 1.25 ≈ 59, rounded to ~75
-#   evidence 20      assemble one five-gate manifest and upload it
+# UI is three class shards because one UI job plus headroom would exceed
+# 120 (JournalFlow 13 tests ~24 min; 60 min elapsed with ~16 suites still
+# queued). Accessibility is a single 120 min job: `make audit` is the
+# full AccessibilityAuditUITests class (History/Notes Default+XXXL with
+# a 720s allowance, two runAuditSuite light/dark passes) plus AddSet and
+# LogModePicker. CI 44142981959 spent ~15 min on just two of those tests.
+#
+#   unit 30          8m8s * 1.25 plus setup/upload; steps sum to 30
+#   snapshot 40      15m8s * 1.25 plus setup/upload; steps sum to 40
+#   ui-1/2/3 100     shard 1 is the 60 min A–Keyboard set * 1.25 plus
+#                    setup/upload; steps sum to 93; 100 < 120
+#   accessibility 120 full make audit; steps sum to 120
+#   migration 80     CI 47m11s * 1.25 ≈ 59 plus setup/upload; ~75–80
+#   evidence 25      assemble one five-gate manifest and upload it
 #
 # The evidence job `needs` every gate, runs `if: always()`, and uploads
 # artifact `release-evidence` (the name App Store submit downloads).
@@ -42,25 +47,25 @@ concurrency:
 jobs:
   unit:
     runs-on: xcode-27
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
     steps:
       - uses: actions/checkout@v4
-        timeout-minutes: 5
+        timeout-minutes: 2
       - name: Export evidence paths
         timeout-minutes: 1
         run: |
           echo "RELEASE_EVIDENCE_ROOT=${RUNNER_TEMP}/marble-release-evidence" >> "$GITHUB_ENV"
           echo "DERIVED_DATA_PATH=${RUNNER_TEMP}/marble-derived-data" >> "$GITHUB_ENV"
       - name: Select pinned Xcode
-        timeout-minutes: 5
+        timeout-minutes: 2
         run: bash scripts/select_ci_xcode.sh
       - name: Install test log formatter
-        timeout-minutes: 3
+        timeout-minutes: 2
         run: brew install xcbeautify || true
       - name: Start evidence run
-        timeout-minutes: 2
+        timeout-minutes: 1
         run: scripts/release_evidence.sh init
       - name: Unit gate
         timeout-minutes: 12
@@ -78,25 +83,25 @@ jobs:
 
   snapshot:
     runs-on: xcode-27
-    timeout-minutes: 30
+    timeout-minutes: 40
     env:
       RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
     steps:
       - uses: actions/checkout@v4
-        timeout-minutes: 5
+        timeout-minutes: 2
       - name: Export evidence paths
         timeout-minutes: 1
         run: |
           echo "RELEASE_EVIDENCE_ROOT=${RUNNER_TEMP}/marble-release-evidence" >> "$GITHUB_ENV"
           echo "DERIVED_DATA_PATH=${RUNNER_TEMP}/marble-derived-data" >> "$GITHUB_ENV"
       - name: Select pinned Xcode
-        timeout-minutes: 5
+        timeout-minutes: 2
         run: bash scripts/select_ci_xcode.sh
       - name: Install test log formatter
-        timeout-minutes: 3
+        timeout-minutes: 2
         run: brew install xcbeautify || true
       - name: Start evidence run
-        timeout-minutes: 2
+        timeout-minutes: 1
         run: scripts/release_evidence.sh init
       - name: Snapshot gate
         timeout-minutes: 22
@@ -115,7 +120,7 @@ jobs:
   ui:
     name: ui-${{ matrix.shard }}
     runs-on: xcode-27
-    timeout-minutes: 90
+    timeout-minutes: 100
     env:
       RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
       RELEASE_EVIDENCE_UI_SHARD: ${{ matrix.shard }}
@@ -125,20 +130,20 @@ jobs:
         shard: ["1", "2", "3"]
     steps:
       - uses: actions/checkout@v4
-        timeout-minutes: 5
+        timeout-minutes: 2
       - name: Export evidence paths
         timeout-minutes: 1
         run: |
           echo "RELEASE_EVIDENCE_ROOT=${RUNNER_TEMP}/marble-release-evidence" >> "$GITHUB_ENV"
           echo "DERIVED_DATA_PATH=${RUNNER_TEMP}/marble-derived-data" >> "$GITHUB_ENV"
       - name: Select pinned Xcode
-        timeout-minutes: 5
+        timeout-minutes: 2
         run: bash scripts/select_ci_xcode.sh
       - name: Install test log formatter
-        timeout-minutes: 3
+        timeout-minutes: 2
         run: brew install xcbeautify || true
       - name: Start evidence run
-        timeout-minutes: 2
+        timeout-minutes: 1
         run: scripts/release_evidence.sh init
       - name: UI shard
         timeout-minutes: 75
@@ -156,28 +161,28 @@ jobs:
 
   accessibility:
     runs-on: xcode-27
-    timeout-minutes: 50
+    timeout-minutes: 120
     env:
       RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
     steps:
       - uses: actions/checkout@v4
-        timeout-minutes: 5
+        timeout-minutes: 2
       - name: Export evidence paths
         timeout-minutes: 1
         run: |
           echo "RELEASE_EVIDENCE_ROOT=${RUNNER_TEMP}/marble-release-evidence" >> "$GITHUB_ENV"
           echo "DERIVED_DATA_PATH=${RUNNER_TEMP}/marble-derived-data" >> "$GITHUB_ENV"
       - name: Select pinned Xcode
-        timeout-minutes: 5
+        timeout-minutes: 2
         run: bash scripts/select_ci_xcode.sh
       - name: Install test log formatter
-        timeout-minutes: 3
+        timeout-minutes: 2
         run: brew install xcbeautify || true
       - name: Start evidence run
-        timeout-minutes: 2
+        timeout-minutes: 1
         run: scripts/release_evidence.sh init
       - name: Accessibility gate
-        timeout-minutes: 40
+        timeout-minutes: 102
         run: RELEASE_EVIDENCE_GATES=accessibility make release-evidence
       - name: Upload accessibility evidence
         if: always()
@@ -192,7 +197,7 @@ jobs:
 
   migration:
     runs-on: xcode-27
-    timeout-minutes: 75
+    timeout-minutes: 80
     env:
       RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
     steps:
@@ -207,13 +212,13 @@ jobs:
           echo "DERIVED_DATA_PATH=${RUNNER_TEMP}/marble-derived-data" >> "$GITHUB_ENV"
           echo "MIGRATION_DERIVED_DATA_ROOT=${RUNNER_TEMP}/marble-migration-builds" >> "$GITHUB_ENV"
       - name: Select pinned Xcode
-        timeout-minutes: 5
+        timeout-minutes: 2
         run: bash scripts/select_ci_xcode.sh
       - name: Start evidence run
-        timeout-minutes: 2
+        timeout-minutes: 1
         run: scripts/release_evidence.sh init
       - name: Migration gate
-        timeout-minutes: 62
+        timeout-minutes: 61
         run: RELEASE_EVIDENCE_GATES=migration make release-evidence
       - name: Upload migration evidence
         if: always()
@@ -230,16 +235,16 @@ jobs:
     needs: [unit, snapshot, ui, accessibility, migration]
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-        timeout-minutes: 5
+        timeout-minutes: 2
       - name: Export evidence paths
         timeout-minutes: 1
         run: echo "RELEASE_EVIDENCE_ROOT=${RUNNER_TEMP}/marble-release-evidence" >> "$GITHUB_ENV"
       - name: Download gate fragments
         if: always()
-        timeout-minutes: 5
+        timeout-minutes: 3
         uses: actions/download-artifact@v4
         with:
           pattern: release-evidence-*
@@ -248,11 +253,11 @@ jobs:
           if-no-files-found: warn
       - name: Assemble five-gate manifest
         if: always()
-        timeout-minutes: 5
+        timeout-minutes: 3
         run: scripts/release_evidence.sh assemble "${RUNNER_TEMP}/marble-release-fragments"
       - name: Finalize evidence manifest
         if: always()
-        timeout-minutes: 5
+        timeout-minutes: 3
         run: scripts/release_evidence.sh finalize
       - name: Preserve candidate evidence
         if: always()
