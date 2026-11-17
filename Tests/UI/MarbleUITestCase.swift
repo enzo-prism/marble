@@ -582,9 +582,8 @@ class MarbleUITestCase: XCTestCase {
     }
 
     private func swipeTowardOffscreenRows(in container: XCUIElement?) {
-        let target = container ?? app
-        if target.isHittable {
-            target.swipeUp()
+        if let container, container.isHittable {
+            container.swipeUp()
         } else if app.isHittable {
             app.swipeUp()
         }
