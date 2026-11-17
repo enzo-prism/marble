@@ -9,14 +9,16 @@ usage() {
 Usage:
   scripts/release_evidence.sh init
   scripts/release_evidence.sh run
+  scripts/release_evidence.sh assemble /absolute/path/to/gate-fragments
   scripts/release_evidence.sh finalize
   scripts/release_evidence.sh verify /absolute/path/to/manifest.json
 
-Environment for `run` / `init` / `finalize`:
+Environment for `run` / `init` / `finalize` / `assemble`:
   RELEASE_EVIDENCE_ROOT        Absolute evidence root (default: TestResults/release-gates)
   RELEASE_EVIDENCE_CONTINUE_DIR Absolute run dir from `init` (required for split CI gates)
   RELEASE_EVIDENCE_GATES       Space-separated gates (default: unit snapshot ui accessibility migration)
   RELEASE_EVIDENCE_DEFER_MANIFEST Set to 1 to skip generate/verify until `finalize`
+  RELEASE_EVIDENCE_UI_SHARD    1, 2, or 3 to run one UI class shard
   RELEASE_EVIDENCE_ALLOW_DIRTY Set to 1 only for non-release workflow development
   DERIVED_DATA_PATH            Optional dedicated DerivedData path
   MARBLE_SIMULATOR_ID          Dedicated simulator for test/snapshot/UI/audit gates
@@ -24,7 +26,9 @@ Environment for `run` / `init` / `finalize`:
   SIMULATOR_UDID               Migration simulator (defaults to MARBLE_SIMULATOR_ID)
 
 `init` + per-gate `run` + `finalize` write one candidate run whose manifest
-lists every required gate. App Store submit rejects a one-gate fragment.
+lists every required gate. Parallel CI jobs upload fragments; `assemble`
+merges them (including the three UI shards) into one run before `finalize`.
+App Store submit rejects a one-gate fragment.
 
 Every gate retains an xcresult (or migration log) plus a teed command.log so a
 step cap still names the hanging test. UI/accessibility skip sysdiagnose
@@ -129,8 +133,16 @@ run_gate() {
           printf '%s\n' "Expected ${gate} xcresult was not produced." | tee -a "${log_path}" >&2
         fi
         ;;
-      ui|accessibility)
+      accessibility)
         if [[ ! -d "${RELEASE_EVIDENCE_RUN_DIR}/${gate}/Marble.xcresult" ]]; then
+          status=failed
+          exit_code=87
+          printf '%s\n' "Expected ${gate} xcresult was not produced." | tee -a "${log_path}" >&2
+        fi
+        ;;
+      ui)
+        snapshot_results=("${RELEASE_EVIDENCE_RUN_DIR}/${gate}/"*.xcresult)
+        if [[ ! -d "${snapshot_results[0]}" ]]; then
           status=failed
           exit_code=87
           printf '%s\n' "Expected ${gate} xcresult was not produced." | tee -a "${log_path}" >&2
@@ -330,7 +342,17 @@ execute_gates() {
         ;;
       ui)
         prepare_ui_simulator
+        if [[ -n "${RELEASE_EVIDENCE_UI_SHARD:-}" ]]; then
+          if [[ ! "${RELEASE_EVIDENCE_UI_SHARD}" =~ ^[123]$ ]]; then
+            echo "RELEASE_EVIDENCE_UI_SHARD must be 1, 2, or 3." >&2
+            exit 1
+          fi
+          UI_ONLY_TESTING="$("${ROOT_DIR}/scripts/release_ui_shards.sh" "${RELEASE_EVIDENCE_UI_SHARD}")"
+          export UI_ONLY_TESTING
+          export RESULT_BUNDLE_PATH="${RELEASE_EVIDENCE_RUN_DIR}/ui/shard-${RELEASE_EVIDENCE_UI_SHARD}.xcresult"
+        fi
         run_gate "${gate}" make -C "${ROOT_DIR}" ui
+        unset RESULT_BUNDLE_PATH UI_ONLY_TESTING
         ;;
       accessibility)
         prepare_ui_simulator
@@ -406,12 +428,145 @@ finalize_release_evidence() {
   [[ "${OVERALL_STATUS}" == passed ]]
 }
 
+fragment_run_dirs() {
+  local root="$1"
+  local run_json
+  [[ -d "${root}" ]] || return 0
+  while IFS= read -r run_json; do
+    [[ -n "${run_json}" ]] || continue
+    dirname "$(dirname "${run_json}")"
+  done < <(find "${root}" -path '*/.evidence/run.json' | sort)
+}
+
+copy_gate_tree() {
+  local dest="$1"
+  local src="$2"
+  local gate="$3"
+  local src_record="${src}/.evidence/gates/${gate}.json"
+  local dest_record="${dest}/.evidence/gates/${gate}.json"
+  [[ -f "${src_record}" ]] || return 1
+  if [[ -f "${dest_record}" ]]; then
+    echo "Refusing to merge duplicate release evidence gate: ${gate}" >&2
+    exit 1
+  fi
+  mkdir -p "${dest}/${gate}"
+  cp -a "${src}/${gate}/." "${dest}/${gate}/"
+  cp "${src_record}" "${dest_record}"
+}
+
+merge_ui_shards() {
+  local dest="$1"
+  shift
+  local -a shard_runs=("$@")
+  local dest_ui="${dest}/ui"
+  local shard run shard_dir record
+  local -a records=()
+  local missing=0
+  mkdir -p "${dest_ui}" "${dest}/.evidence/gates"
+  : >"${dest_ui}/command.log"
+
+  for shard in 1 2 3; do
+    run=""
+    for shard_dir in "${shard_runs[@]}"; do
+      if [[ -d "${shard_dir}/ui/shard-${shard}.xcresult" ]]; then
+        run="${shard_dir}"
+        break
+      fi
+    done
+    if [[ -z "${run}" ]]; then
+      printf 'Missing UI shard %s xcresult.\n' "${shard}" | tee -a "${dest_ui}/command.log" >&2
+      missing=1
+      continue
+    fi
+    cp -a "${run}/ui/shard-${shard}.xcresult" "${dest_ui}/shard-${shard}.xcresult"
+    if [[ -f "${run}/ui/command.log" ]]; then
+      printf '\n--- UI shard %s ---\n' "${shard}" >>"${dest_ui}/command.log"
+      cat "${run}/ui/command.log" >>"${dest_ui}/command.log"
+    fi
+    record="${run}/.evidence/gates/ui.json"
+    if [[ -f "${record}" ]]; then
+      records+=("${record}")
+    fi
+  done
+
+  if (( missing != 0 || ${#records[@]} != 3 )); then
+    write_gate_record ui failed 1 "$(iso8601_now)" "$(iso8601_now)" \
+      "assemble ui shards 1 2 3" \
+      "Expected UI shards 1, 2 and 3; one or more fragments were missing."
+    OVERALL_STATUS=failed
+    return
+  fi
+
+  jq -s '{
+      name: "ui",
+      status: (if all(.status == "passed") then "passed" else "failed" end),
+      exit_code: (map(.exit_code) | max),
+      started_at: (map(.started_at) | min),
+      completed_at: (map(.completed_at) | max),
+      command: (map(.command) | join(" ; ")),
+      reason: (map(.reason) | map(select(. != null)) | if length == 0 then null else join("; ") end)
+    }' "${records[@]}" >"${dest}/.evidence/gates/ui.json"
+  if [[ "$(jq -r '.status' "${dest}/.evidence/gates/ui.json")" != passed ]]; then
+    OVERALL_STATUS=failed
+  fi
+}
+
+assemble_release_evidence() {
+  local fragment_root="$1"
+  local run_dir gate run_sha run_build
+  local -a ui_runs=()
+  require_commands
+  if [[ -z "${fragment_root}" || "${fragment_root}" != /* ]]; then
+    echo "assemble requires an absolute fragment directory." >&2
+    exit 1
+  fi
+  if [[ -n "${RELEASE_EVIDENCE_CONTINUE_DIR:-}" ]]; then
+    echo "assemble creates a new run; unset RELEASE_EVIDENCE_CONTINUE_DIR." >&2
+    exit 1
+  fi
+  RELEASE_EVIDENCE_GATES="unit snapshot ui accessibility migration"
+  parse_gates
+  open_run_dir
+  OVERALL_STATUS=passed
+
+  while IFS= read -r run_dir; do
+    [[ -n "${run_dir}" ]] || continue
+    run_sha=$(jq -r '.git_sha' "${run_dir}/.evidence/run.json")
+    run_build=$(jq -r '.build_number' "${run_dir}/.evidence/run.json")
+    if [[ "${run_sha}" != "${CANDIDATE_SHA}" || "${run_build}" != "${BUILD_NUMBER}" ]]; then
+      echo "Fragment ${run_dir} belongs to another candidate (${run_sha} ${run_build})." >&2
+      exit 1
+    fi
+    if [[ -d "${run_dir}/ui" ]]; then
+      ui_runs+=("${run_dir}")
+      continue
+    fi
+    for gate in unit snapshot accessibility migration; do
+      if [[ -f "${run_dir}/.evidence/gates/${gate}.json" ]]; then
+        copy_gate_tree "${RELEASE_EVIDENCE_RUN_DIR}" "${run_dir}" "${gate}"
+      fi
+    done
+  done < <(fragment_run_dirs "${fragment_root}")
+
+  if (( ${#ui_runs[@]} > 0 )); then
+    merge_ui_shards "${RELEASE_EVIDENCE_RUN_DIR}" "${ui_runs[@]}"
+  fi
+
+  export RELEASE_EVIDENCE_CONTINUE_DIR="${RELEASE_EVIDENCE_RUN_DIR}"
+  publish_continue_dir
+  echo "Assembled release evidence run: ${RELEASE_EVIDENCE_RUN_DIR}"
+}
+
 case "${1:-}" in
   init)
     init_release_evidence
     ;;
   run)
     run_release_evidence
+    ;;
+  assemble)
+    [[ $# -eq 2 ]] || { usage >&2; exit 1; }
+    assemble_release_evidence "$2"
     ;;
   finalize)
     finalize_release_evidence
