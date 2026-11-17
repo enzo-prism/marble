@@ -79,7 +79,9 @@ class MarbleUITestCase: XCTestCase {
     /// failure instead of SIGKILL.
     func terminateIfRunning() {
         guard let application = app, application.state != .notRunning else { return }
-        let options = XCTExpectFailure.Options()
+        // XCTExpectFailure is the function; the options type is
+        // XCTExpectedFailure.Options (CI 44071137794).
+        let options = XCTExpectedFailure.Options()
         options.isStrict = false
         XCTExpectFailure(
             "Home can leave XCUITest unable to terminate the process",
