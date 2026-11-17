@@ -12,39 +12,41 @@ import SwiftUI
 // system performs the snippet intent again, so the card re-reads the store and
 // re-renders with the updated values.
 
-/// Which confirmed sets one snippet card has produced, oldest first.
+/// Which confirmed sets one snippet card presents, oldest first.
 ///
-/// A snippet intent's parameters are fixed when the card is first shown, but
+/// Every card gets its own random card ID, distinct from any set ID, so two cards
+/// about the same set (say a log card and a later correction card) never share
+/// state. A snippet intent's parameters are fixed when the card is first shown, but
 /// "Same again" adds a new set that the card should then present (and that Undo
-/// should remove first). This bounded list maps the card's origin set to the sets
-/// it logged. It holds identifiers only — never workout values — and the card
-/// still resolves every ID against the store, so a stale entry can only miss.
+/// should remove first). This bounded list maps a card to the sets it presents. It
+/// holds identifiers only — never workout values — and the card still resolves
+/// every ID against the store, so a stale entry can only miss.
 @MainActor
 enum LoggedSetSnippetChains {
     static var defaults: UserDefaults = .standard
-    static let storageKey = "marble.snippet.loggedSetChains"
+    static let storageKey = "marble.snippet.loggedSetCards"
     static let maximumChains = 16
     static let maximumChainLength = 50
 
-    /// The sets a card created for `origin` presents, oldest first. A card with no
-    /// recorded history presents only its origin.
-    static func chain(for origin: UUID) -> [UUID] {
-        let key = origin.uuidString
+    /// The sets `card` presents, oldest first. A card with no recorded history
+    /// (new, or evicted) presents only the set it was created for.
+    static func chain(forCard card: UUID, origin: UUID) -> [UUID] {
+        let key = card.uuidString
         guard let record = stored().last(where: { $0.first == key }) else { return [origin] }
         return record.dropFirst().compactMap(UUID.init(uuidString:))
     }
 
-    static func append(_ id: UUID, toChain origin: UUID) {
-        save(chain(for: origin).filter { $0 != id } + [id], for: origin)
+    static func append(_ id: UUID, toCard card: UUID, origin: UUID) {
+        save(chain(forCard: card, origin: origin).filter { $0 != id } + [id], for: card)
     }
 
-    static func remove(_ id: UUID, fromChain origin: UUID) {
-        save(chain(for: origin).filter { $0 != id }, for: origin)
+    static func remove(_ id: UUID, fromCard card: UUID, origin: UUID) {
+        save(chain(forCard: card, origin: origin).filter { $0 != id }, for: card)
     }
 
     /// Each record is `[card ID] + presented set IDs`; newest records last.
-    private static func save(_ ids: [UUID], for origin: UUID) {
-        let key = origin.uuidString
+    private static func save(_ ids: [UUID], for card: UUID) {
+        let key = card.uuidString
         var records = stored().filter { $0.first != key }
         records.append([key] + ids.suffix(maximumChainLength).map(\.uuidString))
         defaults.set(Array(records.suffix(maximumChains)), forKey: storageKey)
@@ -71,20 +73,33 @@ struct LoggedSetSnippetCard: Equatable {
         let personalRecordAccessibilityLabel: String?
         let weightStep: WeightStep?
         let showsAddRep: Bool
+        /// Undo deletes the shown set, so it is offered only for sets this card's
+        /// own action created — never for an existing set a correction card shows.
+        let showsUndo: Bool
         let loggedCount: Int
     }
 
-    let chainID: UUID
-    /// `nil` once every set this card logged has been undone or deleted.
+    let cardID: UUID
+    /// The set the card was created for.
+    let originSetID: UUID
+    /// `true` when the card's action created its origin set (Log a Set, Log Last
+    /// Set Again); `false` for a correction of an existing set.
+    let allowsOriginUndo: Bool
+    /// `nil` once every set this card presents has been undone or deleted.
     let details: Details?
 
-    static func load(chainID: UUID, in context: ModelContext) -> LoggedSetSnippetCard {
-        let entries = LoggedSetSnippetChains.chain(for: chainID).compactMap { WorkoutCommands.manualEntry(id: $0, in: context) }
-        guard let current = entries.last else { return LoggedSetSnippetCard(chainID: chainID, details: nil) }
-        return LoggedSetSnippetCard(chainID: chainID, details: details(for: current, loggedCount: entries.count, in: context))
+    static func load(cardID: UUID, originSetID: UUID, allowsOriginUndo: Bool, in context: ModelContext) -> LoggedSetSnippetCard {
+        let entries = LoggedSetSnippetChains.chain(forCard: cardID, origin: originSetID)
+            .compactMap { WorkoutCommands.manualEntry(id: $0, in: context) }
+        let details = entries.last.map { current in
+            Self.details(for: current, loggedCount: entries.count,
+                         showsUndo: current.id != originSetID || allowsOriginUndo, in: context)
+        }
+        return LoggedSetSnippetCard(cardID: cardID, originSetID: originSetID,
+                                    allowsOriginUndo: allowsOriginUndo, details: details)
     }
 
-    private static func details(for entry: SetEntry, loggedCount: Int, in context: ModelContext) -> Details {
+    private static func details(for entry: SetEntry, loggedCount: Int, showsUndo: Bool, in context: ModelContext) -> Details {
         let exercise = entry.exercise
         let metrics = exercise.metrics
         let entryID = entry.id
@@ -110,6 +125,7 @@ struct LoggedSetSnippetCard: Equatable {
             personalRecordAccessibilityLabel: badge.isEmpty ? nil : badge.accessibilityDescription,
             weightStep: metrics.usesWeight ? weightStep(unit: entry.weightUnit, perDumbbell: isPair) : nil,
             showsAddRep: metrics.usesReps,
+            showsUndo: showsUndo,
             loggedCount: loggedCount
         )
     }
@@ -152,28 +168,38 @@ struct LoggedSetSnippetCard: Equatable {
 }
 
 /// The interactive card. Not discoverable on its own: it only exists as the
-/// result of a logging intent.
+/// result of a logging or correction intent.
 struct LoggedSetSnippetIntent: SnippetIntent {
     static let title: LocalizedStringResource = "Logged Set"
     static let isDiscoverable = false
     static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
 
+    @Parameter(title: "Card ID", description: "This card's own identity, distinct from any set.")
+    var cardID: String
+
     @Parameter(title: "Set ID", description: "The confirmed set this card was created for.")
     var setID: String
 
+    @Parameter(title: "Allows Undo", description: "Whether this card's action created the set, so Undo may remove it.")
+    var allowsUndo: Bool
+
     init() {}
 
-    init(setID: UUID) {
+    /// - Parameter createdSet: `true` when the presenting intent just logged
+    ///   `setID`; `false` for a correction, whose card never offers to delete it.
+    init(setID: UUID, createdSet: Bool, cardID: UUID = UUID()) {
+        self.cardID = cardID.uuidString
         self.setID = setID.uuidString
+        self.allowsUndo = createdSet
     }
 
     @MainActor
     func perform() async throws -> some IntentResult & ShowsSnippetView {
-        guard let origin = UUID(uuidString: setID) else {
-            throw WorkoutIntentFailure(message: "That set is no longer available.")
-        }
+        let card = try LoggedSetButtonSupport.id(cardID)
+        let origin = try LoggedSetButtonSupport.id(setID)
         let context = try AppIntentsSupport.resolvedContainer().mainContext
-        return .result(view: LoggedSetSnippetView(card: .load(chainID: origin, in: context)))
+        return .result(view: LoggedSetSnippetView(card: .load(
+            cardID: card, originSetID: origin, allowsOriginUndo: allowsUndo, in: context)))
     }
 }
 
@@ -227,46 +253,60 @@ struct RepeatLoggedSetIntent: LiveActivityIntent {
     static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
 
     @Parameter(title: "Card ID") var cardID: String
+    @Parameter(title: "Card Set ID") var originSetID: String
     @Parameter(title: "Set ID") var setID: String
 
     init() {}
-    init(cardID: UUID, setID: UUID) {
+    init(cardID: UUID, originSetID: UUID, setID: UUID) {
         self.cardID = cardID.uuidString
+        self.originSetID = originSetID.uuidString
         self.setID = setID.uuidString
     }
 
     @MainActor
     func perform() async throws -> some IntentResult {
         let card = try LoggedSetButtonSupport.id(cardID)
+        let origin = try LoggedSetButtonSupport.id(originSetID)
         let duplicate = try await WorkoutCommands.repeatConfirmedSet(entryID: try LoggedSetButtonSupport.id(setID))
-        LoggedSetSnippetChains.append(duplicate.id, toChain: card)
+        LoggedSetSnippetChains.append(duplicate.id, toCard: card, origin: origin)
         return .result()
     }
 }
 
 /// Deletes exactly the confirmed set the card shows. Never "the latest set": if
-/// that set is already gone, nothing else is touched.
+/// that set is already gone, nothing else is touched. Only sets the card's own
+/// action created can be removed; a correction card cannot delete the set it
+/// corrected.
 struct UndoLoggedSetIntent: AppIntent {
     static let title: LocalizedStringResource = "Undo Logged Set"
-    static let description = IntentDescription("Removes the specific confirmed set from the journal.")
+    static let description = IntentDescription("Removes the specific confirmed set this card logged from the journal.")
     static let isDiscoverable = false
     static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
 
     @Parameter(title: "Card ID") var cardID: String
+    @Parameter(title: "Card Set ID") var originSetID: String
     @Parameter(title: "Set ID") var setID: String
+    @Parameter(title: "Allows Undo") var allowsOriginUndo: Bool
 
     init() {}
-    init(cardID: UUID, setID: UUID) {
+    init(cardID: UUID, originSetID: UUID, setID: UUID, allowsOriginUndo: Bool) {
         self.cardID = cardID.uuidString
+        self.originSetID = originSetID.uuidString
         self.setID = setID.uuidString
+        self.allowsOriginUndo = allowsOriginUndo
     }
 
     @MainActor
     func perform() async throws -> some IntentResult {
         let card = try LoggedSetButtonSupport.id(cardID)
+        let origin = try LoggedSetButtonSupport.id(originSetID)
         let id = try LoggedSetButtonSupport.id(setID)
+        guard LoggedSetSnippetChains.chain(forCard: card, origin: origin).contains(id),
+              id != origin || allowsOriginUndo else {
+            throw WorkoutIntentFailure(message: "This card can't remove that set. Open Marble to edit your journal.")
+        }
         try await WorkoutCommands.deleteConfirmedSet(entryID: id)
-        LoggedSetSnippetChains.remove(id, fromChain: card)
+        LoggedSetSnippetChains.remove(id, fromCard: card, origin: origin)
         return .result()
     }
 }
@@ -348,10 +388,14 @@ struct LoggedSetSnippetView: View {
                 GridRow {
                     action("Same again", systemImage: "arrow.clockwise", label: "Log the same set again",
                            identifier: "LoggedSetSnippet.SameAgain",
-                           intent: RepeatLoggedSetIntent(cardID: card.chainID, setID: details.setID))
-                    action("Undo", systemImage: "arrow.uturn.backward", label: "Undo this set",
-                           identifier: "LoggedSetSnippet.Undo",
-                           intent: UndoLoggedSetIntent(cardID: card.chainID, setID: details.setID))
+                           intent: RepeatLoggedSetIntent(cardID: card.cardID, originSetID: card.originSetID,
+                                                         setID: details.setID))
+                    if details.showsUndo {
+                        action("Undo", systemImage: "arrow.uturn.backward", label: "Undo this set",
+                               identifier: "LoggedSetSnippet.Undo",
+                               intent: UndoLoggedSetIntent(cardID: card.cardID, originSetID: card.originSetID,
+                                                           setID: details.setID, allowsOriginUndo: card.allowsOriginUndo))
+                    }
                 }
             }
         }

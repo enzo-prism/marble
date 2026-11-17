@@ -25,6 +25,6 @@ struct CorrectLoggedSetIntent: AppIntent {
             durationSeconds: durationSeconds, effort: effort, notes: notes))
         let result = LoggedSetEntity(entry)
         return .result(value: result, dialog: "Updated. \(result.summary)",
-                       snippetIntent: LoggedSetSnippetIntent(setID: entry.id))
+                       snippetIntent: LoggedSetSnippetIntent(setID: entry.id, createdSet: false))
     }
 }
