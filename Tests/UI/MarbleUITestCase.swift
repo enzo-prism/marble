@@ -487,9 +487,6 @@ class MarbleUITestCase: XCTestCase {
             firstIdentified(app.switches, identifier),
             firstIdentified(app.datePickers, identifier),
             firstIdentified(app.scrollViews, identifier),
-            firstIdentified(app.otherElements, identifier),
-            firstIdentified(app.groups, identifier),
-            firstIdentified(app.windows, identifier),
             firstIdentified(app.cells, identifier),
             firstIdentified(app.staticTexts, identifier),
             firstIdentified(app.sliders, identifier),
@@ -501,7 +498,10 @@ class MarbleUITestCase: XCTestCase {
             firstIdentified(app.navigationBars.buttons, identifier),
             firstIdentified(app.segmentedControls.buttons, identifier),
             firstIdentified(app.images, identifier),
-            firstIdentified(app.links, identifier)
+            firstIdentified(app.links, identifier),
+            firstIdentified(app.otherElements, identifier),
+            firstIdentified(app.groups, identifier),
+            firstIdentified(app.windows, identifier)
         ]
         for candidate in typed where candidate.exists {
             return candidate
