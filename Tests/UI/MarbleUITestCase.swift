@@ -75,12 +75,13 @@ class MarbleUITestCase: XCTestCase {
     /// (`Failed to terminate Prism.marble:49523: Failed to terminate
     /// Prism.marble:0` on CI 44043995039). `terminate()` records an XCTIssue
     /// even when the process is already dying, which fails an otherwise green
-    /// History audit in tearDown. SIGKILL the pid XCTest still knows, then
-    /// wait for `.notRunning` without going through that API.
+    /// History audit in tearDown. SIGKILL any pid XCTest still knows — after
+    /// Home the state is often `.runningBackgroundSuspended` or `.unknown`,
+    /// not foreground/background — then wait for `.notRunning` without going
+    /// through `terminate()`.
     func terminateIfRunning() {
         guard let application = app else { return }
-        let state = application.state
-        guard state == .runningForeground || state == .runningBackground else { return }
+        guard application.state != .notRunning else { return }
         let pid = application.processID
         guard pid > 0 else { return }
         kill(pid, SIGKILL)
