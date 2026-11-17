@@ -60,6 +60,28 @@ final class AskJournalTests: MarbleTestCase {
         XCTAssertNil(AskAnswerValidator.validated("You lifted 205.5 lb.", facts: facts, unit: .lb))
     }
 
+    func testNumbersMustMatchTheFactsExactlyAsDisplayed() {
+        let timed = "Fastest 100 m: 14.8s on Jan 12, 2025\nSet: 102.5 kg × 3\nVolume (weight × reps): 3,102 lb\nRecorded workouts: 3"
+        XCTAssertNotNil(AskAnswerValidator.validated("Your fastest 100 m is 14.8s.", facts: timed, unit: .kg))
+        XCTAssertNotNil(AskAnswerValidator.validated("You moved 3102 lb and lifted 102.5 kg × 3.", facts: timed, unit: .kg))
+        // Ask never rounds: coarser figures are different numbers here.
+        XCTAssertNil(AskAnswerValidator.validated("Your fastest 100 m is 15 s.", facts: timed, unit: .kg))
+        XCTAssertNil(AskAnswerValidator.validated("You lifted 103 kg × 3.", facts: timed, unit: .kg))
+        XCTAssertNil(AskAnswerValidator.validated("You moved 3.1k lb.", facts: timed, unit: .kg))
+    }
+
+    func testNumberWordsMustNameAFactValue() {
+        let counts = "Recorded workouts: 3\nSets: 25\nTraining days: 1"
+        XCTAssertNil(AskAnswerValidator.validated("You logged one workout this week.", facts: "Recorded workouts: 3", unit: .lb))
+        XCTAssertNotNil(AskAnswerValidator.validated("You logged three workouts.", facts: counts, unit: .lb))
+        XCTAssertNotNil(AskAnswerValidator.validated("That was twenty-five sets on one day.", facts: counts, unit: .lb))
+        XCTAssertNotNil(AskAnswerValidator.validated("You trained once.", facts: counts, unit: .lb))
+        for word in ["thirteen", "twenty", "a dozen", "twice", "a couple of", "twenty six"] {
+            XCTAssertNil(AskAnswerValidator.validated("You did \(word) sets.", facts: counts, unit: .lb), word)
+        }
+        XCTAssertEqual(AskAnswerValidator.spelledQuantities(in: "Twenty-five, ninety and someone").map(\.value), [25, 90])
+    }
+
     func testOnlyAGroundedSecondSentenceIsKept() {
         XCTAssertEqual(
             AskAnswerValidator.validated("You last benched 205 lb × 5 on Jan 12, 2025. That was 4 days ago.", facts: facts, unit: .lb),

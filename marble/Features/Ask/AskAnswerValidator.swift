@@ -1,11 +1,14 @@
 import Foundation
 
 /// The gate between the on-device model and the Ask sheet. Same doctrine as
-/// `InsightValidator` (and built on it): a sentence survives only if every
-/// number it states appears in the tool outputs the engine produced, and it
-/// stays clear of advice, health, diet and injury talk. Ask adds a few
-/// question-answering hazards on top — recommendations, hedged estimates,
-/// emoji, links — and keeps answers to at most two sentences.
+/// `InsightValidator` (whose number parsing and blocklist it reuses), but
+/// stricter on numbers: Ask never rounds, so a stated number must equal a
+/// tool-output value *exactly as displayed* — same value and same precision
+/// ("14.8s" stays 14.8, never "15"; "102.5 kg" never "103") — and every
+/// number word ("one", "twenty-five", "a dozen", "twice") must name a value
+/// the tool outputs state. It also blocks advice, health, diet and injury
+/// talk, hedged estimates, emoji and links, and keeps at most two sentences.
+/// `TrainingInsights` keeps its own, more lenient rule.
 nonisolated enum AskAnswerValidator {
     static let maximumSentences = 2
     static let maximumCharacters = 320
@@ -43,7 +46,59 @@ nonisolated enum AskAnswerValidator {
         if InsightValidator.isBlocked(sentence, unit: unit) { return false }
         let lowered = sentence.lowercased()
         if extraBlocklist.contains(where: { lowered.contains($0) }) { return false }
-        return InsightValidator.numbersAreGrounded(sentence, in: allowed)
+        return numbersAreExact(sentence, in: allowed)
+    }
+
+    /// True when every number in `sentence` — digits or words — is one of the
+    /// fact values, at exactly its displayed precision.
+    static func numbersAreExact(_ sentence: String, in facts: [InsightValidator.Quantity]) -> Bool {
+        let claims = InsightValidator.quantities(in: sentence) + spelledQuantities(in: sentence)
+        return claims.allSatisfy { claim in facts.contains { isSame(claim, $0) } }
+    }
+
+    static func isSame(_ claim: InsightValidator.Quantity, _ fact: InsightValidator.Quantity) -> Bool {
+        let valueTolerance = 1e-9 * max(1, abs(fact.value))
+        let precisionTolerance = 1e-9 * max(1, fact.precision)
+        return abs(claim.value - fact.value) <= valueTolerance && abs(claim.precision - fact.precision) <= precisionTolerance
+    }
+
+    private static let units: [String: Double] = [
+        "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+        "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13,
+        "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19
+    ]
+    private static let tens: [String: Double] = [
+        "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90
+    ]
+    /// Words that state a count without digits.
+    private static let multiplicative: [String: Double] = [
+        "once": 1, "single": 1, "twice": 2, "couple": 2, "double": 2, "thrice": 3, "triple": 3,
+        "dozen": 12, "dozens": 12, "hundred": 100, "hundreds": 100, "thousand": 1000, "thousands": 1000
+    ]
+
+    /// Number words as quantities (precision 1). Tens followed by a unit word
+    /// ("twenty-five", "twenty five") read as one number.
+    static func spelledQuantities(in text: String) -> [InsightValidator.Quantity] {
+        let words = text.lowercased()
+            .split(whereSeparator: { !$0.isLetter })
+            .map(String.init)
+        var found: [InsightValidator.Quantity] = []
+        var index = 0
+        while index < words.count {
+            let word = words[index]
+            if let ten = tens[word] {
+                if index + 1 < words.count, let unit = units[words[index + 1]], unit >= 1, unit <= 9 {
+                    found.append(.init(value: ten + unit, precision: 1))
+                    index += 2
+                    continue
+                }
+                found.append(.init(value: ten, precision: 1))
+            } else if let value = units[word] ?? multiplicative[word] {
+                found.append(.init(value: value, precision: 1))
+            }
+            index += 1
+        }
+        return found
     }
 
     /// Strips markdown emphasis, surrounding quotes and stray whitespace.
