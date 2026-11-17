@@ -15,18 +15,19 @@ concurrency:
 jobs:
   candidate:
     runs-on: xcode-27
-    # Step caps below sum to 280. The job cap must stay at or above that so a
+    # Step caps below sum to 287. The job cap must stay at or above that so a
     # hung gate dies at its own step instead of the job wall. Historical green
     # 43104061973 spent ~111 min before snapshots and ~198 min overall because
     # each of ~45 snapshot groups booted a simulator and started xcodebuild.
     # Batched snapshots on this branch are ~7-25 min (CI 44121214082: 6m31s
-    # focused). Expected wall after batching is ~130-160 min; 280 min is that
+    # focused). Expected wall after batching is ~130-160 min; 300 min is that
     # budget plus headroom so a real dispatch can finish, including the
-    # always-run upload (~10 min). Extra 10 min on the job so upload still
-    # runs if a gate uses its full step cap.
-    timeout-minutes: 290
+    # always-run upload (~10 min). Extra job slack so upload still runs if a
+    # gate uses its full step cap.
+    timeout-minutes: 300
     env:
       RELEASE_EVIDENCE_ROOT: ${{ runner.temp }}/marble-release-evidence
+      RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
       DERIVED_DATA_PATH: ${{ runner.temp }}/marble-derived-data
       MIGRATION_DERIVED_DATA_ROOT: ${{ runner.temp }}/marble-migration-builds
     steps:
@@ -40,6 +41,9 @@ jobs:
       - name: Install test log formatter
         timeout-minutes: 10
         run: brew install xcbeautify || true
+      - name: Start evidence run
+        timeout-minutes: 2
+        run: scripts/release_evidence.sh init
       - name: Unit gate
         timeout-minutes: 25
         run: RELEASE_EVIDENCE_GATES=unit make release-evidence
@@ -59,6 +63,10 @@ jobs:
         if: success() || failure()
         timeout-minutes: 70
         run: RELEASE_EVIDENCE_GATES=migration make release-evidence
+      - name: Finalize evidence manifest
+        if: always()
+        timeout-minutes: 5
+        run: scripts/release_evidence.sh finalize
       - name: Preserve candidate evidence
         if: always()
         timeout-minutes: 10

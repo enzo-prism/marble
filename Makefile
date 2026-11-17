@@ -23,7 +23,7 @@ ASC_TESTFLIGHT_FLAGS ?=
 DERIVED_DATA_PATH ?= $(CURDIR)/DerivedData
 
 .PHONY: test unit ui ui-smoke audit snapshot snapshot-quick snapshot-record quick only migration-release verify-widget-plist
-.PHONY: release-evidence release-evidence-verify
+.PHONY: release-evidence release-evidence-init release-evidence-finalize release-evidence-verify
 .PHONY: asc-auth asc-doctor asc-app asc-builds asc-version asc-status asc-review asc-validate asc-next-build asc-testflight-validate
 .PHONY: asc-archive asc-export asc-publish-testflight asc-publish-appstore
 .PHONY: cloud-preflight cloud-status cloud-testflight cloud-appstore-validate cloud-appstore-submit cloud-appstore-release
@@ -81,6 +81,12 @@ migration-release:
 # absolute path when evidence should live outside this checkout's TestResults.
 release-evidence:
 	scripts/release_evidence.sh run
+
+release-evidence-init:
+	scripts/release_evidence.sh init
+
+release-evidence-finalize:
+	scripts/release_evidence.sh finalize
 
 release-evidence-verify:
 	@if [[ -z "$(MANIFEST)" ]]; then echo "Set MANIFEST=/absolute/path/to/manifest.json"; exit 1; fi
