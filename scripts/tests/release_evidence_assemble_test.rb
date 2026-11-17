@@ -83,9 +83,10 @@ class ReleaseEvidenceAssembleTest < Minitest::Test
       assert_equal "always()", upload.fetch("if"), "#{name} upload must always run"
       assert_equal 10, Integer(upload.fetch("timeout-minutes"))
     end
-    assert_equal 100, Integer(jobs.fetch("ui").fetch("timeout-minutes"))
-    assert_equal 120, Integer(jobs.fetch("accessibility").fetch("timeout-minutes"))
+    assert_equal 110, Integer(jobs.fetch("ui").fetch("timeout-minutes"))
+    assert_equal 80, Integer(jobs.fetch("accessibility").fetch("timeout-minutes"))
     assert_equal 80, Integer(jobs.fetch("migration").fetch("timeout-minutes"))
+    assert_equal 40, Integer(jobs.fetch("unit").fetch("timeout-minutes"))
     evidence = jobs.fetch("evidence")
     assert_equal %w[unit snapshot ui accessibility migration], evidence.fetch("needs")
     assert_equal "always()", evidence.fetch("if")
