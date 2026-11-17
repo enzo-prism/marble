@@ -148,7 +148,7 @@ struct LogSetIntent: LiveActivityIntent, PredictableIntent, UndoableIntent {
         // The dialog stays the complete spoken confirmation for voice-only
         // contexts; with a screen, the interactive card offers exact-ID follow-ups.
         return .result(value: LoggedSetEntity(entry), dialog: IntentDialog(stringLiteral: outcome.message),
-                       snippetIntent: LoggedSetSnippetIntent(setID: entry.id))
+                       snippetIntent: LoggedSetSnippetIntent(setID: entry.id, createdSet: true))
     }
 }
 

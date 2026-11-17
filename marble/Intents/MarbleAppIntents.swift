@@ -131,7 +131,7 @@ struct LogLastSetAgainIntent: LiveActivityIntent, UndoableIntent {
 
         let confirmed = LoggedSetEntity(duplicate)
         return .result(value: confirmed, dialog: IntentDialog(stringLiteral: confirmed.summary),
-                       snippetIntent: LoggedSetSnippetIntent(setID: duplicate.id))
+                       snippetIntent: LoggedSetSnippetIntent(setID: duplicate.id, createdSet: true))
     }
 }
 
