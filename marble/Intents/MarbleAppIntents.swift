@@ -102,7 +102,7 @@ struct LogLastSetAgainIntent: LiveActivityIntent, UndoableIntent {
 
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<LoggedSetEntity> {
+    func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<LoggedSetEntity> & ShowsSnippetIntent {
         let context = try AppIntentsSupport.resolvedContainer().mainContext
         guard let latest = try WorkoutCommands.latestRepeatSource(in: context) else {
             throw WorkoutIntentFailure(message: "No sets in the current workout yet. Log a set first.")
@@ -130,7 +130,8 @@ struct LogLastSetAgainIntent: LiveActivityIntent, UndoableIntent {
         )
 
         let confirmed = LoggedSetEntity(duplicate)
-        return .result(value: confirmed, dialog: IntentDialog(stringLiteral: confirmed.summary))
+        return .result(value: confirmed, dialog: IntentDialog(stringLiteral: confirmed.summary),
+                       snippetIntent: LoggedSetSnippetIntent(setID: duplicate.id))
     }
 }
 

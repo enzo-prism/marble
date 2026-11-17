@@ -136,7 +136,7 @@ struct LogSetIntent: LiveActivityIntent, PredictableIntent, UndoableIntent {
     }
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<LoggedSetEntity> {
+    func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<LoggedSetEntity> & ShowsSnippetIntent {
         let outcome = try await WorkoutCommands.log(.init(
             exerciseID: exercise.id, exerciseName: exercise.name,
             reps: reps, weight: weight, unit: unit?.weightUnit,
@@ -145,7 +145,10 @@ struct LogSetIntent: LiveActivityIntent, PredictableIntent, UndoableIntent {
             effort: effort, notes: notes
         ), undoManager: undoManager)
         guard let entry = outcome.entry else { throw WorkoutIntentFailure(message: outcome.message) }
-        return .result(value: LoggedSetEntity(entry), dialog: IntentDialog(stringLiteral: outcome.message))
+        // The dialog stays the complete spoken confirmation for voice-only
+        // contexts; with a screen, the interactive card offers exact-ID follow-ups.
+        return .result(value: LoggedSetEntity(entry), dialog: IntentDialog(stringLiteral: outcome.message),
+                       snippetIntent: LoggedSetSnippetIntent(setID: entry.id))
     }
 }
 

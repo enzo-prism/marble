@@ -57,32 +57,11 @@ enum IntentUndo {
 
         func removeLoggedSet(entryID: UUID, goalSnapshotID: UUID?, in container: ModelContainer) {
             let context = container.mainContext
-
-            let entryDescriptor = FetchDescriptor<SetEntry>(predicate: #Predicate { $0.id == entryID })
-            guard let entry = (try? context.fetch(entryDescriptor))?.first else { return }
-            // `WorkoutSession.entries` is a one-way `.nullify` relationship with
-            // no inverse on `SetEntry`, so deleting the row is what drops it out
-            // of the session it was appended to.
-            let changedExerciseID = entry.exercise.id
-            context.delete(entry)
-
-            if let goalSnapshotID {
-                let goalDescriptor = FetchDescriptor<SprintGoalSnapshot>(
-                    predicate: #Predicate { $0.id == goalSnapshotID }
-                )
-                if let goal = (try? context.fetch(goalDescriptor))?.first {
-                    context.delete(goal)
-                }
-            }
-
-            // The tenths companion row goes with its entry, keyed by entryID
-            // so the callers' signatures didn't need a third id to thread.
-            let detailDescriptor = FetchDescriptor<SprintRepDetail>(
-                predicate: #Predicate { $0.setEntryID == entryID }
-            )
-            if let detail = (try? context.fetch(detailDescriptor))?.first {
-                context.delete(detail)
-            }
+            // Exact-ID removal shared with the snippet's Undo button: the entry,
+            // its frozen sprint goal and its tenths companion go together.
+            guard let changedExerciseID = WorkoutCommands.removeSetRows(
+                entryID: entryID, goalSnapshotID: goalSnapshotID, in: context
+            ) else { return }
 
             guard context.saveOrRollback() else { return }
             RestActivityController.shared.cancelRest(startedBy: entryID)
