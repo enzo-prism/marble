@@ -1,10 +1,5 @@
 import Foundation
 
-/// Turns OCR / model text into structured workout data for review.
-///
-/// Conformers are interchangeable so the scan flow can prefer the on-device model
-/// when it's available (`FoundationModelsWorkoutScanParser`) and fall back to the
-/// deterministic notation parser (`HeuristicWorkoutScanParser`) otherwise.
 /// Coarse stages of a text parse, surfaced as honest status text in the
 /// processing UI. The deterministic pass is instant and the post-parse work
 /// (library matching) is near-instant; the on-device model passes are where
@@ -15,24 +10,90 @@ enum WorkoutParseStage: Sendable, Equatable {
     /// An on-device model reading: pass 1 is the notation rewrite, pass 2 the
     /// direct structured extraction. Only emitted when Apple Intelligence runs.
     case interpreting(pass: Int, of: Int)
+    /// The notation lines the streaming rewrite pass has finished so far,
+    /// emitted as each line completes. A preview only: the review shows the
+    /// arbitrated, source-grounded result, never these lines as-is.
+    case partialNotation(lines: [String])
     /// Reconciling candidates, then matching exercises against the library.
     case finalizing
 }
 
-protocol WorkoutScanParsing: Sendable {
-    func parse(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft
+/// Receives parse progress. Spell conformers' staged `parse` with this alias,
+/// not a hand-written closure type: the app target builds with approachable
+/// concurrency (async function types are `nonisolated(nonsending)`) while the
+/// test targets don't, so a closure type written in a test file is a
+/// *different* type, silently fails to witness the requirement, and the
+/// extension default runs instead.
+typealias WorkoutParseStageHandler = @Sendable (WorkoutParseStage) async -> Void
+
+/// One parse's draft together with that same call's model issue (why Apple
+/// Intelligence didn't contribute, nil when it did or was never needed).
+/// Per call, so an abandoned or overlapping parse can't report into the
+/// current one.
+nonisolated struct WorkoutParseOutcome: Sendable {
+    var draft: ParsedWorkoutDraft
+    var modelIssue: FoundationModelsWorkoutScanParser.ModelIssue?
 }
 
-extension WorkoutScanParsing {
-    /// Staged variant for progress UI. The default forwards to the plain parse:
-    /// conformers with a single fast pass (the deterministic parser) have no
-    /// intermediate stages worth reporting.
+/// Turns OCR / model text into structured workout data for review.
+///
+/// Conformers are interchangeable so the scan flow can prefer the on-device model
+/// when it's available (`FoundationModelsWorkoutScanParser`) and fall back to the
+/// deterministic notation parser (`HeuristicWorkoutScanParser`) otherwise.
+protocol WorkoutScanParsing: Sendable {
+    func parse(ocrText: String, referenceDate: Date) async -> ParsedWorkoutDraft
+    /// Staged variant for progress UI, optionally with the captured page
+    /// images behind `ocrText` (photo scans only; typed text passes none). A
+    /// requirement, not just an extension method, so calls through
+    /// `any WorkoutScanParsing` reach the on-device parser's stages.
     func parse(
         ocrText: String,
         referenceDate: Date,
-        onStage: @Sendable (WorkoutParseStage) async -> Void
+        pageImages: [WorkoutScanPageImage],
+        onStage: WorkoutParseStageHandler
+    ) async -> ParsedWorkoutDraft
+    /// The staged parse plus this call's model issue. Conformers without a
+    /// model (the default) report no issue.
+    func parseOutcome(
+        ocrText: String,
+        referenceDate: Date,
+        pageImages: [WorkoutScanPageImage],
+        onStage: WorkoutParseStageHandler
+    ) async -> WorkoutParseOutcome
+}
+
+extension WorkoutScanParsing {
+    /// The default ignores images and stages: conformers with a single fast
+    /// pass (the deterministic parser) have no intermediate stages worth
+    /// reporting and read text only.
+    func parse(
+        ocrText: String,
+        referenceDate: Date,
+        pageImages: [WorkoutScanPageImage],
+        onStage: WorkoutParseStageHandler
     ) async -> ParsedWorkoutDraft {
         await parse(ocrText: ocrText, referenceDate: referenceDate)
+    }
+
+    func parseOutcome(
+        ocrText: String,
+        referenceDate: Date,
+        pageImages: [WorkoutScanPageImage],
+        onStage: WorkoutParseStageHandler
+    ) async -> WorkoutParseOutcome {
+        WorkoutParseOutcome(
+            draft: await parse(ocrText: ocrText, referenceDate: referenceDate, pageImages: pageImages, onStage: onStage),
+            modelIssue: nil
+        )
+    }
+
+    /// Typed-text convenience: no page images.
+    func parse(
+        ocrText: String,
+        referenceDate: Date,
+        onStage: WorkoutParseStageHandler
+    ) async -> ParsedWorkoutDraft {
+        await parse(ocrText: ocrText, referenceDate: referenceDate, pageImages: [], onStage: onStage)
     }
 }
 

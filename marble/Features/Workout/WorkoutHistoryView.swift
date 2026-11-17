@@ -14,6 +14,7 @@ struct WorkoutHistoryView: View {
     @State private var hasMore = false
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var showingAsk = false
 
     init() { loadsHistory = true }
 
@@ -95,6 +96,15 @@ struct WorkoutHistoryView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
+                    showingAsk = true
+                } label: {
+                    Image(systemName: AskJournalModel.toolbarSymbol)
+                }
+                .accessibilityLabel("Ask your journal")
+                .accessibilityIdentifier("Ask.Button")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
                     filtersByDate.toggle()
                 } label: {
                     Image(systemName: filtersByDate ? "calendar.badge.checkmark" : "calendar")
@@ -112,6 +122,12 @@ struct WorkoutHistoryView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave, object: modelContext)) { _ in
             loadPage(reset: true)
+        }
+        .sheet(isPresented: $showingAsk) {
+            AskJournalSheet()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .sheetGlassBackground()
         }
     }
 

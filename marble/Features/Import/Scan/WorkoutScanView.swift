@@ -134,12 +134,25 @@ struct WorkoutScanView: View {
         VStack(spacing: MarbleSpacing.m) {
             ProgressView()
                 .controlSize(.large)
-            Text("Reading your workout…")
+            Text(processingStageLabel)
                 .font(MarbleTypography.rowSubtitle)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .multilineTextAlignment(.center)
                 .accessibilityIdentifier("Scan.Processing")
+            StreamingNotationLinesView(idPrefix: "Scan", lines: viewModel.streamedNotationLines)
+                .frame(maxWidth: 340)
         }
+        .padding(.horizontal, MarbleSpacing.m)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .announcesProcessingStage(processingStageLabel)
+    }
+
+    private var processingStageLabel: String {
+        switch viewModel.parseStage {
+        case .readingNotation: return "Reading your workout…"
+        case .interpreting, .partialNotation: return "Interpreting with Apple Intelligence…"
+        case .finalizing: return "Matching your exercise library…"
+        }
     }
 
     private var reviewView: some View {
@@ -191,6 +204,22 @@ struct WorkoutScanView: View {
                     Label("Add exercise", systemImage: "plus.circle")
                 }
                 .accessibilityIdentifier("Scan.AddExercise")
+            }
+
+            if viewModel.draft.interpretedByModel == true {
+                Section {
+                    ModelReadFeedbackRow(
+                        idPrefix: "Scan",
+                        verdict: viewModel.modelReadVerdict,
+                        shareItem: viewModel.modelReadShareItem,
+                        onVerdict: { viewModel.recordModelReadFeedback($0) }
+                    )
+                } footer: {
+                    Label("Read with Apple Intelligence — check the numbers before adding.", systemImage: "apple.intelligence")
+                        .font(MarbleTypography.caption)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .accessibilityIdentifier("Scan.ReadWithAppleIntelligence")
+                }
             }
 
             if let message = viewModel.errorMessage {
@@ -342,6 +371,10 @@ private struct ScanExerciseSection: View {
                 .font(MarbleTypography.rowTitle)
                 .onChange(of: exercise.name) { _, _ in onNameChanged() }
                 .accessibilityIdentifier("Scan.Exercise.Name.\(exercise.id.uuidString)")
+
+            if let excerpt = exercise.sourceExcerpt {
+                ModelSourceExcerptLine(idPrefix: "Scan", exerciseID: exercise.id, excerpt: excerpt)
+            }
 
             ImportExerciseMatchRow(
                 exerciseName: exercise.name,

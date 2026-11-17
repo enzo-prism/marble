@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import ImageIO
 import SwiftData
 import SwiftUI
 import UIKit
@@ -40,6 +41,17 @@ final class WorkoutScanViewModel {
     /// did, when the deterministic parse was trusted without it, or when the
     /// injected parser isn't the on-device one).
     private(set) var modelIssue: FoundationModelsWorkoutScanParser.ModelIssue?
+    /// The recognized text the review was parsed from (all pages joined).
+    private(set) var sourceText = ""
+    /// Pipeline stage while `phase == .processing`, for the status line.
+    private(set) var parseStage: WorkoutParseStage = .readingNotation
+    /// Notation lines the streaming rewrite has finished so far — a quiet
+    /// preview while processing, replaced by the arbitrated review.
+    private(set) var streamedNotationLines: [String] = []
+    /// The person's answer to "Was this read correctly?" for this scan.
+    private(set) var modelReadVerdict: ModelReadVerdict?
+    /// The model's reading as parsed, before any review edits.
+    private(set) var modelReadSnapshot: ModelReadSnapshot?
 
     private let recognizer: WorkoutTextRecognizing
     private let parser: WorkoutScanParsing
@@ -49,18 +61,24 @@ final class WorkoutScanViewModel {
     /// Test seam: when nil, `commit` calls `WorkoutScanImporter` directly (on the main
     /// actor, where it belongs).
     private let importHandler: ImportHandler?
+    @ObservationIgnored private let feedbackStore: ModelReadFeedbackStore
     private var matcher = ExerciseMatcher(candidates: [])
+    /// Bumped by `reset` so a parse still streaming from an abandoned scan
+    /// can't repaint the new one.
+    private var processGeneration = 0
 
     init(
         recognizer: WorkoutTextRecognizing = VisionWorkoutTextRecognizer(),
         parser: WorkoutScanParsing? = nil,
         importHandler: ImportHandler? = nil,
-        defaultWeightUnit: WeightUnit = WorkoutTextEntryViewModel.preferredWeightUnit
+        defaultWeightUnit: WeightUnit = WorkoutTextEntryViewModel.preferredWeightUnit,
+        feedbackStore: ModelReadFeedbackStore = ModelReadFeedbackStore()
     ) {
         self.recognizer = recognizer
         self.defaultWeightUnit = defaultWeightUnit
         self.parser = parser ?? FoundationModelsWorkoutScanParser(defaultWeightUnit: defaultWeightUnit)
         self.importHandler = importHandler
+        self.feedbackStore = feedbackStore
     }
 
     /// True only when the smarter on-device model is ready; the deterministic parser is
@@ -75,16 +93,18 @@ final class WorkoutScanViewModel {
 
     func process(images: [UIImage], in context: ModelContext) async {
         var pages: [(cgImage: CGImage, imageData: Data)] = []
+        var orientations: [CGImagePropertyOrientation] = []
         pages.reserveCapacity(images.count)
         for image in images {
             guard let cgImage = image.cgImage else { continue }
             pages.append((cgImage, image.jpegData(compressionQuality: 0.85) ?? Data()))
+            orientations.append(Self.propertyOrientation(image.imageOrientation))
         }
         guard !pages.isEmpty else {
             fail(with: "That image couldn't be read. Try scanning the page again.")
             return
         }
-        await process(pages: pages, in: context)
+        await process(pages: pages, orientations: orientations, in: context)
     }
 
     /// Core orchestration (no UIKit) so tests can drive it directly.
@@ -92,11 +112,20 @@ final class WorkoutScanViewModel {
         await process(pages: [(cgImage, imageData)], in: context)
     }
 
+    /// `orientations` (parallel to `pages`, `.up` when absent) only matter to
+    /// an iOS 27 model that looks at the page images; OCR is unchanged.
     func process(
         pages: [(cgImage: CGImage, imageData: Data)],
+        orientations: [CGImagePropertyOrientation] = [],
         in context: ModelContext
     ) async {
+        processGeneration += 1
         phase = .processing
+        parseStage = .readingNotation
+        streamedNotationLines = []
+        modelReadVerdict = nil
+        modelReadSnapshot = nil
+        modelIssue = nil
         errorMessage = nil
         handoffText = ""
         let combinedData = pages.reduce(into: Data()) { $0.append($1.imageData) }
@@ -128,7 +157,24 @@ final class WorkoutScanViewModel {
             return
         }
 
-        draft = await parse(combined)
+        sourceText = combined
+        let pageImages = pages.enumerated().map { index, page in
+            WorkoutScanPageImage(
+                cgImage: page.cgImage,
+                orientation: orientations.indices.contains(index) ? orientations[index] : .up
+            )
+        }
+        let generation = processGeneration
+        let outcome = await parse(combined, pageImages: pageImages, generation: generation)
+        // A reset or newer scan owns the screen now; drop this result and
+        // its model issue together.
+        guard generation == processGeneration else { return }
+        draft = outcome.draft
+        modelIssue = outcome.modelIssue
+        modelReadSnapshot = outcome.draft.interpretedByModel == true
+            ? ModelReadSnapshot(source: combined, reading: outcome.draft,
+                                modelName: OnDeviceModelVersion.current.displayName)
+            : nil
         reloadMatcher(in: context)
         rebuildResolutions()
         alreadyImported = (try? WorkoutScanImporter.alreadyImported(externalID: externalID, in: context)) ?? false
@@ -139,20 +185,66 @@ final class WorkoutScanViewModel {
     /// meaningful dropped, nothing implausible per `ModelEscalationPolicy`) is
     /// already the answer, so the scan skips the seconds-long model passes. The
     /// model runs for prose, dropped lines, and confident misreads.
-    private func parse(_ text: String) async -> ParsedWorkoutDraft {
+    private func parse(_ text: String, pageImages: [WorkoutScanPageImage], generation: Int) async -> WorkoutParseOutcome {
         let referenceDate = AppEnvironment.now
         let diagnostics = HandwrittenWorkoutParser.parseDetailed(
             text,
             referenceDate: referenceDate,
             defaultWeightUnit: defaultWeightUnit
         )
-        modelIssue = nil
         guard ModelEscalationPolicy.shouldRunModel(for: diagnostics, sourceText: text, referenceDate: referenceDate) else {
-            return diagnostics.draft
+            return WorkoutParseOutcome(draft: diagnostics.draft, modelIssue: nil)
         }
-        let parsed = await parser.parse(ocrText: text, referenceDate: referenceDate)
-        modelIssue = (parser as? FoundationModelsWorkoutScanParser)?.lastModelIssue
-        return parsed
+        return await parser.parseOutcome(
+            ocrText: text, referenceDate: referenceDate, pageImages: pageImages
+        ) { stage in
+            await MainActor.run {
+                guard generation == self.processGeneration else { return }
+                self.applyParseProgress(stage)
+            }
+        }
+    }
+
+    /// Streamed lines update the preview; only stage changes change the
+    /// status text (and what VoiceOver announces).
+    private func applyParseProgress(_ stage: WorkoutParseStage) {
+        switch stage {
+        case .partialNotation(let lines):
+            streamedNotationLines = lines
+        case .readingNotation, .interpreting:
+            streamedNotationLines = []
+            parseStage = stage
+        case .finalizing:
+            parseStage = stage
+        }
+    }
+
+    static func propertyOrientation(_ orientation: UIImage.Orientation) -> CGImagePropertyOrientation {
+        switch orientation {
+        case .up: .up
+        case .upMirrored: .upMirrored
+        case .down: .down
+        case .downMirrored: .downMirrored
+        case .left: .left
+        case .leftMirrored: .leftMirrored
+        case .right: .right
+        case .rightMirrored: .rightMirrored
+        @unknown default: .up
+        }
+    }
+
+    // MARK: - Reading feedback
+
+    func recordModelReadFeedback(_ verdict: ModelReadVerdict) {
+        guard modelReadVerdict == nil, draft.interpretedByModel == true else { return }
+        feedbackStore.record(verdict)
+        modelReadVerdict = verdict
+    }
+
+    /// The OCR, Marble's original reading and any review corrections, for
+    /// the person to share if they choose. Text is built at export time.
+    var modelReadShareItem: ModelReadShareItem? {
+        modelReadSnapshot.map { ModelReadShareItem(snapshot: $0, current: draft) }
     }
 
     /// Joins OCR from successive notebook pages. Blank pages drop out so they
@@ -318,5 +410,11 @@ final class WorkoutScanViewModel {
         resolutions = [:]
         matcher = ExerciseMatcher(candidates: [])
         modelIssue = nil
+        sourceText = ""
+        parseStage = .readingNotation
+        streamedNotationLines = []
+        modelReadVerdict = nil
+        modelReadSnapshot = nil
+        processGeneration += 1
     }
 }

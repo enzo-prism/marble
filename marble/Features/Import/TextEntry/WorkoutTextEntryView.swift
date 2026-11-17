@@ -525,7 +525,7 @@ struct WorkoutTextEntryView: View {
         }
         switch viewModel.parseStage {
         case .readingNotation: return "Reading your text…"
-        case .interpreting: return "Interpreting with Apple Intelligence…"
+        case .interpreting, .partialNotation: return "Interpreting with Apple Intelligence…"
         case .finalizing: return "Matching your exercise library…"
         }
     }
@@ -543,6 +543,10 @@ struct WorkoutTextEntryView: View {
             .accessibilityLabel(processingStageLabel)
             .accessibilityIdentifier("TextEntry.Processing")
 
+            // The rewrite's notation lines as they stream in: a sign the
+            // read is progressing, replaced by the grounded review.
+            StreamingNotationLinesView(idPrefix: "TextEntry", lines: viewModel.streamedNotationLines)
+
             // Reading with the on-device model can take several seconds; the
             // user can always get back to their text without discarding it.
             Button("Stop") { viewModel.stopProcessing() }
@@ -552,8 +556,10 @@ struct WorkoutTextEntryView: View {
                 .accessibilityHint("Returns to your text without reading it")
                 .accessibilityIdentifier("TextEntry.StopProcessing")
         }
-        .frame(maxWidth: 260)
+        .frame(maxWidth: viewModel.streamedNotationLines.isEmpty ? 260 : 340)
+        .padding(.horizontal, MarbleSpacing.m)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .announcesProcessingStage(processingStageLabel)
     }
 
     /// Per-line feedback under the editor, recomputed after a short typing
@@ -722,6 +728,19 @@ struct WorkoutTextEntryView: View {
                             .font(MarbleTypography.caption)
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                             .accessibilityIdentifier("TextEntry.NewExerciseSummary")
+                    }
+                }
+
+                // HIG: let people say whether a generated reading was right.
+                // Counts stay on this iPhone; sharing is their explicit choice.
+                if viewModel.draft.interpretedByModel == true {
+                    Section {
+                        ModelReadFeedbackRow(
+                            idPrefix: "TextEntry",
+                            verdict: viewModel.modelReadVerdict,
+                            shareItem: viewModel.modelReadShareItem,
+                            onVerdict: { viewModel.recordModelReadFeedback($0) }
+                        )
                     }
                 }
 
@@ -1179,6 +1198,10 @@ private struct TextEntryExerciseSection: View {
                 .font(MarbleTypography.rowTitle)
                 .onChange(of: exercise.name) { _, _ in onNameChanged() }
                 .accessibilityIdentifier("TextEntry.Exercise.Name.\(exercise.id.uuidString)")
+
+            if let excerpt = exercise.sourceExcerpt {
+                ModelSourceExcerptLine(idPrefix: "TextEntry", exerciseID: exercise.id, excerpt: excerpt)
+            }
 
             ImportExerciseMatchRow(
                 exerciseName: exercise.name,

@@ -94,6 +94,17 @@ final class WorkoutTextEntryViewModel {
     /// Current pipeline stage while `phase == .processing` — drives the status
     /// copy beside an indeterminate spinner. Reset on every preview.
     private(set) var parseStage: WorkoutParseStage = .readingNotation
+    /// Notation lines the streaming rewrite pass has finished so far, shown
+    /// as a quiet preview under the stage text while `phase == .processing`.
+    /// Never the result: review shows the arbitrated, grounded draft.
+    private(set) var streamedNotationLines: [String] = []
+    /// Answers to "Was this read correctly?", one per reviewed workout (keyed
+    /// by session so a batch drill-in can't be counted twice). Cleared by a
+    /// new preview.
+    private var modelReadVerdicts: [UUID: ModelReadVerdict] = [:]
+    /// The answer for the workout in review; nil until the person answers.
+    var modelReadVerdict: ModelReadVerdict? { modelReadVerdicts[reviewingSessionID ?? Self.singleReviewKey] }
+    private static let singleReviewKey = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
     /// 1-based index of the session currently being parsed, when a paste
     /// split into more than one workout.
     private(set) var batchProgress: (current: Int, total: Int)?
@@ -128,6 +139,7 @@ final class WorkoutTextEntryViewModel {
     private let parser: WorkoutScanParsing
     /// Test seam: when nil, `commit` calls `WorkoutScanImporter` directly.
     private let importHandler: ImportHandler?
+    @ObservationIgnored private let feedbackStore: ModelReadFeedbackStore
     /// Unit assumed for weights written without one ("Bench 3x8 @ 100") — the
     /// user's preferred unit, not a hardcoded lb.
     private let defaultWeightUnit: WeightUnit
@@ -152,11 +164,13 @@ final class WorkoutTextEntryViewModel {
         importHandler: ImportHandler? = nil,
         defaultWeightUnit: WeightUnit = WorkoutTextEntryViewModel.preferredWeightUnit,
         initialText: String = "",
-        draftStore: (any WorkoutEntryDraftStoring)? = nil
+        draftStore: (any WorkoutEntryDraftStoring)? = nil,
+        feedbackStore: ModelReadFeedbackStore = ModelReadFeedbackStore()
     ) {
         self.defaultWeightUnit = defaultWeightUnit
         self.parser = parser ?? FoundationModelsWorkoutScanParser(defaultWeightUnit: defaultWeightUnit)
         self.importHandler = importHandler
+        self.feedbackStore = feedbackStore
         self.text = initialText
         self.draftStore = draftStore
         restoreSavedDraft()
@@ -274,17 +288,33 @@ final class WorkoutTextEntryViewModel {
     /// user can act on; nil when it ran fine or was never needed.
     private(set) var modelIssueNote: String?
 
-    private func recordModelIssue() {
-        guard let issue = (parser as? FoundationModelsWorkoutScanParser)?.lastModelIssue else { return }
+    /// Applies one parse's own issue (never the parser's shared last-issue
+    /// slot, which an overlapping parse can overwrite). Callers apply it only
+    /// once they know the parse still belongs to what's on screen.
+    private func recordModelIssue(_ issue: FoundationModelsWorkoutScanParser.ModelIssue?) {
+        guard let issue else { return }
+        modelIssueNote = Self.modelIssueNote(for: issue, availability: .current)
+    }
+
+    /// User-facing copy for why Apple Intelligence didn't help. An
+    /// `.unavailable` issue names the actual availability reason when there
+    /// is one (ineligible iPhone, still downloading, turned off before iOS 27)
+    /// instead of a generic "right now".
+    static func modelIssueNote(
+        for issue: FoundationModelsWorkoutScanParser.ModelIssue,
+        availability: ModelAvailabilityStatus,
+        canTurnOnAppleIntelligence: Bool = ModelAvailabilityStatus.canTurnOnAppleIntelligence
+    ) -> String {
         switch issue {
         case .inputTooLong:
-            modelIssueNote = "That's more than Apple Intelligence can read at once — put a date or a blank line between workouts to split it."
+            return "That's more than Apple Intelligence can read at once — put a date or a blank line between workouts to split it."
         case .unsupportedLanguage:
-            modelIssueNote = "Apple Intelligence doesn't support this language yet, so only gym notation was read."
+            return "Apple Intelligence doesn't support this language yet, so only gym notation was read."
         case .unavailable:
-            modelIssueNote = "Apple Intelligence couldn't read this right now, so only gym notation was read."
+            return availability.unavailableNote(canTurnOnAppleIntelligence: canTurnOnAppleIntelligence)
+                ?? "Apple Intelligence couldn't read this right now, so only gym notation was read."
         case .failed:
-            modelIssueNote = "Apple Intelligence couldn't finish reading this. Check the review carefully or try again later."
+            return "Apple Intelligence couldn't finish reading this. Check the review carefully or try again later."
         }
     }
 
@@ -295,30 +325,55 @@ final class WorkoutTextEntryViewModel {
         previewGeneration += 1
         batchProgress = nil
         parseStage = .readingNotation
+        streamedNotationLines = []
         phase = .input
     }
 
-    /// Privacy / availability line under the editor. Matches Apple's
-    /// `SystemLanguageModel.availability` cases instead of a generic lock label.
-    var privacyCaption: String {
-        #if canImport(FoundationModels)
-        if #available(iOS 26.0, *) {
-            switch SystemLanguageModel.default.availability {
-            case .available:
-                return "Read on your device with Apple Intelligence — nothing is uploaded."
-            case .unavailable(.appleIntelligenceNotEnabled):
-                return "Turn on Apple Intelligence to read prose; gym notation still works on device. Nothing is uploaded."
-            case .unavailable(.modelNotReady):
-                return "Apple Intelligence is still downloading. Gym notation still works on this device."
-            case .unavailable(.deviceNotEligible):
-                return "Read on your device — nothing is uploaded."
-            default:
-                return "Read on your device — nothing is uploaded."
-            }
+    /// Applies one parser progress callback. Streamed notation lines update
+    /// the preview list without changing the stage text, so VoiceOver hears
+    /// "Interpreting…" once rather than every line.
+    private func applyParseProgress(_ stage: WorkoutParseStage) {
+        switch stage {
+        case .partialNotation(let lines):
+            streamedNotationLines = lines
+        case .readingNotation, .interpreting:
+            streamedNotationLines = []
+            parseStage = stage
+        case .finalizing:
+            // Keep the streamed lines on screen until review replaces them.
+            parseStage = stage
         }
-        #endif
-        return "Read on your device — nothing is uploaded."
     }
+
+    /// Privacy / availability line under the editor, branched on the actual
+    /// `SystemLanguageModel.Availability.UnavailableReason`.
+    var privacyCaption: String {
+        ModelAvailabilityStatus.current.privacyCaption()
+    }
+
+    // MARK: - Reading feedback
+
+    /// Records the person's answer once per review; later taps are ignored
+    /// so one draft can't skew the on-device counts.
+    func recordModelReadFeedback(_ verdict: ModelReadVerdict) {
+        guard modelReadVerdict == nil, draft.interpretedByModel == true else { return }
+        feedbackStore.record(verdict)
+        modelReadVerdicts[reviewingSessionID ?? Self.singleReviewKey] = verdict
+    }
+
+    /// What the person may choose to share after a misread: their text,
+    /// Marble's original reading (frozen at parse time) and their review
+    /// corrections. The text is built when the share sheet exports it; Marble
+    /// never sends it anywhere. nil when the original reading isn't known — a
+    /// draft restored after relaunch — so corrections can't pass as the read.
+    var modelReadShareItem: ModelReadShareItem? {
+        guard let id = reviewingSessionID, let snapshot = modelReadSnapshots[id] else { return nil }
+        return ModelReadShareItem(snapshot: snapshot, current: draft)
+    }
+
+    /// Each model-read session's draft as the parse returned it, keyed by
+    /// session. In memory only (not part of the persisted draft).
+    private var modelReadSnapshots: [UUID: ModelReadSnapshot] = [:]
 
     func ingestPastedText(_ pasted: String) {
         let incoming = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -351,6 +406,10 @@ final class WorkoutTextEntryViewModel {
         let generation = previewGeneration
         phase = .processing
         parseStage = .readingNotation
+        streamedNotationLines = []
+        modelReadVerdicts = [:]
+        modelReadSnapshots = [:]
+        let modelName = OnDeviceModelVersion.current.displayName
         batchProgress = nil
         errorMessage = nil
         modelIssueNote = nil
@@ -370,7 +429,11 @@ final class WorkoutTextEntryViewModel {
             guard generation == previewGeneration else { return }
             batchProgress = (index + 1, segments.count)
             parseStage = .readingNotation
-            let parsed = await parseSegment(segment, sessionCount: segments.count)
+            streamedNotationLines = []
+            let parsed = await parseSegment(segment, sessionCount: segments.count, generation: generation)
+            // A stopped or superseded preview's result and issue are dropped.
+            guard generation == previewGeneration else { return }
+            recordModelIssue(parsed.modelIssue)
             let hasContent = parsed.draft.hasContent
             // Keep an unreadable block in a real multi-workout paste so the
             // review screen can point to it instead of silently dropping it.
@@ -392,7 +455,7 @@ final class WorkoutTextEntryViewModel {
             let unparsedLines = hasContent || !parsed.unparsedLines.isEmpty
                 ? parsed.unparsedLines
                 : reviewLines(in: segment.sourceText)
-            built.append(WorkoutImportSession(
+            let session = WorkoutImportSession(
                 sourceText: segment.sourceText,
                 externalID: externalID,
                 kind: segment.kind,
@@ -400,7 +463,13 @@ final class WorkoutTextEntryViewModel {
                 unparsedLines: unparsedLines,
                 alreadyImported: alreadyImported,
                 selected: hasContent && !alreadyImported
-            ))
+            )
+            if parsed.draft.interpretedByModel == true {
+                modelReadSnapshots[session.id] = ModelReadSnapshot(
+                    source: segment.sourceText, reading: parsed.draft, modelName: modelName
+                )
+            }
+            built.append(session)
         }
 
         guard generation == previewGeneration else { return }
@@ -430,11 +499,12 @@ final class WorkoutTextEntryViewModel {
 
     private func parseSegment(
         _ segment: WorkoutImportSegment,
-        sessionCount: Int
-    ) async -> (draft: ParsedWorkoutDraft, unparsedLines: [String]) {
+        sessionCount: Int,
+        generation: Int
+    ) async -> (draft: ParsedWorkoutDraft, unparsedLines: [String], modelIssue: FoundationModelsWorkoutScanParser.ModelIssue?) {
         if var draft = segment.draft {
             if draft.title == ParsedWorkoutDraft().title { draft.title = Self.defaultTitle }
-            return (draft, [])
+            return (draft, [], nil)
         }
 
         let diagnostics = HandwrittenWorkoutParser.parseDetailed(
@@ -460,17 +530,24 @@ final class WorkoutTextEntryViewModel {
         ) {
             var draft = diagnostics.draft
             if draft.title == ParsedWorkoutDraft().title { draft.title = Self.defaultTitle }
-            return (draft, [])
+            return (draft, [], nil)
         }
 
-        var parsed = await parser.parse(ocrText: segment.sourceText, referenceDate: AppEnvironment.now) { stage in
-            await MainActor.run { self.parseStage = stage }
+        let outcome = await parser.parseOutcome(
+            ocrText: segment.sourceText, referenceDate: AppEnvironment.now, pageImages: []
+        ) { stage in
+            await MainActor.run {
+                // A stopped or superseded preview keeps streaming in the
+                // background; its progress must not repaint the new state.
+                guard generation == self.previewGeneration else { return }
+                self.applyParseProgress(stage)
+            }
         }
+        var parsed = outcome.draft
         if parsed.title == ParsedWorkoutDraft().title { parsed.title = Self.defaultTitle }
-        recordModelIssue()
         // When the deterministic parse won, nothing read the dropped lines:
         // keep every one visible. Only a model draft can have absorbed them.
-        guard parsed.interpretedByModel == true else { return (parsed, meaningfulDrops) }
+        guard parsed.interpretedByModel == true else { return (parsed, meaningfulDrops, outcome.modelIssue) }
         let unparsed = meaningfulDrops.filter { line in
             // Recognizing a movement's name does not prove its entire source line
             // was understood (e.g. an omitted second effort or correction).
@@ -481,7 +558,7 @@ final class WorkoutTextEntryViewModel {
                 defaultWeightUnit: defaultWeightUnit
             )
         }
-        return (parsed, unparsed)
+        return (parsed, unparsed, outcome.modelIssue)
     }
 
     private func presentSessionForReview(_ id: UUID) {
@@ -677,17 +754,22 @@ final class WorkoutTextEntryViewModel {
             defaultWeightUnit: defaultWeightUnit
         )
         let parsed: ParsedWorkoutDraft
+        var issue: FoundationModelsWorkoutScanParser.ModelIssue?
         if quick.droppedLines.isEmpty, quick.draft.hasContent,
            !ModelEscalationPolicy.deterministicDraftNeedsModel(quick.draft, sourceText: trimmed) {
             parsed = quick.draft
         } else {
-            parsed = await parser.parse(ocrText: trimmed, referenceDate: AppEnvironment.now)
-            recordModelIssue()
+            let outcome = await parser.parseOutcome(
+                ocrText: trimmed, referenceDate: AppEnvironment.now, pageImages: []
+            ) { _ in }
+            parsed = outcome.draft
+            issue = outcome.modelIssue
         }
         // Parsing yields the main actor. Another retry may have removed or
         // moved this row, so resolve it again by stable identity rather than
         // text, which may be identical in another row.
         guard let currentIndex = unparsedLineIDs.firstIndex(of: lineID) else { return }
+        recordModelIssue(issue)
         let newExercises = parsed.importableExercises
         // A partial retry must not append its recognized fragment and then lose
         // the rest, or duplicate the fragment on the next attempt. Keep the whole
@@ -1228,6 +1310,9 @@ final class WorkoutTextEntryViewModel {
         batchProgress = nil
         livePreview = nil
         parseStage = .readingNotation
+        streamedNotationLines = []
+        modelReadVerdicts = [:]
+        modelReadSnapshots = [:]
         celebration = ImportCelebration(volumeText: nil, prExercises: [])
         saveDraftNow()
     }
