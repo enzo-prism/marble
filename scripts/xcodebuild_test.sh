@@ -87,9 +87,10 @@ XCODEBUILD_CMD=(
   -enableCodeCoverage NO
   -test-timeouts-enabled YES
   # Default is the actual per-test budget. Maximum only caps tests that set
-  # XCTestCase.executionTimeAllowance (AccessibilityAuditUITests uses 540s
-  # because a healthy History DefaultText audit is ~326s).
-  -default-test-execution-time-allowance "${XCODEBUILD_DEFAULT_TEST_TIMEOUT:-180}"
+  # XCTestCase.executionTimeAllowance. 300s covers hung UI queries without
+  # killing DraftResume XXXL (~216s+). AccessibilityAuditUITests uses 540s
+  # because a healthy History DefaultText audit is ~326s.
+  -default-test-execution-time-allowance "${XCODEBUILD_DEFAULT_TEST_TIMEOUT:-300}"
   -maximum-test-execution-time-allowance "${XCODEBUILD_MAXIMUM_TEST_TIMEOUT:-600}"
 )
 

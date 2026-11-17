@@ -6,7 +6,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
     override func setUp() {
         super.setUp()
         // Healthy History DefaultText audit is ~326s. xcodebuild's default
-        // allowance is 180s and would kill it; maximum is 600s.
+        // allowance is 300s and would still cut it off; maximum is 600s.
         executionTimeAllowance = 540
     }
 

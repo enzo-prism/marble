@@ -438,7 +438,7 @@ class MarbleUITestCase: XCTestCase {
     /// timed out. Retap only while the confirmation is still on screen, so a
     /// tap that did register is never repeated.
     func confirmFinishWorkout(timeout: TimeInterval = 8, file: StaticString = #file, line: UInt = #line) {
-        let confirm = app.buttons["Workout.Finish.Confirm"]
+        let confirm = app.buttons.matching(identifier: "Workout.Finish.Confirm").firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: timeout), file: file, line: line)
         for _ in 0..<3 {
             guard confirm.exists else { return }
@@ -471,26 +471,29 @@ class MarbleUITestCase: XCTestCase {
     /// Typed queries avoid `descendants(matching: .any)`, which can stall XCTest
     /// for minutes with "Timed out while evaluating UI query" on iOS 27.
     func identifiedElement(_ identifier: String) -> XCUIElement {
+        // Use firstMatch, not the unique-element subscript. SwiftUI often
+        // exposes the same identifier on a control and a wrapper; the
+        // subscript throws "Multiple matching elements found".
         let typed = [
-            app.buttons[identifier],
-            app.cells[identifier],
-            app.staticTexts[identifier],
-            app.textFields[identifier],
-            app.textViews[identifier],
-            app.secureTextFields[identifier],
-            app.switches[identifier],
-            app.sliders[identifier],
-            app.datePickers[identifier],
-            app.pickers[identifier],
-            app.searchFields[identifier],
-            app.collectionViews[identifier],
-            app.tables[identifier],
-            app.navigationBars[identifier],
-            app.navigationBars.buttons[identifier],
-            app.segmentedControls.buttons[identifier],
-            app.images[identifier],
-            app.links[identifier],
-            app.otherElements[identifier]
+            firstIdentified(app.buttons, identifier),
+            firstIdentified(app.cells, identifier),
+            firstIdentified(app.staticTexts, identifier),
+            firstIdentified(app.textFields, identifier),
+            firstIdentified(app.textViews, identifier),
+            firstIdentified(app.secureTextFields, identifier),
+            firstIdentified(app.switches, identifier),
+            firstIdentified(app.sliders, identifier),
+            firstIdentified(app.datePickers, identifier),
+            firstIdentified(app.pickers, identifier),
+            firstIdentified(app.searchFields, identifier),
+            firstIdentified(app.collectionViews, identifier),
+            firstIdentified(app.tables, identifier),
+            firstIdentified(app.navigationBars, identifier),
+            firstIdentified(app.navigationBars.buttons, identifier),
+            firstIdentified(app.segmentedControls.buttons, identifier),
+            firstIdentified(app.images, identifier),
+            firstIdentified(app.links, identifier),
+            firstIdentified(app.otherElements, identifier)
         ]
         for candidate in typed where candidate.exists {
             return candidate
@@ -498,7 +501,11 @@ class MarbleUITestCase: XCTestCase {
         // Nothing is in the tree yet. Do not wait on this otherElements query;
         // re-resolve with existingIdentifiedElement / waitForIdentifier so a
         // later button or datePicker still matches.
-        return app.otherElements[identifier]
+        return firstIdentified(app.otherElements, identifier)
+    }
+
+    private func firstIdentified(_ query: XCUIElementQuery, _ identifier: String) -> XCUIElement {
+        query.matching(identifier: identifier).firstMatch
     }
 
     /// Re-resolves `identifiedElement` until a typed match exists. Use this
