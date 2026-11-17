@@ -15,16 +15,18 @@ concurrency:
 jobs:
   candidate:
     runs-on: xcode-27
-    # Step caps below sum to 288. The job cap must stay at or above that so a
-    # hung gate dies at its own step instead of the job wall. Historical green
-    # 43104061973 spent ~111 min before snapshots and ~198 min overall because
-    # each of ~45 snapshot groups booted a simulator and started xcodebuild.
-    # Batched snapshots on this branch are ~7-25 min (CI 44121214082: 6m31s
-    # focused). Expected wall after batching is ~130-160 min; 300 min is that
-    # budget plus headroom so a real dispatch can finish, including the
-    # always-run upload (~10 min). Extra job slack so upload still runs if a
-    # gate uses its full step cap.
-    timeout-minutes: 300
+    # Step caps below sum to 398. The job cap must stay at or above that so a
+    # hung gate dies at its own step instead of the job wall. Dispatch
+    # 44145967148 on 7ac819a (job 2h37m; wall 3h21m including queue):
+    # unit 8m8s, snapshot 15m8s, UI killed at 60m13s mid-KeyboardLayout with
+    # ~16 suites left, a11y 1m24s crashed after the UI timeout killed the
+    # simulator, migration killed at 70m13s on the 3rd of 3 baselines.
+    # Same-SHA CI migration finished in 47m11s. Historical green 43104061973
+    # was 198 min overall (per-group snapshots). Caps below add ~10-30 min
+    # headroom on observed/estimated gate times so a real dispatch can finish,
+    # including the always-run upload (~10 min). Extra job slack so upload
+    # still runs if a gate uses its full step cap.
+    timeout-minutes: 410
     env:
       RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
     steps:
@@ -58,7 +60,7 @@ jobs:
         run: RELEASE_EVIDENCE_GATES=snapshot make release-evidence
       - name: UI gate
         if: success() || failure()
-        timeout-minutes: 60
+        timeout-minutes: 140
         run: RELEASE_EVIDENCE_GATES=ui make release-evidence
       - name: Accessibility gate
         if: success() || failure()
@@ -66,7 +68,7 @@ jobs:
         run: RELEASE_EVIDENCE_GATES=accessibility make release-evidence
       - name: Migration gate
         if: success() || failure()
-        timeout-minutes: 70
+        timeout-minutes: 100
         run: RELEASE_EVIDENCE_GATES=migration make release-evidence
       - name: Finalize evidence manifest
         if: always()
