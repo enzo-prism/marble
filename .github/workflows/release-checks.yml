@@ -15,7 +15,7 @@ concurrency:
 jobs:
   candidate:
     runs-on: xcode-27
-    # Step caps below sum to 287. The job cap must stay at or above that so a
+    # Step caps below sum to 288. The job cap must stay at or above that so a
     # hung gate dies at its own step instead of the job wall. Historical green
     # 43104061973 spent ~111 min before snapshots and ~198 min overall because
     # each of ~45 snapshot groups booted a simulator and started xcodebuild.
@@ -26,15 +26,20 @@ jobs:
     # gate uses its full step cap.
     timeout-minutes: 300
     env:
-      RELEASE_EVIDENCE_ROOT: ${{ runner.temp }}/marble-release-evidence
       RELEASE_EVIDENCE_DEFER_MANIFEST: "1"
-      DERIVED_DATA_PATH: ${{ runner.temp }}/marble-derived-data
-      MIGRATION_DERIVED_DATA_ROOT: ${{ runner.temp }}/marble-migration-builds
     steps:
       - uses: actions/checkout@v4
         timeout-minutes: 5
         with:
           fetch-depth: 0
+      # `runner` is not a legal context in job-level env (run 44142395308).
+      # RUNNER_TEMP is the process environment and is available in every step.
+      - name: Export evidence paths
+        timeout-minutes: 1
+        run: |
+          echo "RELEASE_EVIDENCE_ROOT=${RUNNER_TEMP}/marble-release-evidence" >> "$GITHUB_ENV"
+          echo "DERIVED_DATA_PATH=${RUNNER_TEMP}/marble-derived-data" >> "$GITHUB_ENV"
+          echo "MIGRATION_DERIVED_DATA_ROOT=${RUNNER_TEMP}/marble-migration-builds" >> "$GITHUB_ENV"
       - name: Select pinned Xcode
         timeout-minutes: 5
         run: bash scripts/select_ci_xcode.sh
