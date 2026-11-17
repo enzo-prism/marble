@@ -479,10 +479,10 @@ class MarbleUITestCase: XCTestCase {
         // Use firstMatch, not the unique-element subscript. SwiftUI often
         // exposes the same identifier on a control and a wrapper; the
         // subscript throws "Multiple matching elements found".
-        // Do not probe collectionViews/tables here. On iOS 27 those queries
-        // walk the list hierarchy the same way descendants(.any) did and can
-        // stall for minutes before otherElements sees a ScrollView-as-Other
-        // identifier such as WorkoutEntry.Root.
+        // collectionViews/tables are last. Probing them before otherElements
+        // hangs iOS 27 for minutes on identifiers that are ScrollView-as-Other
+        // (WorkoutEntry.Root). List identifiers such as Journal.List still
+        // need the collectionView query after the cheap types miss.
         let typed = [
             firstIdentified(app.buttons, identifier),
             firstIdentified(app.textFields, identifier),
@@ -503,7 +503,9 @@ class MarbleUITestCase: XCTestCase {
             firstIdentified(app.links, identifier),
             firstIdentified(app.otherElements, identifier),
             firstIdentified(app.groups, identifier),
-            firstIdentified(app.windows, identifier)
+            firstIdentified(app.windows, identifier),
+            firstIdentified(app.collectionViews, identifier),
+            firstIdentified(app.tables, identifier)
         ]
         for candidate in typed where candidate.exists {
             return candidate
