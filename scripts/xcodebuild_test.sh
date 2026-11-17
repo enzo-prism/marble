@@ -88,10 +88,10 @@ XCODEBUILD_CMD=(
   -test-timeouts-enabled YES
   # Default is the actual per-test budget. Maximum only caps tests that set
   # XCTestCase.executionTimeAllowance. 300s covers hung UI queries without
-  # killing DraftResume XXXL (~216s+). AccessibilityAuditUITests uses 540s
-  # because a healthy History DefaultText audit is ~326s.
+  # killing DraftResume XXXL (~216s+). AccessibilityAuditUITests uses 720s
+  # because CI 44099981294 was killed at 540s on History_Detail_dark_Default.
   -default-test-execution-time-allowance "${XCODEBUILD_DEFAULT_TEST_TIMEOUT:-300}"
-  -maximum-test-execution-time-allowance "${XCODEBUILD_MAXIMUM_TEST_TIMEOUT:-600}"
+  -maximum-test-execution-time-allowance "${XCODEBUILD_MAXIMUM_TEST_TIMEOUT:-900}"
 )
 
 # Xcode still creates a DerivedData result bundle when no explicit

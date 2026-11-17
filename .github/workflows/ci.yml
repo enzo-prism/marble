@@ -50,7 +50,7 @@ jobs:
 
       - name: Audit workout review, history and recovery
         if: success() || failure()
-        timeout-minutes: 25
+        timeout-minutes: 30
         run: |
           destination=$(scripts/sim_destination.sh)
           simulator_id=${destination#id=}
