@@ -525,7 +525,7 @@ struct WorkoutTextEntryView: View {
         }
         switch viewModel.parseStage {
         case .readingNotation: return "Reading your text…"
-        case .interpreting: return "Interpreting with Apple Intelligence…"
+        case .interpreting, .partialNotation: return "Interpreting with Apple Intelligence…"
         case .finalizing: return "Matching your exercise library…"
         }
     }
