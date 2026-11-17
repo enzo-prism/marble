@@ -131,8 +131,7 @@ class MarbleUITestCase: XCTestCase {
             if app.buttons["Log.Mode.Menu"].waitForExistence(timeout: 4) {
                 forceTap(app.buttons["Log.Mode.Menu"])
             }
-            let setsMode = identifiedElement("Log.Mode.Sets")
-            if setsMode.waitForExistence(timeout: 6) {
+            if let setsMode = existingIdentifiedElement("Log.Mode.Sets", timeout: 6) {
                 setsMode.tap()
                 return
             }
@@ -146,8 +145,7 @@ class MarbleUITestCase: XCTestCase {
                 forceTap(app.buttons["Log.Mode.Menu"])
             }
             let modeIdentifier = tab == .calendar ? "Tab.Calendar" : "Tab.Supplements"
-            let mode = identifiedElement(modeIdentifier)
-            if mode.waitForExistence(timeout: 6) {
+            if let mode = existingIdentifiedElement(modeIdentifier, timeout: 6) {
                 forceTap(mode)
                 return
             }
@@ -440,7 +438,7 @@ class MarbleUITestCase: XCTestCase {
     /// timed out. Retap only while the confirmation is still on screen, so a
     /// tap that did register is never repeated.
     func confirmFinishWorkout(timeout: TimeInterval = 8, file: StaticString = #file, line: UInt = #line) {
-        let confirm = app.descendants(matching: .any).matching(identifier: "Workout.Finish.Confirm").firstMatch
+        let confirm = app.buttons["Workout.Finish.Confirm"]
         XCTAssertTrue(confirm.waitForExistence(timeout: timeout), file: file, line: line)
         for _ in 0..<3 {
             guard confirm.exists else { return }
@@ -497,14 +495,16 @@ class MarbleUITestCase: XCTestCase {
         for candidate in typed where candidate.exists {
             return candidate
         }
-        // Nothing is in the tree yet. Do not cache this otherElements query
-        // across a lazy-list scroll; Date/Time pickers must be queried as
-        // datePickers so they match after the row materializes.
+        // Nothing is in the tree yet. Do not wait on this otherElements query;
+        // re-resolve with existingIdentifiedElement / waitForIdentifier so a
+        // later button or datePicker still matches.
         return app.otherElements[identifier]
     }
 
-    @discardableResult
-    func waitForIdentifier(_ identifier: String, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) -> XCUIElement {
+    /// Re-resolves `identifiedElement` until a typed match exists. Use this
+    /// instead of `waitForExistence` on a cached handle whose type was chosen
+    /// before the control entered the tree.
+    func existingIdentifiedElement(_ identifier: String, timeout: TimeInterval) -> XCUIElement? {
         let deadline = Date().addingTimeInterval(timeout)
         repeat {
             let element = identifiedElement(identifier)
@@ -512,27 +512,70 @@ class MarbleUITestCase: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         } while Date() < deadline
         let element = identifiedElement(identifier)
-        XCTAssertTrue(element.exists, file: file, line: line)
+        return element.exists ? element : nil
+    }
+
+    @discardableResult
+    func waitForIdentifier(
+        _ identifier: String,
+        timeout: TimeInterval = 5,
+        scrollIn container: XCUIElement? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCUIElement {
+        let deadline = Date().addingTimeInterval(timeout)
+        var swipes = 0
+        repeat {
+            let element = identifiedElement(identifier)
+            if element.exists { return element }
+            if container != nil, swipes < 8 {
+                swipeTowardOffscreenRows(in: container)
+                swipes += 1
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        let element = identifiedElement(identifier)
+        XCTAssertTrue(element.exists, "Timed out waiting for \(identifier)", file: file, line: line)
         return element
     }
 
     func firstElement(identifierPrefix prefix: String, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) -> XCUIElement {
-        let predicate = NSPredicate(format: "identifier BEGINSWITH %@", prefix)
         let deadline = Date().addingTimeInterval(timeout)
+        var swipes = 0
         repeat {
-            let typed = [
-                app.cells.matching(predicate).firstMatch,
-                app.buttons.matching(predicate).firstMatch,
-                app.otherElements.matching(predicate).firstMatch
-            ]
-            for match in typed where match.exists {
+            if let match = firstTypedMatch(identifierPrefix: prefix) {
                 return match
+            }
+            if swipes < 8 {
+                swipeTowardOffscreenRows(in: app)
+                swipes += 1
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         } while Date() < deadline
-        let fallback = app.buttons.matching(predicate).firstMatch
-        XCTAssertTrue(fallback.exists, file: file, line: line)
-        return fallback
+        if let match = firstTypedMatch(identifierPrefix: prefix) {
+            return match
+        }
+        XCTFail("Timed out waiting for identifier prefix \(prefix)", file: file, line: line)
+        return app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix)).firstMatch
+    }
+
+    private func firstTypedMatch(identifierPrefix prefix: String) -> XCUIElement? {
+        let predicate = NSPredicate(format: "identifier BEGINSWITH %@", prefix)
+        let typed = [
+            app.cells.matching(predicate).firstMatch,
+            app.buttons.matching(predicate).firstMatch,
+            app.otherElements.matching(predicate).firstMatch
+        ]
+        return typed.first(where: \.exists)
+    }
+
+    private func swipeTowardOffscreenRows(in container: XCUIElement?) {
+        let target = container ?? app
+        if target.isHittable {
+            target.swipeUp()
+        } else if app.isHittable {
+            app.swipeUp()
+        }
     }
 
     func addSetListContainer(timeout: TimeInterval = 6) -> XCUIElement {

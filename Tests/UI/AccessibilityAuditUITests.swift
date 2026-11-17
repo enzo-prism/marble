@@ -2,6 +2,14 @@ import XCTest
 
 final class AccessibilityAuditUITests: MarbleUITestCase {
     private var allowDynamicTypeAuditSkip = false
+
+    override func setUp() {
+        super.setUp()
+        // Healthy History DefaultText audit is ~326s. xcodebuild's default
+        // allowance is 180s and would kill it; maximum is 600s.
+        executionTimeAllowance = 540
+    }
+
     private struct AuditElementIdentity {
         let type: XCUIElement.ElementType
         let identifier: String
@@ -147,7 +155,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             )
             navigateToTab(.addWorkout)
             forceTap(waitForIdentifier("Workout.Open", timeout: 8))
-            let finish = waitForIdentifier("Workout.Finish", timeout: 8)
+            let finish = waitForIdentifier("Workout.Finish", timeout: 8, scrollIn: app)
             scrollToElement(finish, in: app)
             forceTap(finish)
             confirmFinishWorkout()
