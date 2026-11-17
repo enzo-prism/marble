@@ -29,4 +29,11 @@ class SnapshotShardingTest < Minitest::Test
       refute status.success?, "#{index}/#{count}"
     end
   end
+
+  def test_prepare_simulator_clears_leftover_ui_test_runner_without_shutdown
+    source = File.read(SCRIPT)
+    assert_includes source, 'Prism.marbleUITests.xctrunner'
+    assert_includes source, 'content_size large'
+    refute_match(/simctl shutdown/, source)
+  end
 end

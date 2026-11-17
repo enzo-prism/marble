@@ -136,21 +136,31 @@ if [[ "${SNAPSHOT_LIST_ONLY:-0}" == 1 ]]; then
   exit 0
 fi
 
+# Keep the simulator booted across groups. A full shutdown/boot pair per group
+# is what stretched Release checks past four hours on d1de18b. Still clear the
+# leftover XCUITest runner and app from the previous CI step — otherwise
+# drawHierarchy in mounted Composer snapshots can fail to render (run
+# 44030761198: 2 captures in 10s on the last Composer test).
+reset_app() {
+  if [[ -z "${sim_id}" ]]; then
+    return 0
+  fi
+  xcrun simctl terminate "${sim_id}" Prism.marbleUITests.xctrunner >/dev/null 2>&1 || true
+  xcrun simctl terminate "${sim_id}" Prism.marble >/dev/null 2>&1 || true
+}
+
 prepare_simulator() {
   if [[ -z "${sim_id}" ]]; then
     return 0
   fi
   xcrun simctl boot "${sim_id}" >/dev/null 2>&1 || true
   xcrun simctl bootstatus "${sim_id}" -b >/dev/null 2>&1 || true
-}
-
-# Keep the simulator booted across groups. A full shutdown/boot pair per group
-# is what stretched Release checks past four hours on d1de18b.
-reset_app() {
-  if [[ -z "${sim_id}" ]]; then
-    return 0
-  fi
-  xcrun simctl terminate "${sim_id}" Prism.marble >/dev/null 2>&1 || true
+  reset_app
+  # History isolation later overrides this. Start Composer from the default
+  # size so a prior XXXL UI-test launch argument cannot keep the window
+  # reflowing.
+  xcrun simctl ui "${sim_id}" content_size large >/dev/null 2>&1 || true
+  sleep 2
 }
 
 snapshot_result_path() {
