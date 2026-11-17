@@ -34,6 +34,7 @@ class SnapshotShardingTest < Minitest::Test
     source = File.read(SCRIPT)
     assert_includes source, 'Prism.marbleUITests.xctrunner'
     assert_includes source, 'content_size large'
+    assert_includes source, 'boot_simulator'
     refute_match(/simctl shutdown/, source)
   end
 end

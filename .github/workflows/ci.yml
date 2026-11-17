@@ -52,6 +52,10 @@ jobs:
         if: success() || failure()
         timeout-minutes: 25
         run: |
+          destination=$(scripts/sim_destination.sh)
+          simulator_id=${destination#id=}
+          xcrun simctl boot "$simulator_id" >/dev/null 2>&1 || true
+          xcrun simctl bootstatus "$simulator_id" -b
           RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryAccessibility.xcresult" scripts/xcodebuild_test.sh \
             -only-testing:MarbleUITests/AccessibilityAuditUITests/testHistoryAndRecoveryAccessibilityAudit_DefaultText \
             -only-testing:MarbleUITests/AccessibilityAuditUITests/testWorkoutNotesReviewAccessibility_DefaultText
@@ -60,6 +64,10 @@ jobs:
         if: success() || failure()
         timeout-minutes: 25
         run: |
+          destination=$(scripts/sim_destination.sh)
+          simulator_id=${destination#id=}
+          xcrun simctl boot "$simulator_id" >/dev/null 2>&1 || true
+          xcrun simctl bootstatus "$simulator_id" -b
           RESULT_BUNDLE_PATH="$PWD/TestResults/HistoryLargestText.xcresult" scripts/xcodebuild_test.sh \
             -only-testing:MarbleUITests/WorkoutHistoryUITests \
             -only-testing:MarbleUITests/DraftResumeUITests/testLargestTextDateAndTimeControlsRemainReachable \

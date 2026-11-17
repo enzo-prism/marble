@@ -149,12 +149,21 @@ reset_app() {
   xcrun simctl terminate "${sim_id}" Prism.marble >/dev/null 2>&1 || true
 }
 
+boot_simulator() {
+  if [[ -z "${sim_id}" ]]; then
+    return 0
+  fi
+  # xcodebuild can leave the device Shutdown after a suite (CI 44079417409:
+  # Composer passed, then History simctl ui failed with "current state: Shutdown").
+  xcrun simctl boot "${sim_id}" >/dev/null 2>&1 || true
+  xcrun simctl bootstatus "${sim_id}" -b >/dev/null 2>&1 || true
+}
+
 prepare_simulator() {
   if [[ -z "${sim_id}" ]]; then
     return 0
   fi
-  xcrun simctl boot "${sim_id}" >/dev/null 2>&1 || true
-  xcrun simctl bootstatus "${sim_id}" -b >/dev/null 2>&1 || true
+  boot_simulator
   reset_app
   # History isolation later overrides this. Start Composer from the default
   # size so a prior XXXL UI-test launch argument cannot keep the window
@@ -184,6 +193,7 @@ snapshot_result_path() {
 history_original_content_size=""
 restore_history_content_size() {
   if [[ -n "${history_original_content_size}" ]]; then
+    boot_simulator
     xcrun simctl ui "${sim_id}" content_size "${history_original_content_size}"
     history_original_content_size=""
   fi
@@ -223,6 +233,7 @@ for group in "${history_groups[@]}"; do
   for category in default a11y; do
     result_path=$(snapshot_result_path "${group}" "-${category}")
     echo "Running snapshot group: ${group}-${category}"
+    boot_simulator
     history_original_content_size=$(xcrun simctl ui "${sim_id}" content_size)
     system_category=large
     [[ "${category}" != a11y ]] || system_category=accessibility-extra-extra-extra-large
