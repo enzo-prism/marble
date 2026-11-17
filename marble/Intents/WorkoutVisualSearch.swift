@@ -129,8 +129,9 @@ struct OpenWorkoutCaptureIntent: OpenIntent {
     static let description = IntentDescription("Opens workout text Marble read from the screen or camera for review. Nothing is logged until it is reviewed.")
     static let supportedModes: IntentModes = [.foreground(.immediate)]
     static var authenticationPolicy: IntentAuthenticationPolicy { .requiresAuthentication }
-    /// Only Visual Intelligence results open this; it is not a Shortcuts action.
-    static let isDiscoverable = false
+    // Left discoverable (the default): its parameter is an opaque, short-lived
+    // token, so nothing the camera saw is stored with it, and the default avoids
+    // any risk of the system declining to open a Visual Intelligence result.
 
     @Parameter(title: "Workout") var target: WorkoutCaptureEntity
 

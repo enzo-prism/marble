@@ -126,8 +126,10 @@ final class WorkoutVisualSearchTests: MarbleTestCase {
         XCTAssertNotNil(WorkoutCaptureEntity(id: rest[0].id, now: now))
     }
 
-    func testOpenIntentIsNotAShortcutsAction() {
-        XCTAssertFalse(OpenWorkoutCaptureIntent.isDiscoverable)
+    func testOpenIntentParameterCarriesNoScreenText() {
+        let entity = WorkoutCaptureEntity(text: "Deadlift 315x5")
+        XCTAssertFalse(entity.id.contains("Deadlift"))
+        XCTAssertFalse(entity.id.contains("315"))
     }
 
     func testQueryResolvesOnlyLiveTokens() async throws {
