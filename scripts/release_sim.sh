@@ -30,6 +30,8 @@ cmd_create() {
   fi
 
   # A rerun on the same host can leave the previous named device behind.
+  # simctl delete rejects Booted devices, so shut it down first.
+  xcrun simctl shutdown "${name}" >/dev/null 2>&1 || true
   xcrun simctl delete "${name}" >/dev/null 2>&1 || true
 
   udid=$(xcrun simctl create "${name}" "${DEVICE_TYPE}" "${RUNTIME}")

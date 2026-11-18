@@ -20,8 +20,15 @@ class ReleaseSimTest < Minitest::Test
       assert_includes exported, "MARBLE_SIMULATOR_NAME=marble-99-sim-unit"
       xcrun = File.readlines(log, chomp: true)
       refute xcrun.any? { |line| line.include?("list devices") }, xcrun.inspect
-      assert xcrun.any? { |line| line.include?("create marble-99-sim-unit iPhone 17 ") }
-      assert xcrun.any? { |line| line.start_with?("boot AAAA-UNIT-UDID") || line.include?("boot AAAA-UNIT-UDID") }
+      shutdown_at = xcrun.index { |line| line.include?("shutdown marble-99-sim-unit") }
+      delete_at = xcrun.index { |line| line.include?("delete marble-99-sim-unit") }
+      create_at = xcrun.index { |line| line.include?("create marble-99-sim-unit iPhone 17 ") }
+      refute_nil shutdown_at, xcrun.inspect
+      refute_nil delete_at, xcrun.inspect
+      refute_nil create_at, xcrun.inspect
+      assert_operator shutdown_at, :<, delete_at
+      assert_operator delete_at, :<, create_at
+      assert xcrun.any? { |line| line.include?("boot AAAA-UNIT-UDID") }
       assert xcrun.any? { |line| line.include?("bootstatus AAAA-UNIT-UDID") }
     end
   end
@@ -45,20 +52,25 @@ class ReleaseSimTest < Minitest::Test
     end
   end
 
-  def test_github_actions_destination_requires_explicit_udid
-    output, error, status = Open3.capture3(
-      { "GITHUB_ACTIONS" => "true", "MARBLE_SIMULATOR_ID" => "" },
-      "bash", DESTINATION
-    )
-    refute status.success?, output
-    assert_includes error, "MARBLE_SIMULATOR_ID"
-
+  def test_explicit_udid_wins_on_github_actions
     output, error, status = Open3.capture3(
       { "GITHUB_ACTIONS" => "true", "MARBLE_SIMULATOR_ID" => "DEAD-BEEF" },
       "bash", DESTINATION
     )
     assert status.success?, error
     assert_equal "id=DEAD-BEEF", output.strip
+  end
+
+  def test_github_actions_without_udid_still_looks_up_by_name
+    with_fakes do |env, log|
+      env["GITHUB_ACTIONS"] = "true"
+      env.delete("MARBLE_SIMULATOR_ID")
+      output, error, status = Open3.capture3(env, "bash", DESTINATION)
+      assert status.success?, "#{output}\n#{error}"
+      assert_equal "id=CI-SHARED-IPHONE", output.strip
+      xcrun = File.readlines(log, chomp: true)
+      assert xcrun.any? { |line| line.include?("list devices") }, xcrun.inspect
+    end
   end
 
   private
@@ -86,6 +98,10 @@ class ReleaseSimTest < Minitest::Test
       printf '%s\\n' "$*" >> #{log.inspect}
       if [[ "${1:-}" == simctl && "${2:-}" == create ]]; then
         printf '%s\\n' "AAAA-UNIT-UDID"
+        exit 0
+      fi
+      if [[ "${1:-}" == simctl && "${2:-}" == list && "${3:-}" == devices ]]; then
+        printf '%s\\n' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-27-0":[{"name":"iPhone 17","udid":"CI-SHARED-IPHONE","isAvailable":true}]}}'
         exit 0
       fi
       exit 0

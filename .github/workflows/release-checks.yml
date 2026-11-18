@@ -29,7 +29,8 @@ concurrency:
 # Each simulator matrix leg creates
 # `marble-${{ github.run_id }}-${{ github.job }}-${{ matrix.name }}` as a
 # pinned iPhone 17 / iOS 27.0 device, exports that UDID as
-# MARBLE_SIMULATOR_ID / SIMULATOR_UDID, and refuses shared name lookup.
+# MARBLE_SIMULATOR_ID / SIMULATOR_UDID, and release-evidence refuses to
+# run without it. CI and record-snapshots still look up iPhone 17 by name.
 # Shutdown+delete runs `if: always()`. max-parallel is N=3 so one host is
 # not asked to boot every gate at once. Not sequential.
 #
