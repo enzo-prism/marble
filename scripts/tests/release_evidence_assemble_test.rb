@@ -111,7 +111,8 @@ class ReleaseEvidenceAssembleTest < Minitest::Test
 
     by_name = includes.to_h { |row| [row.fetch("name"), row] }
     assert_equal 20, Integer(by_name.fetch("unit").fetch("gate_timeout"))
-    assert_equal 22, Integer(by_name.fetch("snapshot").fetch("gate_timeout"))
+    assert_equal 35, Integer(by_name.fetch("snapshot").fetch("gate_timeout"))
+    assert_equal 70, Integer(by_name.fetch("snapshot").fetch("job_timeout"))
     assert_equal 85, Integer(by_name.fetch("ui-1").fetch("gate_timeout"))
     assert_equal 85, Integer(by_name.fetch("ui-2").fetch("gate_timeout"))
     assert_equal 85, Integer(by_name.fetch("ui-3").fetch("gate_timeout"))

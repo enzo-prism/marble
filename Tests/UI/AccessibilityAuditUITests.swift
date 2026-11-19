@@ -7,8 +7,12 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         super.setUp()
         // Healthy History DefaultText audit is ~326s. CI 44099981294 was
         // killed at 540s while attaching History_Detail_dark_Default, before
-        // recovery. 720s fits under a 900s xcodebuild maximum.
-        executionTimeAllowance = 720
+        // recovery. Dispatch 44440214141 then recorded
+        // testAccessibilityAudit_DefaultText failed after ~783s with 0
+        // assertion failures: NotificationEditor's iOS 27 AX tree walk
+        // stalled ~9 min, which blew the 720s allowance. 900s matches the
+        // xcodebuild maximum-test-execution-time-allowance.
+        executionTimeAllowance = 900
     }
 
     private struct AuditElementIdentity {
