@@ -234,17 +234,38 @@ class MarbleUITestCase: XCTestCase {
         guard ["AddSet.LastTime.Value.Weight", "AddSet.LastTime.Value.Rest", "AddSet.LastTime.LoggedAt"].contains(identifier),
               app.navigationBars["Log Set"].exists else { return false }
         let text = app.staticTexts[identifier]
-        // List row, not a control. identifiedElement prefers buttons and can
-        // match a child whose frame does not contain Rest/Weight (ui-1 on
-        // 44466069574 and 44480522282 while the audit job passed).
-        let cell = app.cells.matching(identifier: "AddSet.LastTime").firstMatch
-        let card = cell.exists ? cell : app.otherElements.matching(identifier: "AddSet.LastTime").firstMatch
-        guard text.exists, text.isHittable, card.exists, !text.label.isEmpty,
-              card.frame.insetBy(dx: -1, dy: -1).contains(text.frame),
+        guard text.exists, text.isHittable, !text.label.isEmpty,
               unobscuredFrame().contains(text.frame) else { return false }
-        // XXXL Rest glyphs can overhang the intrinsic text snapshot by a
-        // pixel; capture surrounding pixels like native toolbar titles.
-        return try isFullTitleDrawn(in: text, title: text.label, minimumMargin: 0, padding: 2)
+        // SwiftUI lists the LastTime row as a cell, other, or button, and can
+        // also expose a child with the same identifier. identifiedElement
+        // prefers that child (Rest on 44480522282). cells-then-other skipped
+        // the button row (Weight on 44496545635 never reached OCR). Keep the
+        // largest match so Weight and Rest both sit inside the row.
+        guard let card = largestIdentifiedElement(
+            "AddSet.LastTime",
+            in: [app.cells, app.otherElements, app.buttons]
+        ), card.frame.insetBy(dx: -1, dy: -1).contains(text.frame) else { return false }
+        return try isFullTitleDrawn(in: text, title: text.label, minimumMargin: 0)
+    }
+
+    /// Typed queries only. Probe a few matches per type so a child control
+    /// with the same identifier cannot hide the List row.
+    private func largestIdentifiedElement(_ identifier: String, in queries: [XCUIElementQuery]) -> XCUIElement? {
+        var best: XCUIElement?
+        var bestArea: CGFloat = 0
+        for query in queries {
+            let matches = query.matching(identifier: identifier)
+            for index in 0..<6 {
+                let element = matches.element(boundBy: index)
+                guard element.exists else { break }
+                let area = element.frame.width * element.frame.height
+                if area > bestArea {
+                    best = element
+                    bestArea = area
+                }
+            }
+        }
+        return best
     }
 
     func isFullTitleDrawn(in element: XCUIElement, title: String, minimumMargin: CGFloat = 0.01, padding: CGFloat = 0) throws -> Bool {
