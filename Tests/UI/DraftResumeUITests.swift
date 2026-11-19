@@ -1,6 +1,13 @@
 import XCTest
 
 final class DraftResumeUITests: MarbleUITestCase {
+    override func setUp() {
+        super.setUp()
+        // Light+dark XXXL date/time recovery relaunches the app several times
+        // and exceeded the previous 180s default (~216s in CI run 43993161157).
+        executionTimeAllowance = 480
+    }
+
     func testLargestTextDateAndTimeControlsRemainReachable() throws {
         let category = UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue
         for appearance in [MarbleAppearance.light, MarbleAppearance.dark] {
@@ -13,12 +20,12 @@ final class DraftResumeUITests: MarbleUITestCase {
             editor.tap()
             editor.typeText("Yesterday: Push\nBench Press 1x8 @ 185 lb")
             dismissKeyboardIfPresent()
-            let preview = app.descendants(matching: .any).matching(identifier: "TextEntry.Preview").firstMatch
+            let preview = waitForIdentifier("TextEntry.Preview", timeout: 8)
             scrollToElement(preview, in: app)
             forceTap(preview)
             _ = waitForIdentifier("TextEntry.ReviewSummary", timeout: 15)
 
-            let date = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
+            let date = app.datePickers.matching(identifier: "TextEntry.Date").firstMatch
             scrollToElement(date, in: app.collectionViews.firstMatch)
             waitFor(date, timeout: 10)
             revealAboveSave(date, label: app.staticTexts["Date"].firstMatch)
@@ -43,7 +50,7 @@ final class DraftResumeUITests: MarbleUITestCase {
             // Relaunch also closes its popover without relying on system button
             // titles, calendar formatting, or a hard-coded dismissal coordinate.
             XCUIDevice.shared.press(.home)
-            app.terminate()
+            terminateIfRunning()
             launchApp(
                 appearance: appearance, contentSizeCategory: category,
                 fixtureMode: "empty", resetDB: false, extraEnvironment: environment
@@ -51,7 +58,7 @@ final class DraftResumeUITests: MarbleUITestCase {
             let resume = app.buttons["WorkoutEntry.Draft.Resume"]
             scrollToElement(resume, in: app)
             forceTap(resume)
-            let restoredDate = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
+            let restoredDate = app.datePickers.matching(identifier: "TextEntry.Date").firstMatch
             scrollToElement(restoredDate, in: app.collectionViews.firstMatch)
             waitFor(restoredDate, timeout: 10)
             revealAboveSave(restoredDate, label: app.staticTexts["Date"].firstMatch)
@@ -59,7 +66,7 @@ final class DraftResumeUITests: MarbleUITestCase {
             waitFor(restoredDateButton)
             XCTAssertEqual(restoredDateButton.value as? String, reviewedDate)
 
-            let includeTime = app.switches["TextEntry.IncludeTime"]
+            let includeTime = app.switches.matching(identifier: "TextEntry.IncludeTime").firstMatch
             scrollToElement(includeTime, in: app.collectionViews.firstMatch)
             waitFor(includeTime)
             // A multiline switch wrapper can be hittable while its native
@@ -75,11 +82,13 @@ final class DraftResumeUITests: MarbleUITestCase {
             let enabled = XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "value == '1'"), object: includeTime
             )
-            XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 5), .completed)
+            // XXXL resume can take longer than 5s for the native switch to
+            // publish value=1 (CI 44043995039). Still require the toggle.
+            XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 15), .completed)
             XCTAssertEqual(includeTime.value as? String, "1")
             // Inspect the switch while its lazy row is visible. Revealing the
             // full picker can legitimately scroll that row out of the tree.
-            let time = app.descendants(matching: .any).matching(identifier: "TextEntry.Time").firstMatch
+            let time = app.datePickers.matching(identifier: "TextEntry.Time").firstMatch
             scrollToElement(time, in: app.collectionViews.firstMatch)
             waitFor(time, timeout: 8)
             revealAboveSave(time, label: app.staticTexts["Time"].firstMatch)
@@ -136,7 +145,7 @@ final class DraftResumeUITests: MarbleUITestCase {
         editor.tap()
         editor.typeText("Bench Press 3x8")
         XCUIDevice.shared.press(.home)
-        app.terminate()
+        terminateIfRunning()
         launchApp(
             appearance: .dark,
             contentSizeCategory: UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
@@ -158,7 +167,7 @@ final class DraftResumeUITests: MarbleUITestCase {
         editor.typeText("Yesterday: Push\nBench Press 1x8 @ 185 lb")
         dismissKeyboardIfPresent()
         forceTap(waitForIdentifier("TextEntry.Preview", timeout: 8))
-        let date = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
+        let date = app.datePickers.matching(identifier: "TextEntry.Date").firstMatch
         scrollToElement(date, in: app.collectionViews.firstMatch)
         waitFor(date, timeout: 10)
         let dateButton = date.buttons.firstMatch
@@ -173,10 +182,10 @@ final class DraftResumeUITests: MarbleUITestCase {
         dismissKeyboardIfPresent()
         // Backgrounding flushes pending edits before the termination boundary.
         XCUIDevice.shared.press(.home)
-        app.terminate()
+        terminateIfRunning()
         launchApp(fixtureMode: "empty", resetDB: false, extraEnvironment: environment)
         forceTap(waitForIdentifier("WorkoutEntry.Draft.Resume", timeout: 10))
-        let restoredDate = app.descendants(matching: .any).matching(identifier: "TextEntry.Date").firstMatch
+        let restoredDate = app.datePickers.matching(identifier: "TextEntry.Date").firstMatch
         scrollToElement(restoredDate, in: app.collectionViews.firstMatch)
         waitFor(restoredDate, timeout: 8)
         XCTAssertEqual(restoredDate.buttons.firstMatch.value as? String, reviewedDate)
@@ -193,12 +202,12 @@ final class DraftResumeUITests: MarbleUITestCase {
         editor.tap()
         editor.typeText("Bench Press 3x8")
         XCUIDevice.shared.press(.home)
-        app.terminate()
+        terminateIfRunning()
         launchApp(fixtureMode: "empty", resetDB: false, extraEnvironment: environment)
         forceTap(waitForIdentifier("WorkoutEntry.Draft.Discard", timeout: 10))
         forceTap(app.buttons.matching(identifier: "WorkoutEntry.Draft.ConfirmDiscard").firstMatch)
         XCUIDevice.shared.press(.home)
-        app.terminate()
+        terminateIfRunning()
         launchApp(fixtureMode: "empty", resetDB: false, extraEnvironment: environment)
         XCTAssertTrue(waitForIdentifier("TextEntry.Editor", timeout: 8).exists)
         XCTAssertFalse(app.buttons["WorkoutEntry.Draft.Resume"].exists)

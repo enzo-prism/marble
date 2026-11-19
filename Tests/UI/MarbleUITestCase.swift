@@ -65,9 +65,35 @@ class MarbleUITestCase: XCTestCase {
         if let run = testRun, run.failureCount > 0 {
             attachFailureArtifacts()
         }
-        app?.terminate()
+        terminateIfRunning()
         app = nil
         super.tearDown()
+    }
+
+    /// Home + relaunch can leave XCUITest unable to `terminate()` a live PID
+    /// (`Failed to terminate Prism.marble:49523: Failed to terminate
+    /// Prism.marble:0` on CI 44043995039). `terminate()` records an XCTIssue
+    /// even when the process is already dying, which fails an otherwise green
+    /// History audit in tearDown. This SDK has no `XCUIApplication.processID`
+    /// (CI 44061298848), so wrap `terminate()` in a non-strict expected
+    /// failure instead of SIGKILL. Matcher is scoped to that message so a
+    /// different tearDown issue still fails the test. Tracked in
+    /// https://github.com/enzo-prism/marble/issues/65
+    func terminateIfRunning() {
+        guard let application = app, application.state != .notRunning else { return }
+        // XCTExpectFailure is the function; the options type is
+        // XCTExpectedFailure.Options (CI 44071137794).
+        let options = XCTExpectedFailure.Options()
+        options.isStrict = false
+        options.issueMatcher = { issue in
+            issue.compactDescription.contains("Failed to terminate")
+        }
+        XCTExpectFailure(
+            "Home can leave XCUITest unable to terminate the process (#65)",
+            options: options
+        ) {
+            _ = application.terminate()
+        }
     }
 
     func launchApp(
@@ -82,9 +108,7 @@ class MarbleUITestCase: XCTestCase {
         accessibilityAudit: Bool = false,
         extraEnvironment: [String: String] = [:]
     ) {
-        if app != nil {
-            app.terminate()
-        }
+        terminateIfRunning()
         app = XCUIApplication(bundleIdentifier: Self.targetBundleIdentifier)
         app.launchEnvironment["MARBLE_UI_TESTING"] = "1"
         app.launchEnvironment["MARBLE_DRAFT_NAMESPACE"] = draftNamespace
@@ -131,10 +155,7 @@ class MarbleUITestCase: XCTestCase {
             if app.buttons["Log.Mode.Menu"].waitForExistence(timeout: 4) {
                 forceTap(app.buttons["Log.Mode.Menu"])
             }
-            let setsMode = app.descendants(matching: .any)
-                .matching(identifier: "Log.Mode.Sets")
-                .firstMatch
-            if setsMode.waitForExistence(timeout: 6) {
+            if let setsMode = existingIdentifiedElement("Log.Mode.Sets", timeout: 6) {
                 setsMode.tap()
                 return
             }
@@ -148,8 +169,7 @@ class MarbleUITestCase: XCTestCase {
                 forceTap(app.buttons["Log.Mode.Menu"])
             }
             let modeIdentifier = tab == .calendar ? "Tab.Calendar" : "Tab.Supplements"
-            let mode = app.descendants(matching: .any).matching(identifier: modeIdentifier).firstMatch
-            if mode.waitForExistence(timeout: 6) {
+            if let mode = existingIdentifiedElement(modeIdentifier, timeout: 6) {
                 forceTap(mode)
                 return
             }
@@ -214,12 +234,38 @@ class MarbleUITestCase: XCTestCase {
         guard ["AddSet.LastTime.Value.Weight", "AddSet.LastTime.Value.Rest", "AddSet.LastTime.LoggedAt"].contains(identifier),
               app.navigationBars["Log Set"].exists else { return false }
         let text = app.staticTexts[identifier]
-        let card = app.descendants(matching: .any).matching(identifier: "AddSet.LastTime").firstMatch
-        guard text.exists, text.isHittable, card.exists, !text.label.isEmpty,
-              card.frame.insetBy(dx: -1, dy: -1).contains(text.frame),
+        guard text.exists, text.isHittable, !text.label.isEmpty,
               unobscuredFrame().contains(text.frame) else { return false }
-        // Intrinsic Text frames need no artificial padding around their glyphs.
+        // SwiftUI lists the LastTime row as a cell, other, or button, and can
+        // also expose a child with the same identifier. identifiedElement
+        // prefers that child (Rest on 44480522282). cells-then-other skipped
+        // the button row (Weight on 44496545635 never reached OCR). Keep the
+        // largest match so Weight and Rest both sit inside the row.
+        guard let card = largestIdentifiedElement(
+            "AddSet.LastTime",
+            in: [app.cells, app.otherElements, app.buttons]
+        ), card.frame.insetBy(dx: -1, dy: -1).contains(text.frame) else { return false }
         return try isFullTitleDrawn(in: text, title: text.label, minimumMargin: 0)
+    }
+
+    /// Typed queries only. Probe a few matches per type so a child control
+    /// with the same identifier cannot hide the List row.
+    private func largestIdentifiedElement(_ identifier: String, in queries: [XCUIElementQuery]) -> XCUIElement? {
+        var best: XCUIElement?
+        var bestArea: CGFloat = 0
+        for query in queries {
+            let matches = query.matching(identifier: identifier)
+            for index in 0..<6 {
+                let element = matches.element(boundBy: index)
+                guard element.exists else { break }
+                let area = element.frame.width * element.frame.height
+                if area > bestArea {
+                    best = element
+                    bestArea = area
+                }
+            }
+        }
+        return best
     }
 
     func isFullTitleDrawn(in element: XCUIElement, title: String, minimumMargin: CGFloat = 0.01, padding: CGFloat = 0) throws -> Bool {
@@ -442,7 +488,7 @@ class MarbleUITestCase: XCTestCase {
     /// timed out. Retap only while the confirmation is still on screen, so a
     /// tap that did register is never repeated.
     func confirmFinishWorkout(timeout: TimeInterval = 8, file: StaticString = #file, line: UInt = #line) {
-        let confirm = app.descendants(matching: .any).matching(identifier: "Workout.Finish.Confirm").firstMatch
+        let confirm = app.buttons.matching(identifier: "Workout.Finish.Confirm").firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: timeout), file: file, line: line)
         for _ in 0..<3 {
             guard confirm.exists else { return }
@@ -472,11 +518,145 @@ class MarbleUITestCase: XCTestCase {
         }
     }
 
+    /// Typed queries avoid `descendants(matching: .any)`, which can stall XCTest
+    /// for minutes with "Timed out while evaluating UI query" on iOS 27.
+    func identifiedElement(_ identifier: String) -> XCUIElement {
+        // Use firstMatch, not the unique-element subscript. SwiftUI often
+        // exposes the same identifier on a control and a wrapper; the
+        // subscript throws "Multiple matching elements found".
+        // Never probe collectionViews/tables unless the identifier is a List.
+        // Those queries hang iOS 27 for minutes when the identifier lives on
+        // a ScrollView-as-Other (WorkoutEntry.Root).
+        let typed = [
+            firstIdentified(app.buttons, identifier),
+            firstIdentified(app.textFields, identifier),
+            firstIdentified(app.textViews, identifier),
+            firstIdentified(app.secureTextFields, identifier),
+            firstIdentified(app.switches, identifier),
+            firstIdentified(app.datePickers, identifier),
+            firstIdentified(app.scrollViews, identifier),
+            firstIdentified(app.cells, identifier),
+            firstIdentified(app.staticTexts, identifier),
+            firstIdentified(app.sliders, identifier),
+            firstIdentified(app.pickers, identifier),
+            firstIdentified(app.segmentedControls, identifier),
+            firstIdentified(app.steppers, identifier),
+            firstIdentified(app.searchFields, identifier),
+            firstIdentified(app.navigationBars, identifier),
+            firstIdentified(app.navigationBars.buttons, identifier),
+            firstIdentified(app.segmentedControls.buttons, identifier),
+            firstIdentified(app.images, identifier),
+            firstIdentified(app.links, identifier),
+            firstIdentified(app.otherElements, identifier),
+            firstIdentified(app.groups, identifier),
+            firstIdentified(app.windows, identifier)
+        ]
+        for candidate in typed where candidate.exists {
+            return candidate
+        }
+        if identifier.hasSuffix(".List") {
+            let list = firstIdentified(app.collectionViews, identifier)
+            if list.exists { return list }
+            let table = firstIdentified(app.tables, identifier)
+            if table.exists { return table }
+            return list
+        }
+        // Nothing is in the tree yet. Do not wait on this otherElements query;
+        // re-resolve with existingIdentifiedElement / waitForIdentifier so a
+        // later button or datePicker still matches.
+        return firstIdentified(app.otherElements, identifier)
+    }
+
+    private func firstIdentified(_ query: XCUIElementQuery, _ identifier: String) -> XCUIElement {
+        query.matching(identifier: identifier).firstMatch
+    }
+
+    /// Re-resolves `identifiedElement` until a typed match exists. Use this
+    /// instead of `waitForExistence` on a cached handle whose type was chosen
+    /// before the control entered the tree.
+    func existingIdentifiedElement(_ identifier: String, timeout: TimeInterval) -> XCUIElement? {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let element = identifiedElement(identifier)
+            if element.exists { return element }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        let element = identifiedElement(identifier)
+        return element.exists ? element : nil
+    }
+
     @discardableResult
-    func waitForIdentifier(_ identifier: String, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) -> XCUIElement {
-        let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        XCTAssertTrue(element.waitForExistence(timeout: timeout), file: file, line: line)
+    func waitForIdentifier(
+        _ identifier: String,
+        timeout: TimeInterval = 5,
+        scrollIn container: XCUIElement? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCUIElement {
+        let startedAt = Date()
+        let deadline = startedAt.addingTimeInterval(timeout)
+        var swipes = 0
+        repeat {
+            let element = identifiedElement(identifier)
+            if element.exists { return element }
+            if container != nil, shouldSwipeTowardOffscreenRows(startedAt: startedAt, swipes: swipes) {
+                swipeTowardOffscreenRows(in: container)
+                swipes += 1
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        let element = identifiedElement(identifier)
+        XCTAssertTrue(element.exists, "Timed out waiting for \(identifier)", file: file, line: line)
         return element
+    }
+
+    func firstElement(
+        identifierPrefix prefix: String,
+        timeout: TimeInterval = 5,
+        scrollIn container: XCUIElement? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> XCUIElement {
+        let startedAt = Date()
+        let deadline = startedAt.addingTimeInterval(timeout)
+        var swipes = 0
+        repeat {
+            if let match = firstTypedMatch(identifierPrefix: prefix) {
+                return match
+            }
+            if container != nil, shouldSwipeTowardOffscreenRows(startedAt: startedAt, swipes: swipes) {
+                swipeTowardOffscreenRows(in: container)
+                swipes += 1
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        if let match = firstTypedMatch(identifierPrefix: prefix) {
+            return match
+        }
+        XCTFail("Timed out waiting for identifier prefix \(prefix)", file: file, line: line)
+        return app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix)).firstMatch
+    }
+
+    private func firstTypedMatch(identifierPrefix prefix: String) -> XCUIElement? {
+        let predicate = NSPredicate(format: "identifier BEGINSWITH %@", prefix)
+        let typed = [
+            app.cells.matching(predicate).firstMatch,
+            app.buttons.matching(predicate).firstMatch,
+            app.otherElements.matching(predicate).firstMatch
+        ]
+        return typed.first(where: \.exists)
+    }
+
+    private func shouldSwipeTowardOffscreenRows(startedAt: Date, swipes: Int, grace: TimeInterval = 1) -> Bool {
+        swipes < 8 && Date().timeIntervalSince(startedAt) >= grace
+    }
+
+    private func swipeTowardOffscreenRows(in container: XCUIElement?) {
+        if let container, container.isHittable {
+            container.swipeUp()
+        } else if app.isHittable {
+            app.swipeUp()
+        }
     }
 
     func addSetListContainer(timeout: TimeInterval = 6) -> XCUIElement {

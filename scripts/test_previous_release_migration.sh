@@ -45,6 +45,10 @@ cleanup() {
 trap cleanup EXIT
 
 if [[ -z "$SIMULATOR_UDID" ]]; then
+    if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+        echo "GITHUB_ACTIONS migration requires SIMULATOR_UDID from scripts/release_sim.sh create." >&2
+        exit 1
+    fi
     SIMULATOR_UDID="$(
         xcrun simctl list devices booted --json \
             | jq -r '[.devices[][] | select(.state == "Booted")][0].udid // empty'
@@ -52,8 +56,7 @@ if [[ -z "$SIMULATOR_UDID" ]]; then
 fi
 
 if [[ -z "$SIMULATOR_UDID" ]]; then
-    # Release-check runners reach this gate with nothing booted (run
-    # 37231157543). Use the device the test gates use; it is booted below.
+    # Local runs reach this gate with nothing booted (run 37231157543).
     destination="$("$ROOT_DIR/scripts/sim_destination.sh")"
     SIMULATOR_UDID="${destination#id=}"
     echo "No booted iOS Simulator; using $SIMULATOR_UDID from sim_destination.sh"
@@ -121,8 +124,7 @@ echo "Migration baseline: $base_version ($base_build), source $BASE_REF"
 
 # Release builds do not require the destination to remain booted. Re-establish
 # a ready Simulator immediately before the install/launch migration sequence.
-xcrun simctl boot "$SIMULATOR_UDID" >/dev/null 2>&1 || true
-xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+"$ROOT_DIR/scripts/simctl_ready.sh" "$SIMULATOR_UDID"
 xcrun simctl terminate "$SIMULATOR_UDID" Prism.marbleUITests.xctrunner >/dev/null 2>&1 || true
 
 xcrun simctl terminate "$SIMULATOR_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true

@@ -69,7 +69,7 @@ final class WorkoutFlowUITests: MarbleUITestCase {
 
         confirmFinishWorkout()
         waitForIdentifier("Workout.Start")
-        let recent = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'Workout.Recent.'")).firstMatch
+        let recent = firstElement(identifierPrefix: "Workout.Recent.", timeout: 8)
         waitFor(recent)
     }
 

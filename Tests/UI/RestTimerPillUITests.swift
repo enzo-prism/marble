@@ -17,18 +17,22 @@ final class RestTimerPillUITests: MarbleUITestCase {
         navigateToTab(.journal)
 
         step("Log the latest set again to start its 60 s rest timer") {
-            let logAgain = waitForIdentifier("Journal.QuickLog.LogAgain", timeout: 8)
+            let logAgain = waitForIdentifier(
+                "Journal.QuickLog.LogAgain",
+                timeout: 20,
+                scrollIn: app
+            )
             forceTap(logAgain)
         }
 
-        let pill = app.descendants(matching: .any).matching(identifier: "RestPill").firstMatch
+        // Typed query: descendants(.any) stalls XCTest on iOS 27.
+        let pill = waitForIdentifier("RestPill", timeout: 20)
         step("The rest pill appears above the tab bar") {
             waitFor(pill, timeout: 6)
         }
 
         step("Ending the rest dismisses the pill") {
-            let endButton = app.buttons["RestPill.End"]
-            waitFor(endButton)
+            let endButton = waitForIdentifier("RestPill.End", timeout: 20)
             forceTap(endButton)
             waitForDisappearance(pill, timeout: 6)
         }

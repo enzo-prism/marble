@@ -4,13 +4,7 @@ set -euo pipefail
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 destination=""
-if destination=$("${ROOT_DIR}/scripts/sim_destination.sh" 2>/dev/null); then
-  :
-fi
-sim_id="${destination#id=}"
-if [[ "${destination}" != id=* ]]; then
-  sim_id=""
-fi
+sim_id=""
 
 SNAPSHOT_SUITE=${SNAPSHOT_SUITE:-full}
 
@@ -136,21 +130,62 @@ if [[ "${SNAPSHOT_LIST_ONLY:-0}" == 1 ]]; then
   exit 0
 fi
 
+destination=$("${ROOT_DIR}/scripts/sim_destination.sh")
+sim_id="${destination#id=}"
+if [[ "${destination}" != id=* || -z "${sim_id}" ]]; then
+  echo "No simulator UDID from sim_destination.sh" >&2
+  exit 1
+fi
+
+# Keep the simulator booted across groups. Per-group simulator boots plus
+# xcodebuild startup across ~45 groups is what stretched Release checks to
+# 4h09m on d1de18b (run 43931608061) — not the XCUITest tree walk. Still
+# clear the leftover XCUITest runner and app from the previous CI step —
+# otherwise drawHierarchy in mounted Composer snapshots can fail to render
+# (run 44030761198: 2 captures in 10s on the last Composer test).
+reset_app() {
+  if [[ -z "${sim_id}" ]]; then
+    return 0
+  fi
+  xcrun simctl terminate "${sim_id}" Prism.marbleUITests.xctrunner >/dev/null 2>&1 || true
+  xcrun simctl terminate "${sim_id}" Prism.marble >/dev/null 2>&1 || true
+}
+
+boot_simulator() {
+  if [[ -z "${sim_id}" ]]; then
+    return 0
+  fi
+  # xcodebuild can leave the device Shutdown after a suite (CI 44079417409:
+  # Composer passed, then History simctl ui failed with "current state: Shutdown").
+  "${ROOT_DIR}/scripts/simctl_ready.sh" "${sim_id}"
+}
+
 prepare_simulator() {
   if [[ -z "${sim_id}" ]]; then
     return 0
   fi
-  xcrun simctl boot "${sim_id}" >/dev/null 2>&1 || true
-  xcrun simctl bootstatus "${sim_id}" -b >/dev/null 2>&1 || true
+  boot_simulator
+  reset_app
+  # History isolation later overrides this. Start Composer from the default
+  # size so a prior XXXL UI-test launch argument cannot keep the window
+  # reflowing.
+  xcrun simctl ui "${sim_id}" content_size large >/dev/null 2>&1 || true
+  sleep 2
 }
 
-cleanup_simulator() {
-  if [[ -z "${sim_id}" ]]; then
-    return 0
+snapshot_result_path() {
+  local label="$1"
+  local suffix="${2:-}"
+  local slug
+  slug=$(printf '%s' "${label}" | tr '/:' '--' | tr -cd 'A-Za-z0-9._-')
+  if [[ -n "${RELEASE_EVIDENCE_RUN_DIR:-}" ]]; then
+    printf '%s/%s/%02d-%s%s.xcresult' \
+      "${RELEASE_EVIDENCE_RUN_DIR}" "${RELEASE_EVIDENCE_SUITE:-snapshot}" \
+      "${index}" "${slug}" "${suffix}"
+  else
+    printf '%s/TestResults/MarbleSnapshots_%s%s.xcresult' \
+      "${ROOT_DIR}" "${index}" "${suffix}"
   fi
-  xcrun simctl terminate "${sim_id}" Prism.marble >/dev/null 2>&1 || true
-  xcrun simctl shutdown "${sim_id}" >/dev/null 2>&1 || true
-  sleep 2
 }
 
 # Native UIKit search caches its initial font from the process-wide category.
@@ -159,6 +194,7 @@ cleanup_simulator() {
 history_original_content_size=""
 restore_history_content_size() {
   if [[ -n "${history_original_content_size}" ]]; then
+    boot_simulator
     xcrun simctl ui "${sim_id}" content_size "${history_original_content_size}"
     history_original_content_size=""
   fi
@@ -166,39 +202,47 @@ restore_history_content_size() {
 trap 'snapshot_exit_status=$?; restore_history_content_size || snapshot_exit_status=1; exit "${snapshot_exit_status}"' EXIT
 
 index=0
+other_groups=()
+history_groups=()
 for group in "${SNAPSHOT_GROUPS[@]}"; do
-  categories=("")
   if [[ "${group}" == "MarbleSnapshotTests/WorkoutHistorySnapshotTests"* ]]; then
-    if [[ -z "${sim_id}" ]]; then
-      echo "History snapshot isolation requires a concrete simulator ID." >&2
-      exit 1
-    fi
-    categories=(default a11y)
+    history_groups+=("${group}")
+  else
+    other_groups+=("${group}")
   fi
-  for category in "${categories[@]}"; do
-    group_suffix="${category:+-${category}}"
-    if [[ -n "${RELEASE_EVIDENCE_RUN_DIR:-}" ]]; then
-      group_slug=$(printf '%s' "${group}" | tr '/:' '--' | tr -cd 'A-Za-z0-9._-')
-      printf -v result_name '%02d-%s%s.xcresult' "${index}" "${group_slug}" "${group_suffix}"
-      result_path="${RELEASE_EVIDENCE_RUN_DIR}/${RELEASE_EVIDENCE_SUITE:-snapshot}/${result_name}"
-    else
-      result_path="${ROOT_DIR}/TestResults/MarbleSnapshots_${index}${group_suffix}.xcresult"
-    fi
-    echo "Running snapshot group: ${group}${group_suffix}"
-    prepare_simulator
-    if [[ -n "${category}" ]]; then
-      history_original_content_size=$(xcrun simctl ui "${sim_id}" content_size)
-      system_category=large
-      [[ "${category}" != a11y ]] || system_category=accessibility-extra-extra-extra-large
-      xcrun simctl ui "${sim_id}" content_size "${system_category}"
-    fi
-    if [[ -n "${category}" ]]; then
-      RESULT_BUNDLE_PATH="${result_path}" "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "MARBLE_HISTORY_SNAPSHOT_CATEGORY=${category}" "$@"
-    else
-      RESULT_BUNDLE_PATH="${result_path}" "${ROOT_DIR}/scripts/xcodebuild_test.sh" -only-testing:"${group}" "$@"
-    fi
+done
+
+prepare_simulator
+
+if (( ${#other_groups[@]} > 0 )); then
+  result_path=$(snapshot_result_path "snapshots")
+  echo "Running snapshot groups (${#other_groups[@]}): ${other_groups[*]}"
+  only_flags=()
+  for group in "${other_groups[@]}"; do
+    only_flags+=(-only-testing:"${group}")
+  done
+  RESULT_BUNDLE_PATH="${result_path}" "${ROOT_DIR}/scripts/xcodebuild_test.sh" "${only_flags[@]}" "$@"
+  reset_app
+  index=$((index + 1))
+fi
+
+for group in "${history_groups[@]}"; do
+  if [[ -z "${sim_id}" ]]; then
+    echo "History snapshot isolation requires a concrete simulator ID." >&2
+    exit 1
+  fi
+  for category in default a11y; do
+    result_path=$(snapshot_result_path "${group}" "-${category}")
+    echo "Running snapshot group: ${group}-${category}"
+    boot_simulator
+    history_original_content_size=$(xcrun simctl ui "${sim_id}" content_size)
+    system_category=large
+    [[ "${category}" != a11y ]] || system_category=accessibility-extra-extra-extra-large
+    xcrun simctl ui "${sim_id}" content_size "${system_category}"
+    RESULT_BUNDLE_PATH="${result_path}" "${ROOT_DIR}/scripts/xcodebuild_test.sh" \
+      -only-testing:"${group}" "MARBLE_HISTORY_SNAPSHOT_CATEGORY=${category}" "$@"
     restore_history_content_size
-    cleanup_simulator
+    reset_app
     index=$((index + 1))
   done
 done

@@ -102,7 +102,7 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "Trends.Focus").firstMatch.exists)
 
         forceTap(details)
-        waitForIdentifier("Trends.Range", timeout: 8)
+        waitForIdentifier("Trends.Range", timeout: 20, scrollIn: app)
         waitForIdentifier("Trends.Details.Overview", timeout: 8)
     }
 

@@ -17,6 +17,23 @@ final class OnboardingFlowUITests: MarbleUITestCase {
         )
     }
 
+    private var onboardingList: XCUIElement {
+        let collection = app.collectionViews.firstMatch
+        if collection.exists { return collection }
+        let table = app.tables.firstMatch
+        return table.exists ? table : app
+    }
+
+    /// List rows in the onboarding cover are below the fold until scrolled.
+    /// Typed `waitForIdentifier` first; never `waitForExistence` on `.any`.
+    private func reveal(_ identifier: String, timeout: TimeInterval = 20) -> XCUIElement {
+        let element = waitForIdentifier(identifier, timeout: timeout, scrollIn: onboardingList)
+        if !element.isHittable {
+            scrollToElement(element, in: onboardingList)
+        }
+        return element
+    }
+
     private func waitForMainApp() {
         waitForDisappearance(app.buttons["Onboarding.Done"], timeout: 10)
         // SwiftUI can drop tab-item identifiers after a full-screen cover
@@ -38,12 +55,12 @@ final class OnboardingFlowUITests: MarbleUITestCase {
 
         step("Advance to the weekly goal page") {
             forceTap(app.buttons["Onboarding.Continue"])
-            waitForIdentifier("Onboarding.WeeklyTarget", timeout: 8)
+            _ = reveal("Onboarding.WeeklyTarget")
         }
 
         step("Advance to the weight unit page — the last one") {
             forceTap(app.buttons["Onboarding.Continue"])
-            waitForIdentifier("Onboarding.WeightUnit", timeout: 8)
+            _ = reveal("Onboarding.WeightUnit")
             waitForIdentifier("Onboarding.Done", timeout: 8)
         }
 
@@ -64,7 +81,7 @@ final class OnboardingFlowUITests: MarbleUITestCase {
         forceTap(waitForIdentifier("Onboarding.Continue", timeout: 10))
         forceTap(waitForIdentifier("Onboarding.Continue", timeout: 8))
 
-        let unitPicker = waitForIdentifier("Onboarding.WeightUnit", timeout: 8)
+        let unitPicker = reveal("Onboarding.WeightUnit")
         let kg = unitPicker.buttons["kg"]
         if kg.waitForExistence(timeout: 4) {
             forceTap(kg)
@@ -79,7 +96,7 @@ final class OnboardingFlowUITests: MarbleUITestCase {
         navigateToTab(.addWorkout)
         openAddToolbarAction("Workout.Settings")
 
-        let settingsUnit = waitForIdentifier("Settings.WeightUnit", timeout: 8)
+        let settingsUnit = reveal("Settings.WeightUnit")
         XCTAssertTrue(
             settingsUnit.buttons["kg"].isSelected,
             "Settings must show the unit chosen during onboarding — both read the same key"

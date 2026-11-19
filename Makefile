@@ -23,7 +23,7 @@ ASC_TESTFLIGHT_FLAGS ?=
 DERIVED_DATA_PATH ?= $(CURDIR)/DerivedData
 
 .PHONY: test unit ui ui-smoke audit snapshot snapshot-quick snapshot-record quick only migration-release verify-widget-plist
-.PHONY: release-evidence release-evidence-verify
+.PHONY: release-evidence release-evidence-init release-evidence-assemble release-evidence-finalize release-evidence-verify
 .PHONY: asc-auth asc-doctor asc-app asc-builds asc-version asc-status asc-review asc-validate asc-next-build asc-testflight-validate
 .PHONY: asc-archive asc-export asc-publish-testflight asc-publish-appstore
 .PHONY: cloud-preflight cloud-status cloud-testflight cloud-appstore-validate cloud-appstore-submit cloud-appstore-release
@@ -48,13 +48,14 @@ typecheck-tests:
 		2>&1 | sed -nE '/error:|warning: .*deprecat|BUILD (SUCCEEDED|FAILED)/p'
 
 ui:
-	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleUITests -skip-testing:MarbleUITests/AccessibilityAuditUITests
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh $(if $(UI_ONLY_TESTING),$(UI_ONLY_TESTING),-only-testing:MarbleUITests) -skip-testing:MarbleUITests/AccessibilityAuditUITests
 
 ui-smoke:
 	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleUITests/SmokeNavigationUITests
 
 audit:
-	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh \
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) \
+		XCODEBUILD_MAXIMUM_TEST_TIMEOUT=1500 scripts/xcodebuild_test.sh \
 		-only-testing:MarbleUITests/AccessibilityAuditUITests \
 		-only-testing:MarbleUITests/AddSetAccessibilityUITests \
 		-only-testing:MarbleUITests/LogModePickerUITests
@@ -81,6 +82,16 @@ migration-release:
 # absolute path when evidence should live outside this checkout's TestResults.
 release-evidence:
 	scripts/release_evidence.sh run
+
+release-evidence-init:
+	scripts/release_evidence.sh init
+
+release-evidence-assemble:
+	@if [[ -z "$(FRAGMENTS)" ]]; then echo "Set FRAGMENTS=/absolute/path/to/gate-artifacts"; exit 1; fi
+	scripts/release_evidence.sh assemble "$(FRAGMENTS)"
+
+release-evidence-finalize:
+	scripts/release_evidence.sh finalize
 
 release-evidence-verify:
 	@if [[ -z "$(MANIFEST)" ]]; then echo "Set MANIFEST=/absolute/path/to/manifest.json"; exit 1; fi

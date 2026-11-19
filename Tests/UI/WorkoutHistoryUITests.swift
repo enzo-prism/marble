@@ -11,12 +11,11 @@ final class WorkoutHistoryUITests: MarbleUITestCase {
             )
             navigateToTab(.addWorkout)
             forceTap(waitForIdentifier("Workout.Open", timeout: 8))
-            let finish = app.descendants(matching: .any).matching(identifier: "Workout.Finish").firstMatch
+            let finish = waitForIdentifier("Workout.Finish", timeout: 8, scrollIn: app)
             scrollToElement(finish, in: app)
             forceTap(finish)
             confirmFinishWorkout()
-            let recent = app.descendants(matching: .any)
-                .matching(NSPredicate(format: "identifier BEGINSWITH 'Workout.Recent.'")).firstMatch
+            let recent = firstElement(identifierPrefix: "Workout.Recent.", timeout: 8, scrollIn: app)
             scrollToElement(recent, in: app)
             forceTap(recent)
             let repeatButton = waitForIdentifier("History.Repeat", timeout: 8)
@@ -28,7 +27,7 @@ final class WorkoutHistoryUITests: MarbleUITestCase {
             takeScreenshot("History_Repeat_XXXL_\(appearance.envValue)")
             repeatButton.tap()
             XCTAssertTrue(waitForIdentifier("TextEntry.Title", timeout: 8).exists)
-            XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "TextEntry.Imported").firstMatch.exists,
+            XCTAssertFalse(identifiedElement("TextEntry.Imported").exists,
                            "Opening a repeat at largest text must still wait for confirmation")
         }
     }
@@ -53,11 +52,10 @@ final class WorkoutHistoryUITests: MarbleUITestCase {
         launchApp(fixtureMode: "screenshots", extraEnvironment: ["MARBLE_ENABLE_REST_PILL": "1"])
         navigateToTab(.addWorkout)
         tapBottomAccessory(waitForIdentifier("SessionPill", timeout: 8))
-        forceTap(waitForIdentifier("Workout.Finish", timeout: 8))
+        forceTap(waitForIdentifier("Workout.Finish", timeout: 8, scrollIn: app))
         confirmFinishWorkout()
-        let recent = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier BEGINSWITH 'Workout.Recent.'")).firstMatch
-        waitFor(recent)
+        let recent = firstElement(identifierPrefix: "Workout.Recent.", timeout: 8)
+        scrollToElement(recent, in: app)
         forceTap(recent)
         let repeatButton = waitForIdentifier("History.Repeat", timeout: 8)
         XCTAssertTrue(repeatButton.isEnabled)
@@ -70,7 +68,7 @@ final class WorkoutHistoryUITests: MarbleUITestCase {
         title.typeText(" Copy")
         let importButton = waitForIdentifier("TextEntry.Import", timeout: 8)
         XCTAssertTrue(importButton.isEnabled)
-        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "TextEntry.Imported").firstMatch.exists,
+        XCTAssertFalse(identifiedElement("TextEntry.Imported").exists,
                        "Repeating must wait for explicit approval before saving")
         scrollToElement(importButton, in: app)
         forceTap(importButton)
@@ -87,6 +85,6 @@ final class WorkoutHistoryUITests: MarbleUITestCase {
         forceTap(waitForIdentifier("History.FilterDate", timeout: 8))
         XCTAssertTrue(waitForIdentifier("History.Date", timeout: 8).exists)
         forceTap(waitForIdentifier("History.FilterDate"))
-        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "History.Date").firstMatch.exists)
+        XCTAssertFalse(identifiedElement("History.Date").exists)
     }
 }
