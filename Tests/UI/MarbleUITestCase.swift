@@ -513,6 +513,8 @@ class MarbleUITestCase: XCTestCase {
             firstIdentified(app.staticTexts, identifier),
             firstIdentified(app.sliders, identifier),
             firstIdentified(app.pickers, identifier),
+            firstIdentified(app.segmentedControls, identifier),
+            firstIdentified(app.steppers, identifier),
             firstIdentified(app.searchFields, identifier),
             firstIdentified(app.navigationBars, identifier),
             firstIdentified(app.navigationBars.buttons, identifier),

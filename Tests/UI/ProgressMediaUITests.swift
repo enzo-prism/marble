@@ -29,13 +29,13 @@ final class ProgressMediaUITests: MarbleUITestCase {
         XCTAssertTrue(summary.label.contains("2 progress items"))
 
         forceTap(photoItem)
-        let detail = app.descendants(matching: .any).matching(identifier: "Calendar.ProgressMedia.Detail").firstMatch
-        scrollToElement(detail, in: app)
-        waitForIdentifier("Calendar.ProgressMedia.Detail", timeout: 20)
-        let detailList = app.tables.firstMatch.exists ? app.tables.firstMatch : app.collectionViews.firstMatch
-
-        let editCropButton = app.buttons["Calendar.ProgressMedia.EditCrop"]
-        scrollToElement(editCropButton, in: detailList)
+        // Detail is a List node; wait on the typed Edit Crop button instead of
+        // descendants(.any) / collectionViews, which stall XCTest on iOS 27.
+        let editCropButton = waitForIdentifier(
+            "Calendar.ProgressMedia.EditCrop",
+            timeout: 20,
+            scrollIn: app
+        )
         forceTap(editCropButton)
 
         let cropEditor = app.navigationBars["Edit Crop"]

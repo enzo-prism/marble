@@ -102,8 +102,6 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "Trends.Focus").firstMatch.exists)
 
         forceTap(details)
-        let range = app.descendants(matching: .any).matching(identifier: "Trends.Range").firstMatch
-        scrollToElement(range, in: app)
         waitForIdentifier("Trends.Range", timeout: 20, scrollIn: app)
         waitForIdentifier("Trends.Details.Overview", timeout: 8)
     }

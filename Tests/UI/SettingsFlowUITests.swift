@@ -20,13 +20,12 @@ final class SettingsFlowUITests: MarbleUITestCase {
         return collection.exists ? collection : app
     }
 
+    /// Typed `waitForIdentifier` first; never `waitForExistence` on `.any`.
     private func reveal(_ identifier: String, timeout: TimeInterval = 8) -> XCUIElement {
-        let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        if element.waitForExistence(timeout: timeout), element.isHittable {
-            return element
+        let element = waitForIdentifier(identifier, timeout: timeout, scrollIn: settingsList)
+        if !element.isHittable {
+            scrollToElement(element, in: settingsList)
         }
-        scrollToElement(element, in: settingsList)
-        XCTAssertTrue(element.waitForExistence(timeout: timeout), "Missing Settings row: \(identifier)")
         return element
     }
 

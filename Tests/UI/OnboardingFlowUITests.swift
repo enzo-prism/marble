@@ -25,13 +25,12 @@ final class OnboardingFlowUITests: MarbleUITestCase {
     }
 
     /// List rows in the onboarding cover are below the fold until scrolled.
+    /// Typed `waitForIdentifier` first; never `waitForExistence` on `.any`.
     private func reveal(_ identifier: String, timeout: TimeInterval = 20) -> XCUIElement {
-        let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        if element.waitForExistence(timeout: timeout), element.isHittable {
-            return element
+        let element = waitForIdentifier(identifier, timeout: timeout, scrollIn: onboardingList)
+        if !element.isHittable {
+            scrollToElement(element, in: onboardingList)
         }
-        scrollToElement(element, in: onboardingList)
-        XCTAssertTrue(element.waitForExistence(timeout: timeout), "Missing Onboarding control: \(identifier)")
         return element
     }
 
