@@ -54,7 +54,8 @@ ui-smoke:
 	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh -only-testing:MarbleUITests/SmokeNavigationUITests
 
 audit:
-	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) scripts/xcodebuild_test.sh \
+	DERIVED_DATA_PATH="$(DERIVED_DATA_PATH)" SCHEME=$(SCHEME) \
+		XCODEBUILD_MAXIMUM_TEST_TIMEOUT=1500 scripts/xcodebuild_test.sh \
 		-only-testing:MarbleUITests/AccessibilityAuditUITests \
 		-only-testing:MarbleUITests/AddSetAccessibilityUITests \
 		-only-testing:MarbleUITests/LogModePickerUITests

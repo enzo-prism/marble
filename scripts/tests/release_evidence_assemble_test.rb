@@ -116,7 +116,8 @@ class ReleaseEvidenceAssembleTest < Minitest::Test
     assert_equal 85, Integer(by_name.fetch("ui-1").fetch("gate_timeout"))
     assert_equal 85, Integer(by_name.fetch("ui-2").fetch("gate_timeout"))
     assert_equal 85, Integer(by_name.fetch("ui-3").fetch("gate_timeout"))
-    assert_equal 60, Integer(by_name.fetch("accessibility").fetch("gate_timeout"))
+    assert_equal 75, Integer(by_name.fetch("accessibility").fetch("gate_timeout"))
+    assert_equal 110, Integer(by_name.fetch("accessibility").fetch("job_timeout"))
     assert_equal 61, Integer(by_name.fetch("migration").fetch("gate_timeout"))
     assert_equal %w[1 2 3], includes.select { |row| row.fetch("gate") == "ui" }.map { |row| row.fetch("shard") }
 

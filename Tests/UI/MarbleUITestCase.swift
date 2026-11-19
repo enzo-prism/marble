@@ -234,7 +234,7 @@ class MarbleUITestCase: XCTestCase {
         guard ["AddSet.LastTime.Value.Weight", "AddSet.LastTime.Value.Rest", "AddSet.LastTime.LoggedAt"].contains(identifier),
               app.navigationBars["Log Set"].exists else { return false }
         let text = app.staticTexts[identifier]
-        let card = app.descendants(matching: .any).matching(identifier: "AddSet.LastTime").firstMatch
+        let card = identifiedElement("AddSet.LastTime")
         guard text.exists, text.isHittable, card.exists, !text.label.isEmpty,
               card.frame.insetBy(dx: -1, dy: -1).contains(text.frame),
               unobscuredFrame().contains(text.frame) else { return false }

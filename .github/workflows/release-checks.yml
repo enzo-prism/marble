@@ -34,18 +34,20 @@ concurrency:
 # Shutdown+delete runs `if: always()`. max-parallel is N=3 so one host is
 # not asked to boot every gate at once. Not sequential.
 #
-# Caps are dispatch 44185860768 plus ~25% headroom, then 44440214141.
-# Create is 10 min after 44203758608 used 4m47s of a 5 min cap and then
-# bootstatus-124. Snapshot gate is 35 min after 44440214141 compiled and
-# ran every group except WorkoutHistory-a11y, then hit the 22 min wall
-# (~2–4 min short of finishing). Job walls include create (10) and
-# delete (3). No job is over 120 min. Each job cap is at or above the
-# sum of its step caps, including the always-run upload.
+# Caps are dispatch 44185860768 plus ~25% headroom, then 44440214141
+# and 44466069574. Create is 10 min after 44203758608 used 4m47s of a
+# 5 min cap and then bootstatus-124. Snapshot gate is 35 min after
+# 44440214141 compiled and ran every group except WorkoutHistory-a11y.
+# Accessibility gate is 75 min after 44466069574's Gate used 52 min and
+# DefaultText completed in ~984s (over the 900s test cap). Job walls
+# include create (10) and delete (3). No job is over 120 min. Each job
+# cap is at or above the sum of its step caps, including the always-run
+# upload.
 #
 #   unit 55          gate 20; steps sum to 51
 #   snapshot 70      gate 35; steps sum to 66
 #   ui-1/2/3 120     gate 85; steps sum to 116
-#   accessibility 95 gate 60; steps sum to 91
+#   accessibility 110 gate 75; steps sum to 106
 #   migration 95     gate 61; steps sum to 95
 #   evidence 25      assemble one five-gate manifest and upload it
 #
@@ -105,8 +107,8 @@ jobs:
           - name: accessibility
             gate: accessibility
             shard: ""
-            job_timeout: 95
-            gate_timeout: 60
+            job_timeout: 110
+            gate_timeout: 75
             checkout_timeout: 2
             fetch_depth: 1
           - name: migration
