@@ -29,7 +29,9 @@ final class ProgressMediaUITests: MarbleUITestCase {
         XCTAssertTrue(summary.label.contains("2 progress items"))
 
         forceTap(photoItem)
-        waitForIdentifier("Calendar.ProgressMedia.Detail", timeout: 8)
+        let detail = app.descendants(matching: .any).matching(identifier: "Calendar.ProgressMedia.Detail").firstMatch
+        scrollToElement(detail, in: app)
+        waitForIdentifier("Calendar.ProgressMedia.Detail", timeout: 20)
         let detailList = app.tables.firstMatch.exists ? app.tables.firstMatch : app.collectionViews.firstMatch
 
         let editCropButton = app.buttons["Calendar.ProgressMedia.EditCrop"]

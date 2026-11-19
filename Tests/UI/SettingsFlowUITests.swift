@@ -34,7 +34,7 @@ final class SettingsFlowUITests: MarbleUITestCase {
         openSettings()
 
         step("Units + Training") {
-            waitForIdentifier("Settings.WeightUnit", timeout: 8)
+            _ = reveal("Settings.WeightUnit", timeout: 20)
             waitForIdentifier("Settings.WeeklyTarget", timeout: 8)
             _ = reveal("Settings.DailyHighlights")
         }

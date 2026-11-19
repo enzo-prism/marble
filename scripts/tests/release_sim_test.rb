@@ -61,6 +61,18 @@ class ReleaseSimTest < Minitest::Test
     assert_equal "id=DEAD-BEEF", output.strip
   end
 
+  def test_bootstatus_retries_once_after_timeout
+    with_fakes do |env, log|
+      env["SIMCTL_BOOTSTATUS_TIMEOUT"] = "1"
+      env["SIMCTL_BOOTSTATUS_FAIL_ONCE"] = "1"
+      output, error, status = Open3.capture3(env, "bash", CREATE, "create", "marble-99-sim-snapshot")
+      assert status.success?, "#{output}\n#{error}"
+      assert_includes error, "retrying boot"
+      bootstatus = File.readlines(log, chomp: true).count { |line| line.include?("bootstatus") }
+      assert_equal 2, bootstatus, File.read(log)
+    end
+  end
+
   def test_github_actions_without_udid_still_looks_up_by_name
     with_fakes do |env, log|
       env["GITHUB_ACTIONS"] = "true"
@@ -79,12 +91,14 @@ class ReleaseSimTest < Minitest::Test
     Dir.mktmpdir("marble-release-sim-") do |directory|
       bin = File.join(directory, "bin")
       log = File.join(directory, "xcrun.log")
+      count_file = File.join(directory, "bootstatus.count")
       FileUtils.mkdir_p(bin)
       write_fake_xcrun(File.join(bin, "xcrun"), log)
       env = {
         "PATH" => "#{bin}:#{ENV.fetch("PATH")}",
         "GITHUB_ENV" => File.join(directory, "github.env"),
-        "SIMCTL_BOOTSTATUS_TIMEOUT" => "2"
+        "SIMCTL_BOOTSTATUS_TIMEOUT" => "2",
+        "SIMCTL_BOOTSTATUS_COUNT_FILE" => count_file
       }
       File.write(env.fetch("GITHUB_ENV"), "")
       yield env, log
@@ -98,6 +112,21 @@ class ReleaseSimTest < Minitest::Test
       printf '%s\\n' "$*" >> #{log.inspect}
       if [[ "${1:-}" == simctl && "${2:-}" == create ]]; then
         printf '%s\\n' "AAAA-UNIT-UDID"
+        exit 0
+      fi
+      if [[ "${1:-}" == simctl && "${2:-}" == bootstatus ]]; then
+        count_file="${SIMCTL_BOOTSTATUS_COUNT_FILE:-}"
+        count=0
+        if [[ -n "$count_file" && -f "$count_file" ]]; then
+          count=$(cat "$count_file")
+        fi
+        count=$((count + 1))
+        if [[ -n "$count_file" ]]; then
+          printf '%s\\n' "$count" > "$count_file"
+        fi
+        if [[ "${SIMCTL_BOOTSTATUS_FAIL_ONCE:-}" == "1" && "$count" -eq 1 ]]; then
+          sleep 3
+        fi
         exit 0
       fi
       if [[ "${1:-}" == simctl && "${2:-}" == list && "${3:-}" == devices ]]; then

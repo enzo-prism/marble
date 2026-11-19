@@ -90,6 +90,7 @@ class ReleaseEvidenceAssembleTest < Minitest::Test
       sim.dig("env", "MARBLE_SIMULATOR_NAME")
     )
     create = steps.find { |step| step["name"] == "Create dedicated simulator" }
+    assert_equal 10, Integer(create.fetch("timeout-minutes"))
     assert_includes create.fetch("run"), 'scripts/release_sim.sh create "${MARBLE_SIMULATOR_NAME}"'
     delete = steps.find { |step| step["name"] == "Delete dedicated simulator" }
     assert_equal "always()", delete.fetch("if")

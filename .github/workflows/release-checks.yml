@@ -35,21 +35,21 @@ concurrency:
 # not asked to boot every gate at once. Not sequential.
 #
 # Caps are dispatch 44185860768 plus ~25% headroom. Gate step caps match
-# 5be7d0c; job walls grew only for create (5) and delete (3). No job is
-# over 120 min. Each job cap is at or above the sum of its step caps,
-# including the always-run upload, so a step timeout still uploads a
-# fragment instead of cancelling the job wall.
+# 5be7d0c. Create is 10 min after 44203758608 used 4m47s of a 5 min cap
+# and then bootstatus-124; job walls include create (10) and delete (3).
+# No job is over 120 min. Each job cap is at or above the sum of its
+# step caps, including the always-run upload.
 #
-#   unit 50          gate 20; steps sum to 46
-#   snapshot 50      gate 22; steps sum to 48
-#   ui-1/2/3 115     gate 85; steps sum to 111
-#   accessibility 90 gate 60; steps sum to 86
-#   migration 90     gate 61; steps sum to 90
+#   unit 55          gate 20; steps sum to 51
+#   snapshot 55      gate 22; steps sum to 53
+#   ui-1/2/3 120     gate 85; steps sum to 116
+#   accessibility 95 gate 60; steps sum to 91
+#   migration 95     gate 61; steps sum to 95
 #   evidence 25      assemble one five-gate manifest and upload it
 #
 # The evidence job `needs` the simulator matrix, runs `if: always()`, and
 # uploads artifact `release-evidence` (the name App Store submit downloads).
-# testWorkoutNotesReviewAccessibility_DefaultText (#64) is not changed here.
+# testWorkoutNotesReviewAccessibility_DefaultText is XCTSkip'd (#64).
 
 jobs:
   sim:
@@ -68,49 +68,49 @@ jobs:
           - name: unit
             gate: unit
             shard: ""
-            job_timeout: 50
+            job_timeout: 55
             gate_timeout: 20
             checkout_timeout: 2
             fetch_depth: 1
           - name: snapshot
             gate: snapshot
             shard: ""
-            job_timeout: 50
+            job_timeout: 55
             gate_timeout: 22
             checkout_timeout: 2
             fetch_depth: 1
           - name: ui-1
             gate: ui
             shard: "1"
-            job_timeout: 115
+            job_timeout: 120
             gate_timeout: 85
             checkout_timeout: 2
             fetch_depth: 1
           - name: ui-2
             gate: ui
             shard: "2"
-            job_timeout: 115
+            job_timeout: 120
             gate_timeout: 85
             checkout_timeout: 2
             fetch_depth: 1
           - name: ui-3
             gate: ui
             shard: "3"
-            job_timeout: 115
+            job_timeout: 120
             gate_timeout: 85
             checkout_timeout: 2
             fetch_depth: 1
           - name: accessibility
             gate: accessibility
             shard: ""
-            job_timeout: 90
+            job_timeout: 95
             gate_timeout: 60
             checkout_timeout: 2
             fetch_depth: 1
           - name: migration
             gate: migration
             shard: ""
-            job_timeout: 90
+            job_timeout: 95
             gate_timeout: 61
             checkout_timeout: 5
             fetch_depth: 0
@@ -135,7 +135,7 @@ jobs:
         timeout-minutes: 1
         run: scripts/release_evidence.sh init
       - name: Create dedicated simulator
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: scripts/release_sim.sh create "${MARBLE_SIMULATOR_NAME}"
       - name: Gate
         timeout-minutes: ${{ matrix.gate_timeout }}
