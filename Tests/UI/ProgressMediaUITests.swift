@@ -52,8 +52,11 @@ final class ProgressMediaUITests: MarbleUITestCase {
         cropSaveCoordinate.tap()
         waitForDisappearance(cropEditor, timeout: 8)
 
-        let deleteButton = app.buttons["Calendar.ProgressMedia.Delete"]
-        scrollToElement(deleteButton, in: detailList)
+        let deleteButton = waitForIdentifier(
+            "Calendar.ProgressMedia.Delete",
+            timeout: 20,
+            scrollIn: app
+        )
         waitFor(deleteButton, timeout: 8)
 
         let backButton = app.navigationBars.buttons.element(boundBy: 0)
