@@ -234,12 +234,17 @@ class MarbleUITestCase: XCTestCase {
         guard ["AddSet.LastTime.Value.Weight", "AddSet.LastTime.Value.Rest", "AddSet.LastTime.LoggedAt"].contains(identifier),
               app.navigationBars["Log Set"].exists else { return false }
         let text = app.staticTexts[identifier]
-        let card = identifiedElement("AddSet.LastTime")
+        // List row, not a control. identifiedElement prefers buttons and can
+        // match a child whose frame does not contain Rest/Weight (ui-1 on
+        // 44466069574 and 44480522282 while the audit job passed).
+        let cell = app.cells.matching(identifier: "AddSet.LastTime").firstMatch
+        let card = cell.exists ? cell : app.otherElements.matching(identifier: "AddSet.LastTime").firstMatch
         guard text.exists, text.isHittable, card.exists, !text.label.isEmpty,
               card.frame.insetBy(dx: -1, dy: -1).contains(text.frame),
               unobscuredFrame().contains(text.frame) else { return false }
-        // Intrinsic Text frames need no artificial padding around their glyphs.
-        return try isFullTitleDrawn(in: text, title: text.label, minimumMargin: 0)
+        // XXXL Rest glyphs can overhang the intrinsic text snapshot by a
+        // pixel; capture surrounding pixels like native toolbar titles.
+        return try isFullTitleDrawn(in: text, title: text.label, minimumMargin: 0, padding: 2)
     }
 
     func isFullTitleDrawn(in element: XCUIElement, title: String, minimumMargin: CGFloat = 0.01, padding: CGFloat = 0) throws -> Bool {

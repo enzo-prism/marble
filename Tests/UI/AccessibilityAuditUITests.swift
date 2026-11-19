@@ -5,13 +5,10 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
 
     override func setUp() {
         super.setUp()
-        // Healthy History DefaultText audit is ~326s. CI 44099981294 was
-        // killed at 540s while attaching History_Detail_dark_Default.
-        // testAccessibilityAudit_DefaultText still finishes its body with 0
-        // assertion failures, then xcresult marks it failed for exceeding
-        // allowance: ~783s vs 720 (44440214141), ~984s vs 900 (44453535177
-        // and 44466069574). 1500s fits those runs; `make audit` raises
-        // xcodebuild's maximum to match.
+        // History DefaultText is ~326s. Combined DefaultText then completed
+        // with 0 assertions but exceeded the per-test cap: ~783s (44440214141),
+        // ~984s (44466069574), ~1593s (44480522282). Split that suite so each
+        // slice stays under the 1500s audit maximum.
         executionTimeAllowance = 1500
     }
 
@@ -182,8 +179,31 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         }
     }
 
-    func testAccessibilityAudit_DefaultText() throws {
-        try runAuditSuite(contentSizeCategory: nil, sizeLabel: "Default")
+    func testAccessibilityAudit_DefaultText_PopulatedLight() throws {
+        try runDefaultTextAudits(appearance: .light, populated: true)
+    }
+
+    func testAccessibilityAudit_DefaultText_PopulatedDark() throws {
+        try runDefaultTextAudits(appearance: .dark, populated: true)
+    }
+
+    func testAccessibilityAudit_DefaultText_EmptyLight() throws {
+        try runDefaultTextAudits(appearance: .light, populated: false)
+    }
+
+    func testAccessibilityAudit_DefaultText_EmptyDark() throws {
+        try runDefaultTextAudits(appearance: .dark, populated: false)
+    }
+
+    private func runDefaultTextAudits(appearance: MarbleAppearance, populated: Bool) throws {
+        guard #available(iOS 17.0, *) else {
+            throw XCTSkip("performAccessibilityAudit requires iOS 17+ runtimes")
+        }
+        if populated {
+            try runPopulatedAudits(appearance: appearance, contentSizeCategory: nil, sizeLabel: "Default")
+        } else {
+            try runEmptyAudits(appearance: appearance, contentSizeCategory: nil, sizeLabel: "Default")
+        }
     }
 
     func testAccessibilityAudit_AccessibilityText() throws {
