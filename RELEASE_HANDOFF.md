@@ -1,6 +1,40 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-11-24.**
+**App Store Connect state refreshed: 2026-11-25.**
+
+## Progress Details refinement — 2.7.1 (89), internal TestFlight; App Store candidate (2026-11-25)
+
+- **Main:** `d4f417a` refines Details against Apple's chart, typography, accessibility and
+  writing guidance (see README). `c600f6a` bumps every target to build 89. Schema unchanged (V6).
+  **`release/2.7.1-89` is frozen at `c600f6a`.** It is the exact uploaded source; verify the
+  release from that branch, because later `[skip ci]` doc commits on main change HEAD.
+- **TestFlight:** build 89 `6dd51455-0c72-4047-845b-7c090448d27d`, version 2.7.1, `VALID`,
+  internal `IN_BETA_TESTING`, auto-notify on, external `READY_FOR_BETA_SUBMISSION`.
+  [Upload run 45583569792](https://github.com/enzo-prism/marble/actions/runs/45583569792)
+  archived `c600f6a`.
+- **Upload receipt** (outside the checkout):
+  `/Users/enzo/Documents/Codex/2026-11-25/marble-2.7.1-89/receipt/upload-89-c600f6a32a6e1a390e466041741cfe5d5259c745.json`
+- **Gates, run locally on `d4f417a`'s app source (Xcode 27.0, iPhone 17 / iOS 27.0
+  simulator):** all passed.
+  - Unit: 1,126 tests, 10 skipped.
+  - Snapshots: the Trends groups were re-recorded, then every snapshot group was verified.
+  - UI: Trends smoke and selection tests, plus `test11DailyHighlights`.
+  - `make audit`: 13 tests, 2 skipped as in the baseline.
+  - Not yet run: the full `make ui` suite, `make release-evidence`, `make migration-release`.
+- **App Store 2.7.1 (prepared, not created in ASC):**
+  - Tracked metadata: `AppStore/metadata/version/2.7.1/en-US.json`.
+  - Review notes: `AppStore/review/2.7.1.md`.
+  - 2.7.1 is the first public release of the 2.7 (87) platform work. 2.7 (86) is live as
+    `READY_FOR_DISTRIBUTION`.
+  - Upload the prepared Watch screenshot (`AppStore/screenshots/2.7/watch/01-active-workout.png`,
+    `APP_WATCH_SERIES_10`).
+- **Before submitting:**
+  1. Run `make release-evidence` on a clean checkout of `release/2.7.1-89`.
+  2. Get the owner's physical-device `RELEASE_DEVICE_SIGNOFF` for build 89.
+  3. With those, run `scripts/ci_appstore.sh submit --version 2.7.1 --build
+     6dd51455-0c72-4047-845b-7c090448d27d --confirm`, setting `RELEASE_EVIDENCE_MANIFEST`,
+     `RELEASE_DEVICE_SIGNOFF` and `RELEASE_UPLOAD_RECEIPT`.
+  4. Set the review notes from `AppStore/review/2.7.1.md` before the submit.
 
 ## Progress Details redesign — 2.7.1 (88), internal TestFlight (2026-11-24)
 
