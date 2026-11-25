@@ -2,6 +2,31 @@
 
 **App Store Connect state refreshed: 2026-11-25.**
 
+## Progress Details color system — 2.7.1 (90), internal TestFlight; App Store candidate (2026-11-25)
+
+- **Main:** `136a4ac` replaces the Details palette with six role hues plus neutral grey
+  (see README and AGENTS). `7099085` bumps every target to build 90. Schema unchanged (V6).
+  **`release/2.7.1-90` is frozen at `7099085`.** It is the exact uploaded source. Build 90
+  **supersedes build 89** as the App Store candidate.
+- **TestFlight:** build 90 `047256a9-3e42-4a9e-a737-29eafd20f801`, version 2.7.1, `VALID`,
+  internal `IN_BETA_TESTING`, auto-notify on, external `READY_FOR_BETA_SUBMISSION`.
+  [Upload run 45686387420](https://github.com/enzo-prism/marble/actions/runs/45686387420)
+  archived `7099085`.
+- **Upload receipt** (outside the checkout):
+  `/Users/enzo/Documents/Codex/2026-11-25/marble-2.7.1-90/receipt/upload-90-7099085196932da561af070528207e9efb6e0c84.json`
+- **Gates, run locally on `136a4ac`'s source (Xcode 27.0, iPhone 17 / iOS 27.0 simulator):**
+  - Unit: 1,128 tests, 10 skipped, 0 failures.
+  - Snapshots: Trends groups re-recorded; every snapshot group verified.
+  - UI: Trends smoke (5) and selection (3) tests, plus `test11DailyHighlights`. All passed.
+  - `make audit`: everything passed except
+    `testWorkoutNotesReviewAccessibility_LargestText`. It failed once ("Text clipped" on the
+    Add `TextEntry.Title` field, which this change does not touch) and passed when re-run
+    alone. That test family also fails intermittently on CI's macOS runner.
+  - Not yet run: the full `make ui` suite, `make release-evidence`, `make migration-release`.
+- **Before submitting:** the build 89 steps below still apply, but use build 90 and
+  `release/2.7.1-90`. Submit with `--build 047256a9-3e42-4a9e-a737-29eafd20f801`, and get a
+  device signoff for build 90.
+
 ## Progress Details refinement — 2.7.1 (89), internal TestFlight; App Store candidate (2026-11-25)
 
 - **Main:** `d4f417a` refines Details against Apple's chart, typography, accessibility and
