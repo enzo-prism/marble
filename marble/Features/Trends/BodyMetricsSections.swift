@@ -185,15 +185,21 @@ struct BodyweightTrendSection: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .trendsCard()
     }
 
     // MARK: Header
 
     @ViewBuilder
     private func header(data: BodyweightTrendData) -> some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack(alignment: .center) {
+            TrendsGlyphBadge(
+                systemName: "scalemass.fill",
+                accent: TrendsPalette.bodyweight.color(for: colorScheme),
+                size: 26
+            )
             Text("Bodyweight")
-                .font(MarbleTypography.sectionTitle)
+                .font(TrendsFont.section)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .accessibilityIdentifier("Trends.Section.Bodyweight")
 

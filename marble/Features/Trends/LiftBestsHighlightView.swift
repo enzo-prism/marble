@@ -8,7 +8,7 @@ struct LiftBestsHighlightView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             Text("Exercise Bests")
-                .font(MarbleTypography.sectionTitle)
+                .font(TrendsFont.section)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
 
             ViewThatFits(in: .horizontal) {
@@ -25,6 +25,7 @@ struct LiftBestsHighlightView: View {
                 }
             }
         }
+        .trendsCard()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityIdentifier("Trends.LiftBests")
@@ -118,7 +119,10 @@ private struct LiftBestMetricView: View {
         }
         .padding(MarbleSpacing.s)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+        .background(
+            RoundedRectangle(cornerRadius: TrendsLayout.innerRadius, style: .continuous)
+                .fill(Theme.backgroundColor(for: colorScheme).opacity(colorScheme == .dark ? 0.55 : 0.85))
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(metric.title), \(metric.value), \(metric.detail)")
         .accessibilityIdentifier("Trends.LiftBest.\(metric.identifier)")

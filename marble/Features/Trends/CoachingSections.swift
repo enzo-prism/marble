@@ -33,10 +33,11 @@ struct ConsistencyGoalCardView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-            HStack(alignment: .firstTextBaseline) {
+        VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+            HStack(alignment: .center, spacing: MarbleSpacing.xs) {
+                TrendsGlyphBadge(systemName: "target", accent: accent, size: 26)
                 Text("Weekly Goal")
-                    .font(MarbleTypography.sectionTitle)
+                    .font(TrendsFont.section)
                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                     .accessibilityIdentifier("Trends.Section.WeeklyGoal")
 
@@ -45,43 +46,78 @@ struct ConsistencyGoalCardView: View {
                 targetMenu
             }
 
-            // One combined element (the house card pattern): the audit and
-            // VoiceOver both treat the progress story as a single sentence
-            // instead of judging each fragment's frame on its own.
-            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                HStack(spacing: MarbleSpacing.s) {
-                    sessionDots
-
-                    Text("\(snapshot.thisWeekSessions) of \(snapshot.target) this week")
-                        .font(MarbleTypography.rowTitle)
-                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                        .monospacedDigit()
-                        .accessibilityHidden(true)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: MarbleSpacing.l) {
+                    ring
+                    progressStory
                 }
-
-                Text(stateLine)
-                    .font(MarbleTypography.rowMeta)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+                    ring
+                    progressStory
+                }
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(snapshot.thisWeekSessions) of \(snapshot.target) sessions this week. \(stateLine)")
-            .accessibilityIdentifier("Trends.WeeklyGoal.State")
 
-            HStack(spacing: MarbleSpacing.m) {
-                statCell(value: "\(snapshot.streakWeeks)", label: "week streak")
-                statCell(value: "\(snapshot.flexTokens)", label: snapshot.flexTokens == 1 ? "flex week banked" : "flex weeks banked")
-                statCell(value: "\(snapshot.lifetimeActiveDays)", label: "workouts logged")
-            }
+            TrendsStatRow(stats: [
+                TrendsStat(
+                    symbol: "flame.fill",
+                    accent: TrendsPalette.sprint.color(for: colorScheme),
+                    value: "\(snapshot.streakWeeks)",
+                    unit: snapshot.streakWeeks == 1 ? "wk" : "wks",
+                    label: "Streak"
+                ),
+                TrendsStat(
+                    symbol: "shield.lefthalf.filled",
+                    accent: TrendsPalette.strength.color(for: colorScheme),
+                    value: "\(snapshot.flexTokens)",
+                    unit: nil,
+                    label: snapshot.flexTokens == 1 ? "Flex week" : "Flex weeks"
+                ),
+                TrendsStat(
+                    symbol: "figure.strengthtraining.traditional",
+                    accent: accent,
+                    value: "\(snapshot.lifetimeActiveDays)",
+                    unit: nil,
+                    label: "Workouts"
+                )
+            ])
         }
-        .padding(MarbleSpacing.s)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+        .trendsCard()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("Trends.WeeklyGoal")
+    }
+
+    private var accent: Color { TrendsPalette.consistency.color(for: colorScheme) }
+
+    private var ring: some View {
+        TrendsGoalRing(done: snapshot.thisWeekSessions, target: snapshot.target, accent: accent)
+            .frame(width: 92, height: 92)
+            .accessibilityHidden(true)
+    }
+
+    // One combined element (the house card pattern): the audit and
+    // VoiceOver both treat the progress story as a single sentence
+    // instead of judging each fragment's frame on its own.
+    private var progressStory: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+            HStack(alignment: .lastTextBaseline, spacing: MarbleSpacing.xxs) {
+                Text("\(snapshot.thisWeekSessions) of \(snapshot.target)")
+                    .font(TrendsFont.metric)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                Text("this week")
+                    .font(MarbleTypography.rowMeta.weight(.semibold))
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            }
+            Text(stateLine)
+                .font(MarbleTypography.rowMeta)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(snapshot.thisWeekSessions) of \(snapshot.target) sessions this week. \(stateLine)")
+        .accessibilityIdentifier("Trends.WeeklyGoal.State")
     }
 
     private var targetMenu: some View {
@@ -120,33 +156,6 @@ struct ConsistencyGoalCardView: View {
         target == 1 ? "1 session a week" : "\(target) sessions a week"
     }
 
-    private var sessionDots: some View {
-        HStack(spacing: MarbleSpacing.xxs) {
-            ForEach(0..<snapshot.target, id: \.self) { index in
-                Circle()
-                    .fill(
-                        index < snapshot.thisWeekSessions
-                            ? TrendsPalette.consistency.color(for: colorScheme)
-                            : Theme.subtleDividerColor(for: colorScheme)
-                    )
-                    .frame(width: 10, height: 10)
-            }
-        }
-        .accessibilityHidden(true)
-    }
-
-    private func statCell(value: String, label: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.xxs) {
-            Text(value)
-                .font(MarbleTypography.rowTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .monospacedDigit()
-            Text(label)
-                .font(MarbleTypography.caption)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-        }
-    }
-
     /// Forgiveness-first copy: the comeback is congratulated, the risk state
     /// names what's left, and nothing here ever shames a miss.
     private var stateLine: String {
@@ -180,14 +189,28 @@ struct StrengthDashboardView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-            Text("Your Lifts")
-                .font(MarbleTypography.sectionTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .accessibilityIdentifier("Trends.Section.YourLifts")
+    private var progressingCount: Int {
+        assessments.filter { $0.verdict == .progressing }.count
+    }
 
-            VStack(spacing: MarbleSpacing.xs) {
+    var body: some View {
+        VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+            HStack(alignment: .center, spacing: MarbleSpacing.xs) {
+                TrendsGlyphBadge(
+                    systemName: "dumbbell.fill",
+                    accent: TrendsPalette.strength.color(for: colorScheme),
+                    size: 26
+                )
+                TrendsSectionHeader(
+                    title: "Your Lifts",
+                    takeaway: progressingCount > 0 ? "\(progressingCount) progressing" : nil,
+                    takeawayGlyph: progressingCount > 0 ? "arrow.up.right" : nil,
+                    accent: TrendsPalette.strength.color(for: colorScheme),
+                    identifier: "Trends.Section.YourLifts"
+                )
+            }
+
+            VStack(spacing: MarbleSpacing.s) {
                 ForEach(assessments) { assessment in
                     StrengthLiftRowView(assessment: assessment) {
                         // Tapping a lift row is organic discovery of the
@@ -204,6 +227,7 @@ struct StrengthDashboardView: View {
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .trendsCard()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("Trends.StrengthDashboard")
     }
@@ -214,57 +238,127 @@ private struct StrengthLiftRowView: View {
     let onTap: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var verdictColor: Color {
+        TrendsPalette.verdictColor(assessment.verdict, scheme: colorScheme)
+    }
+
+    private var lineColor: Color {
+        assessment.verdict == .progressing || assessment.verdict == .adapted
+            ? verdictColor
+            : TrendsPalette.strength.color(for: colorScheme)
+    }
 
     var body: some View {
         Button {
             MarbleHaptics.selection()
             onTap()
         } label: {
-            HStack(spacing: MarbleSpacing.s) {
-                VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-                    Text(assessment.exerciseName)
-                        .font(MarbleTypography.rowTitle)
-                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.xxs) {
-                        Circle()
-                            .fill(TrendsPalette.verdictColor(assessment.verdict, scheme: colorScheme))
-                            .frame(width: 7, height: 7)
-                            .accessibilityHidden(true)
-                        Text(verdictText)
-                            .font(MarbleTypography.rowMeta)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+                // Name and e1RM share the top line and the verdict chip sits
+                // beneath, so every row keeps the same shape whatever the
+                // chip's length; large text stacks each pair instead.
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
+                        nameText
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        valueLine
+                    }
+                    VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                        nameText
+                        valueLine
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .center, spacing: MarbleSpacing.s) {
+                        verdictChip
+                        Spacer(minLength: 0)
+                        estimateLabel
+                    }
+                    VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                        verdictChip
+                        estimateLabel
+                    }
+                }
 
-                sparkline
-                    .frame(width: 72, height: 32)
-
-                VStack(alignment: .trailing, spacing: MarbleSpacing.xxxs) {
-                    Text("\(weightText(assessment.latestDisplayValue)) \(assessment.displayUnit.symbol)")
-                        .font(MarbleTypography.rowTitle)
-                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                        .monospacedDigit()
-                    Text("e1RM")
-                        .font(MarbleTypography.smallLabel)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        .textCase(.uppercase)
+                if assessment.exposures.count > 1 {
+                    sparkline
+                        .frame(height: dynamicTypeSize.isAccessibilitySize ? 56 : 44)
                 }
             }
             .padding(MarbleSpacing.s)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+            .background(
+                RoundedRectangle(cornerRadius: TrendsLayout.innerRadius + 2, style: .continuous)
+                    .fill(Theme.backgroundColor(for: colorScheme).opacity(colorScheme == .dark ? 0.55 : 0.85))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: TrendsLayout.innerRadius + 2, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(assessment.exerciseName), \(verdictText), estimated one rep max \(weightText(assessment.latestDisplayValue)) \(assessment.displayUnit.symbol)")
         .accessibilityHint("Filters Trends to this exercise")
         .accessibilityIdentifier("Trends.Lift.\(assessment.exerciseName.replacingOccurrences(of: " ", with: ""))")
+    }
+
+    private var nameText: some View {
+        Text(assessment.exerciseName)
+            .font(MarbleTypography.rowTitle)
+            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var verdictChip: some View {
+        HStack(alignment: .center, spacing: MarbleSpacing.xxs) {
+            Image(systemName: verdictSymbol)
+                .font(.caption2.weight(.heavy))
+                .foregroundStyle(verdictColor)
+            Text(verdictText)
+                .font(MarbleTypography.rowMeta.weight(.medium))
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, MarbleSpacing.xs)
+        .padding(.vertical, 3)
+        .background(
+            Capsule().fill(
+                assessment.verdict == .holding || assessment.verdict == .building
+                    ? Theme.chipFillColor(for: colorScheme)
+                    : TrendsPalette.wash(verdictColor, scheme: colorScheme)
+            )
+        )
+    }
+
+    private var valueLine: some View {
+        HStack(alignment: .lastTextBaseline, spacing: 2) {
+            Text(weightText(assessment.latestDisplayValue))
+                .font(TrendsFont.metric)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .monospacedDigit()
+            Text(assessment.displayUnit.symbol)
+                .font(MarbleTypography.rowMeta.weight(.semibold))
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+        }
+        .fixedSize()
+    }
+
+    private var estimateLabel: some View {
+        Text("est. 1RM")
+            .font(MarbleTypography.smallLabel)
+            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            .fixedSize()
+    }
+
+    private var verdictSymbol: String {
+        switch assessment.verdict {
+        case .progressing: "arrow.up.right"
+        case .holding: "equal"
+        case .adapted: "arrow.triangle.2.circlepath"
+        case .building: "circle.dashed"
+        }
     }
 
     /// Evidence-first, never a verdict on the person: "adapted" reads as
@@ -284,14 +378,36 @@ private struct StrengthLiftRowView: View {
     }
 
     private var sparkline: some View {
-        Chart(assessment.exposures) { exposure in
-            LineMark(
-                x: .value("Day", exposure.date),
-                y: .value("e1RM", exposure.e1RMKilograms)
-            )
-            .interpolationMethod(.monotone)
-            .foregroundStyle(TrendsPalette.strength.color(for: colorScheme))
-            .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+        let last = assessment.exposures.last
+        let best = assessment.exposures.max { $0.e1RMKilograms < $1.e1RMKilograms }
+        return Chart {
+            ForEach(assessment.exposures) { exposure in
+                AreaMark(
+                    x: .value("Day", exposure.date),
+                    yStart: .value("Floor", sparklineDomain.lowerBound),
+                    yEnd: .value("e1RM", exposure.e1RMKilograms)
+                )
+                .interpolationMethod(.monotone)
+                .foregroundStyle(TrendsPalette.areaGradient(lineColor))
+            }
+            ForEach(assessment.exposures) { exposure in
+                LineMark(
+                    x: .value("Day", exposure.date),
+                    y: .value("e1RM", exposure.e1RMKilograms)
+                )
+                .interpolationMethod(.monotone)
+                .foregroundStyle(lineColor)
+                .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
+            }
+            if let best, best.id != last?.id {
+                PointMark(x: .value("Day", best.date), y: .value("e1RM", best.e1RMKilograms))
+                    .symbolSize(22)
+                    .foregroundStyle(TrendsPalette.personalRecord.color(for: colorScheme))
+            }
+            if let last {
+                PointMark(x: .value("Day", last.date), y: .value("e1RM", last.e1RMKilograms))
+                    .symbol { TrendsEndpointDot(accent: lineColor, size: 8) }
+            }
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
@@ -303,7 +419,7 @@ private struct StrengthLiftRowView: View {
         let values = assessment.exposures.map(\.e1RMKilograms)
         let minValue = values.min() ?? 0
         let maxValue = values.max() ?? 1
-        let padding = max((maxValue - minValue) * 0.2, 0.5)
+        let padding = max((maxValue - minValue) * 0.25, 0.5)
         return (minValue - padding) ... (maxValue + padding)
     }
 
@@ -326,13 +442,13 @@ struct DoubleProgressionHintView: View {
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
         } icon: {
-            Image(systemName: "arrow.up.right")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(TrendsPalette.strength.color(for: colorScheme))
+            TrendsGlyphBadge(
+                systemName: "arrow.up.right",
+                accent: TrendsPalette.strength.color(for: colorScheme),
+                size: 24
+            )
         }
-        .padding(MarbleSpacing.s)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+        .trendsCard(padding: MarbleSpacing.s)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(hint.evidence), \(hint.suggestion)")
         .accessibilityIdentifier("Trends.DoubleProgression")
@@ -355,19 +471,16 @@ struct PRFeedSectionView: View {
     private let prFeedTip = PRFeedTip()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Records")
-                    .font(MarbleTypography.sectionTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                    .accessibilityIdentifier("Trends.Section.Records")
-
-                Spacer(minLength: MarbleSpacing.s)
-
-                Text(events.count == 1 ? "1 PR" : "\(events.count) PRs")
-                    .font(MarbleTypography.rowMeta.weight(.semibold))
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .monospacedDigit()
+        VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+            HStack(alignment: .center, spacing: MarbleSpacing.xs) {
+                TrendsGlyphBadge(systemName: "trophy.fill", accent: gold, size: 26, filled: true)
+                TrendsSectionHeader(
+                    title: "Records",
+                    takeaway: events.count == 1 ? "1 PR" : "\(events.count) PRs",
+                    takeawayGlyph: "sparkles",
+                    accent: gold,
+                    identifier: "Trends.Section.Records"
+                )
             }
             .popoverTip(prFeedTip)
             .onDisappear {
@@ -380,13 +493,11 @@ struct PRFeedSectionView: View {
                     if index < min(events.count, Self.displayCap) - 1 {
                         Divider()
                             .overlay(Theme.subtleDividerColor(for: colorScheme))
+                            .padding(.leading, 44)
                             .accessibilityHidden(true)
                     }
                 }
             }
-            .padding(.horizontal, MarbleSpacing.s)
-            .padding(.vertical, MarbleSpacing.xxs)
-            .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
 
             if events.count > Self.displayCap {
                 Text("+ \(events.count - Self.displayCap) more in this range")
@@ -394,9 +505,12 @@ struct PRFeedSectionView: View {
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             }
         }
+        .trendsCard()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("Trends.PRFeed")
     }
+
+    private var gold: Color { TrendsPalette.personalRecord.color(for: colorScheme) }
 }
 
 private struct PREventRowView: View {
@@ -405,27 +519,47 @@ private struct PREventRowView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        HStack(spacing: MarbleSpacing.s) {
-            Image(systemName: "trophy.fill")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .accessibilityHidden(true)
+        let gold = TrendsPalette.personalRecord.color(for: colorScheme)
+        HStack(alignment: .center, spacing: MarbleSpacing.s) {
+            ZStack {
+                Circle()
+                    .fill(TrendsPalette.wash(gold, scheme: colorScheme))
+                Circle()
+                    .strokeBorder(gold.opacity(0.55), lineWidth: 1)
+                Image(systemName: "medal.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(gold)
+            }
+            .frame(width: 34, height: 34)
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
                 Text(event.exerciseName)
                     .font(MarbleTypography.rowTitle)
                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                    .lineLimit(1)
-                Text("\(event.badge.shortTitle) · \(event.setSummary)")
-                    .font(MarbleTypography.rowMeta)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .monospacedDigit()
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: MarbleSpacing.xxs) {
+                    Text(event.badge.shortTitle)
+                        .font(MarbleTypography.smallLabel.weight(.bold))
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(TrendsPalette.wash(gold, scheme: colorScheme)))
+                    Text(event.setSummary)
+                        .font(MarbleTypography.rowMeta)
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(DateHelper.dayLabel(for: event.date))
                 .font(MarbleTypography.rowMeta)
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .fixedSize()
         }
         .padding(.vertical, MarbleSpacing.xs)
         .accessibilityElement(children: .ignore)
@@ -440,32 +574,39 @@ struct RepRecordsSectionView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private let columns = [GridItem(.adaptive(minimum: 92), spacing: MarbleSpacing.xs)]
+    private let columns = [GridItem(.adaptive(minimum: 96), spacing: MarbleSpacing.xs)]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-            Text("Rep Records")
-                .font(MarbleTypography.sectionTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .accessibilityIdentifier("Trends.Section.RepRecords")
+        let accent = TrendsPalette.strength.color(for: colorScheme)
+        VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+            HStack(alignment: .center, spacing: MarbleSpacing.xs) {
+                TrendsGlyphBadge(systemName: "list.number", accent: accent, size: 26)
+                TrendsSectionHeader(title: "Rep Records", identifier: "Trends.Section.RepRecords")
+            }
 
             LazyVGrid(columns: columns, spacing: MarbleSpacing.xs) {
                 ForEach(records) { record in
-                    VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
+                    VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
                         Text(record.reps == 1 ? "1 rep" : "\(record.reps) reps")
-                            .font(MarbleTypography.smallLabel)
-                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                            .font(MarbleTypography.smallLabel.weight(.bold))
+                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                             .textCase(.uppercase)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(TrendsPalette.wash(accent, scheme: colorScheme)))
                         Text(record.weightText)
-                            .font(MarbleTypography.rowTitle)
+                            .font(TrendsFont.metricSmall)
                             .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                             .monospacedDigit()
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    .padding(MarbleSpacing.xs)
+                    .padding(MarbleSpacing.s)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+                    .background(
+                        RoundedRectangle(cornerRadius: TrendsLayout.innerRadius, style: .continuous)
+                            .fill(Theme.backgroundColor(for: colorScheme).opacity(colorScheme == .dark ? 0.55 : 0.85))
+                    )
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("Best at \(record.reps) reps, \(record.weightText)")
                 }
@@ -476,6 +617,7 @@ struct RepRecordsSectionView: View {
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .trendsCard()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("Trends.RepRecords")
     }
@@ -530,9 +672,7 @@ struct MonthlyReportCardView: View {
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 }
             }
-            .padding(MarbleSpacing.s)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+            .trendsCard(padding: MarbleSpacing.m)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
@@ -586,5 +726,75 @@ struct MonthlyReportCardView: View {
             parts.append(comparisonLabel)
         }
         return parts.joined(separator: ", ")
+    }
+}
+
+// MARK: - Goal ring
+
+/// One arc segment per target session; completed segments fill with the
+/// consistency accent (gold once the target is beaten) and sweep in on
+/// appear. The count sits in the middle.
+struct TrendsGoalRing: View {
+    let done: Int
+    let target: Int
+    let accent: Color
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var progress: Double = trendsInitiallyRevealed() ? 1 : 0
+    @State private var isRevealed = trendsInitiallyRevealed()
+
+    var body: some View {
+        let segments = max(target, 1)
+        let gap = segments > 1 ? 0.018 : 0
+        let fill = done > target ? TrendsPalette.personalRecord.color(for: colorScheme) : accent
+        ZStack {
+            ZStack {
+                ForEach(0..<segments, id: \.self) { index in
+                let start = Double(index) / Double(segments) + gap
+                let end = Double(index + 1) / Double(segments) - gap
+                Circle()
+                    .trim(from: start, to: end)
+                    .stroke(Theme.chipFillColor(for: colorScheme), style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                if index < done {
+                    Circle()
+                        .trim(from: start, to: start + (end - start) * segmentProgress(index, of: segments))
+                        .stroke(
+                            AngularGradient(colors: [fill.opacity(0.75), fill], center: .center),
+                            style: StrokeStyle(lineWidth: 10, lineCap: .round)
+                        )
+                }
+                }
+            }
+            .rotationEffect(.degrees(-90))
+            VStack(spacing: -2) {
+                Text("\(done)")
+                    .font(.system(.title, design: .rounded).weight(.heavy))
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                Text("of \(target)")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .padding(14)
+        }
+        .padding(5)
+        .trendsReveal($isRevealed)
+        .onChange(of: isRevealed) { _, revealed in
+            guard revealed else { return }
+            withAnimation(.easeOut(duration: 0.8)) { progress = 1 }
+        }
+        .onAppear { if isRevealed { progress = 1 } }
+    }
+
+    /// Segments fill one after another as `progress` runs 0 → 1.
+    private func segmentProgress(_ index: Int, of count: Int) -> Double {
+        let filled = Double(min(done, count))
+        guard filled > 0 else { return 0 }
+        let local = progress * filled - Double(index)
+        return min(max(local, 0), 1)
     }
 }

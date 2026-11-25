@@ -39,17 +39,20 @@ struct ProgressDetailHeading: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
-            Image(systemName: section.symbol)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(section.accent.color(for: colorScheme))
-                .accessibilityHidden(true)
+        HStack(alignment: .center, spacing: MarbleSpacing.s) {
+            TrendsGlyphBadge(
+                systemName: section.symbol,
+                accent: section.accent.color(for: colorScheme),
+                size: 30,
+                filled: true
+            )
             Text(section.title)
-                .font(.title3.weight(.semibold))
+                .font(TrendsFont.chapter)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, MarbleSpacing.xs)
     }
 }

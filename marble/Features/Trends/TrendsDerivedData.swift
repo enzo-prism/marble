@@ -26,6 +26,14 @@ struct TrendsDerivedData {
     let consistencySummaries: [TrendDailySummary]
     let consistencyPRCount: Int
     let consistencyPRSummary: TrendDailySummary?
+    /// Day-granular heatmap, independent of the chart's day/week bucketing.
+    let heatmap: TrendsHeatmapModel
+    /// Sets per day across the range, for heatmap selection and tooltips.
+    let daySummaries: [Date: TrendDailySummary]
+    /// `nil` for All Time.
+    let periodComparison: TrendsPeriodComparison?
+    /// Mean difficulty (RPE) across the range's sets.
+    let averageEffort: Double?
 
     let weeklySummaries: [TrendWeeklySummary]
     let volumeData: [VolumeDatum]
@@ -319,6 +327,31 @@ struct TrendsDerivedData {
 
         let usesWeeks = granularity == .week
 
+        let prDays = Set(prEvents.map { calendar.startOfDay(for: $0.date) })
+        let heatmap = TrendsHeatmapModel.make(
+            dayCounts: dayGroups.mapValues(\.count),
+            prDays: prDays,
+            rangeStart: startDate,
+            now: now,
+            calendar: calendar
+        )
+        var daySummaries: [Date: TrendDailySummary] = [:]
+        daySummaries.reserveCapacity(dayGroups.count)
+        for (day, items) in dayGroups {
+            daySummaries[day] = TrendDailySummary(date: day, entries: items)
+        }
+        let periodComparison = TrendsPeriodComparison.make(
+            history: historyEntries,
+            currentEntries: filteredEntries,
+            selectedExerciseID: selectedExerciseID,
+            rangeStart: startDate,
+            now: now,
+            calendar: calendar
+        )
+        let averageEffort: Double? = filteredEntries.isEmpty
+            ? nil
+            : Double(filteredEntries.reduce(0) { $0 + $1.difficulty }) / Double(filteredEntries.count)
+
         return TrendsDerivedData(
             filteredEntries: filteredEntries,
             filteredSupplementEntries: filteredSupplementEntries,
@@ -327,6 +360,10 @@ struct TrendsDerivedData {
             consistencySummaries: consistencySummaries,
             consistencyPRCount: consistencyPRCount,
             consistencyPRSummary: consistencyPRSummary,
+            heatmap: heatmap,
+            daySummaries: daySummaries,
+            periodComparison: periodComparison,
+            averageEffort: averageEffort,
             weeklySummaries: weeklySummaries,
             volumeData: volumeData,
             weeklyPRTotal: weeklyPRTotal,

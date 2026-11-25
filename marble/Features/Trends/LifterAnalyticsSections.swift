@@ -15,19 +15,47 @@ struct OneRepMaxSectionView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            Text("Estimated 1RM")
-                .font(MarbleTypography.sectionTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .accessibilityIdentifier("Trends.Section.Strength")
+    private var changePercent: Double? {
+        guard series.points.count > 1,
+              let first = series.points.first?.displayValue, first > 0,
+              let last = series.points.last?.displayValue
+        else { return nil }
+        return (last - first) / first * 100
+    }
 
-            if let best = series.best {
-                Text("Best \(weightText(best.displayValue)) \(series.displayUnit.symbol) · \(best.bestSetSummary)")
-                    .font(MarbleTypography.rowMeta)
-                    .monospacedDigit()
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+    var body: some View {
+        let accent = TrendsPalette.strength.color(for: colorScheme)
+        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            HStack(alignment: .center, spacing: MarbleSpacing.xs) {
+                TrendsGlyphBadge(systemName: "bolt.fill", accent: accent, size: 26)
+                TrendsSectionHeader(
+                    title: "Estimated 1RM",
+                    takeaway: series.points.last.map { "\(weightText($0.displayValue)) \(series.displayUnit.symbol)" },
+                    accent: accent,
+                    identifier: "Trends.Section.Strength"
+                )
+            }
+
+            HStack(spacing: MarbleSpacing.xs) {
+                if let best = series.best {
+                    HStack(spacing: MarbleSpacing.xxs) {
+                        Image(systemName: "trophy.fill")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(TrendsPalette.personalRecord.color(for: colorScheme))
+                            .accessibilityHidden(true)
+                        Text("Best \(weightText(best.displayValue)) \(series.displayUnit.symbol) · \(best.bestSetSummary)")
+                            .font(MarbleTypography.rowMeta)
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("Trends.Strength.Best")
+                }
+                Spacer(minLength: 0)
+                if let changePercent {
+                    TrendsDeltaPill(percent: changePercent, accent: accent, comparisonLabel: "start of the range")
+                }
             }
 
             chart
@@ -37,6 +65,7 @@ struct OneRepMaxSectionView: View {
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .trendsCard()
     }
 
     private var chart: some View {
@@ -46,12 +75,14 @@ struct OneRepMaxSectionView: View {
         let maxValue = values.max() ?? 1
         let padding = max((maxValue - minValue) * 0.15, maxValue * 0.02, 1)
         let domain = max(0, minValue - padding) ... (maxValue + padding)
+        let last = series.points.last
 
         return Chart {
             ForEach(series.points) { point in
                 AreaMark(
                     x: .value("Day", point.date),
-                    y: .value("Estimated 1RM", point.displayValue)
+                    yStart: .value("Floor", domain.lowerBound),
+                    yEnd: .value("Estimated 1RM", point.displayValue)
                 )
                 .interpolationMethod(.monotone)
                 .foregroundStyle(TrendsPalette.areaGradient(accent))
@@ -65,7 +96,7 @@ struct OneRepMaxSectionView: View {
                 )
                 .interpolationMethod(.monotone)
                 .foregroundStyle(accent)
-                .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
                 .accessibilityLabel(Text(point.date, format: .dateTime.month(.abbreviated).day()))
                 .accessibilityValue("\(weightText(point.displayValue)) \(series.displayUnit.symbol), from \(point.bestSetSummary)")
             }
@@ -80,35 +111,17 @@ struct OneRepMaxSectionView: View {
                 }
                 .accessibilityHidden(true)
             }
+
+            if let last, last.id != series.best?.id {
+                PointMark(x: .value("Latest", last.date), y: .value("Estimated 1RM", last.displayValue))
+                    .symbol { TrendsEndpointDot(accent: accent) }
+                    .accessibilityHidden(true)
+            }
         }
         .frame(height: 180)
         .chartYScale(domain: domain)
-        .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 3)) { _ in
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-            }
-        }
-        .chartYAxis {
-            AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { _ in
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                AxisValueLabel()
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-            }
-        }
-        .chartPlotStyle { plot in
-            plot
-                .background(Theme.surfaceColor(for: colorScheme))
-                .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
-                .padding(.trailing, MarbleSpacing.xs)
-        }
+        .chartXAxis { TrendsAxes.date(scheme: colorScheme) }
+        .chartYAxis { TrendsAxes.value(scheme: colorScheme, desiredCount: 3) }
         .accessibilityLabel("Estimated one rep max chart")
         .accessibilityValue(accessibilityValue)
         .accessibilityIdentifier("Trends.StrengthChart")
@@ -141,12 +154,30 @@ struct MuscleGroupSectionView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    private var inRangeCount: Int {
+        groups.filter { $0.band == .inRange }.count
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            Text("Muscle Groups")
-                .font(MarbleTypography.sectionTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .accessibilityIdentifier("Trends.Section.MuscleGroups")
+        VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+            HStack(alignment: .center, spacing: MarbleSpacing.xs) {
+                TrendsGlyphBadge(
+                    systemName: "figure.arms.open",
+                    accent: TrendsPalette.bandColor(.inRange, scheme: colorScheme),
+                    size: 26
+                )
+                TrendsSectionHeader(
+                    title: "Muscle Groups",
+                    takeaway: "\(inRangeCount) of \(groups.count) in range",
+                    // A check only once something is actually in range; an
+                    // all-below week reads as headroom, not success.
+                    takeawayGlyph: inRangeCount > 0 ? "checkmark.circle.fill" : "arrow.up.right",
+                    accent: TrendsPalette.bandColor(inRangeCount > 0 ? .inRange : .below, scheme: colorScheme),
+                    identifier: "Trends.Section.MuscleGroups"
+                )
+            }
+
+            bandLegend
 
             chart
 
@@ -155,6 +186,30 @@ struct MuscleGroupSectionView: View {
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .trendsCard()
+    }
+
+    private var bandLegend: some View {
+        let bands: [LifterCoaching.VolumeBand] = [.below, .inRange, .high]
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: MarbleSpacing.m) { legendItems(bands) }
+            VStack(alignment: .leading, spacing: MarbleSpacing.xxs) { legendItems(bands) }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func legendItems(_ bands: [LifterCoaching.VolumeBand]) -> some View {
+        ForEach(bands, id: \.self) { band in
+            HStack(spacing: MarbleSpacing.xxs) {
+                Capsule()
+                    .fill(TrendsPalette.bandColor(band, scheme: colorScheme))
+                    .frame(width: 14, height: 6)
+                Text(band.label)
+                    .font(MarbleTypography.rowMeta)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .fixedSize()
+            }
+        }
     }
 
     private var chart: some View {
@@ -162,7 +217,7 @@ struct MuscleGroupSectionView: View {
         let maxValue = max(groups.map(\.setsPerWeek).max() ?? 1, band.upperBound)
         // Horizontal bars on purpose: orientation distinguishes the category
         // comparisons from the time-series charts above (HIG pattern).
-        return VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+        return VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             ForEach(groups) { group in
                 TrendsCategoryBar(
                     title: group.category.displayName,
@@ -170,8 +225,11 @@ struct MuscleGroupSectionView: View {
                     accessibilityValue: accessibilityText(for: group),
                     value: group.setsPerWeek,
                     maximum: maxValue * 1.25,
-                    accent: TrendsPalette.muscleGroup(group.category).color(for: colorScheme),
-                    guideBand: band
+                    // Color follows the band (not the muscle) so the chart reads
+                    // as "where am I against the guide" at a glance.
+                    accent: TrendsPalette.bandColor(group.band, scheme: colorScheme),
+                    guideBand: band,
+                    guideBandColor: TrendsPalette.bandColor(.inRange, scheme: colorScheme)
                 )
             }
         }
@@ -218,12 +276,24 @@ struct RepRangeSectionView: View {
     let buckets: [LifterAnalytics.RepRangeBucket]
     @Environment(\.colorScheme) private var colorScheme
 
+    private var dominant: LifterAnalytics.RepRangeBucket? {
+        buckets.max { $0.share < $1.share }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            Text("Rep Ranges")
-                .font(MarbleTypography.sectionTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .accessibilityIdentifier("Trends.Section.RepRanges")
+        VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+            HStack(alignment: .center, spacing: MarbleSpacing.xs) {
+                TrendsGlyphBadge(
+                    systemName: "square.stack.3d.up.fill",
+                    accent: TrendsPalette.volumeReps.color(for: colorScheme),
+                    size: 26
+                )
+                TrendsSectionHeader(
+                    title: "Rep Ranges",
+                    takeaway: dominant.map { "\(Int(($0.share * 100).rounded()))% \($0.kind.displayName.lowercased())" },
+                    identifier: "Trends.Section.RepRanges"
+                )
+            }
 
             chart
 
@@ -232,11 +302,28 @@ struct RepRangeSectionView: View {
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .trendsCard()
+    }
+
+    /// The whole range as one 100% bar: the mix at a glance.
+    private var distributionBar: some View {
+        GeometryReader { proxy in
+            HStack(spacing: 3) {
+                ForEach(buckets.filter { $0.share > 0 }) { bucket in
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(TrendsPalette.barGradient(TrendsPalette.repRange(bucket.kind).color(for: colorScheme)))
+                        .frame(width: max((proxy.size.width - 6) * bucket.share, 4))
+                }
+            }
+        }
+        .frame(height: 22)
+        .accessibilityHidden(true)
     }
 
     private var chart: some View {
         let maximum = max(Double(buckets.map(\.setCount).max() ?? 1), 1)
-        return VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+        return VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            distributionBar
             ForEach(buckets) { bucket in
                 TrendsCategoryBar(
                     title: bucket.kind.displayName,
@@ -293,12 +380,26 @@ struct EffortSectionView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    private var averageRPE: Double? {
+        let values = summaries.compactMap(\.averageRPE)
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, +) / Double(values.count)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            Text("Effort")
-                .font(MarbleTypography.sectionTitle)
-                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                .accessibilityIdentifier("Trends.Section.Effort")
+        VStack(alignment: .leading, spacing: MarbleSpacing.s) {
+            HStack(alignment: .center, spacing: MarbleSpacing.xs) {
+                TrendsGlyphBadge(
+                    systemName: "gauge.with.dots.needle.67percent",
+                    accent: TrendsPalette.effort.color(for: colorScheme),
+                    size: 26
+                )
+                TrendsSectionHeader(
+                    title: "Effort",
+                    takeaway: averageRPE.map { String(format: "Avg RPE %.1f", $0) },
+                    identifier: "Trends.Section.Effort"
+                )
+            }
 
             chart
 
@@ -307,6 +408,7 @@ struct EffortSectionView: View {
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .trendsCard()
     }
 
     private var chart: some View {
@@ -317,7 +419,20 @@ struct EffortSectionView: View {
         let domain = max(1, minValue - 1) ... min(10, maxValue + 1)
         let average = values.isEmpty ? 0 : values.reduce(0, +) / Double(values.count)
 
+        let rated = summaries.filter { $0.averageRPE != nil }
+        let last = rated.last
         return Chart {
+            ForEach(rated) { summary in
+                AreaMark(
+                    x: .value("Day", summary.date),
+                    yStart: .value("Floor", domain.lowerBound),
+                    yEnd: .value("Average RPE", summary.averageRPE ?? domain.lowerBound)
+                )
+                .interpolationMethod(.monotone)
+                .foregroundStyle(TrendsPalette.areaGradient(accent))
+                .accessibilityHidden(true)
+            }
+
             ForEach(summaries) { summary in
                 if let averageRPE = summary.averageRPE {
                     LineMark(
@@ -334,39 +449,21 @@ struct EffortSectionView: View {
 
             if summaries.count > 1 {
                 RuleMark(y: .value("Average", average))
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.4))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.7))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .accessibilityHidden(true)
+            }
+
+            if let last, let value = last.averageRPE {
+                PointMark(x: .value("Latest", last.date), y: .value("Average RPE", value))
+                    .symbol { TrendsEndpointDot(accent: accent) }
                     .accessibilityHidden(true)
             }
         }
         .frame(height: 150)
         .chartYScale(domain: domain)
-        .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 3)) { _ in
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-            }
-        }
-        .chartYAxis {
-            AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { _ in
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                AxisValueLabel()
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-            }
-        }
-        .chartPlotStyle { plot in
-            plot
-                .background(Theme.surfaceColor(for: colorScheme))
-                .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
-                .padding(.trailing, MarbleSpacing.xs)
-        }
+        .chartXAxis { TrendsAxes.date(scheme: colorScheme) }
+        .chartYAxis { TrendsAxes.value(scheme: colorScheme, desiredCount: 3) }
         .accessibilityLabel("Effort chart")
         .accessibilityValue(accessibilityValue)
         .accessibilityIdentifier("Trends.EffortChart")

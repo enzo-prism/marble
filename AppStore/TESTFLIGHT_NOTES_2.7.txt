@@ -1,5 +1,7 @@
 Marble 2.7 adds workout actions across Siri, Shortcuts, Live Activities and Apple Watch, plus dictation, sharing and clearer Progress Details. Review all proposed workout data before saving.
 
+New in build 88: a redesigned Progress → Details. Open it and switch 7D, 30D, 90D, 1Y and All: check the Pulse summary, the consistency heatmap (tap a day), weekly volume, your lifts and the coaching cards in light and dark, and at a large text size.
+
 1. Paste this note into Add, preserving its blank lines:
 
 9/4/26

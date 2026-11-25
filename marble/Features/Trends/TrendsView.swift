@@ -191,10 +191,20 @@ struct TrendsContentView: View {
                             }
                             let hasSetData = !derived.filteredEntries.isEmpty
                             let hasSupplementData = !derived.filteredSupplementEntries.isEmpty
+                            let contentWidth = max(0, min(proxy.size.width, MarbleLayout.dashboardMaxWidth) - 2 * MarbleLayout.pagePadding)
 
                             ProgressDetailHeading(section: .summary)
 
                             rangePicker
+
+                            if hasSetData || hasSupplementData {
+                                TrendsPulseCard(
+                                    derived: derived,
+                                    range: range,
+                                    displayWeightUnit: displayWeightUnit,
+                                    supplementFilterName: selectedSupplementType?.name
+                                )
+                            }
 
                             TimedDailyHighlightsSection(
                                 enabled: dailyHighlightsEnabled,
@@ -233,16 +243,9 @@ struct TrendsContentView: View {
                                 if let liftBests = derived.liftBests {
                                     LiftBestsHighlightView(bests: liftBests)
                                 }
-                                trendSummaryStrip(derived: derived)
 
                                 if hasSetData {
-                                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                        Text("Consistency")
-                                            .font(MarbleTypography.sectionTitle)
-                                            .foregroundStyle(
-                                                Theme.primaryTextColor(for: colorScheme))
-                                        consistencyChart(derived: derived)
-                                    }
+                                    consistencySection(derived: derived, contentWidth: contentWidth)
 
                                     if selectedExercise == nil, !derived.strengthAssessments.isEmpty
                                     {
@@ -255,10 +258,10 @@ struct TrendsContentView: View {
 
                                     if selectedExercise != nil {
                                         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                            Text("Progress")
-                                                .font(MarbleTypography.sectionTitle)
-                                                .foregroundStyle(
-                                                    Theme.primaryTextColor(for: colorScheme))
+                                            TrendsSectionHeader(
+                                                title: "Progress",
+                                                subtitle: selectedExerciseName
+                                            )
                                             if derived.progressPoints.isEmpty {
                                                 Text("No progress yet")
                                                     .font(MarbleTypography.rowMeta)
@@ -273,6 +276,7 @@ struct TrendsContentView: View {
                                                 }
                                             }
                                         }
+                                        .trendsCard()
 
                                         if let oneRepMaxSeries = derived.oneRepMaxSeries {
                                             VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
@@ -296,13 +300,7 @@ struct TrendsContentView: View {
                                         }
                                     }
 
-                                    VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                        Text("Weekly Volume")
-                                            .font(MarbleTypography.sectionTitle)
-                                            .foregroundStyle(
-                                                Theme.primaryTextColor(for: colorScheme))
-                                        volumeChart(derived: derived)
-                                    }
+                                    volumeChart(derived: derived)
 
                                     if !derived.muscleCoverage.isEmpty {
                                         MuscleGroupSectionView(
@@ -361,12 +359,12 @@ struct TrendsContentView: View {
                                     VStack(alignment: .leading, spacing: MarbleSpacing.s) {
                                         // Range-scoped bests — distinct on purpose from
                                         // the all-time records in the feed above.
-                                        Text("Range Bests")
-                                            .font(MarbleTypography.sectionTitle)
-                                            .foregroundStyle(
-                                                Theme.primaryTextColor(for: colorScheme)
-                                            )
-                                            .accessibilityHidden(true)
+                                        TrendsSectionHeader(
+                                            title: "Range Bests",
+                                            subtitle: range.spanTitle,
+                                            hidesTitleFromAccessibility: true
+                                        )
+                                        .accessibilityHidden(true)
                                         prCards(derived: derived)
                                     }
                                 }
@@ -486,7 +484,7 @@ struct TrendsContentView: View {
                 !TestHooks.isAppStoreScreenshotting
             else { return }
             if let day = newValue {
-                openConsistencyDrilldown(for: day)
+                sheetDestination = .day(Calendar.current.startOfDay(for: day))
             }
         }
         .onChange(of: selectedWeekStart) { _, newValue in
@@ -659,10 +657,6 @@ struct TrendsContentView: View {
         range == .oneYear || range == .all
     }
 
-    private func openConsistencyDrilldown(for bucketStart: Date) {
-        sheetDestination = consistencyUsesWeeks ? .week(bucketStart) : .day(bucketStart)
-    }
-
     private func openSupplementDrilldown(for bucketStart: Date) {
         sheetDestination = consistencyUsesWeeks ? .supplementWeek(bucketStart) : .supplementDay(bucketStart)
     }
@@ -748,187 +742,62 @@ struct TrendsContentView: View {
         .accessibilityValue(selectedSupplementType?.name ?? "All Supplements")
     }
 
-    private func trendSummaryStrip(derived: TrendsDerivedData) -> some View {
-        TrendSummaryStripView(items: trendSummaryItems(derived: derived))
+    private var displayWeightUnit: WeightUnit {
+        WeightUnit(rawValue: preferredWeightUnitRaw) ?? .lb
     }
 
-    private func trendSummaryItems(derived: TrendsDerivedData) -> [TrendSummaryItem] {
-        let bestWeek = derived.weeklySummaries.max { $0.setCount < $1.setCount }
-        let supplementLogs = derived.filteredSupplementEntries.count
-        var items: [TrendSummaryItem] = [
-            TrendSummaryItem(
-                identifier: "Sets",
-                title: "Sets",
-                value: "\(derived.filteredEntries.count)",
-                detail: "\(derived.activeDayCount) active days",
-                accent: TrendsPalette.consistency.color(for: colorScheme)
-            ),
-            TrendSummaryItem(
-                identifier: "BestWeek",
-                title: "Best Week",
-                value: bestWeek.map { "\($0.setCount)" } ?? "-",
-                detail: bestWeek.map { TrendsDateHelper.weekLabel(start: $0.weekStart, end: $0.weekEnd) } ?? "No week yet",
-                accent: TrendsPalette.personalRecord.color(for: colorScheme)
-            )
-        ]
-        if supplementLogs > 0 {
-            items.append(TrendSummaryItem(
-                identifier: "Supplements",
-                title: "Supplements",
-                value: "\(supplementLogs)",
-                detail: selectedSupplementType?.name ?? "All types",
-                accent: TrendsPalette.supplements.color(for: colorScheme)
-            ))
-        }
-        return items
-    }
-
-    private func consistencyChart(derived: TrendsDerivedData) -> some View {
-        let summaries = derived.consistencySummaries
-        let selectedSummary = selectedConsistencySummary(in: derived)
-        let tooltipSummary = selectedSummary
-        let prSummary = derived.consistencyPRSummary
-        let yDomain = paddedNumericDomain(maxValue: Double(max(derived.consistencyPRCount, 1)))
-        let dataRange: ClosedRange<Date>? = {
-            guard let start = summaries.first?.date,
-                  let end = summaries.last?.date else {
-                return nil
-            }
-            return start ... end
-        }()
-        let chartDomain = paddedDateDomain(dataRange, component: .day, value: consistencyUsesWeeks ? 4 : 1)
+    private func consistencySection(derived: TrendsDerivedData, contentWidth: CGFloat) -> some View {
+        let heatmap = derived.heatmap
         let accent = TrendsPalette.consistency.color(for: colorScheme)
-        let activeBuckets = summaries.filter { $0.count > 0 }
-        let averageSets: Double = activeBuckets.isEmpty
-            ? 0
-            : Double(activeBuckets.reduce(0) { $0 + $1.count }) / Double(activeBuckets.count)
+        let selectedSummary = selectedHeatmapSummary(in: derived)
+        let takeaway = range == .all
+            ? "\(heatmap.activeDays) active days"
+            : "\(heatmap.activeDays) of \(heatmap.days.count) days"
+        let subtitle = TrendsHeatmapGeometry.style(forDayCount: heatmap.days.count) == .months
+            ? "Past 12 months, one square per day"
+            : "\(range.spanTitle), one square per day"
 
-        return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-            Chart {
-                ForEach(summaries) { item in
-                    AreaMark(
-                        x: .value("Day", item.date),
-                        y: .value("Sets", item.count)
-                    )
-                    .interpolationMethod(.monotone)
-                    .foregroundStyle(TrendsPalette.areaGradient(accent))
-                    .accessibilityHidden(true)
-                }
+        return VStack(alignment: .leading, spacing: MarbleSpacing.m) {
+            TrendsSectionHeader(
+                title: "Consistency",
+                subtitle: subtitle,
+                takeaway: takeaway,
+                takeawayGlyph: "checkmark.circle.fill",
+                accent: accent
+            )
 
-                ForEach(summaries) { item in
-                    LineMark(
-                        x: .value("Day", item.date),
-                        y: .value("Sets", item.count)
-                    )
-                    .interpolationMethod(.monotone)
-                    .foregroundStyle(accent)
-                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
-                    .accessibilityHidden(true)
-                }
-
-                if averageSets > 0, summaries.count > 1 {
-                    RuleMark(y: .value("Average", averageSets))
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.4))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                        .accessibilityHidden(true)
-                }
-
-                if let prSummary, prSummary.count > 0 {
-                    PointMark(
-                        x: .value("PR Day", prSummary.date),
-                        y: .value("Sets", prSummary.count)
-                    )
-                    .symbol {
-                        TrendsPRDot()
+            TrendsConsistencyHeatmap(
+                model: heatmap,
+                availableWidth: contentWidth - 2 * TrendsLayout.cardPadding,
+                selectedDate: selectedDay,
+                accessibilityValue: derived.consistencyAccessibilityValue,
+                audioGraph: TrendsDateSeriesAudioGraph(
+                    title: "Consistency",
+                    summary: derived.consistencyAccessibilityValue,
+                    valueAxisName: "Sets",
+                    valueUnit: "sets",
+                    seriesName: "Sets",
+                    points: heatmap.days.map {
+                        .init(date: $0.date, value: Double($0.count), valueText: setsLabel(for: $0.count))
                     }
-                    .accessibilityHidden(true)
-                }
+                ),
+                onSelectDay: selectDay
+            )
 
-                if let selectedSummary {
-                    RuleMark(x: .value("Selected Day", selectedSummary.date))
-                        .foregroundStyle(accent.opacity(0.35))
-                        .lineStyle(StrokeStyle(lineWidth: 1.5))
+            TrendsStatRow(stats: consistencyStats(heatmap))
 
-                    PointMark(
-                        x: .value("Selected Day", selectedSummary.date),
-                        y: .value("Sets", selectedSummary.count)
-                    )
-                    .symbol {
-                        TrendsSelectionDot(accent: accent)
-                    }
-                    .accessibilityHidden(true)
-                }
-            }
-            .frame(height: chartHeight)
-            .chartDateDomain(chartDomain)
-            .chartYScale(domain: yDomain)
-            .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 3)) { _ in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { _ in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                    AxisValueLabel()
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                }
-            }
-            .chartPlotStyle { plot in
-                plot
-                    .background(Theme.surfaceColor(for: colorScheme))
-                    .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
-                    .padding(.trailing, MarbleSpacing.xs)
-            }
-            .chartOverlay { proxy in
-                GeometryReader { geometry in
-                    if let plotFrameAnchor = proxy.plotFrame {
-                        let plotFrame = geometry[plotFrameAnchor]
-                        TrendsChartOverlay(
-                            plotSize: plotFrame.size,
-                            proxy: proxy,
-                            dataRange: dataRange,
-                            accessibilityIdentifier: "Trends.ConsistencyChart",
-                            accessibilityLabel: "Consistency chart",
-                            accessibilityValue: derived.consistencyAccessibilityValue,
-                            audioGraph: TrendsDateSeriesAudioGraph(
-                                title: "Consistency",
-                                summary: derived.consistencyAccessibilityValue,
-                                valueAxisName: "Sets",
-                                valueUnit: "sets",
-                                seriesName: "Sets",
-                                points: summaries.map {
-                                    .init(date: $0.date, value: Double($0.count), valueText: setsLabel(for: $0.count))
-                                }
-                            ),
-                            isScrubbing: $isScrubbingChart
-                        ) { date in
-                            selectDay(date)
-                        }
-                        .position(x: plotFrame.midX, y: plotFrame.midY)
-                    }
-                }
-            }
-
-            if let tooltipSummary {
+            if let selectedSummary {
+                let title = DateHelper.dayLabel(for: selectedSummary.date)
                 TrendTooltipView(
-                    title: consistencyBucketTitle(for: tooltipSummary.date),
-                    valueText: setsLabel(for: tooltipSummary.count),
-                    summaryText: tooltipSummary.summaryText,
-                    showsPR: tooltipSummary.count == derived.consistencyPRCount && derived.consistencyPRCount > 0,
+                    title: title,
+                    valueText: selectedSummary.count == 0 ? "Rest day" : setsLabel(for: selectedSummary.count),
+                    summaryText: selectedSummary.count == 0 ? nil : selectedSummary.summaryText,
+                    showsPR: heatmap.day(for: selectedSummary.date, calendar: .current)?.hasPR == true,
                     viewSetsLabel: "View sets",
-                    viewSetsAccessibilityLabel: "View sets for \(consistencyBucketTitle(for: tooltipSummary.date))",
+                    viewSetsAccessibilityLabel: "View sets for \(title)",
                     viewSetsIdentifier: "Trends.ConsistencyTooltip.ViewSets",
                     onViewSets: {
-                        openConsistencyDrilldown(for: tooltipSummary.date)
+                        sheetDestination = .day(selectedSummary.date)
                     },
                     onClear: {
                         selectedDay = nil
@@ -937,6 +806,43 @@ struct TrendsContentView: View {
                 .accessibilityIdentifier("Trends.ConsistencyTooltip")
             }
         }
+        .trendsCard()
+    }
+
+    private func consistencyStats(_ heatmap: TrendsHeatmapModel) -> [TrendsStat] {
+        let accent = TrendsPalette.consistency.color(for: colorScheme)
+        var stats = [
+            TrendsStat(
+                symbol: "flame.fill",
+                accent: TrendsPalette.sprint.color(for: colorScheme),
+                value: "\(heatmap.currentStreak)",
+                unit: heatmap.currentStreak == 1 ? "day" : "days",
+                label: "Current streak"
+            ),
+            TrendsStat(
+                symbol: "arrow.up.forward",
+                accent: accent,
+                value: "\(heatmap.longestStreak)",
+                unit: heatmap.longestStreak == 1 ? "day" : "days",
+                label: "Longest streak"
+            )
+        ]
+        if let weekday = heatmap.busiestWeekday {
+            stats.append(TrendsStat(
+                symbol: "calendar",
+                accent: TrendsPalette.strength.color(for: colorScheme),
+                value: Calendar.current.shortWeekdaySymbols[weekday - 1],
+                unit: nil,
+                label: "Most active"
+            ))
+        }
+        return stats
+    }
+
+    private func selectedHeatmapSummary(in derived: TrendsDerivedData) -> TrendDailySummary? {
+        guard let selectedDay else { return nil }
+        let day = Calendar.current.startOfDay(for: selectedDay)
+        return derived.daySummaries[day] ?? TrendDailySummary(date: day, entries: [])
     }
 
     private func volumeChart(derived: TrendsDerivedData) -> some View {
@@ -951,17 +857,36 @@ struct TrendsContentView: View {
         )
     }
 
+    private var supplementsTitle: some View {
+        HStack(alignment: .center) {
+            TrendsGlyphBadge(
+                systemName: "pills.fill",
+                accent: TrendsPalette.supplements.color(for: colorScheme),
+                size: 24
+            )
+            Text("Supplements")
+                .font(TrendsFont.section)
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityHidden(true)
+        }
+    }
+
     private func supplementsSection(derived: TrendsDerivedData) -> some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Supplements")
-                    .font(MarbleTypography.sectionTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                    .accessibilityHidden(true)
-
-                Spacer(minLength: MarbleSpacing.s)
-
-                supplementPicker
+            // The filter menu sits beside the title when it fits on one line
+            // and drops beneath it otherwise, so a long supplement name never
+            // wraps into the chart.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center) {
+                    supplementsTitle
+                    Spacer(minLength: MarbleSpacing.s)
+                    supplementPicker.fixedSize()
+                }
+                VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
+                    supplementsTitle
+                    supplementPicker
+                }
             }
 
             if derived.filteredSupplementEntries.isEmpty {
@@ -973,6 +898,7 @@ struct TrendsContentView: View {
                 supplementsChart(derived: derived)
             }
         }
+        .trendsCard()
     }
 
     private func supplementsChart(derived: TrendsDerivedData) -> some View {
@@ -1009,7 +935,7 @@ struct TrendsContentView: View {
                     )
                     .interpolationMethod(.monotone)
                     .foregroundStyle(accent)
-                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
                     .accessibilityHidden(true)
                 }
 
@@ -1041,32 +967,8 @@ struct TrendsContentView: View {
             .frame(height: chartHeight)
             .chartDateDomain(chartDomain)
             .chartYScale(domain: yDomain)
-            .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 3)) { _ in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { _ in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                    AxisTick(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Theme.subtleDividerColor(for: colorScheme))
-                    AxisValueLabel()
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                }
-            }
-            .chartPlotStyle { plot in
-                plot
-                    .background(Theme.surfaceColor(for: colorScheme))
-                    .clipShape(RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous))
-                    .padding(.trailing, MarbleSpacing.xs)
-            }
+            .chartXAxis { TrendsAxes.date(scheme: colorScheme) }
+            .chartYAxis { TrendsAxes.value(scheme: colorScheme, desiredCount: 3) }
             .chartOverlay { proxy in
                 GeometryReader { geometry in
                     if let plotFrameAnchor = proxy.plotFrame {
@@ -1134,7 +1036,9 @@ struct TrendsContentView: View {
             title: showsDistancePRs ? "Best Distance" : "Best Weight",
             value: showsDistancePRs
                 ? bestDistanceEntry.map { $0.exercise.formattedDistanceSummary($0.distance ?? 0, unit: $0.distanceUnit) } ?? "-"
-                : bestWeightEntry.map { $0.exercise.formattedWeightSummary($0.weight ?? 0, unit: $0.weightUnit) } ?? "-"
+                : bestWeightEntry.map { $0.exercise.formattedWeightSummary($0.weight ?? 0, unit: $0.weightUnit) } ?? "-",
+            systemImage: showsDistancePRs ? "point.topleft.down.to.point.bottomright.curvepath.fill" : "scalemass.fill",
+            accent: showsDistancePRs ? TrendsPalette.sprint : TrendsPalette.volumeWeighted
         )
         let secondCard = PRCardMetric(
             title: showsDistancePRs ? "Fastest Pace" : "Best Reps",
@@ -1146,28 +1050,40 @@ struct TrendsContentView: View {
                         durationSeconds: fastestEntry.durationSeconds ?? 0
                     )
                 } ?? "-"
-                : bestReps.map { "\($0) reps" } ?? "-"
+                : bestReps.map { "\($0) reps" } ?? "-",
+            systemImage: showsDistancePRs ? "hare.fill" : "repeat",
+            accent: showsDistancePRs ? TrendsPalette.effort : TrendsPalette.volumeReps
         )
-        let thirdCard = PRCardMetric(title: "Longest Duration", value: bestDuration.map { DateHelper.formattedDuration(seconds: $0) } ?? "-")
-        let fourthCard = PRCardMetric(title: "Sessions", value: "\(sessionCount)")
+        let thirdCard = PRCardMetric(
+            title: "Longest Duration",
+            value: bestDuration.map { DateHelper.formattedDuration(seconds: $0) } ?? "-",
+            systemImage: "timer",
+            accent: TrendsPalette.volumeDuration
+        )
+        let fourthCard = PRCardMetric(
+            title: "Sessions",
+            value: "\(sessionCount)",
+            systemImage: "calendar",
+            accent: TrendsPalette.consistency
+        )
 
         return Group {
             if dynamicTypeSize.isAccessibilitySize {
                 VStack(spacing: 12) {
-                    PRCardView(title: firstCard.title, value: firstCard.value)
-                    PRCardView(title: secondCard.title, value: secondCard.value)
-                    PRCardView(title: thirdCard.title, value: thirdCard.value)
-                    PRCardView(title: fourthCard.title, value: fourthCard.value)
+                    prCard(firstCard)
+                    prCard(secondCard)
+                    prCard(thirdCard)
+                    prCard(fourthCard)
                 }
             } else {
                 VStack(spacing: 12) {
                     HStack(spacing: 12) {
-                        PRCardView(title: firstCard.title, value: firstCard.value)
-                        PRCardView(title: secondCard.title, value: secondCard.value)
+                        prCard(firstCard)
+                        prCard(secondCard)
                     }
                     HStack(spacing: 12) {
-                        PRCardView(title: thirdCard.title, value: thirdCard.value)
-                        PRCardView(title: fourthCard.title, value: fourthCard.value)
+                        prCard(thirdCard)
+                        prCard(fourthCard)
                     }
                 }
             }
@@ -1184,14 +1100,17 @@ struct TrendsContentView: View {
         .accessibilityIdentifier("Trends.PRCards")
     }
 
-    private var chartHeight: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 220 : 180
+    private func prCard(_ metric: PRCardMetric) -> PRCardView {
+        PRCardView(
+            title: metric.title,
+            value: metric.value,
+            systemImage: metric.systemImage,
+            accent: metric.accent.color(for: colorScheme)
+        )
     }
 
-    private func selectedConsistencySummary(in derived: TrendsDerivedData) -> TrendDailySummary? {
-        guard let selectedDay else { return nil }
-        guard let nearest = nearestDay(to: selectedDay, in: derived.consistencySummaries) else { return nil }
-        return derived.consistencySummaries.first { $0.date == nearest }
+    private var chartHeight: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? 220 : 180
     }
 
     private func selectedWeeklySummary(in derived: TrendsDerivedData) -> TrendWeeklySummary? {
@@ -1204,12 +1123,6 @@ struct TrendsContentView: View {
         guard let selectedSupplementDay else { return nil }
         guard let nearest = nearestSupplementDay(to: selectedSupplementDay, in: derived.supplementSummaries) else { return nil }
         return derived.supplementSummaries.first { $0.date == nearest }
-    }
-
-    private func nearestDay(to date: Date, in data: [TrendDailySummary]) -> Date? {
-        guard !data.isEmpty else { return nil }
-        let target = Calendar.current.startOfDay(for: date)
-        return data.min(by: { abs($0.date.timeIntervalSince(target)) < abs($1.date.timeIntervalSince(target)) })?.date
     }
 
     private func nearestSupplementDay(to date: Date, in data: [SupplementDailySummary]) -> Date? {
@@ -1366,161 +1279,11 @@ extension View {
     }
 }
 
-private struct TrendSummaryItem: Identifiable {
-    let identifier: String
-    let title: String
-    let value: String
-    let detail: String
-    var accent: Color? = nil
-
-    var id: String { identifier }
-}
-
 private struct PRCardMetric {
     let title: String
     let value: String
-}
-
-private struct TrendSummaryStripView: View {
-    let items: [TrendSummaryItem]
-
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                verticalLayout
-            } else {
-                horizontalLayout
-            }
-        }
-        .padding(MarbleSpacing.s)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("Trends.Summary")
-    }
-
-    private var horizontalLayout: some View {
-        HStack(alignment: .top, spacing: 0) {
-            ForEach(items.indices, id: \.self) { index in
-                TrendSummaryMetricView(item: items[index], style: .compact)
-
-                if index < items.count - 1 {
-                    Rectangle()
-                        .fill(Theme.subtleDividerColor(for: colorScheme))
-                        .frame(width: 1)
-                        .padding(.vertical, MarbleSpacing.xxxs)
-                        .accessibilityHidden(true)
-                }
-            }
-        }
-    }
-
-    private var verticalLayout: some View {
-        VStack(spacing: 0) {
-            ForEach(items.indices, id: \.self) { index in
-                TrendSummaryMetricView(item: items[index], style: .row)
-
-                if index < items.count - 1 {
-                    Divider()
-                        .overlay(Theme.subtleDividerColor(for: colorScheme))
-                        .padding(.vertical, MarbleSpacing.xs)
-                        .accessibilityHidden(true)
-                }
-            }
-        }
-    }
-}
-
-private enum TrendSummaryMetricStyle {
-    case compact
-    case row
-}
-
-private struct TrendSummaryMetricView: View {
-    let item: TrendSummaryItem
-    let style: TrendSummaryMetricStyle
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        Group {
-            switch style {
-            case .compact:
-                compactMetric
-            case .row:
-                rowMetric
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(item.title), \(item.value), \(item.detail)")
-        .accessibilityIdentifier("Trends.SummaryMetric.\(item.identifier)")
-    }
-
-    private var compactMetric: some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
-            header
-
-            Text(item.value)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(item.accent ?? Theme.primaryTextColor(for: colorScheme))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-
-            Text(item.detail)
-                .font(MarbleTypography.rowMeta)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-                .allowsTightening(true)
-        }
-        .padding(.horizontal, MarbleSpacing.xxs)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var rowMetric: some View {
-        HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.s) {
-            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-                header
-
-                Text(item.detail)
-                    .font(MarbleTypography.rowMeta)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Text(item.value)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(item.accent ?? Theme.primaryTextColor(for: colorScheme))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var header: some View {
-        HStack(spacing: MarbleSpacing.xxs) {
-            if let accent = item.accent {
-                Circle()
-                    .fill(accent)
-                    .frame(width: 7, height: 7)
-                    .accessibilityHidden(true)
-            }
-
-            Text(item.title)
-                .font(MarbleTypography.rowMeta.weight(.semibold))
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-                .allowsTightening(true)
-        }
-    }
+    let systemImage: String
+    let accent: TrendsChartAccent
 }
 
 /// Owns the only minute-level clock on Trends. Keeping the TimelineView in

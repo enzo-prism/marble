@@ -183,8 +183,12 @@ struct TrendsCategoryBar: View {
     let maximum: Double
     let accent: Color
     var guideBand: ClosedRange<Double>? = nil
+    /// Tint for the shaded guide zone; defaults to the consistency accent.
+    var guideBandColor: Color? = nil
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isRevealed = trendsInitiallyRevealed()
 
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xxs) {
@@ -202,36 +206,45 @@ struct TrendsCategoryBar: View {
             }
             GeometryReader { proxy in
                 let domainMaximum = max(maximum, 1)
+                let fraction = min(max(value / domainMaximum, 0), 1)
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Theme.surfaceColor(for: colorScheme))
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(TrendsPalette.barGradient(accent))
-                        .frame(width: proxy.size.width * min(max(value / domainMaximum, 0), 1))
+                    Capsule()
+                        .fill(Theme.chipFillColor(for: colorScheme))
                     if let guideBand {
+                        let lower = proxy.size.width * min(max(guideBand.lowerBound / domainMaximum, 0), 1)
+                        let upper = proxy.size.width * min(max(guideBand.upperBound / domainMaximum, 0), 1)
+                        let zone = guideBandColor ?? TrendsPalette.consistency.color(for: colorScheme)
+                        Rectangle()
+                            .fill(zone.opacity(colorScheme == .dark ? 0.22 : 0.16))
+                            .frame(width: max(upper - lower, 0))
+                            .offset(x: lower)
                         Path { path in
-                            for bound in [guideBand.lowerBound, guideBand.upperBound] {
-                                let x = proxy.size.width * min(max(bound / domainMaximum, 0), 1)
-                                path.move(to: CGPoint(x: x, y: 0))
-                                path.addLine(to: CGPoint(x: x, y: proxy.size.height))
+                            for x in [lower, upper] {
+                                path.move(to: CGPoint(x: x, y: -2))
+                                path.addLine(to: CGPoint(x: x, y: proxy.size.height + 2))
                             }
                         }
-                        .stroke(Theme.primaryTextColor(for: colorScheme).opacity(0.55),
-                                style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                        .stroke(zone.opacity(0.8), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
                     }
+                    Capsule()
+                        .fill(TrendsPalette.barGradient(accent))
+                        .frame(width: max(proxy.size.width * fraction * (isRevealed ? 1 : 0), value > 0 ? 6 : 0))
                 }
+                .clipShape(Capsule())
             }
-            .frame(height: 14)
+            .frame(height: 12)
             .accessibilityHidden(true)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue(accessibilityValue)
+        .trendsReveal($isRevealed)
+        .animation(TrendsMotion.isEnabled(reduceMotion: reduceMotion) ? TrendsMotion.reveal : nil, value: isRevealed)
     }
 
     private var categoryLabel: some View {
         Text(title)
-            .font(MarbleTypography.rowMeta)
+            .font(MarbleTypography.rowMeta.weight(.semibold))
             .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
     }
 

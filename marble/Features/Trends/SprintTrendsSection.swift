@@ -129,11 +129,18 @@ struct SprintTrendsSection: View {
         let derived = derived
         if !derived.isEmpty {
             VStack(alignment: .leading, spacing: MarbleSpacing.m) {
-                Text("Sprints")
-                    .font(MarbleTypography.sectionTitle)
-                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("Trends.Section.Sprints")
+                HStack(alignment: .center, spacing: MarbleSpacing.xs) {
+                    TrendsGlyphBadge(
+                        systemName: "figure.run",
+                        accent: TrendsPalette.sprint.color(for: colorScheme),
+                        size: 26
+                    )
+                    Text("Sprints")
+                        .font(TrendsFont.section)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                        .accessibilityAddTraits(.isHeader)
+                        .accessibilityIdentifier("Trends.Section.Sprints")
+                }
 
                 if let focus = derived.focusDistanceMeters, derived.bestTimePoints.count >= 2 {
                     bestTimeChart(derived: derived, focusMeters: focus)
@@ -143,6 +150,7 @@ struct SprintTrendsSection: View {
                     hitRateChart(bars: derived.weekBars)
                 }
             }
+            .trendsCard()
         }
     }
 

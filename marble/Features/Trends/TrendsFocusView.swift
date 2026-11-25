@@ -21,7 +21,7 @@ struct TrendsFocusView: View {
         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
             VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
                 Text("Focus")
-                    .font(MarbleTypography.sectionTitle)
+                    .font(TrendsFont.section)
                     .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                     .accessibilityIdentifier("Trends.Focus")
                 Text("The few things most worth acting on now.")
@@ -73,10 +73,12 @@ private struct LiftFocusCard: View {
     var body: some View {
         Button(action: onOpen) {
             HStack(spacing: MarbleSpacing.s) {
-                Image(systemName: symbol)
-                    .font(.system(size: 22, weight: .semibold))
-                    .frame(width: 32)
-                    .accessibilityHidden(true)
+                TrendsGlyphBadge(
+                    systemName: symbol,
+                    accent: accent,
+                    size: 34,
+                    filled: assessment.verdict == .progressing || assessment.verdict == .adapted
+                )
                 VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
                     Text(assessment.exerciseName)
                         .font(MarbleTypography.rowTitle)
@@ -91,15 +93,22 @@ private struct LiftFocusCard: View {
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     .accessibilityHidden(true)
             }
-            .padding(MarbleSpacing.s)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .marbleCardBackground(cornerRadius: MarbleCornerRadius.medium)
+            .trendsCard(padding: MarbleSpacing.m)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(assessment.exerciseName). \(message)")
         .accessibilityHint("Show this lift's detailed trends")
         .accessibilityIdentifier("Trends.Focus.Lift")
+    }
+
+    private var accent: Color {
+        switch assessment.verdict {
+        case .progressing, .adapted:
+            return TrendsPalette.verdictColor(assessment.verdict, scheme: colorScheme)
+        case .holding, .building:
+            return TrendsPalette.strength.color(for: colorScheme)
+        }
     }
 
     private var symbol: String {
