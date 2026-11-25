@@ -6,7 +6,7 @@
 > HealthKit sessions, sensors and Smart Stack remain separate unfinished work. See
 > `APPLE_PLATFORM_IMPLEMENTATION.md` for current evidence and release status.
 
-## November 24 update — Progress Details redesign (2.7 build 88)
+## November 24 update — Progress Details redesign (2.7.1 build 88)
 
 Progress → Details now opens on a Pulse summary that compares the range with the previous
 period. A range-aware consistency heatmap replaces the line chart, and every Details

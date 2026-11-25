@@ -3,9 +3,9 @@
 A local-only workout + supplements journal for iOS, built with SwiftUI and SwiftData — and
 a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
-## Progress Details redesign — 2.7 (88)
+## Progress Details redesign — 2.7.1 (88)
 
-Progress → Details was redesigned on 2026-11-24 for build **2.7 (88)**. It opens on a
+Progress → Details was redesigned on 2026-11-24 for build **2.7.1 (88)**. It opens on a
 **Pulse** card: the range's sets, the change against the previous window of the same length,
 a daily rhythm chart, and tiles for best week, volume, effort and supplements. A
 **consistency heatmap** replaces the line chart; its layout follows the range (a strip for
@@ -26,9 +26,11 @@ improvements are merged into main through [PR 57](https://github.com/enzo-prism/
 Build **2.7 (87)** is `VALID` and `IN_BETA_TESTING` on internal TestFlight. All five
 release gates passed locally on the Mac Studio; the signed upload uses that exact source.
 
-Public distribution remains **2.6.1 (84)**. The previous **2.7 (86)** approval is still
-pending manual release; it predates these features. Build 87 App Store submission
-awaits the exact-build manual signoff required by the release verifier. See
+App Store Connect readback on 2026-11-24 shows **2.7 (86)** live (`READY_FOR_SALE`). That
+build predates these features, and its release closed the 2.7 TestFlight train. They
+reach the App Store through **2.7.1 (88)**, which also carries the Progress Details
+redesign. Any App Store submission still needs the release verifier's exact-build
+manual signoff. See
 [release identities and remaining steps](RELEASE_HANDOFF.md) and
 [implementation and acceptance boundaries](APPLE_PLATFORM_IMPLEMENTATION.md).
 Custom Siri AI skills remain a separate iOS 27.3 developer preview, excluded from

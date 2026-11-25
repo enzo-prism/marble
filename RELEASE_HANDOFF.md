@@ -1,6 +1,43 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-11-12.**
+**App Store Connect state refreshed: 2026-11-24.**
+
+## Progress Details redesign — 2.7.1 (88), internal TestFlight (2026-11-24)
+
+- **Main:** `feature/progress-details-redesign`, fast-forwarded to `main`. Commits
+  `2da80e0` (redesign), `50424de` (gate fixes and docs) and `548a010`
+  (MARKETING_VERSION 2.7.1). No SwiftData schema change; still V6.
+- **Why 2.7.1:** ASC readback shows **2.7 (86) `READY_FOR_SALE`**, so the 2.7 train is closed.
+  The first upload as 2.7 (88), [run 45563346978](https://github.com/enzo-prism/marble/actions/runs/45563346978),
+  was rejected with `90186 Invalid Pre-Release Train`; that build was never processed.
+  All targets now use MARKETING_VERSION 2.7.1 and build 88. The 2.8 train stays free for
+  PR 66. Tester notes for this build are in `AppStore/TESTFLIGHT_NOTES_2.7.1.txt`, and
+  `AppStore/TESTFLIGHT_NOTES_2.7.txt` remains the record of build 87.
+- **TestFlight:** build 88 `30b25c54-8254-457a-90c7-56ae1d935966`, version 2.7.1, `VALID`,
+  internal `IN_BETA_TESTING`, auto-notify on, external `READY_FOR_BETA_SUBMISSION`. No
+  external group was submitted. [Upload run 45564167038](https://github.com/enzo-prism/marble/actions/runs/45564167038)
+  archived `548a010` and verified the What to Test notes. Its upload receipt is the
+  `upload-receipt` artifact.
+- **Gates run locally on Xcode 27.0, iPhone 17 / iOS 27.0 simulator:**
+  - `make test` before the final Pulse-tile and test fixes: unit 1,121 (10 skipped) and
+    all snapshot groups, all passed.
+  - `make ui`: 81 tests, 4 skipped. Two failed:
+    - `AppStoreScreenshotUITests.test11DailyHighlights` was fixed: it now scrolls to Daily
+      Highlights, which sit below the new Pulse card.
+    - `DraftResumeUITests.testDiscardedDraftDoesNotReturnAfterRelaunch` passed when re-run
+      alone. It sits outside the changed code.
+  - On the final app source: unit tests passed, Trends snapshots were re-recorded and
+    verified, and Trends smoke/selection UI tests passed.
+  - `make audit` passed: 13 tests, 2 skipped as in the baseline. The audit adds two narrow
+    contrast rules, documented in TESTING.md: a pixel recheck of Pulse tile text, and
+    ignoring Trends text under the top toolbar's glass.
+  - `AddSetAccessibilityUITests` XXXL failed once in an earlier audit run and passed when
+    re-run alone.
+  - No release-evidence manifest, migration run or physical signoff was produced for 88.
+- **Public App Store:** 2.7 (86). Build 87 never reached the store, so its Apple platform
+  features ship to customers for the first time in 2.7.1. Before any 2.7.1 App Store
+  submission, complete `make release-evidence`, `make migration-release` and physical
+  `RELEASE_DEVICE_SIGNOFF` for build 88. Then create the 2.7.1 version with metadata.
 
 ## Apple platform release — 2.7 (87), internal TestFlight (2026-11-12)
 
