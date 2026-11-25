@@ -236,6 +236,9 @@ private struct TrendsHeatmapLegend: View {
     let accent: Color
 
     @Environment(\.colorScheme) private var colorScheme
+    /// Swatches are meaningful glyphs, so they grow with the legend text
+    /// (HIG Typography: scale meaningful icons with Dynamic Type).
+    @ScaledMetric(relativeTo: .footnote) private var swatch: CGFloat = 11
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -259,14 +262,14 @@ private struct TrendsHeatmapLegend: View {
     }
 
     private var scale: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: max(4, swatch * 0.36)) {
             Text("Less")
             ForEach(0...TrendsHeatmapModel.levelCount, id: \.self) { level in
                 RoundedRectangle(cornerRadius: 2.5, style: .continuous)
                     .fill(level == 0
                         ? Theme.chipFillColor(for: colorScheme)
                         : accent.opacity(TrendsHeatmapCanvas.opacity(for: level)))
-                    .frame(width: 11, height: 11)
+                    .frame(width: swatch, height: swatch)
             }
             Text("More")
         }
@@ -276,7 +279,7 @@ private struct TrendsHeatmapLegend: View {
         HStack(spacing: 4) {
             Circle()
                 .fill(TrendsPalette.personalRecord.color(for: colorScheme))
-                .frame(width: 7, height: 7)
+                .frame(width: swatch * 0.64, height: swatch * 0.64)
             Text("PR")
         }
     }
@@ -285,7 +288,7 @@ private struct TrendsHeatmapLegend: View {
         HStack(spacing: 4) {
             RoundedRectangle(cornerRadius: 2.5, style: .continuous)
                 .stroke(Theme.primaryTextColor(for: colorScheme).opacity(0.55), lineWidth: 1.25)
-                .frame(width: 10, height: 10)
+                .frame(width: swatch * 0.9, height: swatch * 0.9)
             Text("Today")
         }
     }

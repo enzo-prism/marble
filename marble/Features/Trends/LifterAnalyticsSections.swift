@@ -37,7 +37,8 @@ struct OneRepMaxSectionView: View {
             }
 
             HStack(spacing: MarbleSpacing.xs) {
-                if let best = series.best {
+                // With one session the note below already states the value.
+                if let best = series.best, series.points.count > 1 {
                     HStack(spacing: MarbleSpacing.xxs) {
                         Image(systemName: "trophy.fill")
                             .font(.caption2.weight(.bold))
@@ -58,7 +59,16 @@ struct OneRepMaxSectionView: View {
                 }
             }
 
-            chart
+            if series.points.count > 1 {
+                chart
+            } else if let only = series.points.first {
+                TrendsSingleSessionNote(
+                    date: only.date,
+                    valueText: "\(weightText(only.displayValue)) \(series.displayUnit.symbol)",
+                    accent: accent,
+                    identifier: "Trends.StrengthChart"
+                )
+            }
 
             Text("Epley estimate from your best set each day, counting sets of \(LifterAnalytics.oneRepMaxRepCap) reps or fewer.")
                 .font(MarbleTypography.caption)
@@ -141,8 +151,10 @@ struct OneRepMaxSectionView: View {
         ))
     }
 
+    /// Whole pounds or the nearest half kilo: an estimate shows no false precision.
     private func weightText(_ value: Double) -> String {
-        Formatters.weight.string(from: NSNumber(value: value)) ?? "\(Int(value))"
+        let rounded = series.displayUnit == .kg ? (value * 2).rounded() / 2 : value.rounded()
+        return Formatters.weight.string(from: NSNumber(value: rounded)) ?? "\(Int(rounded))"
     }
 }
 
@@ -253,8 +265,15 @@ struct MuscleGroupSectionView: View {
         ))
     }
 
+    /// A trained muscle never reads "0.0/wk": rates that round to zero show as
+    /// "<0.1" so the number agrees with the "2d ago" beside it.
+    nonisolated static func perWeekText(_ setsPerWeek: Double) -> String {
+        if setsPerWeek > 0, setsPerWeek < 0.05 { return "<0.1" }
+        return String(format: "%.1f", setsPerWeek)
+    }
+
     private func annotationText(for group: LifterCoaching.MuscleGroupCoverage) -> String {
-        var parts = [String(format: "%.1f/wk", group.setsPerWeek)]
+        var parts = ["\(Self.perWeekText(group.setsPerWeek))/wk"]
         if let daysAgo = group.lastTrainedDaysAgo {
             parts.append(daysAgo == 0 ? "today" : "\(daysAgo)d ago")
         }
@@ -262,7 +281,8 @@ struct MuscleGroupSectionView: View {
     }
 
     private func accessibilityText(for group: LifterCoaching.MuscleGroupCoverage) -> String {
-        var text = String(format: "%.1f sets per week, %@", group.setsPerWeek, group.band.label)
+        let perWeek = Self.perWeekText(group.setsPerWeek)
+        var text = "\(perWeek.hasPrefix("<") ? "Less than 0.1" : perWeek) sets per week, \(group.band.label)"
         if let daysAgo = group.lastTrainedDaysAgo {
             text += daysAgo == 0 ? ", trained today" : ", last trained \(daysAgo) days ago"
         }
@@ -447,10 +467,30 @@ struct EffortSectionView: View {
                 }
             }
 
+            // A point on every rated day: the line between them is a guide,
+            // the points are the data (HIG Charts — call out individual values).
+            ForEach(rated.dropLast()) { summary in
+                PointMark(
+                    x: .value("Day", summary.date),
+                    y: .value("Average RPE", summary.averageRPE ?? domain.lowerBound)
+                )
+                .symbolSize(22)
+                .foregroundStyle(accent)
+                .accessibilityHidden(true)
+            }
+
             if summaries.count > 1 {
                 RuleMark(y: .value("Average", average))
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme).opacity(0.7))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .annotation(position: .top, alignment: .leading, spacing: 2) {
+                        Text(String(format: "avg %.1f", average))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                            .padding(.horizontal, 4)
+                            .background(Capsule().fill(Theme.surfaceColor(for: colorScheme)))
+                            .accessibilityHidden(true)
+                    }
                     .accessibilityHidden(true)
             }
 

@@ -287,7 +287,7 @@ struct TrendsPulseTileItem: Identifiable {
     var accessibilityLabel: String {
         var parts = [title, [value, unit].compactMap { $0 }.joined(separator: " "), detail]
         if let deltaPercent, abs(deltaPercent) >= 0.5 {
-            parts.append("\(deltaPercent > 0 ? "up" : "down") \(String(format: "%.0f", abs(deltaPercent))) percent from the \(deltaLabel ?? "previous period")")
+            parts.append(TrendsDeltaPill.accessibilityText(for: deltaPercent, comparisonLabel: deltaLabel ?? "previous period"))
         }
         return parts.joined(separator: ", ")
     }

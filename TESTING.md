@@ -35,6 +35,13 @@ Daily Highlights audit scroll it into view first, and the audit parks its header
 under the toolbar. iOS 27's audit falsely flags plain text inside Pulse tiles. Those
 tiles are single accessibility elements, so the audit measures the drawn pixels of
 the reported frame and keeps the issue unless it reaches 4.5:1.
+The 2026-11-25 refinement adds `TrendsDeltaTextTests` (percent vs. multiple wording and
+VoiceOver text, the "10×+" cap, "<0.1/wk"), a 1Y window test in `TrendRangeTests` (365 or
+366 days), and million-pound volume cases in `TrainingInsightsTests`. For the tall-page
+review, a temporary snapshot test renders `TrendsView(initialRange:initiallyShowsDetails:)`
+at 393 × 8000 pt (display scale 2) for each range, both schemes, iPhone SE width, an
+accessibility size and a filtered lift. Slice the output with ffmpeg, then delete the test
+before committing.
 The volume-tooltip fixture renders the production chart component directly, so
 the bars, matching symbols/legend and selected values are actually in frame.
 Category labels and values wrap above their bars. At accessibility sizes, the

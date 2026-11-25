@@ -423,8 +423,11 @@ private struct StrengthLiftRowView: View {
         return (minValue - padding) ... (maxValue + padding)
     }
 
+    /// An estimate earns no decimals it can't back up: whole pounds, or the
+    /// nearest half kilo ("215.83 lb" read as false precision).
     private func weightText(_ value: Double) -> String {
-        Formatters.weight.string(from: NSNumber(value: value)) ?? "\(Int(value))"
+        let rounded = assessment.displayUnit == .kg ? (value * 2).rounded() / 2 : value.rounded()
+        return Formatters.weight.string(from: NSNumber(value: rounded)) ?? "\(Int(rounded))"
     }
 }
 
@@ -590,7 +593,6 @@ struct RepRecordsSectionView: View {
                         Text(record.reps == 1 ? "1 rep" : "\(record.reps) reps")
                             .font(MarbleTypography.smallLabel.weight(.bold))
                             .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-                            .textCase(.uppercase)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(Capsule().fill(TrendsPalette.wash(accent, scheme: colorScheme)))
@@ -630,6 +632,7 @@ struct MonthlyReportCardView: View {
     let onOpen: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage(SharedDefaults.Key.preferredWeightUnit, store: SharedDefaults.suite)
     private var preferredWeightUnitRaw = WeightUnit.lb.rawValue
 
@@ -647,29 +650,46 @@ struct MonthlyReportCardView: View {
             onOpen()
         } label: {
             VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(reportTitle)
-                        .font(MarbleTypography.sectionTitle)
-                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-
-                    Spacer(minLength: MarbleSpacing.s)
-
+                HStack(alignment: .center, spacing: MarbleSpacing.xs) {
+                    TrendsGlyphBadge(
+                        systemName: "calendar",
+                        accent: TrendsPalette.consistency.color(for: colorScheme),
+                        size: 26
+                    )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(reportTitle)
+                            .font(TrendsFont.section)
+                            .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let comparisonLabel = report.comparisonLabel {
+                            Text(comparisonLabel)
+                                .font(MarbleTypography.rowMeta)
+                                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    Spacer(minLength: MarbleSpacing.xs)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                         .accessibilityHidden(true)
                 }
 
-                HStack(spacing: MarbleSpacing.m) {
-                    reportMetric(value: "\(report.sessions)", label: "sessions", delta: report.sessionsDelta.map(deltaText))
-                    reportMetric(value: volumeText, label: "volume", delta: report.volumeDeltaPercent.map { deltaPercentText($0) })
-                    reportMetric(value: "\(report.prCount)", label: report.prCount == 1 ? "PR" : "PRs", delta: report.prDelta.map(deltaText))
-                }
-
-                if let comparisonLabel = report.comparisonLabel {
-                    Text(comparisonLabel)
-                        .font(MarbleTypography.caption)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                // Three columns at standard sizes; at accessibility sizes the
+                // columns would hyphenate labels and split values, so each
+                // metric becomes its own label/value row (HIG: reduce columns).
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+                        ForEach(metrics, id: \.label) { metric in
+                            metricRow(metric)
+                        }
+                    }
+                } else {
+                    HStack(alignment: .top, spacing: MarbleSpacing.xs) {
+                        ForEach(metrics, id: \.label) { metric in
+                            metricTile(metric)
+                        }
+                    }
                 }
             }
             .trendsCard(padding: MarbleSpacing.m)
@@ -681,28 +701,71 @@ struct MonthlyReportCardView: View {
         .accessibilityIdentifier("Trends.MonthlyReport")
     }
 
-    private var reportTitle: String {
-        report.isMonthToDate ? "\(report.monthLabel) — so far" : "\(report.monthLabel) Report"
+    private struct Metric {
+        let value: String
+        let label: String
+        let delta: String?
     }
 
-    private func reportMetric(value: String, label: String, delta: String?) -> some View {
-        VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-            Text(value)
-                .font(.title3.weight(.semibold))
+    private var metrics: [Metric] {
+        [
+            Metric(value: "\(report.sessions)", label: report.sessions == 1 ? "Session" : "Sessions", delta: report.sessionsDelta.map(deltaText)),
+            Metric(value: volumeText, label: "Volume", delta: report.volumeDeltaPercent.map { deltaPercentText($0) }),
+            Metric(value: "\(report.prCount)", label: report.prCount == 1 ? "PR" : "PRs", delta: report.prDelta.map(deltaText))
+        ]
+    }
+
+    private var reportTitle: String {
+        report.isMonthToDate ? "\(report.monthLabel) so far" : "\(report.monthLabel) report"
+    }
+
+    private func metricTile(_ metric: Metric) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(metric.label)
+                .font(MarbleTypography.rowMeta.weight(.medium))
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                .lineLimit(1)
+            Text(metric.value)
+                .font(TrendsFont.metricSmall)
                 .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                 .monospacedDigit()
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(label)
-                .font(MarbleTypography.smallLabel)
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .textCase(.uppercase)
-            if let delta {
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            if let delta = metric.delta {
                 Text(delta)
                     .font(MarbleTypography.caption)
                     .monospacedDigit()
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                    .lineLimit(1)
             }
+        }
+        .padding(.horizontal, MarbleSpacing.s)
+        .padding(.vertical, MarbleSpacing.xs)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: TrendsLayout.innerRadius, style: .continuous)
+                .fill(Theme.backgroundColor(for: colorScheme).opacity(colorScheme == .dark ? 0.55 : 1))
+        )
+    }
+
+    private func metricRow(_ metric: Metric) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(metric.label)
+                .font(MarbleTypography.rowMeta.weight(.medium))
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            HStack(alignment: .firstTextBaseline, spacing: MarbleSpacing.xs) {
+                Text(metric.value)
+                    .font(TrendsFont.metricSmall)
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                    .monospacedDigit()
+                if let delta = metric.delta {
+                    Text(delta)
+                        .font(MarbleTypography.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

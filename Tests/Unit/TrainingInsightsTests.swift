@@ -156,6 +156,9 @@ final class TrainingInsightsTests: XCTestCase {
         XCTAssertEqual(MonthlyReportPhrasing.volumeText(kilograms: 12_300, unit: .kg), "12.3t")
         XCTAssertEqual(MonthlyReportPhrasing.volumeText(kilograms: 500, unit: .lb), "1,102 lb")
         XCTAssertEqual(MonthlyReportPhrasing.volumeText(kilograms: 12_300, unit: .lb), "27.1k lb")
+        // Seven digits switch to millions, matching the Pulse tile.
+        XCTAssertEqual(MonthlyReportPhrasing.volumeText(kilograms: 453_900, unit: .lb), "1M lb")
+        XCTAssertEqual(MonthlyReportPhrasing.volumeText(kilograms: 680_400, unit: .lb), "1.5M lb")
         // Legacy metric entry point is unchanged.
         XCTAssertEqual(MonthlyReportPhrasing.volumeText(kilograms: 12_300), "12.3t")
     }

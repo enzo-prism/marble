@@ -249,6 +249,12 @@ enum MonthlyReportPhrasing {
             return "\(Int(kilograms.rounded())) kg"
         case .lb:
             let pounds = LifterAnalytics.displayWeight(fromKilograms: kilograms, in: .lb)
+            // Seven digits switch to "M" so the card agrees with the Pulse
+            // tile ("1M lb") instead of printing "1000.6k lb".
+            if pounds >= 999_950 {
+                let millions = String(format: "%.1f", pounds / 1_000_000)
+                return "\(millions.hasSuffix(".0") ? String(millions.dropLast(2)) : millions)M lb"
+            }
             if pounds >= 10_000 {
                 return String(format: "%.1fk lb", pounds / 1000)
             }

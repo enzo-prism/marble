@@ -195,6 +195,11 @@ Use these commands (preferred):
 - Pulse tiles are single accessibility elements; keep their ids
   (`Trends.SummaryMetric.*`). Daily Highlights sits below the fold, so UI tests must
   `scrollToElement` before tapping it. A coordinate tap on an off-screen element does nothing.
+- Number honesty rules (2026-11-25): an e1RM shows whole lb or 0.5 kg; volume uses
+  `MonthlyReportPhrasing.volumeText` (k/M); change pills go through
+  `TrendsDeltaPill.text(for:)`, which turns gains of +200% or more into multiples and caps
+  them at "10×+". Totals per day or week are bars; a series with one point renders
+  `TrendsSingleSessionNote`, never a chart.
 - Don't stroke a `Capsule` for a selected chip. The stroke's caps show as stray
   vertical ticks; use stacked fills (see the volume series chips).
 

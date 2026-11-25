@@ -260,16 +260,41 @@ struct TrendsDeltaPill: View {
         .accessibilityLabel(accessibilityText)
     }
 
-    private var text: String {
-        if isFlat { return "Even" }
-        let magnitude = abs(percent)
-        let formatted = magnitude >= 999 ? "999+" : String(format: "%.0f", magnitude)
-        return "\(formatted)%"
-    }
+    private var text: String { Self.text(for: percent) }
 
     private var accessibilityText: String {
-        if isFlat { return "Even with the \(comparisonLabel)" }
-        return "\(isUp ? "Up" : "Down") \(String(format: "%.0f", abs(percent))) percent from the \(comparisonLabel)"
+        Self.accessibilityText(for: percent, comparisonLabel: comparisonLabel)
+    }
+
+    /// Gains of +200% or more read as a multiple ("3.4×", "11×"): a percentage
+    /// that large — or a capped "999+%" — says nothing a person can picture.
+    nonisolated static func multiple(for percent: Double) -> Double? {
+        percent >= 200 ? 1 + percent / 100 : nil
+    }
+
+    nonisolated static func text(for percent: Double) -> String {
+        if abs(percent) < 0.5 { return "Even" }
+        if let multiple = multiple(for: percent) {
+            // Past 10× the comparison week was a token amount; the exact
+            // multiple ("2222×") is noise, so it reads as a bound.
+            return multiple >= 10 ? "10×+" : "\(multipleText(multiple))×"
+        }
+        return "\(String(format: "%.0f", abs(percent)))%"
+    }
+
+    nonisolated static func accessibilityText(for percent: Double, comparisonLabel: String) -> String {
+        if abs(percent) < 0.5 { return "Even with the \(comparisonLabel)" }
+        if let multiple = multiple(for: percent) {
+            return multiple >= 10
+                ? "More than 10 times the \(comparisonLabel)"
+                : "\(multipleText(multiple)) times the \(comparisonLabel)"
+        }
+        return "\(percent > 0 ? "Up" : "Down") \(String(format: "%.0f", abs(percent))) percent from the \(comparisonLabel)"
+    }
+
+    nonisolated private static func multipleText(_ multiple: Double) -> String {
+        let text = String(format: "%.1f", multiple)
+        return text.hasSuffix(".0") ? String(text.dropLast(2)) : text
     }
 }
 
@@ -416,5 +441,48 @@ private struct TrendsStatCell: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(stat.label), \([stat.value, stat.unit].compactMap { $0 }.joined(separator: " "))")
+    }
+}
+
+// MARK: - Single-session note
+
+/// Stands in for a trend chart that has only one point. A lone dot on an empty
+/// plot answers nothing; the value plus what unlocks the trend does
+/// (HIG Charting data: chart only what a chart can show).
+struct TrendsSingleSessionNote: View {
+    let date: Date
+    let valueText: String
+    var message = "Log one more session to see the trend."
+    let accent: Color
+    let identifier: String
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(alignment: .center, spacing: MarbleSpacing.s) {
+            TrendsGlyphBadge(systemName: "chart.dots.scatter", accent: accent, size: 30)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(valueText)
+                    .font(TrendsFont.metricSmall)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                Text(date, format: .dateTime.weekday(.wide).month(.wide).day())
+                    .font(MarbleTypography.rowMeta)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                Text(message)
+                    .font(MarbleTypography.rowMeta)
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(MarbleSpacing.s)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: TrendsLayout.innerRadius, style: .continuous)
+                .fill(TrendsPalette.wash(accent, scheme: colorScheme))
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
     }
 }

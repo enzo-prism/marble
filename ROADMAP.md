@@ -6,6 +6,13 @@
 > HealthKit sessions, sensors and Smart Stack remain separate unfinished work. See
 > `APPLE_PLATFORM_IMPLEMENTATION.md` for current evidence and release status.
 
+## November 25 update — Details refined against Apple guidance (2.7.1 build 89)
+
+An audit against the HIG (Charting data, Charts, Typography, Accessibility, Writing) fixed
+false precision, chart forms (supplements are now bars), single-point charts, large-text
+layout of the monthly report card, and the 1Y range's off-by-one day. 2.7.1 (89) is the
+App Store candidate. It is the first public release of the 2.7 (87) platform work.
+
 ## November 24 update — Progress Details redesign (2.7.1 build 88)
 
 Progress → Details now opens on a Pulse summary that compares the range with the previous

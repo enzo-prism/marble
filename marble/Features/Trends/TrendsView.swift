@@ -258,15 +258,32 @@ struct TrendsContentView: View {
 
                                     if selectedExercise != nil {
                                         VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                                            TrendsSectionHeader(
-                                                title: "Progress",
-                                                subtitle: selectedExerciseName
-                                            )
+                                            HStack(alignment: .center, spacing: MarbleSpacing.xs) {
+                                                TrendsGlyphBadge(
+                                                    systemName: "chart.line.uptrend.xyaxis",
+                                                    accent: TrendsPalette.progress.color(for: colorScheme),
+                                                    size: 26
+                                                )
+                                                TrendsSectionHeader(
+                                                    title: "Progress",
+                                                    subtitle: selectedExerciseName,
+                                                    takeaway: derived.progressPoints.count > 1
+                                                        ? derived.progressPoints.last?.bestSetSummary : nil
+                                                )
+                                            }
                                             if derived.progressPoints.isEmpty {
                                                 Text("No progress yet")
                                                     .font(MarbleTypography.rowMeta)
                                                     .foregroundStyle(
                                                         Theme.secondaryTextColor(for: colorScheme))
+                                            } else if derived.progressPoints.count == 1,
+                                                      let only = derived.progressPoints.first {
+                                                TrendsSingleSessionNote(
+                                                    date: only.date,
+                                                    valueText: only.bestSetSummary,
+                                                    accent: TrendsPalette.progress.color(for: colorScheme),
+                                                    identifier: "Trends.Progress.SingleSession"
+                                                )
                                             } else {
                                                 ExerciseProgressChart(
                                                     points: derived.progressPoints,
@@ -889,6 +906,10 @@ struct TrendsContentView: View {
                 }
             }
 
+            if !derived.filteredSupplementEntries.isEmpty {
+                supplementsTakeaway(derived: derived)
+            }
+
             if derived.filteredSupplementEntries.isEmpty {
                 Text("No supplement data yet")
                     .font(MarbleTypography.rowMeta)
@@ -899,6 +920,33 @@ struct TrendsContentView: View {
             }
         }
         .trendsCard()
+    }
+
+    /// Leads with the takeaway, like every other Details card: how much was
+    /// logged and on how many days, then what each bar measures.
+    private func supplementsTakeaway(derived: TrendsDerivedData) -> some View {
+        let logged = derived.supplementSummariesWithLogs
+        let logs = logged.reduce(0) { $0 + $1.count }
+        let bucket = consistencyUsesWeeks ? "week" : "day"
+        let buckets = logged.count
+        let measure: String = {
+            switch logged.first?.mode ?? derived.supplementSummaries.first?.mode {
+            case .dose(let unit): return "Total dose per \(bucket), in \(unit.displayName)"
+            default: return "Logs per \(bucket)"
+            }
+        }()
+        return VStack(alignment: .leading, spacing: 2) {
+            Text("\(logs) \(logs == 1 ? "log" : "logs") on \(buckets) \(buckets == 1 ? bucket : bucket + "s")")
+                .font(TrendsFont.takeaway)
+                .monospacedDigit()
+                .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+            Text(measure)
+                .font(MarbleTypography.rowMeta)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("Trends.Supplements.Takeaway")
     }
 
     private func supplementsChart(derived: TrendsDerivedData) -> some View {
@@ -912,55 +960,27 @@ struct TrendsContentView: View {
             }
             return start ... end
         }()
-        let chartDomain = paddedDateDomain(dataRange, component: .day, value: 1)
+        let chartDomain = paddedDateDomain(dataRange, component: consistencyUsesWeeks ? .weekOfYear : .day, value: 1)
 
         let accent = TrendsPalette.supplements.color(for: colorScheme)
 
         return VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
+            // Each mark is a daily (or weekly) total, so bars — not a smoothed
+            // line, which drew peaks between days that were never logged
+            // (HIG Charts: bars for sums, lines mislead across gaps).
             Chart {
-                ForEach(summaries) { item in
-                    AreaMark(
-                        x: .value("Day", item.date),
-                        y: .value("Value", item.chartValue)
+                ForEach(summaries.filter { $0.chartValue > 0 }) { item in
+                    BarMark(
+                        x: .value("Day", item.date, unit: consistencyUsesWeeks ? .weekOfYear : .day),
+                        y: .value("Value", item.chartValue),
+                        width: .ratio(consistencyUsesWeeks ? 0.7 : 0.8)
                     )
-                    .interpolationMethod(.monotone)
-                    .foregroundStyle(TrendsPalette.areaGradient(accent))
-                    .accessibilityHidden(true)
-                }
-
-                ForEach(summaries) { item in
-                    LineMark(
-                        x: .value("Day", item.date),
-                        y: .value("Value", item.chartValue)
+                    .cornerRadius(consistencyUsesWeeks ? 4 : 3)
+                    .foregroundStyle(
+                        selectedSummary == nil || selectedSummary?.date == item.date
+                            ? AnyShapeStyle(TrendsPalette.barGradient(accent))
+                            : AnyShapeStyle(accent.opacity(colorScheme == .dark ? 0.42 : 0.32))
                     )
-                    .interpolationMethod(.monotone)
-                    .foregroundStyle(accent)
-                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                    .accessibilityHidden(true)
-                }
-
-                ForEach(summaries.filter { $0.count > 0 }) { item in
-                    PointMark(
-                        x: .value("Day", item.date),
-                        y: .value("Value", item.chartValue)
-                    )
-                    .symbolSize(24)
-                    .foregroundStyle(accent)
-                    .accessibilityHidden(true)
-                }
-
-                if let selectedSummary {
-                    RuleMark(x: .value("Selected Day", selectedSummary.date))
-                        .foregroundStyle(accent.opacity(0.35))
-                        .lineStyle(StrokeStyle(lineWidth: 1.5))
-
-                    PointMark(
-                        x: .value("Selected Day", selectedSummary.date),
-                        y: .value("Value", selectedSummary.chartValue)
-                    )
-                    .symbol {
-                        TrendsSelectionDot(accent: accent)
-                    }
                     .accessibilityHidden(true)
                 }
             }
@@ -1492,7 +1512,11 @@ nonisolated enum TrendRange: String, CaseIterable, Identifiable {
         case .ninetyDays:
             return calendar.date(byAdding: .day, value: -89, to: calendar.startOfDay(for: AppEnvironment.now))
         case .oneYear:
-            return calendar.date(byAdding: .year, value: -1, to: calendar.startOfDay(for: AppEnvironment.now))
+            // Inclusive of today like the day ranges above (7D is 7 days), so
+            // the window holds one year of days — 365 or 366, never 367.
+            let today = calendar.startOfDay(for: AppEnvironment.now)
+            return calendar.date(byAdding: .year, value: -1, to: today)
+                .flatMap { calendar.date(byAdding: .day, value: 1, to: $0) }
         case .all:
             return nil
         }

@@ -100,9 +100,8 @@ private struct LiftBestMetricView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
             Text(metric.title)
-                .font(MarbleTypography.smallLabel)
+                .font(MarbleTypography.rowMeta.weight(.medium))
                 .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                .textCase(.uppercase)
 
             Text(metric.value)
                 .font(MarbleTypography.rowTitle)

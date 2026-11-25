@@ -18,6 +18,22 @@ and range bests are now consistent cards. The building blocks live in
 in `TrendsInsights.swift`, with unit tests. The Add/Log UI and the Progress overview keep
 the monochrome treatment.
 
+## Progress Details refinement — 2.7.1 (89)
+
+On 2026-11-25 Details was checked against Apple's current chart, typography,
+accessibility and writing guidance, and the gaps were fixed:
+- **Honest numbers.** e1RM is shown in whole pounds or half kilos (not "215.83 lb").
+  Monthly volume reads "1M lb", matching the Pulse tile, instead of "1000.6k lb". Gains of
+  200% or more read as a multiple ("3.4×"), capped at "10×+", where they used to show "999+%".
+- **Right chart form.** Supplements are daily or weekly totals, so they are bars with a
+  headline ("8 logs on 6 days"). Effort shows a point on every rated day and a labeled average.
+- **No empty charts.** A lift with one session shows the value and what unlocks the trend
+  (`TrendsSingleSessionNote`) instead of a lone dot.
+- **Large text.** The monthly report card stacks into rows at accessibility sizes, and the
+  heatmap legend swatches scale with text. Labels are title case across the page.
+- **Data fixes.** 1Y now spans 365 or 366 days (it was 367), and a muscle trained less
+  than 0.05 sets a week reads "<0.1/wk" instead of "0.0/wk".
+
 ## Apple platform release — 2.7 (87)
 
 The Siri/Shortcuts, workout-long Live Activity, optional native Health tracking,
