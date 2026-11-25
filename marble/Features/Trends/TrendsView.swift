@@ -831,7 +831,7 @@ struct TrendsContentView: View {
         var stats = [
             TrendsStat(
                 symbol: "flame.fill",
-                accent: TrendsPalette.sprint.color(for: colorScheme),
+                accent: accent,
                 value: "\(heatmap.currentStreak)",
                 unit: heatmap.currentStreak == 1 ? "day" : "days",
                 label: "Current streak"
@@ -847,7 +847,7 @@ struct TrendsContentView: View {
         if let weekday = heatmap.busiestWeekday {
             stats.append(TrendsStat(
                 symbol: "calendar",
-                accent: TrendsPalette.strength.color(for: colorScheme),
+                accent: accent,
                 value: Calendar.current.shortWeekdaySymbols[weekday - 1],
                 unit: nil,
                 label: "Most active"
@@ -978,7 +978,7 @@ struct TrendsContentView: View {
                     .cornerRadius(consistencyUsesWeeks ? 4 : 3)
                     .foregroundStyle(
                         selectedSummary == nil || selectedSummary?.date == item.date
-                            ? AnyShapeStyle(TrendsPalette.barGradient(accent))
+                            ? AnyShapeStyle(accent)
                             : AnyShapeStyle(accent.opacity(colorScheme == .dark ? 0.42 : 0.32))
                     )
                     .accessibilityHidden(true)
@@ -1072,7 +1072,7 @@ struct TrendsContentView: View {
                 } ?? "-"
                 : bestReps.map { "\($0) reps" } ?? "-",
             systemImage: showsDistancePRs ? "hare.fill" : "repeat",
-            accent: showsDistancePRs ? TrendsPalette.effort : TrendsPalette.volumeReps
+            accent: showsDistancePRs ? TrendsPalette.endurance : TrendsPalette.volumeReps
         )
         let thirdCard = PRCardMetric(
             title: "Longest Duration",

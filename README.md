@@ -18,6 +18,18 @@ and range bests are now consistent cards. The building blocks live in
 in `TrendsInsights.swift`, with unit tests. The Add/Log UI and the Progress overview keep
 the monochrome treatment.
 
+## Progress Details color system — 2.7.1 (90)
+
+On 2026-11-25 the Details colors were redesigned. The old palette used about ten hues, each
+darkened until it passed 4.5:1 as if it were text, so light mode came out muddy (olive,
+rust, forest green, plum) and every card had a different color. The new palette
+(`TrendsPalette`) has six hues tuned in OKLCH, each with one meaning everywhere: training
+blue, strength violet, effort pink, record amber, endurance teal and body green, plus a
+neutral grey for "not yet". Hues only color marks and glyphs, so they are held to the
+correct 3:1 non-text contrast and can stay clear and vivid. Bars are solid. Heatmap day
+numbers pick black or white ink per cell. Stat glyphs inside a card share that card's hue.
+A muscle below range is grey, not a warning orange. The Summary chapter badge is neutral.
+
 ## Progress Details refinement — 2.7.1 (89)
 
 On 2026-11-25 Details was checked against Apple's current chart, typography,

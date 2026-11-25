@@ -331,7 +331,7 @@ struct RepRangeSectionView: View {
             HStack(spacing: 3) {
                 ForEach(buckets.filter { $0.share > 0 }) { bucket in
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(TrendsPalette.barGradient(TrendsPalette.repRange(bucket.kind).color(for: colorScheme)))
+                        .fill(TrendsPalette.repRange(bucket.kind).color(for: colorScheme))
                         .frame(width: max((proxy.size.width - 6) * bucket.share, 4))
                 }
             }

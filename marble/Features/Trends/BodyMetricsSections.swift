@@ -206,12 +206,19 @@ struct BodyweightTrendSection: View {
             Spacer(minLength: MarbleSpacing.s)
 
             Button(action: onLogWeight) {
-                Label("Log", systemImage: "plus")
-                    .font(MarbleTypography.rowMeta)
-                    .frame(minWidth: 44, minHeight: 44)
+                // The glyph carries the chapter hue; the word stays on the
+                // contrast-pinned text color (a mid-tone hue fails 4.5:1).
+                HStack(spacing: MarbleSpacing.xxs) {
+                    Image(systemName: "plus")
+                        .font(MarbleTypography.rowMeta.weight(.bold))
+                        .foregroundStyle(TrendsPalette.bodyweight.color(for: colorScheme))
+                    Text("Log")
+                        .font(MarbleTypography.rowMeta.weight(.semibold))
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
+                }
+                .frame(minWidth: 44, minHeight: 44)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(TrendsPalette.bodyweight.color(for: colorScheme))
             .accessibilityLabel("Log weight")
             .accessibilityIdentifier("Trends.Bodyweight.Log")
         }

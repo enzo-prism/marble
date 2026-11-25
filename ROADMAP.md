@@ -6,6 +6,13 @@
 > HealthKit sessions, sensors and Smart Stack remain separate unfinished work. See
 > `APPLE_PLATFORM_IMPLEMENTATION.md` for current evidence and release status.
 
+## November 25 update — Details color system v3 (2.7.1 build 90)
+
+Details now uses six role hues, each with one meaning (training, strength, effort, record,
+endurance, body), plus neutral grey. They replace about ten muddy hues that varied card by
+card. The contrast rule was corrected to 3:1 for marks, since no text uses a hue. 2.7.1 (90)
+replaces build 89 as the App Store candidate.
+
 ## November 25 update — Details refined against Apple guidance (2.7.1 build 89)
 
 An audit against the HIG (Charting data, Charts, Typography, Accessibility, Writing) fixed

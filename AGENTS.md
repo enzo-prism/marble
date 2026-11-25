@@ -200,6 +200,17 @@ Use these commands (preferred):
   `TrendsDeltaPill.text(for:)`, which turns gains of +200% or more into multiples and caps
   them at "10×+". Totals per day or week are bars; a series with one point renders
   `TrendsSingleSessionNote`, never a chart.
+- Color system v3 (2026-11-25, `TrendsPalette` in `TrendsChartStyle.swift`): six roles,
+  one meaning each — **training** blue (sessions, sets, consistency, weighted volume,
+  weekly goal, in range, hypertrophy), **strength** violet (e1RM, lifts, bodyweight reps),
+  **effort** pink (RPE, high volume), **record** amber (PRs, best weeks, a goal beaten),
+  **endurance** teal (duration, distance, pace, sprints), **body** green (bodyweight,
+  supplements) — plus **quiet** grey for "not yet" (a muscle below range). Map new data to
+  an existing role; don't add a hue. Hues color marks and glyphs only, never text, so the
+  bar is 3:1 non-text contrast (`ThemeContrastTests`), not 4.5:1. That 4.5:1 rule is what
+  made the old palette dark and muddy. Bars are solid (no translucent sheen); text on a
+  colored fill picks its ink with `TrendsPalette.legibleText(on:)`; one card's stat glyphs
+  share that card's hue; the Summary chapter badge is neutral ink.
 - Don't stroke a `Capsule` for a selected chip. The stroke's caps show as stray
   vertical ticks; use stacked fills (see the volume series chips).
 

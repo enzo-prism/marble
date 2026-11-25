@@ -60,14 +60,14 @@ struct ConsistencyGoalCardView: View {
             TrendsStatRow(stats: [
                 TrendsStat(
                     symbol: "flame.fill",
-                    accent: TrendsPalette.sprint.color(for: colorScheme),
+                    accent: TrendsPalette.training.color(for: colorScheme),
                     value: "\(snapshot.streakWeeks)",
                     unit: snapshot.streakWeeks == 1 ? "wk" : "wks",
                     label: "Streak"
                 ),
                 TrendsStat(
                     symbol: "shield.lefthalf.filled",
-                    accent: TrendsPalette.strength.color(for: colorScheme),
+                    accent: TrendsPalette.training.color(for: colorScheme),
                     value: "\(snapshot.flexTokens)",
                     unit: nil,
                     label: snapshot.flexTokens == 1 ? "Flex week" : "Flex weeks"

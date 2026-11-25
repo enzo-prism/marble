@@ -331,7 +331,7 @@ struct SprintTrendsSection: View {
                     x: .value("Week", bar.weekStart, unit: .weekOfYear),
                     y: .value("Hit rate", bar.hitRatePercent)
                 )
-                .foregroundStyle(TrendsPalette.barGradient(accent))
+                .foregroundStyle(accent)
                 .cornerRadius(3)
                 .accessibilityLabel(Text(bar.weekStart, format: .dateTime.month(.abbreviated).day()))
                 .accessibilityValue("\(Int(bar.hitRatePercent)) percent, \(bar.hits) of \(bar.scored) reps")

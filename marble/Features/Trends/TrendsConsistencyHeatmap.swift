@@ -139,6 +139,7 @@ private struct TrendsHeatmapCanvas: View, Animatable {
         let onAccent = Theme.onAccentColor(for: scheme)
         let placeholder = Theme.subtleDividerColor(for: scheme).opacity(0.45)
         let total = max(model.days.count, 1)
+        let ramp = (1...4).map { TrendsPalette.ramp(accent, opacity: Self.opacity(for: $0), scheme: scheme) }
 
         return Canvas { context, _ in
             if showsLabels {
@@ -171,13 +172,15 @@ private struct TrendsHeatmapCanvas: View, Animatable {
                 var cellContext = context
                 cellContext.opacity = local
 
+                // Levels are opaque blends over the card so the day number
+                // can pick whichever ink reads best on that exact fill.
                 let fill: Color
                 if day.level == 0 {
                     fill = empty
                 } else if day.hasPR && rect.width < 12 {
                     fill = gold
                 } else {
-                    fill = accent.opacity(Self.opacity(for: day.level))
+                    fill = ramp[min(day.level, ramp.count) - 1]
                 }
                 cellContext.fill(path, with: .color(fill))
 
@@ -185,7 +188,7 @@ private struct TrendsHeatmapCanvas: View, Animatable {
                     let dayNumber = Calendar.current.component(.day, from: day.date)
                     let text = Text("\(dayNumber)")
                         .font(.system(size: max(9, rect.width * 0.34), weight: .semibold, design: .rounded))
-                        .foregroundStyle(day.level >= 3 ? onAccent : (day.level == 0 ? secondary : primary))
+                        .foregroundStyle(day.level == 0 ? secondary : TrendsPalette.legibleText(on: fill, scheme: scheme))
                     cellContext.draw(cellContext.resolve(text), at: CGPoint(x: drawRect.midX, y: drawRect.midY))
                 }
 
@@ -221,12 +224,7 @@ private struct TrendsHeatmapCanvas: View, Animatable {
     }
 
     static func opacity(for level: Int) -> Double {
-        switch level {
-        case 1: 0.3
-        case 2: 0.52
-        case 3: 0.76
-        default: 1
-        }
+        TrendsPalette.heatmapOpacity(for: level)
     }
 }
 

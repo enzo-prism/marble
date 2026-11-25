@@ -1,7 +1,9 @@
 import SwiftUI
 
 /// Color and a familiar symbol separate chapters of the detailed analytics stream.
-/// The title stays neutral and carries the full meaning for accessibility.
+/// Each chapter badge takes the hue of the data it introduces; Summary mixes
+/// every kind of data, so its badge stays neutral ink. The title stays neutral
+/// and carries the full meaning for accessibility.
 struct ProgressDetailHeading: View {
     enum Section {
         case summary, training, bodyAndHabits, milestones
@@ -24,12 +26,13 @@ struct ProgressDetailHeading: View {
             }
         }
 
-        var accent: TrendsChartAccent {
+        /// Nil means neutral ink (Summary spans every data hue).
+        var accent: TrendsChartAccent? {
             switch self {
-            case .summary: TrendsPalette.strength
-            case .training: TrendsPalette.volumeWeighted
-            case .bodyAndHabits: TrendsPalette.consistency
-            case .milestones: TrendsPalette.personalRecord
+            case .summary: nil
+            case .training: TrendsPalette.training
+            case .bodyAndHabits: TrendsPalette.body
+            case .milestones: TrendsPalette.record
             }
         }
     }
@@ -42,7 +45,7 @@ struct ProgressDetailHeading: View {
         HStack(alignment: .center, spacing: MarbleSpacing.s) {
             TrendsGlyphBadge(
                 systemName: section.symbol,
-                accent: section.accent.color(for: colorScheme),
+                accent: section.accent?.color(for: colorScheme) ?? Theme.primaryTextColor(for: colorScheme),
                 size: 30,
                 filled: true
             )

@@ -42,6 +42,12 @@ review, a temporary snapshot test renders `TrendsView(initialRange:initiallyShow
 at 393 × 8000 pt (display scale 2) for each range, both schemes, iPhone SE width, an
 accessibility size and a filtered lift. Slice the output with ffmpeg, then delete the test
 before committing.
+The color system v3 (2.7.1 build 90) rewrote the `ThemeContrastTests` palette checks.
+Each of the seven `TrendsPalette` roles must reach 3:1 non-text contrast against the page
+and the card, in both schemes, and Increase Contrast must raise it. The six data hues must
+stay distinct from each other. Heatmap day numbers must reach 4.5:1 on all four fill
+levels. The old test required 4.5:1 "metric text" from every hue, but no hue colors text.
+That rule is what forced the muddy palette.
 The volume-tooltip fixture renders the production chart component directly, so
 the bars, matching symbols/legend and selected values are actually in frame.
 Category labels and values wrap above their bars. At accessibility sizes, the

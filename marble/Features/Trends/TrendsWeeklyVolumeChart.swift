@@ -215,7 +215,7 @@ struct TrendsWeeklyVolumeChart: View {
                     .cornerRadius(6)
                     .foregroundStyle(
                         week.weekStart == emphasized
-                            ? AnyShapeStyle(TrendsPalette.barGradient(accent))
+                            ? AnyShapeStyle(accent)
                             : AnyShapeStyle(accent.opacity(colorScheme == .dark ? 0.42 : 0.32))
                     )
                     .annotation(position: .top, spacing: 3) {

@@ -34,71 +34,71 @@ struct TrendsChartAccent {
     }
 }
 
+/// Progress Details color system (v3, 2026-11-25).
+///
+/// Six roles, each with exactly one meaning everywhere it appears (HIG Color:
+/// "Avoid using the same color to mean different things"). Values are tuned in
+/// OKLCH so the family shares one lightness and chroma: light-mode marks sit at
+/// 3:1 or better against white without going muddy, and dark-mode marks are
+/// brighter, slightly desaturated partners rather than inversions. Neutral
+/// grey carries "not yet" states so color always signals something. Bars are
+/// solid — no translucent sheen — so every mark keeps the full 3:1 non-text
+/// contrast (WCAG 1.4.11) its hue was tuned for.
 enum TrendsPalette {
-    static let consistency = TrendsChartAccent(
-        light: Color(red: 0.00, green: 0.42, blue: 0.40),
-        dark: Color(red: 0.30, green: 0.80, blue: 0.74)
+    /// Training load and frequency: sessions, sets, consistency, weighted
+    /// volume, the weekly goal, a muscle that is in range, the hypertrophy band.
+    static let training = TrendsChartAccent(
+        light: Color(red: 0.000, green: 0.444, blue: 0.877),
+        dark: Color(red: 0.388, green: 0.703, blue: 1.000)
     )
-    static let volumeWeighted = TrendsChartAccent(
-        light: Color(red: 0.05, green: 0.36, blue: 0.76),
-        dark: Color(red: 0.38, green: 0.67, blue: 1.00)
-    )
-    static let volumeReps = TrendsChartAccent(
-        light: Color(red: 0.48, green: 0.24, blue: 0.72),
-        dark: Color(red: 0.76, green: 0.58, blue: 1.00)
-    )
-    static let volumeDuration = TrendsChartAccent(
-        light: Color(red: 0.68, green: 0.32, blue: 0.04),
-        dark: Color(red: 1.00, green: 0.65, blue: 0.31)
-    )
-    static let supplements = TrendsChartAccent(
-        light: Color(red: 0.18, green: 0.43, blue: 0.21),
-        dark: Color(red: 0.49, green: 0.80, blue: 0.48)
-    )
-    static let progress = volumeWeighted
-    static let personalRecord = TrendsChartAccent(
-        light: Color(red: 0.56, green: 0.39, blue: 0.02),
-        dark: Color(red: 1.00, green: 0.80, blue: 0.36)
-    )
+    /// Strength: estimated 1RMs, lifts, bodyweight reps, the strength band.
     static let strength = TrendsChartAccent(
-        light: Color(red: 0.31, green: 0.29, blue: 0.72),
-        dark: Color(red: 0.65, green: 0.64, blue: 1.00)
+        light: Color(red: 0.454, green: 0.275, blue: 0.846),
+        dark: Color(red: 0.697, green: 0.611, blue: 0.996)
     )
+    /// Effort: RPE and high training volume.
     static let effort = TrendsChartAccent(
-        light: Color(red: 0.68, green: 0.20, blue: 0.44),
-        dark: Color(red: 1.00, green: 0.52, blue: 0.73)
+        light: Color(red: 0.840, green: 0.227, blue: 0.501),
+        dark: Color(red: 0.986, green: 0.523, blue: 0.693)
     )
-    static let bodyweight = TrendsChartAccent(
-        light: Color(red: 0.00, green: 0.40, blue: 0.57),
-        dark: Color(red: 0.34, green: 0.76, blue: 0.94)
+    /// Records: PRs, best weeks, trophies, a goal beaten.
+    static let record = TrendsChartAccent(
+        light: Color(red: 0.819, green: 0.432, blue: 0.024),
+        dark: Color(red: 1.000, green: 0.741, blue: 0.278)
     )
-    static let sprint = volumeDuration
+    /// Endurance: duration, distance, pace, sprints, the endurance band.
+    static let endurance = TrendsChartAccent(
+        light: Color(red: 0.000, green: 0.538, blue: 0.584),
+        dark: Color(red: 0.302, green: 0.831, blue: 0.858)
+    )
+    /// Body & Habits: bodyweight and supplements.
+    static let body = TrendsChartAccent(
+        light: Color(red: 0.118, green: 0.578, blue: 0.283),
+        dark: Color(red: 0.411, green: 0.851, blue: 0.551)
+    )
+    /// Neutral data ink for "not there yet" states (a muscle below range).
+    static let quiet = TrendsChartAccent(
+        light: Color(white: 0.52),
+        dark: Color(white: 0.56)
+    )
 
-    /// Categorical comparisons retain direct axis labels and numeric values.
-    /// Mapping is identity-based so a filter/reorder never changes a category's color.
-    static func muscleGroup(_ category: ExerciseCategory) -> TrendsChartAccent {
-        switch category {
-        case .chest: volumeReps
-        case .back: consistency
-        case .shoulders: strength
-        case .biceps: volumeWeighted
-        case .triceps: effort
-        case .core: personalRecord
-        case .quads, .legs: volumeWeighted
-        case .hamstrings: bodyweight
-        case .calves: supplements
-        case .run, .power: volumeDuration
-        case .bar: strength
-        case .recover: consistency
-        case .other: progress
-        }
-    }
+    // Section-facing names. Each resolves to one of the roles above, so two
+    // charts showing the same kind of data always share a hue.
+    static let consistency = training
+    static let volumeWeighted = training
+    static let progress = training
+    static let volumeReps = strength
+    static let volumeDuration = endurance
+    static let sprint = endurance
+    static let personalRecord = record
+    static let bodyweight = body
+    static let supplements = body
 
     static func repRange(_ kind: LifterAnalytics.RepRangeBucketKind) -> TrendsChartAccent {
         switch kind {
         case .strength: strength
-        case .hypertrophy: volumeReps
-        case .endurance: volumeDuration
+        case .hypertrophy: training
+        case .endurance: endurance
         }
     }
 
@@ -111,13 +111,64 @@ enum TrendsPalette {
         )
     }
 
-    /// Vertical sheen for bars so columns read as lit objects, not flat ink.
-    static func barGradient(_ accent: Color) -> LinearGradient {
-        LinearGradient(
-            gradient: Gradient(colors: [accent, accent.opacity(0.84)]),
-            startPoint: .top,
-            endPoint: .bottom
+}
+
+extension TrendsPalette {
+    /// `accent` laid over the card surface at `opacity`, flattened to one
+    /// opaque color so whatever sits on it can be contrast-checked.
+    static func ramp(_ accent: Color, opacity: Double, scheme: ColorScheme) -> Color {
+        let top = rgba(accent)
+        let base = rgba(Theme.surfaceColor(for: scheme))
+        let alpha = min(max(opacity, 0), 1)
+        return Color(
+            red: top.0 * alpha + base.0 * (1 - alpha),
+            green: top.1 * alpha + base.1 * (1 - alpha),
+            blue: top.2 * alpha + base.2 * (1 - alpha)
         )
+    }
+
+    /// Heatmap intensity ramp, level 1 (lightest) to 4 (full hue).
+    nonisolated static func heatmapOpacity(for level: Int) -> Double {
+        switch level {
+        case 1: 0.3
+        case 2: 0.52
+        case 3: 0.76
+        default: 1
+        }
+    }
+
+    /// Primary text or the on-accent color, whichever has more contrast on
+    /// `fill` (WCAG relative luminance). Keeps day numbers legible at every
+    /// heatmap level in both appearances.
+    static func legibleText(on fill: Color, scheme: ColorScheme) -> Color {
+        let primary = Theme.primaryTextColor(for: scheme)
+        let onAccent = Theme.onAccentColor(for: scheme)
+        let background = luminance(fill)
+        return contrast(luminance(primary), background) >= contrast(luminance(onAccent), background)
+            ? primary
+            : onAccent
+    }
+
+    static func luminance(_ color: Color) -> Double {
+        func linear(_ value: Double) -> Double {
+            value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        let channels = rgba(color)
+        return 0.2126 * linear(channels.0) + 0.7152 * linear(channels.1) + 0.0722 * linear(channels.2)
+    }
+
+    static func contrast(_ first: Double, _ second: Double) -> Double {
+        (max(first, second) + 0.05) / (min(first, second) + 0.05)
+    }
+
+    private static func rgba(_ color: Color) -> (Double, Double, Double) {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        UIColor(color).resolvedColor(with: UITraitCollection.current)
+            .getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return (Double(red), Double(green), Double(blue))
     }
 }
 
@@ -227,7 +278,7 @@ struct TrendsCategoryBar: View {
                         .stroke(zone.opacity(0.8), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
                     }
                     Capsule()
-                        .fill(TrendsPalette.barGradient(accent))
+                        .fill(accent)
                         .frame(width: max(proxy.size.width * fraction * (isRevealed ? 1 : 0), value > 0 ? 6 : 0))
                 }
                 .clipShape(Capsule())

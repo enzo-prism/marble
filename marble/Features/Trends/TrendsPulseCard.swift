@@ -156,8 +156,8 @@ struct TrendsPulseCard: View {
                     item.count == 0
                         ? AnyShapeStyle(Theme.chipFillColor(for: colorScheme))
                         : item.date == peak
-                            ? AnyShapeStyle(TrendsPalette.medallionGradient(gold))
-                            : AnyShapeStyle(TrendsPalette.barGradient(consistencyAccent))
+                            ? AnyShapeStyle(gold)
+                            : AnyShapeStyle(consistencyAccent)
                 )
             }
         }

@@ -64,17 +64,19 @@ final class ThemeContrastTests: MarbleTestCase {
         )
     }
 
+    /// The Details hues only ever color marks and glyphs — every text run
+    /// stays on the neutral, contrast-pinned theme colors — so the bar is
+    /// WCAG 1.4.11 non-text contrast: 3:1 against the page and the card, in
+    /// both appearances and with Increase Contrast, which must strengthen it.
     func testAnalyticsAccentsRemainLegibleInBothAppearancesAndContrastSettings() {
         let accents: [(String, TrendsChartAccent)] = [
-            ("Consistency", TrendsPalette.consistency),
-            ("Weighted volume", TrendsPalette.volumeWeighted),
-            ("Reps", TrendsPalette.volumeReps),
-            ("Duration", TrendsPalette.volumeDuration),
-            ("Supplements", TrendsPalette.supplements),
-            ("Personal records", TrendsPalette.personalRecord),
+            ("Training", TrendsPalette.training),
             ("Strength", TrendsPalette.strength),
             ("Effort", TrendsPalette.effort),
-            ("Bodyweight", TrendsPalette.bodyweight)
+            ("Records", TrendsPalette.record),
+            ("Endurance", TrendsPalette.endurance),
+            ("Body", TrendsPalette.body),
+            ("Quiet", TrendsPalette.quiet)
         ]
         for scheme in [ColorScheme.light, .dark] {
             for (name, accent) in accents {
@@ -85,11 +87,7 @@ final class ThemeContrastTests: MarbleTestCase {
                     let backgrounds = [Theme.backgroundColor(for: scheme), Theme.surfaceColor(for: scheme)]
                     for background in backgrounds {
                         let paper = rgb(background, traits: traits)
-                        let ratio = rgbContrast(ink, paper)
-                        XCTAssertGreaterThanOrEqual(ratio, 4.5, "\(name), \(scheme), \(contrast): metric text")
-                        // The least opaque end of the chart's actual gradient.
-                        let bar = zip(ink, paper).map { $0 * 0.84 + $1 * 0.16 }
-                        XCTAssertGreaterThanOrEqual(rgbContrast(bar, paper), 3, "\(name): chart marks")
+                        XCTAssertGreaterThanOrEqual(rgbContrast(ink, paper), 3, "\(name), \(scheme), \(contrast): chart marks")
                     }
                     let ratio = rgbContrast(ink, rgb(Theme.backgroundColor(for: scheme), traits: traits))
                     if contrast == .high {
@@ -97,6 +95,35 @@ final class ThemeContrastTests: MarbleTestCase {
                     }
                     previousRatio = ratio
                 }
+            }
+        }
+    }
+
+    /// Six roles, six distinct hues: no two roles may collapse to the same
+    /// color, or a chart would say two things with one hue.
+    func testAnalyticsRolesStayDistinct() {
+        let roles = [TrendsPalette.training, TrendsPalette.strength, TrendsPalette.effort, TrendsPalette.record, TrendsPalette.endurance, TrendsPalette.body]
+        for scheme in [ColorScheme.light, .dark] {
+            let inks = roles.map { rgb($0.color(for: scheme), traits: UITraitCollection()) }
+            for i in inks.indices {
+                for j in inks.indices where j > i {
+                    let distance = zip(inks[i], inks[j]).map { ($0 - $1) * ($0 - $1) }.reduce(0, +).squareRoot()
+                    XCTAssertGreaterThan(distance, 0.2, "Roles \(i) and \(j) are too close in \(scheme)")
+                }
+            }
+        }
+    }
+
+    /// Heatmap day numbers sit on blended fills; the picker must always land
+    /// on an ink with at least 4.5:1 at every level.
+    func testHeatmapDayNumbersStayLegibleOnEveryLevel() {
+        for scheme in [ColorScheme.light, .dark] {
+            let accent = TrendsPalette.training.color(for: scheme)
+            for level in 1...4 {
+                let fill = TrendsPalette.ramp(accent, opacity: TrendsPalette.heatmapOpacity(for: level), scheme: scheme)
+                let ink = TrendsPalette.legibleText(on: fill, scheme: scheme)
+                let ratio = TrendsPalette.contrast(TrendsPalette.luminance(ink), TrendsPalette.luminance(fill))
+                XCTAssertGreaterThanOrEqual(ratio, 4.5, "Level \(level), \(scheme)")
             }
         }
     }

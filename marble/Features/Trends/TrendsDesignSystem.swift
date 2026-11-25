@@ -99,13 +99,20 @@ extension TrendsPalette {
         accent.opacity(scheme == .dark ? 0.22 : 0.13)
     }
 
-    /// Muscle-group volume band → color. In range reads as "healthy" teal,
-    /// room to grow as warm orange, high volume as pink; every bar also
-    /// carries its band in text, so hue is never the only cue.
+    /// A quieter tint for whole panels, so a glyph badge sitting on the panel
+    /// still reads as the stronger of the two layers.
+    static func faintWash(_ accent: Color, scheme: ColorScheme) -> Color {
+        accent.opacity(scheme == .dark ? 0.12 : 0.06)
+    }
+
+    /// Muscle-group volume band → color. Room to grow is neutral grey (it is
+    /// not a warning), in range takes the training hue, and high volume the
+    /// effort hue; every bar also carries its band in text, so hue is never
+    /// the only cue.
     static func bandColor(_ band: LifterCoaching.VolumeBand, scheme: ColorScheme) -> Color {
         switch band {
-        case .below: TrendsPalette.volumeDuration.color(for: scheme)
-        case .inRange: TrendsPalette.consistency.color(for: scheme)
+        case .below: TrendsPalette.quiet.color(for: scheme)
+        case .inRange: TrendsPalette.training.color(for: scheme)
         case .high: TrendsPalette.effort.color(for: scheme)
         }
     }
@@ -480,7 +487,7 @@ struct TrendsSingleSessionNote: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: TrendsLayout.innerRadius, style: .continuous)
-                .fill(TrendsPalette.wash(accent, scheme: colorScheme))
+                .fill(TrendsPalette.faintWash(accent, scheme: colorScheme))
         )
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier(identifier)

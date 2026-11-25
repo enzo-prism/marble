@@ -1,6 +1,6 @@
 Marble 2.7.1 adds workout actions across Siri, Shortcuts, Live Activities and Apple Watch, plus dictation, sharing and a redesigned Progress Details. Review all proposed workout data before saving.
 
-New in build 89: Progress → Details refined against Apple's chart guidance. Switch 7D–All and check: supplements as daily bars with a headline, effort points per day, rounded 1RM estimates, the monthly card at large text, and a single-session lift showing a note, not an empty chart.
+New in build 90: a new Progress → Details color system. Six clear hues, one meaning each: training blue, strength violet, effort pink, records amber, endurance teal, body green; grey means not yet. Check light, dark and Increase Contrast: no muddy tones, readable heatmap numbers. Build 89's chart fixes are kept.
 
 1. Paste this note into Add, preserving its blank lines:
 
