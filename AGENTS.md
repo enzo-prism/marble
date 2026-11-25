@@ -184,6 +184,20 @@ Use these commands (preferred):
   that exist but are not wired up), and why the Watch app was deliberately deferred. Read it
   before starting new feature work, and before claiming any 2.2 feature is finished.
 
+### Progress Details design system (2026-11-24)
+- Build new Details visuals from `marble/Features/Trends/TrendsDesignSystem.swift`
+  (`.trendsCard()`, `TrendsSectionHeader`, `TrendsDeltaPill`, `TrendsGlyphBadge`,
+  `TrendsStatRow`, `TrendsAxes`, `.trendsReveal`) rather than one-off styling.
+- Custom `AxisContent` structs do not compile under `SWIFT_DEFAULT_ACTOR_ISOLATION =
+  MainActor`; use static `@AxisContentBuilder` functions (see `TrendsAxes`).
+- Put derived maths in `TrendsInsights.swift` (pure, unit-tested) and memoize it through
+  `TrendsDerivedData.build()`, never in a view body.
+- Pulse tiles are single accessibility elements; keep their ids
+  (`Trends.SummaryMetric.*`). Daily Highlights sits below the fold, so UI tests must
+  `scrollToElement` before tapping it. A coordinate tap on an off-screen element does nothing.
+- Don't stroke a `Capsule` for a selected chip. The stroke's caps show as stray
+  vertical ticks; use stacked fills (see the volume series chips).
+
 ### 2.2 lessons (2026-07-20 / 07-21) — do not rediscover
 - **A container's `.accessibilityIdentifier` overrides its children. This has now bitten
   four times** (`Import.Scan`, `Import.GarminBridge`, and in 2.2 a `Settings.List` on the

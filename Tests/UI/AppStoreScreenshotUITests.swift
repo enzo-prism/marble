@@ -65,6 +65,8 @@ final class AppStoreScreenshotUITests: MarbleUITestCase {
         _ = waitForIdentifier("Trends.DailyHighlights", timeout: 10)
         let quote = app.buttons["Trends.DailyHighlights.Quote"]
         waitFor(quote, timeout: 8)
+        // The Pulse summary sits above the highlights, so bring them on screen.
+        scrollToElement(quote, in: app.scrollViews["Trends.Scroll"])
         quote.swipeRight()
         takeScreenshot("11-daily-highlights")
     }

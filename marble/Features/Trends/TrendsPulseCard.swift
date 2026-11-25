@@ -204,7 +204,12 @@ struct TrendsPulseCard: View {
             accent: TrendsPalette.personalRecord.color(for: colorScheme),
             value: bestWeek.map { "\($0.setCount)" } ?? "0",
             unit: bestWeek.map { $0.setCount == 1 ? "set" : "sets" },
-            detail: bestWeek.map { TrendsDateHelper.weekLabel(start: $0.weekStart, end: $0.weekEnd) } ?? "No week yet",
+            detail: bestWeek.map { week in
+                // "Jan 12 – 18": short enough to sit on one line in a half-width
+                // tile without shrinking (shrunk text fails the contrast audit).
+                (week.weekStart..<max(week.weekEnd, week.weekStart))
+                    .formatted(.interval.month(.abbreviated).day())
+            } ?? "No week yet",
             deltaPercent: nil,
             deltaLabel: nil
         ))
@@ -323,16 +328,17 @@ private struct TrendsPulseTile: View {
                 Text(item.detail)
                     .font(MarbleTypography.rowMeta)
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-                    .allowsTightening(true)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(MarbleSpacing.s)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
+            // Opaque in light mode: text over a translucent tile on the card's
+            // glow resolves to an ambiguous background for the contrast audit.
             RoundedRectangle(cornerRadius: TrendsLayout.innerRadius + 2, style: .continuous)
-                .fill(Theme.backgroundColor(for: colorScheme).opacity(colorScheme == .dark ? 0.55 : 0.85))
+                .fill(Theme.backgroundColor(for: colorScheme).opacity(colorScheme == .dark ? 0.55 : 1))
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.accessibilityLabel)

@@ -19,6 +19,9 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         XCTAssertTrue((quote.value as? String)?.contains("Quote 1 of ") == true)
 
         let firstQuote = quote.value as? String
+        // The Pulse card above can push the highlights below the fold; a
+        // coordinate tap on an off-screen element dispatches nothing.
+        scrollToElement(quote, in: app.scrollViews["Trends.Scroll"])
         forceTap(quote)
         let quoteChanged = expectation(
             for: NSPredicate(format: "value != %@", firstQuote ?? ""),
@@ -32,6 +35,7 @@ final class TrendsSmokeUITests: MarbleUITestCase {
         XCTAssertFalse(removedShare.exists)
 
         let customize = waitForIdentifier("Trends.DailyHighlights.Customize", timeout: 8)
+        scrollToElement(customize, in: app.scrollViews["Trends.Scroll"])
         forceTap(customize)
         waitForIdentifier("DailyHighlights.Enabled", timeout: 8)
         waitForIdentifier("DailyHighlights.Start", timeout: 8)

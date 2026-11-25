@@ -26,6 +26,15 @@ shapes, categorical charts keep direct labels/values, and Audio Graphs remain.
 `testTrendsDetails` and `testTrendsCategoryCharts` extend the small-width/regular,
 light/dark/default/largest-text snapshot matrix. Record references intentionally
 and inspect them before accepting them; contrast tests do not replace `make audit`.
+The 2026-11-24 redesign (Pulse card, consistency heatmap, card sections) is pinned
+by `TrendsInsightsTests`: period windows, kg normalization, heatmap levels, streaks,
+the All-time cap, and every layout's tap-to-day mapping. Snapshots render only the
+device viewport, so the lower cards are reviewed by rendering the whole page into
+one tall image. Daily Highlights now sits below the Pulse card. UI tests and the
+Daily Highlights audit scroll it into view first, and the audit parks its header just
+under the toolbar. iOS 27's audit falsely flags plain text inside Pulse tiles. Those
+tiles are single accessibility elements, so the audit measures the drawn pixels of
+the reported frame and keeps the issue unless it reaches 4.5:1.
 The volume-tooltip fixture renders the production chart component directly, so
 the bars, matching symbols/legend and selected values are actually in frame.
 Category labels and values wrap above their bars. At accessibility sizes, the

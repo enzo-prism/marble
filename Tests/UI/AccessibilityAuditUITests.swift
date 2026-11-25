@@ -227,6 +227,22 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         navigateToTab(.trends)
         revealDetailedTrends()
         waitForIdentifier("Trends.DailyHighlights", timeout: 8)
+        // The Pulse summary sits above the highlights, below the fold. Park the
+        // highlights header just under the toolbar: not beneath its glass (the
+        // audit's sampler misfires there) and not under the tab bar.
+        let header = app.descendants(matching: .any)["Trends.DailyHighlights"]
+        let scroll = app.scrollViews["Trends.Scroll"]
+        let toolbarBottom = app.buttons["Trends.Details.Overview"].frame.maxY
+        let target = toolbarBottom + 48
+        for _ in 0..<6 {
+            let offset = header.frame.minY - target
+            if abs(offset) < 24 { break }
+            let distance = min(max(offset, -scroll.frame.height * 0.45), scroll.frame.height * 0.45)
+            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.6))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -distance)),
+                        withVelocity: .slow, thenHoldForDuration: 0.4)
+        }
+        XCTAssertGreaterThan(header.frame.minY, toolbarBottom, "Daily Highlights header must be clear of the toolbar")
         try runAudit(name: "DailyHighlights_\(appearance.envValue)_Default")
     }
 
@@ -612,6 +628,33 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             let reviewFooter = nameHasReviewPrefix(auditName) && identity.type == .staticText
                 && ["Applied to every set unless a set has its own date & time.",
                     "Blank RPE saves as 8. Blank rest uses the exercise default."].contains(identity.label)
+            // Progress Pulse tiles are single accessibility elements (children
+            // ignored), so their text nodes cannot be queried, yet iOS 27's
+            // audit still reports one of them ("Jan 12 – 18", black on white
+            // in every screenshot). Measure the reported text frame itself,
+            // only when it lies wholly inside an on-screen Pulse tile, and
+            // keep the issue unless the drawn pixels reach 4.5:1.
+            if auditName.hasPrefix("Trends_"), identity.type == .staticText, identity.identifier.isEmpty,
+               identity.frame.width >= 4, identity.frame.height >= 4, window.contains(identity.frame) {
+                let tiles = app.descendants(matching: .any)
+                    .matching(NSPredicate(format: "identifier BEGINSWITH %@", "Trends.SummaryMetric."))
+                    .allElementsBoundByIndex
+                if tiles.contains(where: { $0.exists && $0.frame.contains(identity.frame) }) {
+                    let current = XCUIScreen.main.screenshot()
+                    guard let currentImage = UIImage(data: current.pngRepresentation)?.cgImage,
+                          let ratio = measuredContrastRatio(
+                            in: currentImage,
+                            rect: identity.frame.applying(CGAffineTransform(scaleX: scale, y: scale)))
+                    else { return true }
+                    let evidence = XCTAttachment(screenshot: current)
+                    evidence.name = "\(auditName)_Measured_PulseTile_\(identity.label)"
+                    evidence.lifetime = .keepAlways
+                    add(evidence)
+                    let passes = ratio >= 4.5
+                    notes.append("\(identity.label) (Pulse tile text): measured \(String(format: "%.1f", ratio)):1, \(passes ? "cleared" : "kept")")
+                    return !passes
+                }
+            }
             let reviewControl = identity.reviewMatchIdentifier.map { app.buttons[$0] }
                 ?? identity.reviewTimingSwitchIdentifier.map { app.switches[$0] }
             let element: XCUIElement
@@ -986,7 +1029,12 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
         // the window edge even though its visible controls sit lower.
         guard app.scrollViews["Trends.Scroll"].exists, element.elementType == .staticText else { return false }
         let windowMaxY = app.windows.firstMatch.frame.maxY
-        return element.frame.maxY >= windowMaxY - 140
+        if element.frame.maxY >= windowMaxY - 140 { return true }
+        // The same artifact at the top edge: static text that has scrolled
+        // wholly beneath the Progress toolbar's glass (the Daily Highlights
+        // audit parks Pulse tile captions there).
+        let toolbar = app.buttons["Trends.Details.Overview"]
+        return toolbar.exists && element.frame.maxY <= toolbar.frame.maxY + 4
     }
 
     @available(iOS 17.0, *)

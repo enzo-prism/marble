@@ -3,6 +3,21 @@
 A local-only workout + supplements journal for iOS, built with SwiftUI and SwiftData — and
 a calm UI layer for pulling in workouts from Apple Health, Garmin, and Strava.
 
+## Progress Details redesign — 2.7 (88)
+
+Progress → Details was redesigned on 2026-11-24 for build **2.7 (88)**. It opens on a
+**Pulse** card: the range's sets, the change against the previous window of the same length,
+a daily rhythm chart, and tiles for best week, volume, effort and supplements. A
+**consistency heatmap** replaces the line chart; its layout follows the range (a strip for
+7D, a calendar for 30D, a contribution grid for 90D, twelve mini-months for 1Y/All). It marks
+PRs, rings today, opens a day on tap, and lists streaks and the most active weekday. Weekly
+volume is shown in real units with an average line and a best-week marker. Lifts,
+goal ring, records, 1RM, muscle groups, rep ranges, effort, bodyweight, supplements, sprints
+and range bests are now consistent cards. The building blocks live in
+`marble/Features/Trends/TrendsDesignSystem.swift`. Period comparison and heatmap maths are
+in `TrendsInsights.swift`, with unit tests. The Add/Log UI and the Progress overview keep
+the monochrome treatment.
+
 ## Apple platform release — 2.7 (87)
 
 The Siri/Shortcuts, workout-long Live Activity, optional native Health tracking,
@@ -446,7 +461,10 @@ tracked in [`RELEASE_HANDOFF.md`](RELEASE_HANDOFF.md).
 - **Design system** (`marble/Theme/`, `marble/Components/`) — the monochrome "Marble" brand
   with Liquid Glass confined to navigation surfaces. Progress Details uses semantic
   chart/metric color, paired with labels and symbols, with light/dark and Increase
-  Contrast variants; all calculations and analytical detail remain available.
+  Contrast variants; all calculations and analytical detail remain available. Its cards,
+  section headers, delta pills, glyph badges, stat rows, axes and reveal motion come from
+  `marble/Features/Trends/TrendsDesignSystem.swift`. Reveal motion honors Reduce Motion
+  and the test hooks.
 - **Import** (`marble/Features/Import/`) — a small `WorkoutImportProvider` abstraction over
   Apple Health, Garmin (via Health), and Strava (official OAuth). Full design + rationale in
   [`INTEGRATIONS.md`](INTEGRATIONS.md).

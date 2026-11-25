@@ -6,6 +6,14 @@
 > HealthKit sessions, sensors and Smart Stack remain separate unfinished work. See
 > `APPLE_PLATFORM_IMPLEMENTATION.md` for current evidence and release status.
 
+## November 24 update — Progress Details redesign (2.7 build 88)
+
+Progress → Details now opens on a Pulse summary that compares the range with the previous
+period. A range-aware consistency heatmap replaces the line chart, and every Details
+section uses the shared card system in `TrendsDesignSystem.swift`. Schema is unchanged (V6).
+Possible follow-ups: per-muscle trend sparklines, and heatmap drill-ins beyond a single
+day. All-time ranges longer than a year show only the most recent 371 days.
+
 ## September 5 update — Add Workout fidelity
 
 Owner testing found that count-only drills were rejected and explicit sprint counts
