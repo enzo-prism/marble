@@ -1,6 +1,6 @@
 Marble 2.7.1 adds workout actions across Siri, Shortcuts, Live Activities and Apple Watch, plus dictation, sharing and a redesigned Progress Details. Review all proposed workout data before saving.
 
-New in build 90: a new Progress → Details color system. Six clear hues, one meaning each: training blue, strength violet, effort pink, records amber, endurance teal, body green; grey means not yet. Check light, dark and Increase Contrast: no muddy tones, readable heatmap numbers. Build 89's chart fixes are kept.
+New in build 91: In Log Set, open the exercise picker and search for a new name. Tap Create, check the name, then save a strength exercise or tap its tracking type to choose another. Try Two Dumbbells and confirm the logger asks for weight per hand. Try Sprint and check its plan fields. Check duplicate names, rest, category, icon and favorite in the Exercise Library. Try the chooser with large text and in dark mode.
 
 1. Paste this note into Add, preserving its blank lines:
 

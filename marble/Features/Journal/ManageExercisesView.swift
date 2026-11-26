@@ -77,6 +77,7 @@ struct ManageExercisesView: View {
             ExerciseEditorView(
                 exercise: destination.exercise,
                 initialName: destination.initialName,
+                dismissAfterSave: false,
                 onSave: { savedExercise in
                     editorDestination = nil
                     onExerciseSaved?(savedExercise)

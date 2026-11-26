@@ -59,6 +59,16 @@ final class JournalFlowUITests: MarbleUITestCase {
         let name = app.textFields["ExerciseEditor.Name"]
         waitFor(name)
         XCTAssertTrue(name.isHittable)
+        XCTAssertFalse(app.buttons["ExerciseEditor.Save"].isEnabled)
+
+        let tracking = app.buttons["ExerciseEditor.TrackingType"]
+        scrollToElement(tracking, in: app.collectionViews.firstMatch)
+        forceTap(tracking)
+        let timed = app.buttons["ExerciseEditor.Template.timed"]
+        scrollToElement(timed, in: app.collectionViews.firstMatch, maxSwipes: 18)
+        forceTap(timed)
+        waitFor(tracking)
+        XCTAssertTrue(tracking.label.contains("Timed"))
     }
 
     func testEmptyJournalShowsStartChecklistActions() {
@@ -295,7 +305,7 @@ final class JournalFlowUITests: MarbleUITestCase {
             waitFor(confirmDelete)
             forceTap(confirmDelete)
 
-            let backToExercises = app.navigationBars.buttons.element(boundBy: 0)
+            let backToExercises = app.buttons["ManageExercises.Done"]
             waitFor(backToExercises)
             backToExercises.tap()
             let backToAddSet = app.navigationBars.buttons.element(boundBy: 0)
@@ -369,6 +379,7 @@ final class JournalFlowUITests: MarbleUITestCase {
             XCTAssertEqual(exercisePicker.value as? String, "Ring Row")
 
             let addedLoadToggle = app.switches["AddSet.AddedLoad"]
+            scrollToElement(addedLoadToggle, in: waitForIdentifier("AddSet.List"))
             waitFor(addedLoadToggle)
             let repsSlider = app.sliders["AddSet.Reps"]
             if repsSlider.waitForExistence(timeout: 2) {
@@ -664,12 +675,12 @@ final class JournalFlowUITests: MarbleUITestCase {
     }
 
     private func selectExerciseTemplate(_ identifier: String, file: StaticString = #file, line: UInt = #line) {
+        dismissKeyboardIfPresent()
+        let tracking = app.buttons["ExerciseEditor.TrackingType"]
+        forceTap(tracking, file: file, line: line)
         let template = app.buttons[identifier]
-        if !template.waitForExistence(timeout: 2) {
-            dismissKeyboardIfPresent()
-            let editorList = app.descendants(matching: .any).matching(identifier: "ExerciseEditor.List").firstMatch
-            let container = editorList.exists ? editorList : (app.collectionViews.firstMatch.exists ? app.collectionViews.firstMatch : app.tables.firstMatch)
-            scrollToElement(template, in: container, maxSwipes: 10)
+        if !template.isHittable {
+            scrollToElement(template, in: app.collectionViews.firstMatch, maxSwipes: 8)
         }
         forceTap(template, timeout: 6, file: file, line: line)
     }

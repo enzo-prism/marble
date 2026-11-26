@@ -114,6 +114,7 @@ struct AddSetView: View {
                     Section {
                         NavigationLink {
                             ExercisePickerView(selectedExercise: exerciseSelection)
+                                .onAppear(perform: expandSheetIfNeeded)
                         } label: {
                             exercisePickerRow
                         }

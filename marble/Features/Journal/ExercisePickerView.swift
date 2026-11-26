@@ -26,8 +26,8 @@ struct ExercisePickerView: View {
     private var latestUpdatedEntries: [SetEntry]
 
     @State private var searchText = ""
-    @State private var showManageExercises = false
-    @State private var editorDestination: PickerEditorDestination?
+    @State private var sheet: PickerSheet?
+    @State private var returnToSet = false
     @State private var derivedMemo = RenderMemo<ExercisePickerSignature, ExercisePickerDerivedData>()
 
     var body: some View {
@@ -71,39 +71,51 @@ struct ExercisePickerView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
-                    showManageExercises = true
+                    sheet = .library
                 } label: {
                     Label("Manage", systemImage: "slider.horizontal.3")
                 }
                 .accessibilityIdentifier("ExercisePicker.Manage")
 
                 Button {
-                    editorDestination = PickerEditorDestination(initialName: createSeedName)
+                    sheet = .create(createSeedName)
                 } label: {
                     Label("Add Exercise", systemImage: "plus")
                 }
                 .accessibilityIdentifier("ExercisePicker.Create")
             }
         }
-        .navigationDestination(isPresented: $showManageExercises) {
-            ManageExercisesView { exercise in
-                selectedExercise = exercise
-                showManageExercises = false
-                DispatchQueue.main.async { dismiss() }
+        .sheet(item: $sheet, onDismiss: {
+            if returnToSet {
+                returnToSet = false
+                dismiss()
             }
-        }
-        .sheet(item: $editorDestination) { destination in
-            ExerciseEditorView(
-                exercise: nil,
-                initialName: destination.initialName
-            ) { exercise in
-                selectedExercise = exercise
-                editorDestination = nil
-                DispatchQueue.main.async { dismiss() }
+        }) { destination in
+            Group {
+                switch destination {
+                case .library:
+                    NavigationStack {
+                        ManageExercisesView(onExerciseSaved: useSavedExercise)
+                            .toolbar {
+                                ToolbarItem(placement: .cancellationAction) {
+                                    Button("Done") { sheet = nil }
+                                        .accessibilityIdentifier("ManageExercises.Done")
+                                }
+                            }
+                    }
+                case .create(let name):
+                    ExerciseEditorView(exercise: nil, initialName: name, dismissAfterSave: false, onSave: useSavedExercise)
+                }
             }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+    }
+
+    private func useSavedExercise(_ exercise: Exercise) {
+        selectedExercise = exercise
+        returnToSet = true
+        sheet = nil
     }
 
     private var trimmedSearchText: String {
@@ -166,7 +178,7 @@ struct ExercisePickerView: View {
             .accessibilityIdentifier("ExercisePicker.EmptyState")
 
             Button {
-                editorDestination = PickerEditorDestination(initialName: trimmedSearchText)
+                sheet = .create(trimmedSearchText)
             } label: {
                 Label("Create \"\(trimmedSearchText)\"", systemImage: "plus.circle.fill")
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -185,7 +197,7 @@ struct ExercisePickerView: View {
                 Text("Create an exercise once, then reuse it whenever you log a workout.")
             } actions: {
                 Button("Create Exercise") {
-                    editorDestination = PickerEditorDestination(initialName: "")
+                    sheet = .create("")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.primaryTextColor(for: colorScheme))
@@ -199,7 +211,7 @@ struct ExercisePickerView: View {
     private var createSearchSection: some View {
         Section {
             Button {
-                editorDestination = PickerEditorDestination(initialName: trimmedSearchText)
+                sheet = .create(trimmedSearchText)
             } label: {
                 Label("Create \"\(trimmedSearchText)\"", systemImage: "plus.circle.fill")
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -329,7 +341,9 @@ private struct ExercisePickerSignature: Equatable {
     let prescriptionOwners: [PrescriptionOwner]
 }
 
-private struct PickerEditorDestination: Identifiable {
-    let id = UUID()
-    let initialName: String
+private enum PickerSheet: Hashable, Identifiable {
+    case library
+    case create(String)
+
+    var id: Self { self }
 }

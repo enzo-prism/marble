@@ -29,15 +29,15 @@ enum ExerciseKind: String, CaseIterable, Identifiable, Hashable {
 
     var subtitle: String {
         switch self {
-        case .strength: "Weight and reps"
-        case .dualDumbbell: "One dumbbell weight and reps"
+        case .strength: "Total weight and reps"
+        case .dualDumbbell: "Reps and weight per hand"
         case .bodyweight: "Reps only"
         case .weightedBodyweight: "Reps with optional added weight"
         case .run: "Distance and time"
-        case .sprint: "Distance, repeats, target time, and recovery"
+        case .sprint: "Timed repeats with a recovery interval"
         case .plyometric: "Explosive reps"
         case .timed: "Time only"
-        case .custom: "Choose every field yourself"
+        case .custom: "Choose which fields to log"
         }
     }
 

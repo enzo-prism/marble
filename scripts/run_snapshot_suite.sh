@@ -25,6 +25,7 @@ SNAPSHOT_GROUPS_FULL=(
   "MarbleSnapshotTests/CalendarSnapshotTests/testCalendarDaySheetEmpty"
   "MarbleSnapshotTests/CalendarSnapshotTests/testCalendarDaySheetWithProgressMedia"
   "MarbleSnapshotTests/ComponentGallerySnapshotTests/testComponentGallery"
+  "MarbleSnapshotTests/ExerciseEditorSnapshotTests"
   "MarbleSnapshotTests/ExerciseProgressSnapshotTests/testExerciseProgressTooltip"
   "MarbleSnapshotTests/JournalSnapshotTests/testJournalEmpty"
   "MarbleSnapshotTests/JournalSnapshotTests/testJournalPopulated"

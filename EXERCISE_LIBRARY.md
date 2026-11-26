@@ -16,15 +16,14 @@ stores how a set should be entered; each completed attempt is still stored separ
 
 ## Create an exercise
 
-1. Enter a name and choose a category.
-2. Choose the closest tracking type: Strength, Two Dumbbells, Bodyweight, Weighted
-   Bodyweight, Run, Sprint, Jump / Plyometric, Timed, or Custom.
-3. Complete only the fields relevant to that type. Standard types choose safe tracking
-   defaults; Custom exposes the Weight, Repetitions, Distance, and Time requirements.
-4. Choose the default rest after a set.
-5. Optionally open **Appearance & Advanced** to favorite the exercise, use an emoji, or
-   customize the tracked fields.
-6. Save. Validation appears together at the top and beside the field that needs attention.
+1. Name the exercise. A search in the picker carries its text into this field.
+2. For a lift logged by total weight and reps, tap **Save**. To log it differently, tap
+   the current type under **Tracking** and choose a full-width row. Two Dumbbells logs
+   the weight per hand. Sprint opens its plan fields, and Custom lets you choose metrics.
+3. Adjust rest or the settings specific to the tracking type. **Library** holds the
+   category, icon and favorite. These are optional.
+4. Save the exercise to return to the library or use it immediately in the set you
+   were logging. A duplicate name is flagged beside the name field.
 
 ## Exercise attributes
 

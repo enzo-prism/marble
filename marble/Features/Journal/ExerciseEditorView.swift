@@ -6,7 +6,6 @@ struct ExerciseEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @Query(sort: \Exercise.name)
@@ -75,7 +74,6 @@ struct ExerciseEditorView: View {
                     }
 
                     typeSpecificSections
-                    defaultsSection
                     advancedSection
 
                     if exercise != nil {
@@ -99,6 +97,7 @@ struct ExerciseEditorView: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Save", action: requestSave)
                             .fontWeight(.semibold)
+                            .disabled(nameError != nil)
                             .accessibilityIdentifier("ExerciseEditor.Save")
                     }
                 }
@@ -160,98 +159,76 @@ struct ExerciseEditorView: View {
     }
 
     private var basicsSection: some View {
-        Section {
+        Section("Exercise name") {
             VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
-                TextField("Exercise name", text: $draft.name, prompt: Text("e.g. Bench Press"))
+                TextField("Exercise name", text: $draft.name, prompt: Text("e.g. Bench Press")
+                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme)))
+                    .font(.title2.weight(.semibold))
                     .textInputAutocapitalization(.words)
                     .submitLabel(.done)
+                    .onSubmit { focusedField = nil }
                     .focused($focusedField, equals: .name)
+                    .frame(minHeight: MarbleLayout.minimumTouchTarget)
                     .accessibilityIdentifier("ExerciseEditor.Name")
 
                 if shouldShowNameError, let nameError {
                     Label(nameError, systemImage: "exclamationmark.circle")
-                        .font(MarbleTypography.caption)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
+                        .font(MarbleTypography.rowSubtitle)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                         .accessibilityIdentifier("ExerciseEditor.NameError")
                 }
             }
-
-            HStack(spacing: MarbleSpacing.s) {
-                ExerciseIconView(icon: draftDisplayIcon, fontSize: 22, frameSize: 36)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-                    Text(draft.category.displayName)
-                    Text(draft.kind.subtitle)
-                        .font(MarbleTypography.rowMeta)
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                }
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("ExerciseEditor.Summary")
-
-            Picker("Category", selection: $draft.category) {
-                ForEach(ExerciseCategory.allCases) { category in
-                    Text(category.displayName).tag(category)
-                }
-            }
-            .accessibilityIdentifier("ExerciseEditor.Category")
-        } header: {
-            Text("Basics")
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
+        .listRowBackground(Theme.controlFillColor(for: colorScheme))
     }
 
     private var typeSection: some View {
-        Section {
-            LazyVGrid(columns: typeColumns, spacing: MarbleSpacing.s) {
-                ForEach(ExerciseKind.allCases) { kind in
-                    Button {
-                        select(kind)
-                    } label: {
-                        ExerciseKindCard(kind: kind, isSelected: draft.kind == kind)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("ExerciseEditor.Template.\(kind.id)")
-                }
+        Section("Tracking") {
+            NavigationLink {
+                ExerciseTrackingPicker(selection: draft.kind, onSelect: select)
+            } label: {
+                ExerciseTrackingLabel(kind: draft.kind, emphasized: true)
             }
-            .padding(.vertical, MarbleSpacing.xs)
-            .accessibilityIdentifier("ExerciseEditor.Templates")
-        } header: {
-            Text("How You Track It")
-                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-        } footer: {
-            Text("Choose the closest match. Marble sets up the fields you need and hides the rest.")
-        }
-    }
+            .accessibilityLabel("Tracking type, \(draft.kind.title)")
+            .accessibilityHint("Choose how to log each set.")
+            .accessibilityIdentifier("ExerciseEditor.TrackingType")
 
-    @ViewBuilder
-    private var typeSpecificSections: some View {
-        if draft.kind == .strength || draft.kind == .dualDumbbell || draft.kind == .weightedBodyweight {
-            Section("Weight Entry") {
-                Picker("Enter weight as", selection: $draft.resistanceTrackingStyle) {
+            if draft.kind == .weightedBodyweight {
+                Picker("Weight entry", selection: $draft.resistanceTrackingStyle) {
                     ForEach(ResistanceTrackingStyle.allCases) { style in
                         Text(style.title).tag(style)
                     }
                 }
                 .accessibilityIdentifier("ExerciseEditor.WeightTrackingStyle")
-
-                Text(draft.resistanceTrackingStyle.editorDescription)
-                    .font(MarbleTypography.rowMeta)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
             }
-        }
 
-        if draft.kind == .run {
-            Section("Distance") {
-                Picker("Default unit", selection: $draft.preferredDistanceUnit) {
+            if draft.kind == .run {
+                Picker("Distance unit", selection: $draft.preferredDistanceUnit) {
                     ForEach(DistanceUnit.allCases) { unit in
                         Text(unit.title).tag(unit)
                     }
                 }
                 .accessibilityIdentifier("ExerciseEditor.DistanceUnit")
             }
-        }
 
+            Picker("Rest after each set", selection: $draft.defaultRestSeconds) {
+                ForEach(restOptions, id: \.self) { seconds in
+                    Text(seconds == 0 ? "Off" : Duration.seconds(seconds).formatted(.units(width: .abbreviated)))
+                        .tag(seconds)
+                }
+            }
+            .accessibilityIdentifier(draft.kind == .sprint ? "ExerciseEditor.Sprint.Rest" : "ExerciseEditor.DefaultRest")
+        }
+        .listRowBackground(Theme.controlFillColor(for: colorScheme))
+    }
+
+    private var restOptions: [Int] {
+        let presets = draft.kind == .sprint ? [0, 30, 60, 90, 120, 180, 300, 480, 600] : [0, 30, 45, 60, 75, 90, 120, 180]
+        return Set(presets + [draft.defaultRestSeconds]).sorted()
+    }
+
+    @ViewBuilder
+    private var typeSpecificSections: some View {
         if draft.kind == .sprint {
             Section("Sprint Plans") {
                 ForEach(Array($draft.sprintVariants.enumerated()), id: \.element.id) { index, $variantDraft in
@@ -330,28 +307,20 @@ struct ExerciseEditorView: View {
         }
     }
 
-    private var defaultsSection: some View {
-        Section("Workout Default") {
-            VStack(alignment: .leading, spacing: MarbleSpacing.s) {
-                HStack {
-                    Text("Rest after each set")
-                    Spacer()
-                    Text(DateHelper.formattedDuration(seconds: draft.defaultRestSeconds))
-                        .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                        .monospacedDigit()
-                }
-
-                RestPicker(
-                    restSeconds: $draft.defaultRestSeconds,
-                    presets: draft.kind == .sprint ? [0, 30, 60, 90, 120, 180, 300, 480, 600] : [30, 45, 60, 75, 90, 120, 180]
-                )
-                .accessibilityIdentifier(draft.kind == .sprint ? "ExerciseEditor.Sprint.Rest" : "ExerciseEditor.DefaultRest")
-            }
-        }
-    }
-
     private var advancedSection: some View {
-        Section {
+        Section("Library") {
+            Picker(selection: $draft.category) {
+                ForEach(ExerciseCategory.allCases) { category in
+                    Text(category.displayName).tag(category)
+                }
+            } label: {
+                HStack(spacing: MarbleSpacing.s) {
+                    ExerciseIconView(icon: draftDisplayIcon)
+                    Text("Category")
+                }
+            }
+            .accessibilityIdentifier("ExerciseEditor.Category")
+
             Button {
                 if reduceMotion {
                     showAdvanced.toggle()
@@ -360,8 +329,9 @@ struct ExerciseEditorView: View {
                 }
             } label: {
                 HStack {
-                    Label("Appearance & Advanced", systemImage: "slider.horizontal.3")
-                        .font(MarbleTypography.rowTitle)
+                    Label("Icon & favorite", systemImage: "star")
+                        .font(.body)
+                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(MarbleTypography.rowMeta)
@@ -372,6 +342,7 @@ struct ExerciseEditorView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityValue(showAdvanced ? "Expanded" : "Collapsed")
             .accessibilityIdentifier("ExerciseEditor.Advanced")
 
             if showAdvanced {
@@ -418,15 +389,9 @@ struct ExerciseEditorView: View {
                             .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
                     }
                 }
-
-                if draft.kind != .custom && draft.kind != .sprint {
-                    Button("Customize Tracked Fields") {
-                        draft.apply(.custom)
-                    }
-                    .accessibilityIdentifier("ExerciseEditor.CustomizeTracking")
-                }
             }
         }
+        .listRowBackground(Theme.controlFillColor(for: colorScheme))
     }
 
     private var historySection: some View {
@@ -479,13 +444,6 @@ struct ExerciseEditorView: View {
             }
             .accessibilityIdentifier("ExerciseEditor.Validation")
         }
-    }
-
-    private var typeColumns: [GridItem] {
-        if dynamicTypeSize.isAccessibilitySize {
-            return [GridItem(.flexible())]
-        }
-        return [GridItem(.flexible(), spacing: MarbleSpacing.s), GridItem(.flexible())]
     }
 
     private var currentPrescription: SprintPrescription? {
@@ -619,13 +577,11 @@ struct ExerciseEditorView: View {
         draft = configuredDraft
         originalDraft = configuredDraft
         didInitialize = true
-        if exercise == nil, configuredDraft.trimmedName.isEmpty {
-            DispatchQueue.main.async { focusedField = .name }
-        }
     }
 
     private func select(_ kind: ExerciseKind) {
         focusedField = nil
+        guard kind != draft.kind else { return }
         draft.apply(kind)
         MarbleHaptics.selection()
     }
@@ -817,55 +773,4 @@ struct ExerciseEditorView: View {
 
 private extension ExerciseEditorView {
     enum Field: Hashable { case name }
-}
-
-private struct ExerciseKindCard: View {
-    let kind: ExerciseKind
-    let isSelected: Bool
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        HStack(alignment: .top, spacing: MarbleSpacing.xs) {
-            Image(systemName: kind.symbolName)
-                .font(.body.weight(.semibold))
-                .frame(width: 24, height: 24)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: MarbleSpacing.xxxs) {
-                Text(kind.title)
-                    .font(MarbleTypography.rowTitle)
-                Text(kind.subtitle)
-                    .font(MarbleTypography.caption)
-                    .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 0)
-
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.body)
-                    .accessibilityHidden(true)
-            }
-        }
-        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
-        .padding(MarbleSpacing.s)
-        .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                .fill(isSelected ? Theme.chipFillColor(for: colorScheme) : Theme.backgroundColor(for: colorScheme))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: MarbleCornerRadius.medium, style: .continuous)
-                .stroke(
-                    isSelected ? Theme.primaryTextColor(for: colorScheme) : Theme.dividerColor(for: colorScheme),
-                    lineWidth: isSelected ? 1.5 : 1
-                )
-        )
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(kind.title), \(kind.subtitle)")
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-    }
 }
