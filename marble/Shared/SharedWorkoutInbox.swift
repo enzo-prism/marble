@@ -25,6 +25,9 @@ nonisolated enum SharedWorkoutInbox {
     static let maximumItems = 5
     /// Host retries of the same share are collapsed only inside this window.
     static let retryWindow: TimeInterval = 600
+    static func isWithinRetryWindow(_ createdAt: Date, relativeTo now: Date) -> Bool {
+        abs(createdAt.timeIntervalSince(now)) < retryWindow
+    }
     private static let service = "marble.sharedWorkoutInbox"
     private static var baseQuery: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
@@ -82,7 +85,7 @@ nonisolated enum SharedWorkoutInbox {
         let key = dedupeKey(for: cleaned)
         let timestamp = createdAt ?? now
         if let match = existing.first(where: {
-            dedupeKey(for: $0.text) == key && abs($0.createdAt.timeIntervalSince(now)) < retryWindow
+            dedupeKey(for: $0.text) == key && isWithinRetryWindow($0.createdAt, relativeTo: now)
         }) {
             return .reuse(match)
         }
@@ -95,7 +98,7 @@ nonisolated enum SharedWorkoutInbox {
     static func reconcile(inserted: Item, among items: [Item], now: Date) -> (keeper: Item, extras: [Item]) {
         let key = dedupeKey(for: inserted.text)
         let matches = items.filter {
-            dedupeKey(for: $0.text) == key && abs($0.createdAt.timeIntervalSince(now)) < retryWindow
+            dedupeKey(for: $0.text) == key && isWithinRetryWindow($0.createdAt, relativeTo: now)
         }
         .sorted { lhs, rhs in
             if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
@@ -144,7 +147,9 @@ nonisolated enum SharedWorkoutInbox {
             case .completeRequest:
                 _ = completion.completeIfNeeded(complete)
             case .presentErrorThenCancel(let error):
-                presentError(error.localizedDescription, { cancel(error) })
+                presentError(error.localizedDescription, {
+                    _ = completion.completeIfNeeded { cancel(error) }
+                })
             }
         }
     }

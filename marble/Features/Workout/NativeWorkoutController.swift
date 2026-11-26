@@ -3,11 +3,17 @@ import Foundation
 import Observation
 import SwiftData
 
+@MainActor
+protocol NativeWorkoutFinishing: AnyObject {
+    func finish() async
+    func finish(for journalID: UUID) async
+}
+
 /// Opt-in HealthKit ownership of a live workout. The journal remains the source of
 /// set history; HealthKit owns sensor collection, pauses and workout recovery.
 @MainActor
 @Observable
-final class NativeWorkoutController: NSObject, HKWorkoutSessionDelegate, HKLiveWorkoutBuilderDelegate {
+final class NativeWorkoutController: NSObject, NativeWorkoutFinishing, HKWorkoutSessionDelegate, HKLiveWorkoutBuilderDelegate {
     static let shared = NativeWorkoutController()
     nonisolated static let enabledKey = "marble.health.liveWorkouts"
     nonisolated static let sessionKey = "marble.health.activeSessionID"
@@ -108,13 +114,15 @@ final class NativeWorkoutController: NSObject, HKWorkoutSessionDelegate, HKLiveW
 
     /// Ends live Health tracking only when it belongs to this journal workout.
     /// A lost-ack finish retry must not stop a newer session's Health workout.
+    /// The first guard covers a live in-memory session for another workout
+    /// (XCTest cannot hold one). The second re-checks after recover().
     func finish(for journalID: UUID) async {
         await startTask?.value
+        guard Self.shouldFinish(journalID: journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
         if session == nil {
-            guard Self.tracks(journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
             await recover()
         }
-        guard Self.tracks(journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
+        guard Self.shouldFinish(journalID: journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
         await finishCurrentSession()
     }
 
@@ -123,7 +131,20 @@ final class NativeWorkoutController: NSObject, HKWorkoutSessionDelegate, HKLiveW
         liveSessionID == journalID.uuidString
     }
 
+    /// Skip recover/finish when the live Health session is a different workout.
+    nonisolated static func shouldFinish(journalID: UUID, liveSessionID: String?) -> Bool {
+        tracks(journalID, liveSessionID: liveSessionID)
+    }
+
+    #if DEBUG
+    /// Counts attempts to stop the in-memory Health session, including no-ops.
+    @ObservationIgnored var finishCurrentSessionCalls = 0
+    #endif
+
     private func finishCurrentSession() async {
+        #if DEBUG
+        finishCurrentSessionCalls += 1
+        #endif
         guard let session else { return }
         if session.state == .ended { clearSession(); return }
         await withCheckedContinuation { continuation in

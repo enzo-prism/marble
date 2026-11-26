@@ -9,6 +9,9 @@ final class WorkoutCommandTests: MarbleTestCase {
     override func tearDown() {
         AppIntentsSupport.container = nil
         RestActivityController.shared.cancelRest()
+        WatchWorkoutCoordinator.shared.nativeWorkout = NativeWorkoutController.shared
+        NativeWorkoutController.shared.finishCurrentSessionCalls = 0
+        UserDefaults.standard.removeObject(forKey: NativeWorkoutController.sessionKey)
         super.tearDown()
     }
     private func context() -> ModelContext {
@@ -188,6 +191,23 @@ final class WorkoutCommandTests: MarbleTestCase {
         XCTAssertTrue(NativeWorkoutController.tracks(newer.id, liveSessionID: newer.id.uuidString))
     }
 
+    func testWatchFinishRetryUsesScopedNativeFinish() async throws {
+        let context = context()
+        let recorder = RecordingNativeWorkout()
+        WatchWorkoutCoordinator.shared.nativeWorkout = recorder
+        let first = try XCTUnwrap(WorkoutCommands.start(in: context))
+        let request = WatchWorkoutRequest(id: UUID(), action: .finish, sessionID: first.id,
+            setID: nil, createdAt: AppEnvironment.now)
+        let finished = await WatchWorkoutCoordinator.shared.handle(request)
+        XCTAssertTrue(finished.succeeded)
+        let newer = try XCTUnwrap(WorkoutCommands.start(in: context))
+        let retry = await WatchWorkoutCoordinator.shared.handle(request)
+        XCTAssertTrue(retry.succeeded)
+        XCTAssertEqual(recorder.scopedIDs, [first.id, first.id])
+        XCTAssertEqual(recorder.unscopedFinishes, 0)
+        XCTAssertTrue(newer.isActive)
+    }
+
     func testWatchStartRetrySucceedsForAlreadySavedSessionAfterExpiry() async throws {
         let context = context()
         let request = WatchWorkoutRequest(id: UUID(), action: .start, sessionID: nil,
@@ -245,6 +265,14 @@ final class WorkoutCommandTests: MarbleTestCase {
         XCTAssertNotNil(outcome.entry)
         XCTAssertTrue(session.entries.isEmpty)
     }
+}
+
+@MainActor
+final class RecordingNativeWorkout: NativeWorkoutFinishing {
+    var unscopedFinishes = 0
+    var scopedIDs: [UUID] = []
+    func finish() async { unscopedFinishes += 1 }
+    func finish(for journalID: UUID) async { scopedIDs.append(journalID) }
 }
 
 @MainActor
