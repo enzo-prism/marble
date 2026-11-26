@@ -1,6 +1,20 @@
 # Marble Release Handoff
 
-**App Store Connect state refreshed: 2026-11-25.**
+**App Store Connect state refreshed: 2026-11-26.**
+
+## New Exercise — 2.7.1 (91), internal TestFlight (2026-11-26)
+
+- Main and the frozen release branch `release/2.7.1-91` include app source `7bb57e2`.
+  The editor uses a single tracking row and full-width chooser. The library and search
+  entry points return the saved exercise to the current set.
+- [Signed upload and receipt](https://github.com/enzo-prism/marble/actions/runs/45881945158)
+  identify build `6f87556b-7e8b-4c0f-b64b-00f7a4484aa7` as `VALID` and
+  `IN_BETA_TESTING` in internal test group A. The en-US tester notes match the repository.
+- Local simulator checks passed across 1,128 unit cases (10 skipped), 24 editor snapshot
+  comparisons, six exercise workflows, and the blank and named editor accessibility
+  audits in both appearances. [Full release checks](https://github.com/enzo-prism/marble/actions/runs/45881313355)
+  were running at delivery. Physical-device acceptance is open. Build 91 was distributed
+  for internal testing only.
 
 ## Progress Details color system — 2.7.1 (90), internal TestFlight; App Store candidate (2026-11-25)
 
