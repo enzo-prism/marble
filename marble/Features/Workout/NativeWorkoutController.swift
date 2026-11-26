@@ -103,6 +103,27 @@ final class NativeWorkoutController: NSObject, HKWorkoutSessionDelegate, HKLiveW
     func finish() async {
         await startTask?.value
         if session == nil { await recover() }
+        await finishCurrentSession()
+    }
+
+    /// Ends live Health tracking only when it belongs to this journal workout.
+    /// A lost-ack finish retry must not stop a newer session's Health workout.
+    func finish(for journalID: UUID) async {
+        await startTask?.value
+        if session == nil {
+            guard Self.tracks(journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
+            await recover()
+        }
+        guard Self.tracks(journalID, liveSessionID: UserDefaults.standard.string(forKey: Self.sessionKey)) else { return }
+        await finishCurrentSession()
+    }
+
+    /// `liveSessionID` is the journal UUID stored for the in-memory HealthKit session.
+    nonisolated static func tracks(_ journalID: UUID, liveSessionID: String?) -> Bool {
+        liveSessionID == journalID.uuidString
+    }
+
+    private func finishCurrentSession() async {
         guard let session else { return }
         if session.state == .ended { clearSession(); return }
         await withCheckedContinuation { continuation in
