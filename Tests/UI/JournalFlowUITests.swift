@@ -432,8 +432,8 @@ final class JournalFlowUITests: MarbleUITestCase {
             iconMode.buttons["Emoji"].tap()
 
             let firstEmojiSuggestion = app.buttons["ExerciseEditor.EmojiSuggestion.0"]
-            waitFor(firstEmojiSuggestion)
-            firstEmojiSuggestion.tap()
+            scrollToElement(firstEmojiSuggestion, in: waitForIdentifier("ExerciseEditor.List"))
+            forceTap(firstEmojiSuggestion)
             let emojiField = app.textFields["ExerciseEditor.CustomEmoji"]
             waitFor(emojiField)
             XCTAssertFalse((emojiField.value as? String ?? "").isEmpty)

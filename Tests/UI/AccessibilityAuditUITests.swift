@@ -22,7 +22,15 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
             forceTap(waitForIdentifier("ExercisePicker.Manage"))
             forceTap(waitForIdentifier("ManageExercises.Add"))
             waitFor(app.navigationBars["New Exercise"], timeout: 8)
+            let save = app.buttons["ExerciseEditor.Save"]
+            XCTAssertFalse(save.isEnabled)
             try runAudit(name: "ExerciseEditor_New_\(appearance.envValue)_Default")
+
+            let name = app.textFields["ExerciseEditor.Name"]
+            name.tap()
+            name.typeText("Paused squat\n")
+            XCTAssertTrue(save.isEnabled)
+            try runAudit(name: "ExerciseEditor_Named_\(appearance.envValue)_Default")
         }
     }
 
@@ -530,7 +538,7 @@ final class AccessibilityAuditUITests: MarbleUITestCase {
                 // this CTA is intentionally unavailable until text exists. Keep
                 // auditing the same element as soon as it becomes enabled.
                 if issue.auditType == .contrast,
-                   ["TextEntry.Preview", "NotificationEditor.Save"].contains(element.identifier),
+                   ["TextEntry.Preview", "NotificationEditor.Save", "ExerciseEditor.Save"].contains(element.identifier),
                    !element.isEnabled {
                     return false
                 }

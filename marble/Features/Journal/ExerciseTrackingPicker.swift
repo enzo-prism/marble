@@ -22,7 +22,7 @@ struct ExerciseTrackingPicker: View {
     }
 
     private func options(_ title: String, _ kinds: [ExerciseKind]) -> some View {
-        Section(title) {
+        Section {
             ForEach(kinds) { kind in
                 Button {
                     onSelect(kind)
@@ -35,6 +35,7 @@ struct ExerciseTrackingPicker: View {
                                 if kind == selection {
                                     Label("Selected", systemImage: "checkmark")
                                         .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Theme.primaryTextColor(for: colorScheme))
                                 }
                             }
                         } else {
@@ -57,6 +58,9 @@ struct ExerciseTrackingPicker: View {
                 .accessibilityAddTraits(kind == selection ? .isSelected : [])
                 .accessibilityIdentifier("ExerciseEditor.Template.\(kind.id)")
             }
+        } header: {
+            Text(title)
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
         .listRowBackground(Theme.controlFillColor(for: colorScheme))
     }
@@ -67,7 +71,6 @@ struct ExerciseTrackingLabel: View {
     let emphasized: Bool
 
     @Environment(\.colorScheme) private var colorScheme
-
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {

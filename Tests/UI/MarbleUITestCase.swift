@@ -401,7 +401,12 @@ class MarbleUITestCase: XCTestCase {
             app.buttons["Keyboard.Done"].tap()
             return
         }
-        if app.buttons["Done"].exists {
+        let keyboardDone = app.keyboards.buttons["Done"].firstMatch
+        if keyboardDone.exists {
+            keyboardDone.tap()
+            return
+        }
+        if app.buttons.matching(identifier: "Done").count == 1 {
             app.buttons["Done"].tap()
             return
         }

@@ -159,7 +159,7 @@ struct ExerciseEditorView: View {
     }
 
     private var basicsSection: some View {
-        Section("Exercise name") {
+        Section {
             VStack(alignment: .leading, spacing: MarbleSpacing.xs) {
                 TextField("Exercise name", text: $draft.name, prompt: Text("e.g. Bench Press")
                     .foregroundStyle(Theme.secondaryTextColor(for: colorScheme)))
@@ -178,12 +178,15 @@ struct ExerciseEditorView: View {
                         .accessibilityIdentifier("ExerciseEditor.NameError")
                 }
             }
+        } header: {
+            Text("Exercise name")
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
         .listRowBackground(Theme.controlFillColor(for: colorScheme))
     }
 
     private var typeSection: some View {
-        Section("Tracking") {
+        Section {
             NavigationLink {
                 ExerciseTrackingPicker(selection: draft.kind, onSelect: select)
             } label: {
@@ -218,6 +221,9 @@ struct ExerciseEditorView: View {
                 }
             }
             .accessibilityIdentifier(draft.kind == .sprint ? "ExerciseEditor.Sprint.Rest" : "ExerciseEditor.DefaultRest")
+        } header: {
+            Text("Tracking")
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
         .listRowBackground(Theme.controlFillColor(for: colorScheme))
     }
@@ -308,7 +314,7 @@ struct ExerciseEditorView: View {
     }
 
     private var advancedSection: some View {
-        Section("Library") {
+        Section {
             Picker(selection: $draft.category) {
                 ForEach(ExerciseCategory.allCases) { category in
                     Text(category.displayName).tag(category)
@@ -390,6 +396,9 @@ struct ExerciseEditorView: View {
                     }
                 }
             }
+        } header: {
+            Text("Library")
+                .foregroundStyle(Theme.secondaryTextColor(for: colorScheme))
         }
         .listRowBackground(Theme.controlFillColor(for: colorScheme))
     }
