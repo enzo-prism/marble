@@ -17,6 +17,8 @@ stores how a set should be entered; each completed attempt is still stored separ
 ## Create an exercise
 
 1. Name the exercise. A search in the picker carries its text into this field.
+   Three suggested emoji appear below a valid new name. Tap one to select it, or tap
+   the selected icon again to use the category symbol. You can save immediately.
 2. For a lift logged by total weight and reps, tap **Save**. To log it differently, tap
    the current type under **Tracking** and choose a full-width row. Two Dumbbells logs
    the weight per hand. Sprint opens its plan fields, and Custom lets you choose metrics.
@@ -24,6 +26,19 @@ stores how a set should be entered; each completed attempt is still stored separ
    category, icon and favorite. These are optional.
 4. Save the exercise to return to the library or use it immediately in the set you
    were logging. A duplicate name is flagged beside the name field.
+
+## How suggested icons work
+
+A phrase match gives common movements a stable set of choices. Dead Bug suggests 🐞,
+and Ring Row suggests 🦍. For an unfamiliar name, the editor shows category suggestions
+immediately. After typing pauses, an available Apple Intelligence model can classify the
+movement on device and refine those choices. An unsupported locale, unavailable model,
+or uncertain classification leaves the category choices usable. An emoji included in
+the name is also offered. Editing the name preserves a selected icon. The custom keyboard
+field remains in **Library → Icon & favorite → Emoji**.
+
+Only Save writes the chosen emoji to the existing exercise record. The recommendation
+does not change tracking type, muscle category, prior exercises, or the data schema.
 
 ## Exercise attributes
 

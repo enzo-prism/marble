@@ -1,6 +1,8 @@
 Marble 2.7.1 adds workout actions across Siri, Shortcuts, Live Activities and Apple Watch, plus dictation, sharing and a redesigned Progress Details. Review all proposed workout data before saving.
 
-New in build 91: In Log Set, open the exercise picker and search for a new name. Tap Create, check the name, then save a strength exercise or tap its tracking type to choose another. Try Two Dumbbells and confirm the logger asks for weight per hand. Try Sprint and check its plan fields. Check duplicate names, rest, category, icon and favorite in the Exercise Library. Try the chooser with large text and in dark mode.
+New in build 92: Create an exercise named Dead Bug Press. Tap the ladybug under its name, rename the exercise, and check that your selection stays. Tap it again to return to the category icon. Try an unfamiliar movement with Apple Intelligence enabled and disabled. Save the exercise and find its icon in the library.
+
+Also in this version: In Log Set, open the exercise picker and search for a new name. Tap Create, check the name, then save a strength exercise or tap its tracking type to choose another. Try Two Dumbbells and confirm the logger asks for weight per hand. Try Sprint and check its plan fields. Check duplicate names, rest, category, icon and favorite in the Exercise Library. Try the chooser with large text and in dark mode.
 
 1. Paste this note into Add, preserving its blank lines:
 

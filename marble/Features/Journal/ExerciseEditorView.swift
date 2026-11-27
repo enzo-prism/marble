@@ -171,6 +171,10 @@ struct ExerciseEditorView: View {
                     .frame(minHeight: MarbleLayout.minimumTouchTarget)
                     .accessibilityIdentifier("ExerciseEditor.Name")
 
+                if exercise == nil, didInitialize, nameError == nil {
+                    ExerciseEmojiPicker(draft: $draft)
+                }
+
                 if shouldShowNameError, let nameError {
                     Label(nameError, systemImage: "exclamationmark.circle")
                         .font(MarbleTypography.rowSubtitle)

@@ -5,6 +5,24 @@ import UIKit
 
 @MainActor
 final class ExerciseIconTests: MarbleTestCase {
+    func testNameSuggestionsRecognizeSpecificMovementsAndWholeWords() {
+        for (name, icon) in [("DEAD-BUG", "🐞"), ("Ring rows", "🦍"), ("Bicycle CRUNCHES", "🚲"),
+                             ("Single-leg RDL", "🏋️"), ("DB leg press", "🦵"), ("Butterfly Stretch", "🦋")] {
+            XCTAssertEqual(ExerciseEmojiSuggestions.matchedIcons(for: name)?.first, icon, name)
+        }
+        XCTAssertNil(ExerciseEmojiSuggestions.matchedIcons(for: "spring rolls"))
+    }
+
+    func testEmojiChoicesRespectExplicitEmojiAndKeepSelectionVisible() {
+        let candidates = ["🦵", "🏋️", "🔥"]
+        XCTAssertEqual(ExerciseEmojiSuggestions.choices(name: "Squat", selected: "🔥", candidates: candidates,
+            fallback: []), candidates)
+        XCTAssertEqual(ExerciseEmojiSuggestions.choices(name: "🏃🏽‍♀️ Hills", selected: "🪨", candidates: candidates,
+            fallback: []), ["🪨", "🏃🏽‍♀️", "🦵"])
+        XCTAssertEqual(ExerciseEmojiSuggestions.choices(name: "Mystery", selected: nil, candidates: [],
+            fallback: ["⭐️", "⭐️", "💪", "🎯"]), ["⭐️", "💪", "🎯"])
+    }
+
     func testLegacyMetricsProfileDecodingDefaultsDistanceToNone() throws {
         let data = """
         {"weight":"required","reps":"required","durationSeconds":"none"}

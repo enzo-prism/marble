@@ -2,6 +2,10 @@
 
 **App Store Connect state refreshed: 2026-11-26.**
 
+## Suggested exercise icons — 2.7.1 (92), candidate
+
+Build 92 adds on-device name-based emoji suggestions in New Exercise. The app continues to deploy to iOS 26 and use SwiftData V6. See `EXERCISE_LIBRARY.md` for the selection behavior and fallback. App Store Connect reported 2.7 live and 92 as the next available build on November 26.
+
 ## New Exercise — 2.7.1 (91), internal TestFlight (2026-11-26)
 
 - Main and the frozen release branch `release/2.7.1-91` include app source `7bb57e2`.

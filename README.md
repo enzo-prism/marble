@@ -98,7 +98,7 @@ Supplements are modes inside Log (not separate tabs). Deep links `marble://calen
 - **Workout history** — search completed sessions by workout or exercise and filter by
   date from Log. Open a session to review its sets or repeat it as a fresh, editable draft;
   repetition never logs anything without confirmation.
-- **Exercise library** — a searchable, category-filterable home for creating, favoriting,
+- **Exercise library** — name a new movement to see three suggested emoji, then tap to choose its icon. A searchable, category-filterable home for creating, favoriting,
   and safely editing reusable exercises. Explicit tracking types keep standard setup short,
   while Custom exposes every metric requirement. See
   [`EXERCISE_LIBRARY.md`](EXERCISE_LIBRARY.md).

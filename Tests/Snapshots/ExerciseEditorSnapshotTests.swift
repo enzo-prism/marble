@@ -10,6 +10,12 @@ final class ExerciseEditorSnapshotTests: SnapshotTestCase {
         assertSnapshot(view, named: "NewExercise")
     }
 
+    func testNamedExerciseWithSuggestedIcons() {
+        let view = ExerciseEditorView(exercise: nil, initialName: "Dead Bug")
+            .modelContainer(SnapshotFixtures.makeContainer())
+        assertSnapshot(view, named: "NewExercise_SuggestedIcons")
+    }
+
     func testDuplicateName() {
         let container = SnapshotFixtures.makeContainer()
         SnapshotFixtures.seedBase(in: container.mainContext)
